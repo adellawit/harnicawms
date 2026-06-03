@@ -1,0 +1,331 @@
+{
+  "industry": "fnb",
+  "description": "Demo data untuk restoran / cafe / kedai kopi",
+  "units": [
+    { "code": "CUP", "name": "Cup", "symbol": "cup" },
+    { "code": "PORSI", "name": "Porsi", "symbol": "porsi" },
+    { "code": "PCS", "name": "Pcs", "symbol": "pcs" },
+    { "code": "KG", "name": "Kilogram", "symbol": "kg" },
+    { "code": "LTR", "name": "Liter", "symbol": "ltr" },
+    { "code": "GR", "name": "Gram", "symbol": "gr" },
+    { "code": "ML", "name": "Mililiter", "symbol": "ml" },
+    { "code": "BOTOL", "name": "Botol", "symbol": "btl" },
+    { "code": "PACK", "name": "Pack", "symbol": "pack" }
+  ],
+  "categories": [
+    { "code": "minuman", "name": "Minuman", "parent": null },
+    { "code": "minuman-kopi", "name": "Coffee Based", "parent": "minuman" },
+    { "code": "minuman-non-kopi", "name": "Non-Coffee", "parent": "minuman" },
+    { "code": "makanan", "name": "Makanan", "parent": null },
+    { "code": "makanan-utama", "name": "Main Course", "parent": "makanan" },
+    { "code": "makanan-snack", "name": "Snack & Appetizer", "parent": "makanan" },
+    { "code": "bahan-baku", "name": "Bahan Baku", "parent": null }
+  ],
+  "products": [
+    {
+      "code": "FNB-001",
+      "name": "Espresso",
+      "nature": "FINISHED_GOOD",
+      "category": "minuman-kopi",
+      "default_unit": "CUP",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 5000,
+      "selling_price": 18000,
+      "description": "Single shot espresso",
+      "bom": [
+        { "product_code": "FNB-011", "unit": "GR", "quantity": 18 },
+        { "product_code": "FNB-014", "unit": "ML", "quantity": 30 }
+      ]
+    },
+    {
+      "code": "FNB-002",
+      "name": "Caffe Latte",
+      "nature": "FINISHED_GOOD",
+      "category": "minuman-kopi",
+      "default_unit": "CUP",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 8000,
+      "selling_price": 28000,
+      "description": "Espresso dengan susu steamed",
+      "bom": [
+        { "product_code": "FNB-011", "unit": "GR", "quantity": 18 },
+        { "product_code": "FNB-012", "unit": "ML", "quantity": 200 },
+        { "product_code": "FNB-014", "unit": "ML", "quantity": 30 }
+      ]
+    },
+    {
+      "code": "FNB-003",
+      "name": "Cappuccino",
+      "nature": "FINISHED_GOOD",
+      "category": "minuman-kopi",
+      "default_unit": "CUP",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 8000,
+      "selling_price": 28000,
+      "description": "Espresso dengan milk foam tebal"
+    },
+    {
+      "code": "FNB-004",
+      "name": "Matcha Latte",
+      "nature": "FINISHED_GOOD",
+      "category": "minuman-non-kopi",
+      "default_unit": "CUP",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 10000,
+      "selling_price": 32000,
+      "description": "Matcha Jepang dengan susu segar"
+    },
+    {
+      "code": "FNB-005",
+      "name": "Fresh Orange Juice",
+      "nature": "FINISHED_GOOD",
+      "category": "minuman-non-kopi",
+      "default_unit": "CUP",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 7000,
+      "selling_price": 22000,
+      "description": "Jus jeruk segar tanpa gula tambahan"
+    },
+    {
+      "code": "FNB-006",
+      "name": "Nasi Goreng Spesial",
+      "nature": "FINISHED_GOOD",
+      "category": "makanan-utama",
+      "default_unit": "PORSI",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 12000,
+      "selling_price": 35000,
+      "description": "Nasi goreng dengan telur, ayam, dan sayuran"
+    },
+    {
+      "code": "FNB-007",
+      "name": "Chicken Katsu Curry",
+      "nature": "FINISHED_GOOD",
+      "category": "makanan-utama",
+      "default_unit": "PORSI",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 18000,
+      "selling_price": 45000,
+      "description": "Ayam katsu dengan saus kari Jepang dan nasi"
+    },
+    {
+      "code": "FNB-008",
+      "name": "Pasta Aglio Olio",
+      "nature": "FINISHED_GOOD",
+      "category": "makanan-utama",
+      "default_unit": "PORSI",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 14000,
+      "selling_price": 38000,
+      "description": "Spaghetti aglio olio dengan udang"
+    },
+    {
+      "code": "FNB-009",
+      "name": "French Fries",
+      "nature": "FINISHED_GOOD",
+      "category": "makanan-snack",
+      "default_unit": "PORSI",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 5000,
+      "selling_price": 18000,
+      "description": "Kentang goreng crispy"
+    },
+    {
+      "code": "FNB-010",
+      "name": "Croissant Butter",
+      "nature": "FINISHED_GOOD",
+      "category": "makanan-snack",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 8000,
+      "selling_price": 22000,
+      "description": "Croissant renyah dengan butter premium"
+    },
+    {
+      "code": "FNB-011",
+      "name": "Biji Kopi Arabica",
+      "nature": "RAW_MATERIAL",
+      "category": "bahan-baku",
+      "default_unit": "KG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 5,
+      "purchase_price": 180000,
+      "selling_price": null,
+      "description": "Biji kopi arabica single origin",
+      "conversions": [
+        { "from_unit": "KG", "to_unit": "GR", "factor": 1000 }
+      ]
+    },
+    {
+      "code": "FNB-012",
+      "name": "Susu Segar Full Cream",
+      "nature": "RAW_MATERIAL",
+      "category": "bahan-baku",
+      "default_unit": "LTR",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 16000,
+      "selling_price": null,
+      "description": "Susu segar pasteurisasi full cream",
+      "conversions": [
+        { "from_unit": "LTR", "to_unit": "ML", "factor": 1000 }
+      ]
+    },
+    {
+      "code": "FNB-013",
+      "name": "Gula Pasir",
+      "nature": "RAW_MATERIAL",
+      "category": "bahan-baku",
+      "default_unit": "KG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 15000,
+      "selling_price": null,
+      "description": "Gula pasir putih premium",
+      "conversions": [
+        { "from_unit": "KG", "to_unit": "GR", "factor": 1000 }
+      ]
+    },
+    {
+      "code": "FNB-014",
+      "name": "Air Mineral Galon",
+      "nature": "RAW_MATERIAL",
+      "category": "bahan-baku",
+      "default_unit": "LTR",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 50,
+      "purchase_price": 300,
+      "selling_price": null,
+      "description": "Air mineral untuk brewing dan memasak",
+      "conversions": [
+        { "from_unit": "LTR", "to_unit": "ML", "factor": 1000 }
+      ]
+    },
+    {
+      "code": "FNB-015",
+      "name": "Jasa Delivery",
+      "nature": "SERVICE",
+      "category": null,
+      "default_unit": "PCS",
+      "is_stock_item": false,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 0,
+      "purchase_price": 0,
+      "selling_price": 10000,
+      "description": "Biaya pengantaran makanan/minuman"
+    }
+  ],
+  "tags": [
+    { "code": "best-seller", "name": "Best Seller", "type": "best_seller", "products": ["FNB-002", "FNB-006", "FNB-009"] },
+    { "code": "chef-recommend", "name": "Chef's Recommendation", "type": "featured", "products": ["FNB-007", "FNB-008"] },
+    { "code": "new-menu", "name": "New Menu", "type": "featured", "products": ["FNB-004", "FNB-010"] }
+  ],
+  "modifier_groups": [
+    {
+      "code": "sugar-level",
+      "name": "Sugar Level",
+      "is_required": true,
+      "min_selections": 1,
+      "max_selections": 1,
+      "applies_to": ["FNB-001", "FNB-002", "FNB-003", "FNB-004", "FNB-005"],
+      "options": [
+        { "name": "Normal Sugar", "code": "normal", "price_adjustment": 0, "is_default": true },
+        { "name": "Less Sugar", "code": "less", "price_adjustment": 0 },
+        { "name": "No Sugar", "code": "no", "price_adjustment": 0 },
+        { "name": "Extra Sugar", "code": "extra", "price_adjustment": 0 }
+      ]
+    },
+    {
+      "code": "ice-level",
+      "name": "Ice Level",
+      "is_required": true,
+      "min_selections": 1,
+      "max_selections": 1,
+      "applies_to": ["FNB-001", "FNB-002", "FNB-003", "FNB-004", "FNB-005"],
+      "options": [
+        { "name": "Hot", "code": "hot", "price_adjustment": 0 },
+        { "name": "Iced", "code": "iced", "price_adjustment": 3000, "is_default": true },
+        { "name": "Less Ice", "code": "less-ice", "price_adjustment": 3000 }
+      ]
+    },
+    {
+      "code": "cup-size",
+      "name": "Cup Size",
+      "is_required": true,
+      "min_selections": 1,
+      "max_selections": 1,
+      "applies_to": ["FNB-001", "FNB-002", "FNB-003", "FNB-004", "FNB-005"],
+      "options": [
+        { "name": "Regular", "code": "regular", "price_adjustment": 0, "is_default": true },
+        { "name": "Large", "code": "large", "price_adjustment": 6000 }
+      ]
+    },
+    {
+      "code": "topping",
+      "name": "Topping",
+      "is_required": false,
+      "min_selections": 0,
+      "max_selections": 3,
+      "applies_to": ["FNB-001", "FNB-002", "FNB-003", "FNB-004"],
+      "options": [
+        { "name": "Extra Espresso Shot", "code": "extra-shot", "price_adjustment": 5000 },
+        { "name": "Whipped Cream", "code": "whipped-cream", "price_adjustment": 4000 },
+        { "name": "Caramel Drizzle", "code": "caramel", "price_adjustment": 3000 },
+        { "name": "Chocolate Sauce", "code": "choco-sauce", "price_adjustment": 3000 },
+        { "name": "Boba Pearl", "code": "boba", "price_adjustment": 5000 }
+      ]
+    },
+    {
+      "code": "extra-makanan",
+      "name": "Extra",
+      "is_required": false,
+      "min_selections": 0,
+      "max_selections": 3,
+      "applies_to": ["FNB-006", "FNB-007", "FNB-008"],
+      "options": [
+        { "name": "Extra Nasi", "code": "extra-rice", "price_adjustment": 5000 },
+        { "name": "Telur Mata Sapi", "code": "egg", "price_adjustment": 5000 },
+        { "name": "Extra Cheese", "code": "extra-cheese", "price_adjustment": 8000 }
+      ]
+    }
+  ]
+}

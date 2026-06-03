@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Tailwind 4 Configuration */
+@theme {
+    --font-family-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+/* Forms plugin - configured via @tailwindcss/forms in package.json */

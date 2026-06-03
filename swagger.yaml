@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: WMS API Documentation
+  description: API documentation for WMS (Warehouse Management System)
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost/api
+    description: Local development server
+  - url: https://api.example.com/api
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Client
+    description: Client subscription management endpoints
+
+paths:
+  /generate-token:
+    post:
+      tags:
+        - Authentication
+      summary: Generate API Token
+      description: |
+        Generate an API token by validating app_name and app_key from parameter_detail
+        where parameter name is 'AppKey'. The token will be valid for 24 hours.
+      operationId: generateToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - app_name
+                - app_key
+              properties:
+                app_name:
+                  type: string
+                  example: app_name
+                  description: Application name
+                app_key:
+                  type: string
+                  example: app_key
+                  description: Application key
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Token generated successfully
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+                      expires_at:
+                        type: string
+                        format: date-time
+                        example: 2026-01-05T12:00:00Z
+              example:
+                status: success
+                code: 200
+                message: Token generated successfully
+                data:
+                  token: abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+                  expires_at: 2026-01-05T12:00:00Z
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: 401
+                message: Invalid app_name or app_key
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: 422
+                message: The given data was invalid.
+
+  /client/subscribe-status:
+    post:
+      tags:
+        - Client
+      summary: Check Client Subscription Status
+      description: |
+        Check if client's subscription payment is active for the current month.
+        Requires a valid API token in the Authorization header.
+      operationId: checkClientSubscribeStatus
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - app_key_client
+                - client_name
+              properties:
+                app_key_client:
+                  type: string
+                  example: CLIENT123
+                  description: Client app key
+                client_name:
+                  type: string
+                  example: Client ABC
+                  description: Client name
+      responses:
+        '200':
+          description: Subscription status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Subscription status retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      client:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: 550e8400-e29b-41d4-a716-446655440000
+                          appkey:
+                            type: string
+                            example: CLIENT123
+                          client:
+                            type: string
+                            example: Client ABC
+                          status:
+                            type: string
+                            enum: [active, in_active]
+                            example: active
+                          server:
+                            type: string
+                            enum: [cloud, onpremise]
+                            example: cloud
+                      subscription_status:
+                        type: object
+                        properties:
+                          is_active:
+                            type: boolean
+                            example: true
+                          current_month:
+                            type: integer
+                            example: 1
+                          current_year:
+                            type: integer
+                            example: 2026
+                          payment:
+                            type: object
+                            nullable: true
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              month:
+                                type: integer
+                                example: 1
+                              month_name:
+                                type: string
+                                example: Januari
+                              is_paid:
+                                type: boolean
+                                example: true
+                              paid_date:
+                                type: string
+                                format: date
+                                nullable: true
+                              amount:
+                                type: number
+                                format: decimal
+              example:
+                status: success
+                code: 200
+                message: Subscription status retrieved successfully
+                data:
+                  client:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    appkey: CLIENT123
+                    client: Client ABC
+                    status: active
+                    server: cloud
+                  subscription_status:
+                    is_active: true
+                    current_month: 1
+                    current_year: 2026
+                    payment:
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                      month: 1
+                      month_name: Januari
+                      is_paid: true
+                      paid_date: 2026-01-15
+                      amount: 1000000.00
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: 401
+                message: Authorization token not found
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: 404
+                message: Client not found
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: 422
+                message: The given data was invalid.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Use the token obtained from /generate-token endpoint.
+        Include it in the Authorization header as: Bearer {token}
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: Error message description
+

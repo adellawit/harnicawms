@@ -1,0 +1,366 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "WMS API Documentation",
+        "description": "API documentation for WMS (WIT. Management System)",
+        "contact": {
+            "name": "Agus Sugiman",
+            "email": "agus@wit.id"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/api",
+            "description": "API Server"
+        },
+        {
+            "url": ""
+        }
+    ],
+    "paths": {
+        "/generate-token": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Generate API Token",
+                "description": "Generate an API token by validating app_name and app_key from parameter_detail where parameter name is 'AppKey'",
+                "operationId": "12aff80b45222ce8fd79f20030d91142",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "app_name",
+                                    "app_key"
+                                ],
+                                "properties": {
+                                    "app_name": {
+                                        "description": "Application name",
+                                        "type": "string",
+                                        "example": "wms"
+                                    },
+                                    "app_key": {
+                                        "description": "Application key",
+                                        "type": "string",
+                                        "example": "wms12345*#"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token generated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 200
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Token generated successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "abc123..."
+                                                },
+                                                "expires_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 401
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid app_name or app_key"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 422
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The given data was invalid."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/client/subscribe-status": {
+            "post": {
+                "tags": [
+                    "Client"
+                ],
+                "summary": "Check Client Subscription Status",
+                "description": "Check if client's subscription payment is active for the current month",
+                "operationId": "d6bae6b823b2ebd38accb59f83992df6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "app_key_client",
+                                    "client_name"
+                                ],
+                                "properties": {
+                                    "app_key_client": {
+                                        "description": "Client app key",
+                                        "type": "string",
+                                        "example": "CLIENT123"
+                                    },
+                                    "client_name": {
+                                        "description": "Client name",
+                                        "type": "string",
+                                        "example": "Client ABC"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Subscription status retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 200
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Subscription status retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "client": {
+                                                    "type": "object"
+                                                },
+                                                "subscription_status": {
+                                                    "properties": {
+                                                        "current_month": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "current_year": {
+                                                            "type": "integer",
+                                                            "example": 2026
+                                                        },
+                                                        "payments": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "id": {
+                                                                        "type": "string",
+                                                                        "format": "uuid"
+                                                                    },
+                                                                    "month": {
+                                                                        "type": "integer",
+                                                                        "example": 1
+                                                                    },
+                                                                    "month_name": {
+                                                                        "type": "string",
+                                                                        "example": "Januari"
+                                                                    },
+                                                                    "is_paid": {
+                                                                        "type": "boolean",
+                                                                        "example": true
+                                                                    },
+                                                                    "is_active": {
+                                                                        "description": "True if payment is paid (checked)",
+                                                                        "type": "boolean",
+                                                                        "example": true
+                                                                    },
+                                                                    "paid_date": {
+                                                                        "type": "string",
+                                                                        "format": "date",
+                                                                        "example": "2026-01-04",
+                                                                        "nullable": true
+                                                                    },
+                                                                    "amount": {
+                                                                        "type": "string",
+                                                                        "example": "300000.00"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 401
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthorized"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Client not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 404
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Client not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 422
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The given data was invalid."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Use the token obtained from /generate-token endpoint. Include it in the Authorization header as: Bearer {token}",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentication",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "Client",
+            "description": "Client subscription management endpoints"
+        }
+    ]
+}

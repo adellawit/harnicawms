@@ -1,0 +1,311 @@
+{
+  "industry": "manufacture",
+  "description": "Demo data untuk pabrik sepatu / shoe manufacturing",
+  "units": [
+    { "code": "PASANG", "name": "Pasang", "symbol": "psg" },
+    { "code": "PCS", "name": "Pcs", "symbol": "pcs" },
+    { "code": "KG", "name": "Kilogram", "symbol": "kg" },
+    { "code": "MTR", "name": "Meter", "symbol": "mtr" },
+    { "code": "LTR", "name": "Liter", "symbol": "ltr" },
+    { "code": "LBR", "name": "Lembar", "symbol": "lbr" },
+    { "code": "ROLL", "name": "Roll", "symbol": "roll" },
+    { "code": "SET", "name": "Set", "symbol": "set" },
+    { "code": "DUS", "name": "Dus", "symbol": "dus" },
+    { "code": "GR", "name": "Gram", "symbol": "gr" }
+  ],
+  "categories": [
+    { "code": "sepatu-jadi", "name": "Sepatu Jadi", "parent": null },
+    { "code": "sepatu-sneakers", "name": "Sneakers", "parent": "sepatu-jadi" },
+    { "code": "sepatu-formal", "name": "Formal / Pantofel", "parent": "sepatu-jadi" },
+    { "code": "sepatu-sandal", "name": "Sandal & Slip-On", "parent": "sepatu-jadi" },
+    { "code": "sepatu-safety", "name": "Safety Shoes", "parent": "sepatu-jadi" },
+    { "code": "komponen", "name": "Komponen Semi Jadi", "parent": null },
+    { "code": "bahan-baku", "name": "Bahan Baku", "parent": null },
+    { "code": "bb-kulit", "name": "Kulit & Upper", "parent": "bahan-baku" },
+    { "code": "bb-sole", "name": "Sol & Outsole", "parent": "bahan-baku" },
+    { "code": "bb-aksesoris", "name": "Aksesoris & Hardware", "parent": "bahan-baku" },
+    { "code": "bb-perekat", "name": "Perekat & Finishing", "parent": "bahan-baku" }
+  ],
+  "products": [
+    {
+      "code": "SHO-001",
+      "name": "Sneakers Canvas Classic",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-sneakers",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 20,
+      "purchase_price": 85000,
+      "selling_price": 249000,
+      "description": "Sneakers kanvas low-top klasik, sol karet vulkanisir",
+      "variants": [
+        { "sku_suffix": "39", "attributes": { "Size": "39" }, "purchase_price": 0, "stock": 25 },
+        { "sku_suffix": "40", "attributes": { "Size": "40" }, "purchase_price": 0, "stock": 30 },
+        { "sku_suffix": "41", "attributes": { "Size": "41" }, "purchase_price": 0, "stock": 35 },
+        { "sku_suffix": "42", "attributes": { "Size": "42" }, "purchase_price": 0, "stock": 40 },
+        { "sku_suffix": "43", "attributes": { "Size": "43" }, "purchase_price": 10000, "stock": 20 }
+      ],
+      "bom": [
+        { "product_code": "SHO-008", "unit": "MTR", "quantity": 0.4 },
+        { "product_code": "SHO-010", "unit": "PASANG", "quantity": 1 },
+        { "product_code": "SHO-013", "unit": "GR", "quantity": 50 },
+        { "product_code": "SHO-012", "unit": "PASANG", "quantity": 1 },
+        { "product_code": "SHO-014", "unit": "PCS", "quantity": 8 }
+      ]
+    },
+    {
+      "code": "SHO-002",
+      "name": "Sneakers Kulit Putih",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-sneakers",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 15,
+      "purchase_price": 165000,
+      "selling_price": 459000,
+      "description": "Sneakers kulit sintetis putih, sol EVA ringan",
+      "variants": [
+        { "sku_suffix": "39-WHT", "attributes": { "Size": "39", "Color": "White" }, "purchase_price": 0, "stock": 15 },
+        { "sku_suffix": "40-WHT", "attributes": { "Size": "40", "Color": "White" }, "purchase_price": 0, "stock": 20 },
+        { "sku_suffix": "41-WHT", "attributes": { "Size": "41", "Color": "White" }, "purchase_price": 0, "stock": 18 },
+        { "sku_suffix": "42-WHT", "attributes": { "Size": "42", "Color": "White" }, "purchase_price": 0, "stock": 22 }
+      ],
+      "bom": [
+        { "product_code": "SHO-009", "unit": "LBR", "quantity": 2 },
+        { "product_code": "SHO-011", "unit": "PASANG", "quantity": 1 },
+        { "product_code": "SHO-013", "unit": "GR", "quantity": 60 },
+        { "product_code": "SHO-012", "unit": "PASANG", "quantity": 1 },
+        { "product_code": "SHO-014", "unit": "PCS", "quantity": 10 },
+        { "product_code": "SHO-015", "unit": "GR", "quantity": 15 }
+      ]
+    },
+    {
+      "code": "SHO-003",
+      "name": "Pantofel Kulit Pria",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-formal",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 10,
+      "purchase_price": 210000,
+      "selling_price": 589000,
+      "description": "Sepatu pantofel kulit asli pria, sol karet anti-selip",
+      "variants": [
+        { "sku_suffix": "40-BLK", "attributes": { "Size": "40", "Color": "Black" }, "purchase_price": 0, "stock": 12 },
+        { "sku_suffix": "41-BLK", "attributes": { "Size": "41", "Color": "Black" }, "purchase_price": 0, "stock": 15 },
+        { "sku_suffix": "42-BLK", "attributes": { "Size": "42", "Color": "Black" }, "purchase_price": 0, "stock": 18 },
+        { "sku_suffix": "42-BRN", "attributes": { "Size": "42", "Color": "Brown" }, "purchase_price": 0, "stock": 10 }
+      ]
+    },
+    {
+      "code": "SHO-004",
+      "name": "Sandal Kulit Pria",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-sandal",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 20,
+      "purchase_price": 55000,
+      "selling_price": 169000,
+      "description": "Sandal selop kulit sintetis casual pria"
+    },
+    {
+      "code": "SHO-005",
+      "name": "Sepatu Safety Steel Toe",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-safety",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": false,
+      "min_stock": 10,
+      "purchase_price": 195000,
+      "selling_price": 549000,
+      "description": "Sepatu safety dengan steel toe cap, sol anti-minyak",
+      "variants": [
+        { "sku_suffix": "40", "attributes": { "Size": "40" }, "purchase_price": 0, "stock": 15 },
+        { "sku_suffix": "41", "attributes": { "Size": "41" }, "purchase_price": 0, "stock": 18 },
+        { "sku_suffix": "42", "attributes": { "Size": "42" }, "purchase_price": 0, "stock": 20 },
+        { "sku_suffix": "43", "attributes": { "Size": "43" }, "purchase_price": 10000, "stock": 12 },
+        { "sku_suffix": "44", "attributes": { "Size": "44" }, "purchase_price": 15000, "stock": 8 }
+      ]
+    },
+    {
+      "code": "SHO-006",
+      "name": "Upper Assy Sneakers Canvas",
+      "nature": "SEMI_FINISHED",
+      "category": "komponen",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": false,
+      "min_stock": 30,
+      "purchase_price": 35000,
+      "selling_price": null,
+      "description": "Upper assembly sneakers kanvas, sudah dijahit dan dipasang eyelet",
+      "bom": [
+        { "product_code": "SHO-008", "unit": "MTR", "quantity": 0.4 },
+        { "product_code": "SHO-014", "unit": "PCS", "quantity": 8 },
+        { "product_code": "SHO-012", "unit": "PASANG", "quantity": 1 }
+      ]
+    },
+    {
+      "code": "SHO-007",
+      "name": "Insole Foam Assy",
+      "nature": "SEMI_FINISHED",
+      "category": "komponen",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": false,
+      "min_stock": 50,
+      "purchase_price": 12000,
+      "selling_price": null,
+      "description": "Insole foam yang sudah dipotong dan diberi lapisan kain"
+    },
+    {
+      "code": "SHO-008",
+      "name": "Kain Kanvas 12oz",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-kulit",
+      "default_unit": "MTR",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 50,
+      "purchase_price": 35000,
+      "selling_price": null,
+      "description": "Kain kanvas cotton 12oz lebar 150cm, untuk upper sneakers",
+      "batch_tracking": true,
+      "conversions": [
+        { "from_unit": "ROLL", "to_unit": "MTR", "factor": 50 }
+      ]
+    },
+    {
+      "code": "SHO-009",
+      "name": "Kulit Sintetis PU",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-kulit",
+      "default_unit": "LBR",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 30,
+      "purchase_price": 65000,
+      "selling_price": null,
+      "description": "Kulit sintetis polyurethane tebal 1.2mm, lebar 137cm x 100cm per lembar",
+      "batch_tracking": true
+    },
+    {
+      "code": "SHO-010",
+      "name": "Sol Karet Vulkanisir",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-sole",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 100,
+      "purchase_price": 18000,
+      "selling_price": null,
+      "description": "Outsole karet vulkanisir flat untuk sneakers",
+      "batch_tracking": true,
+      "conversions": [
+        { "from_unit": "DUS", "to_unit": "PASANG", "factor": 20 }
+      ]
+    },
+    {
+      "code": "SHO-011",
+      "name": "Sol EVA Ringan",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-sole",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 80,
+      "purchase_price": 22000,
+      "selling_price": null,
+      "description": "Outsole EVA (ethylene-vinyl acetate) ringan, warna putih"
+    },
+    {
+      "code": "SHO-012",
+      "name": "Tali Sepatu Polyester",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-aksesoris",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 200,
+      "purchase_price": 2500,
+      "selling_price": null,
+      "description": "Tali sepatu polyester flat 120cm, warna putih/hitam",
+      "conversions": [
+        { "from_unit": "DUS", "to_unit": "PASANG", "factor": 100 }
+      ]
+    },
+    {
+      "code": "SHO-013",
+      "name": "Lem Sepatu PU Adhesive",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-perekat",
+      "default_unit": "KG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 120000,
+      "selling_price": null,
+      "description": "Lem PU (polyurethane adhesive) untuk bonding upper ke sol",
+      "conversions": [
+        { "from_unit": "KG", "to_unit": "GR", "factor": 1000 }
+      ]
+    },
+    {
+      "code": "SHO-014",
+      "name": "Eyelet Metal Nikel",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-aksesoris",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 1000,
+      "purchase_price": 200,
+      "selling_price": null,
+      "description": "Eyelet (lubang tali) metal nikel diameter 5mm"
+    },
+    {
+      "code": "SHO-015",
+      "name": "Semir Sepatu Finishing",
+      "nature": "RAW_MATERIAL",
+      "category": "bb-perekat",
+      "default_unit": "KG",
+      "is_stock_item": true,
+      "is_sale_item": false,
+      "is_purchase_item": true,
+      "min_stock": 5,
+      "purchase_price": 95000,
+      "selling_price": null,
+      "description": "Semir finishing wax untuk sepatu kulit",
+      "conversions": [
+        { "from_unit": "KG", "to_unit": "GR", "factor": 1000 }
+      ]
+    }
+  ],
+  "tags": [
+    { "code": "best-seller", "name": "Best Seller", "type": "best_seller", "products": ["SHO-001", "SHO-003"] },
+    { "code": "new-model", "name": "New Model", "type": "featured", "products": ["SHO-002", "SHO-005"] },
+    { "code": "ready-stock", "name": "Ready Stock", "type": "general", "products": ["SHO-001", "SHO-004"] }
+  ],
+  "modifier_groups": []
+}

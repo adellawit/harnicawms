@@ -1,0 +1,269 @@
+/*
+ * Dashboard CSS
+ * WMS - Warehouse Management System
+ * ============================================================================
+ */
+
+/* ApexCharts */
+.apexcharts-canvas {
+    margin: auto;
+}
+
+/* ==========================================================================
+   Dashboard Stat Cards
+   ========================================================================== */
+
+.dashboard-stat-card {
+    border: none;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.dashboard-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 119, 182, 0.15) !important;
+}
+
+.dashboard-stat-card .card-body {
+    padding: 1.5rem;
+}
+
+/* ==========================================================================
+   Stat Icons
+   ========================================================================== */
+
+.stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-icon.bg-primary-soft {
+    background: linear-gradient(135deg, rgba(0, 119, 182, 0.15) 0%, rgba(0, 180, 216, 0.15) 100%);
+    color: #0077b6;
+}
+
+.stat-icon.bg-success-soft {
+    background: linear-gradient(135deg, rgba(40, 199, 111, 0.15) 0%, rgba(0, 210, 144, 0.15) 100%);
+    color: #28c76f;
+}
+
+.stat-icon.bg-danger-soft {
+    background: linear-gradient(135deg, rgba(234, 84, 85, 0.15) 0%, rgba(255, 107, 107, 0.15) 100%);
+    color: #ea5455;
+}
+
+.stat-icon.bg-warning-soft {
+    background: linear-gradient(135deg, rgba(255, 159, 67, 0.15) 0%, rgba(255, 193, 7, 0.15) 100%);
+    color: #ff9f43;
+}
+
+.stat-icon.bg-info-soft {
+    background: linear-gradient(135deg, rgba(0, 207, 232, 0.15) 0%, rgba(0, 180, 216, 0.15) 100%);
+    color: #00cfe8;
+}
+
+/* ==========================================================================
+   Stat Values & Labels
+   ========================================================================== */
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.stat-badge {
+    font-size: 0.7rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+}
+
+/* ==========================================================================
+   Section Headers
+   ========================================================================== */
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title i {
+    color: #0077b6;
+}
+
+/* ==========================================================================
+   Filter Section
+   ========================================================================== */
+
+.filter-section {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.filter-section form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-section .form-control {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.filter-section .form-control:focus {
+    border-color: #0077b6;
+    box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.1);
+}
+
+/* ==========================================================================
+   Progress Bars
+   ========================================================================== */
+
+.task-progress {
+    height: 8px;
+    border-radius: 4px;
+    background: #e9ecef;
+    overflow: hidden;
+}
+
+.task-progress .progress-bar {
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   Team Cards
+   ========================================================================== */
+
+.team-card {
+    border: none;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.team-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.team-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: white;
+}
+
+.team-stats {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.team-stat-item {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.team-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e3a5f;
+}
+
+.team-stat-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   Category Breakdown
+   ========================================================================== */
+
+.category-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.category-item:last-child {
+    border-bottom: none;
+}
+
+.category-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.75rem;
+}
+
+/* ==========================================================================
+   Chart Container
+   ========================================================================== */
+
+.chart-container {
+    min-height: 300px;
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-section {
+        width: 100%;
+    }
+
+    .filter-section .form-control {
+        flex: 1;
+    }
+}
+

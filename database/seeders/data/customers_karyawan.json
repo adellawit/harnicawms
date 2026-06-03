@@ -1,0 +1,702 @@
+[
+    {
+        "branch": "Bandung",
+        "code": "WIT-001-001",
+        "name": "Irfan Arsandi",
+        "email": "irfanarsandi@wit.id",
+        "phone": "+62 856-2319-556",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-001-003",
+        "name": "Rendy Dwi Putra",
+        "email": "rendydp@wit.id",
+        "phone": "+62 821-3011-2727",
+        "address": "Komplek Griya Mas, Jalan Griya Selatan 2 No. 40, RT. 004 RW. 006",
+        "city": "Kota Bandung",
+        "postal_code": "40164"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-001-015",
+        "name": "Prasetyo Dwi Irianto",
+        "email": "prasetyo@wit.id",
+        "phone": "+62 812-2080-9223",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-001-021",
+        "name": "Abdul Aziiz Muslim",
+        "email": "azis@wit.id",
+        "phone": "+62 811-242-950",
+        "address": "Jl Kampus II No. 6",
+        "city": "Kota Bandung",
+        "postal_code": "40283"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-002-019",
+        "name": "Azky Zahidah",
+        "email": "azky@wit.id",
+        "phone": "+62 812-2221-8744",
+        "address": "JL. CIPOREAT NO. 104 RT. 004 RW. 008",
+        "city": "Kota Bandung",
+        "postal_code": "40617"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-003-005",
+        "name": "Arie Anggono",
+        "email": "arie@wit.id",
+        "phone": "+62 856-2147-164",
+        "address": "Komplek Istana Regency 2 Blok B3",
+        "city": "Kota Bandung",
+        "postal_code": "40173"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-003-010",
+        "name": "Banu Rusman",
+        "email": "banu@wit.id",
+        "phone": "+62 857-2040-5305",
+        "address": "Jl. Margaasih No.158 RT. 005 RW. 010",
+        "city": "Kota Bandung",
+        "postal_code": "40287"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-004-004",
+        "name": "Vaxtra Maendhapaskha",
+        "email": "vaxtra@wit.id",
+        "phone": "+62 898-7081-243",
+        "address": "Jl. Jendral Sudirman no 713",
+        "city": "Kota Bandung",
+        "postal_code": "40212"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-004-008",
+        "name": "Fajar Abdal Akbar Duandanu",
+        "email": "fajar@wit.id",
+        "phone": "+62 821-2199-9670",
+        "address": "Jln Gardenia Ardenia I No. 8",
+        "city": "Cimahi",
+        "postal_code": "40525"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-004-013",
+        "name": "Ganjar Rizkiawan",
+        "email": "hrd@wit.id",
+        "phone": "+62 878-4738-8004",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-004-0133",
+        "name": "Super Admin",
+        "email": "superadmin@wit.id",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-001",
+        "name": "Alby Ariahari Putra",
+        "email": "albyariahari@wit.id",
+        "phone": "+62 857-2162-2577",
+        "address": "Jl. Mutiara No. 11",
+        "city": "Kota Bandung",
+        "postal_code": "40291"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-003",
+        "name": "Husni Kamal",
+        "email": "husni@wit.id",
+        "phone": "+62 895-4014-61793",
+        "address": "Kp. Cilamega RT. 004 RW. 023",
+        "city": "Kab. Bandung",
+        "postal_code": "40911"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-004",
+        "name": "Risya Maulana Wiradikusumah",
+        "email": "risya@wit.id",
+        "phone": "+62 811-2206-411",
+        "address": "Jl. Guntur Sari 2 No 33",
+        "city": "Kota Bandung",
+        "postal_code": "40264"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-005",
+        "name": "Mikhael Suryawan Putra",
+        "email": "mikhael@wit.id",
+        "phone": "+62 812-2168-9093",
+        "address": "KP. Ciekek RT. 001 RW. 001",
+        "city": "Kab. Bandung",
+        "postal_code": "40384"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-007",
+        "name": "Muhammad Ghani Hamdani",
+        "email": "ghani@wit.id",
+        "phone": "+62 852-9575-3741",
+        "address": "Cingcin Permata Indah C 193 RT. 004 RW. 011",
+        "city": "Kab. Bandung",
+        "postal_code": "40921"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-008",
+        "name": "Vinza Ipsandy",
+        "email": "vinza@wit.id",
+        "phone": "+62 821-1798-5568",
+        "address": "Jl. Leuweung Gede Gg. Pancuran RT. 005 RW. 011",
+        "city": "Cimahi",
+        "postal_code": "40535"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-010",
+        "name": "Triand Fisthon Aryesta Mullik",
+        "email": "triand@wit.id",
+        "phone": "+62 878-2191-3435",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-011",
+        "name": "Asep Sutisna",
+        "email": "asep@wit.id",
+        "phone": "+62 822-4035-1018",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-012",
+        "name": "Fahmi Muhammad Syaban",
+        "email": "fahmi@wit.id",
+        "phone": "+62 822-4027-4833",
+        "address": "Jalan Ciawitali No. 2",
+        "city": "Cimahi",
+        "postal_code": "40525"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-013",
+        "name": "Nathanael Liman",
+        "email": "nathanael@wit.id",
+        "phone": "+62 821-1708-2789",
+        "address": "Jl. Sukakarya II No.40, Sukagalih, Kec. Sukajadi, Kota Bandung, Jawa Barat 40163",
+        "city": "Bandung",
+        "postal_code": "40290"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-015",
+        "name": "Adella Aramitha Fitri",
+        "email": "adella@wit.id",
+        "phone": "+62 857-5961-8293",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-010-016",
+        "name": "Yogie Septianto Nugroho Putra",
+        "email": "yogie@wit.id",
+        "phone": "+62 822-1888-9245",
+        "address": "Jl Solo no.20 Antapani",
+        "city": "Kota Bandung",
+        "postal_code": "40291"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-015-001",
+        "name": "Christian Rizaldi",
+        "email": "rizaldi@wit.id",
+        "phone": "+62 851-5663-9014",
+        "address": "Jl. Hasanudin No. 741d RT. 002 RW. 006",
+        "city": "Salatiga",
+        "postal_code": "50721"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-015-002",
+        "name": "Yana Suhana",
+        "email": "yana@wit.id",
+        "phone": "+62 896-8013-7058",
+        "address": "Nagrog II No.. 169 RT. 005 RW. 008",
+        "city": "Kota Bandung",
+        "postal_code": "40616"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-020-001",
+        "name": "Nurholis Majid",
+        "email": "nurholis@wit.id",
+        "phone": "+62 822-1568-7135",
+        "address": "Jl. Gunung Subang RT. 001 RW. 012",
+        "city": "Tasikmalaya",
+        "postal_code": "46812"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-020-002",
+        "name": "Randy Julian",
+        "email": "randy@wit.id",
+        "phone": "+62 896-4643-2391",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-020-003",
+        "name": "Agus Sugiman",
+        "email": "agus@wit.id",
+        "phone": "+62 896-8127-6783",
+        "address": "Kp. Sukamukti RT. 004 RW. 009",
+        "city": "Kab. Bandung Barat",
+        "postal_code": "40391"
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-101-008",
+        "name": "Lintang Khairunnisa",
+        "email": "lintang@wit.id",
+        "phone": "+62 896-5551-4044",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-001",
+        "name": "Ramzi Berdio Nugraha",
+        "email": "ramzi@wit.id",
+        "phone": "+62 851-5976-4003",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-002",
+        "name": "Ihsan Sayid Muharrom",
+        "email": "ihsan@wit.id",
+        "phone": "+62 895-3314-91612",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-003",
+        "name": "Rizki Ali Maulana",
+        "email": "rizki@wit.id",
+        "phone": "+62 812-1484-0237",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-004",
+        "name": "Diesha Jumaira Putri Maitsa",
+        "email": "diesha@wit.id",
+        "phone": "+62 856-2296-467",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-005",
+        "name": "Hilda Zelyna",
+        "email": "hilda@wit.id",
+        "phone": "+62 857-9791-1422",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-006",
+        "name": "Amelia Rahmawati Putri",
+        "email": "amelia@wit.id",
+        "phone": "+62 819-4470-5637",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-007",
+        "name": "Ryhman Aji Pangistu",
+        "email": "ryhman@wit.id",
+        "phone": "+62 895-0991-4651",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-008",
+        "name": "Faikar Achmad Luthfi",
+        "email": "faikar@wit.id",
+        "phone": "+62 812-2179-3318",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-009",
+        "name": "Gabriel Yonathan",
+        "email": "gabriel@wit.id",
+        "phone": "+62 895-6220-60619",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-010",
+        "name": "Muhammad Fadillah Abdul Aziz",
+        "email": "fadil@wit.id",
+        "phone": "+62 895-6319-48686",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-011",
+        "name": "Rindiani Fauzia",
+        "email": "rindiani@wit.id",
+        "phone": "+62 896-9647-7442",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-012",
+        "name": "Riksa Muhammad Padlul Akbar",
+        "email": "riksa@wit.id",
+        "phone": "+62 812-2081-9595",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-103-013",
+        "name": "Aksal Suryadiraji",
+        "email": "aksal@wit.id",
+        "phone": "+62 878-3608-3464",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-002",
+        "name": "Jefriansyah",
+        "email": "jefriansyah73@gmail.com",
+        "phone": "+62 896-4791-8979",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-003",
+        "name": "Wilman Gantira",
+        "email": "wilman@wit.id",
+        "phone": "081320072700",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-010",
+        "name": "Dhani Zuhri",
+        "email": "dhany@wit.id",
+        "phone": "+62 822-4021-9486",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-011",
+        "name": "Shakira Salsabillah Wanizar",
+        "email": "shakira@wit.id",
+        "phone": "+62 895-4118-91444",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-012",
+        "name": "Vyan Insya Nur Muhammad",
+        "email": "vyan@wit.id",
+        "phone": "+62 895-3579-29545",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-013",
+        "name": "Naufal Chairurrijal Alifaza",
+        "email": "naufalalifaza3@gmail.com",
+        "phone": "+62 857-9413-1288",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-014",
+        "name": "Rahadina Budiman Sundara",
+        "email": "rahadina@wit.id",
+        "phone": "+62 823-1697-3875",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-015",
+        "name": "Wildanni Rahman",
+        "email": "wildannirahman123@gmail.com",
+        "phone": "+62 821-3002-0288",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-016",
+        "name": "Rena Tasya Shafira",
+        "email": "general.affair@wit.id",
+        "phone": "+62 819-3996-1209",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-017",
+        "name": "Muhamad Fatah Rozaq",
+        "email": "fatah.rozaq20@gmail.com",
+        "phone": "+62 838-2953-4910",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-104-018",
+        "name": "Muhammad Faza Faidhan Ramadhan",
+        "email": "fazaradicalz04@gmail.com",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-INTERN-0001",
+        "name": "Alvito Novandi",
+        "email": "alvito@intern.wit.id",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Bandung",
+        "code": "WIT-INTERN-0002",
+        "name": "Kazzayara Naomi",
+        "email": "kazzayaranaomi@gmail.com",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "ABS-08d49849",
+        "name": "WIT.ID Admin",
+        "email": "admin@wit.id",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-001-002",
+        "name": "Muhamad Ilham Kurniawan",
+        "email": "ilham@wit.id",
+        "phone": "+62 818-0907-8014",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-001-004",
+        "name": "Kholif Faiz Maruf",
+        "email": "kholif.faiz@gmail.com",
+        "phone": "+6281807479130",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-001-005",
+        "name": "Raynald Martua",
+        "email": "raynald.butars@gmail.com",
+        "phone": "+628119998892",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-003-012",
+        "name": "Eriwanto Panjaitan",
+        "email": "eriwanto@wit.id",
+        "phone": "+62 813-4232-9544",
+        "address": "Jl. Idi Adi Madja I No.21A",
+        "city": "Kota Bandung",
+        "postal_code": "40275"
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-004-013",
+        "name": "Ganjar Rizkiawan",
+        "email": "ganjar@wit.id",
+        "phone": "085314591959",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-004-015",
+        "name": "Christianto Eko Harry Prasetyo",
+        "email": "christianto@wit.id",
+        "phone": "+62 856-2296-467",
+        "address": "Komp. Villa Mutiara Bogor, Blok i2, No. 31",
+        "city": "Bogor",
+        "postal_code": "16168"
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-101-006",
+        "name": "Mochammad Gerry",
+        "email": "gerry@wit.id",
+        "phone": "+62 823-2048-2476",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Jakarta",
+        "code": "WIT-104-004",
+        "name": "Aji Saptaji",
+        "email": "aji@wit.id",
+        "phone": "+62 899-6080-908",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-006-007",
+        "name": "Cahyo Febrianto",
+        "email": "cahyo@wit.id",
+        "phone": "+62 812-2119-3319",
+        "address": "JL. Jembar No.  1",
+        "city": "Kota Bandung",
+        "postal_code": "40121"
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-010-009",
+        "name": "Mohammad Taufik Andrian",
+        "email": "taufik@wit.id",
+        "phone": "+62 812-1499-2303",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-010-025",
+        "name": "Febra Bayu Setiawan",
+        "email": "febra@wit.id",
+        "phone": "+62 857-1365-4476",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-101-007",
+        "name": "Dimas Indriyanto Bestari Putra",
+        "email": "dimas@wit.id",
+        "phone": "+62 812-2076-5539",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-104-001",
+        "name": "Akbar Sena Wijaya",
+        "email": "akbarsena@wit.id",
+        "phone": "+62 858-9112-8256",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    },
+    {
+        "branch": "Surabaya",
+        "code": "WIT-104-019",
+        "name": "Achmad Xander Lazarus Endy",
+        "email": "achmadxander@gmail.com",
+        "phone": "+62 813-3329-9375",
+        "address": null,
+        "city": null,
+        "postal_code": null
+    }
+]

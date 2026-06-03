@@ -1,0 +1,8 @@
+
+.level-1 { background: linear-gradient(to right, rgba(153, 204, 255, 0.2), rgba(102, 153, 255, 0.2)); }
+.level-2 { background: linear-gradient(to right, rgba(255, 153, 153, 0.2), rgba(255, 102, 102, 0.2)); }
+.level-3 { background: linear-gradient(to right, rgba(153, 255, 153, 0.2), rgba(102, 204, 102, 0.2)); }
+.level-4 { background: linear-gradient(to right, rgba(255, 255, 153, 0.2), rgba(255, 204, 0, 0.2)); }
+.level-5 { background: linear-gradient(to right, rgba(255, 204, 153, 0.2), rgba(255, 153, 102, 0.2)); }
+/* .level-6 { background: linear-gradient(to right, rgba(209, 179, 255, 0.2), rgba(163, 102, 255, 0.2)); } */
+/* .level-7 { background: linear-gradient(to right, rgba(255, 179, 230, 0.2), rgba(255, 102, 204, 0.2)); } */

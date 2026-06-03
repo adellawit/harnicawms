@@ -1,0 +1,441 @@
+{
+  "industry": "retail",
+  "description": "Demo data untuk toko retail fashion (pakaian, sepatu, aksesoris)",
+  "units": [
+    { "code": "PCS", "name": "Pcs", "symbol": "pcs" },
+    { "code": "PASANG", "name": "Pasang", "symbol": "psg" },
+    { "code": "SET", "name": "Set", "symbol": "set" },
+    { "code": "DUS", "name": "Dus", "symbol": "dus" },
+    { "code": "LUSIN", "name": "Lusin", "symbol": "lsn" }
+  ],
+  "categories": [
+    { "code": "atasan", "name": "Atasan", "parent": null },
+    { "code": "atasan-kaos", "name": "Kaos & T-Shirt", "parent": "atasan" },
+    { "code": "atasan-kemeja", "name": "Kemeja & Shirt", "parent": "atasan" },
+    { "code": "atasan-jacket", "name": "Jacket & Hoodie", "parent": "atasan" },
+    { "code": "bawahan", "name": "Bawahan", "parent": null },
+    { "code": "bawahan-celana", "name": "Celana", "parent": "bawahan" },
+    { "code": "bawahan-rok", "name": "Rok", "parent": "bawahan" },
+    { "code": "sepatu", "name": "Sepatu", "parent": null },
+    { "code": "sepatu-sneakers", "name": "Sneakers", "parent": "sepatu" },
+    { "code": "sepatu-formal", "name": "Formal", "parent": "sepatu" },
+    { "code": "aksesoris", "name": "Aksesoris", "parent": null },
+    { "code": "aksesoris-tas", "name": "Tas", "parent": "aksesoris" },
+    { "code": "aksesoris-topi", "name": "Topi & Hat", "parent": "aksesoris" },
+    { "code": "aksesoris-ikat-pinggang", "name": "Ikat Pinggang", "parent": "aksesoris" }
+  ],
+  "attribute_definitions": [
+    {
+      "code": "size",
+      "name": "Size",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": true,
+      "values": ["XS", "S", "M", "L", "XL", "XXL"]
+    },
+    {
+      "code": "shoe-size",
+      "name": "Shoe Size",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": true,
+      "values": ["36", "37", "38", "39", "40", "41", "42", "43", "44"]
+    },
+    {
+      "code": "color",
+      "name": "Color",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": [
+        { "value": "Black", "swatch": "#000000" },
+        { "value": "White", "swatch": "#FFFFFF" },
+        { "value": "Navy", "swatch": "#001F3F" },
+        { "value": "Grey", "swatch": "#AAAAAA" },
+        { "value": "Olive", "swatch": "#556B2F" },
+        { "value": "Maroon", "swatch": "#800000" },
+        { "value": "Cream", "swatch": "#FFFDD0" },
+        { "value": "Brown", "swatch": "#8B4513" }
+      ]
+    },
+    {
+      "code": "gender",
+      "name": "Gender",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["Pria", "Wanita", "Unisex"]
+    },
+    {
+      "code": "material",
+      "name": "Material",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["Cotton Combed 30s", "Cotton Combed 24s", "Fleece", "Denim", "Polyester", "Canvas", "Kulit Sintetis", "Kulit Asli", "Nylon"]
+    }
+  ],
+  "products": [
+    {
+      "code": "RTL-001",
+      "name": "Kaos Polos Basic",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-kaos",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 50,
+      "purchase_price": 32000,
+      "selling_price": 79000,
+      "description": "Kaos polos cotton combed 30s, unisex",
+      "attributes": { "gender": "Unisex", "material": "Cotton Combed 30s" },
+      "variants": [
+        { "sku_suffix": "S-BLK", "attributes": { "Size": "S", "Color": "Black" }, "purchase_price": 0, "stock": 100 },
+        { "sku_suffix": "M-BLK", "attributes": { "Size": "M", "Color": "Black" }, "purchase_price": 0, "stock": 80 },
+        { "sku_suffix": "L-BLK", "attributes": { "Size": "L", "Color": "Black" }, "purchase_price": 0, "stock": 120 },
+        { "sku_suffix": "XL-BLK", "attributes": { "Size": "XL", "Color": "Black" }, "purchase_price": 5000, "stock": 50 },
+        { "sku_suffix": "M-WHT", "attributes": { "Size": "M", "Color": "White" }, "purchase_price": 0, "stock": 85 },
+        { "sku_suffix": "L-WHT", "attributes": { "Size": "L", "Color": "White" }, "purchase_price": 0, "stock": 90 }
+      ]
+    },
+    {
+      "code": "RTL-002",
+      "name": "T-Shirt Oversize Graphic",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-kaos",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 30,
+      "purchase_price": 45000,
+      "selling_price": 129000,
+      "description": "T-Shirt oversize dengan print grafis streetwear",
+      "attributes": { "gender": "Unisex", "material": "Cotton Combed 24s" },
+      "variants": [
+        { "sku_suffix": "M-BLK", "attributes": { "Size": "M", "Color": "Black" }, "purchase_price": 0, "stock": 80 },
+        { "sku_suffix": "L-BLK", "attributes": { "Size": "L", "Color": "Black" }, "purchase_price": 0, "stock": 120 },
+        { "sku_suffix": "XL-BLK", "attributes": { "Size": "XL", "Color": "Black" }, "purchase_price": 5000, "stock": 50 },
+        { "sku_suffix": "L-CRM", "attributes": { "Size": "L", "Color": "Cream" }, "purchase_price": 0, "stock": 75 }
+      ]
+    },
+    {
+      "code": "RTL-003",
+      "name": "Kemeja Flanel Kotak",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-kemeja",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 65000,
+      "selling_price": 179000,
+      "description": "Kemeja flanel kotak-kotak lengan panjang",
+      "attributes": { "gender": "Pria", "material": "Cotton Combed 24s" },
+      "variants": [
+        { "sku_suffix": "M-MRN", "attributes": { "Size": "M", "Color": "Maroon" }, "purchase_price": 0, "stock": 35 },
+        { "sku_suffix": "L-MRN", "attributes": { "Size": "L", "Color": "Maroon" }, "purchase_price": 0, "stock": 40 },
+        { "sku_suffix": "L-NVY", "attributes": { "Size": "L", "Color": "Navy" }, "purchase_price": 0, "stock": 45 },
+        { "sku_suffix": "XL-NVY", "attributes": { "Size": "XL", "Color": "Navy" }, "purchase_price": 5000, "stock": 20 }
+      ]
+    },
+    {
+      "code": "RTL-004",
+      "name": "Kemeja Linen Casual",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-kemeja",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 72000,
+      "selling_price": 199000,
+      "description": "Kemeja linen regular fit, cocok untuk santai dan semi-formal",
+      "attributes": { "gender": "Pria" },
+      "variants": [
+        { "sku_suffix": "M-CRM", "attributes": { "Size": "M", "Color": "Cream" }, "purchase_price": 0, "stock": 60 },
+        { "sku_suffix": "L-CRM", "attributes": { "Size": "L", "Color": "Cream" }, "purchase_price": 0, "stock": 75 },
+        { "sku_suffix": "L-OLV", "attributes": { "Size": "L", "Color": "Olive" }, "purchase_price": 0, "stock": 25 }
+      ]
+    },
+    {
+      "code": "RTL-005",
+      "name": "Hoodie Fleece Basic",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-jacket",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 75000,
+      "selling_price": 219000,
+      "description": "Hoodie fleece tebal dengan kangaroo pocket",
+      "attributes": { "gender": "Unisex", "material": "Fleece" },
+      "variants": [
+        { "sku_suffix": "M-BLK", "attributes": { "Size": "M", "Color": "Black" }, "purchase_price": 0, "stock": 80 },
+        { "sku_suffix": "L-BLK", "attributes": { "Size": "L", "Color": "Black" }, "purchase_price": 0, "stock": 120 },
+        { "sku_suffix": "XL-BLK", "attributes": { "Size": "XL", "Color": "Black" }, "purchase_price": 10000, "stock": 18 },
+        { "sku_suffix": "L-GRY", "attributes": { "Size": "L", "Color": "Grey" }, "purchase_price": 0, "stock": 55 },
+        { "sku_suffix": "L-NVY", "attributes": { "Size": "L", "Color": "Navy" }, "purchase_price": 0, "stock": 45 }
+      ]
+    },
+    {
+      "code": "RTL-006",
+      "name": "Jaket Bomber Parasut",
+      "nature": "FINISHED_GOOD",
+      "category": "atasan-jacket",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 95000,
+      "selling_price": 289000,
+      "description": "Jaket bomber parasut water resistant, furing polyester",
+      "attributes": { "gender": "Pria", "material": "Nylon" },
+      "variants": [
+        { "sku_suffix": "L-BLK", "attributes": { "Size": "L", "Color": "Black" }, "purchase_price": 0, "stock": 120 },
+        { "sku_suffix": "L-OLV", "attributes": { "Size": "L", "Color": "Olive" }, "purchase_price": 0, "stock": 25 },
+        { "sku_suffix": "XL-BLK", "attributes": { "Size": "XL", "Color": "Black" }, "purchase_price": 10000, "stock": 12 }
+      ]
+    },
+    {
+      "code": "RTL-007",
+      "name": "Celana Chino Slim Fit",
+      "nature": "FINISHED_GOOD",
+      "category": "bawahan-celana",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 72000,
+      "selling_price": 199000,
+      "description": "Celana chino slim fit stretch, bahan cotton twill",
+      "attributes": { "gender": "Pria" },
+      "variants": [
+        { "sku_suffix": "30-BLK", "attributes": { "Size": "30", "Color": "Black" }, "purchase_price": 0, "stock": 40 },
+        { "sku_suffix": "31-BLK", "attributes": { "Size": "31", "Color": "Black" }, "purchase_price": 0, "stock": 45 },
+        { "sku_suffix": "32-BLK", "attributes": { "Size": "32", "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "32-CRM", "attributes": { "Size": "32", "Color": "Cream" }, "purchase_price": 0, "stock": 55 },
+        { "sku_suffix": "33-CRM", "attributes": { "Size": "33", "Color": "Cream" }, "purchase_price": 0, "stock": 35 }
+      ]
+    },
+    {
+      "code": "RTL-008",
+      "name": "Celana Jeans Denim Reguler",
+      "nature": "FINISHED_GOOD",
+      "category": "bawahan-celana",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 85000,
+      "selling_price": 249000,
+      "description": "Celana jeans denim 13oz regular fit",
+      "attributes": { "gender": "Pria", "material": "Denim" },
+      "variants": [
+        { "sku_suffix": "30-NVY", "attributes": { "Size": "30", "Color": "Navy" }, "purchase_price": 0, "stock": 30 },
+        { "sku_suffix": "32-NVY", "attributes": { "Size": "32", "Color": "Navy" }, "purchase_price": 0, "stock": 45 },
+        { "sku_suffix": "32-BLK", "attributes": { "Size": "32", "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "34-NVY", "attributes": { "Size": "34", "Color": "Navy" }, "purchase_price": 5000, "stock": 15 }
+      ]
+    },
+    {
+      "code": "RTL-009",
+      "name": "Rok Plisket Midi",
+      "nature": "FINISHED_GOOD",
+      "category": "bawahan-rok",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 48000,
+      "selling_price": 139000,
+      "description": "Rok plisket midi selutut, bahan polyester premium",
+      "attributes": { "gender": "Wanita", "material": "Polyester" },
+      "variants": [
+        { "sku_suffix": "S-BLK", "attributes": { "Size": "S", "Color": "Black" }, "purchase_price": 0, "stock": 100 },
+        { "sku_suffix": "M-BLK", "attributes": { "Size": "M", "Color": "Black" }, "purchase_price": 0, "stock": 80 },
+        { "sku_suffix": "M-CRM", "attributes": { "Size": "M", "Color": "Cream" }, "purchase_price": 0, "stock": 60 }
+      ]
+    },
+    {
+      "code": "RTL-010",
+      "name": "Sneakers Canvas Low",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-sneakers",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 110000,
+      "selling_price": 279000,
+      "description": "Sneakers kanvas low-top klasik, sol karet",
+      "attributes": { "gender": "Unisex", "material": "Canvas" },
+      "variants": [
+        { "sku_suffix": "39-WHT", "attributes": { "Shoe Size": "39", "Color": "White" }, "purchase_price": 0, "stock": 25 },
+        { "sku_suffix": "40-WHT", "attributes": { "Shoe Size": "40", "Color": "White" }, "purchase_price": 0, "stock": 30 },
+        { "sku_suffix": "41-BLK", "attributes": { "Shoe Size": "41", "Color": "Black" }, "purchase_price": 0, "stock": 35 },
+        { "sku_suffix": "42-BLK", "attributes": { "Shoe Size": "42", "Color": "Black" }, "purchase_price": 0, "stock": 40 },
+        { "sku_suffix": "43-BLK", "attributes": { "Shoe Size": "43", "Color": "Black" }, "purchase_price": 10000, "stock": 20 }
+      ]
+    },
+    {
+      "code": "RTL-011",
+      "name": "Sepatu Pantofel Kulit",
+      "nature": "FINISHED_GOOD",
+      "category": "sepatu-formal",
+      "default_unit": "PASANG",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 8,
+      "purchase_price": 180000,
+      "selling_price": 489000,
+      "description": "Sepatu pantofel kulit sintetis premium, sol anti-selip",
+      "attributes": { "gender": "Pria", "material": "Kulit Sintetis" },
+      "variants": [
+        { "sku_suffix": "40-BLK", "attributes": { "Shoe Size": "40", "Color": "Black" }, "purchase_price": 0, "stock": 15 },
+        { "sku_suffix": "41-BLK", "attributes": { "Shoe Size": "41", "Color": "Black" }, "purchase_price": 0, "stock": 35 },
+        { "sku_suffix": "42-BLK", "attributes": { "Shoe Size": "42", "Color": "Black" }, "purchase_price": 0, "stock": 40 },
+        { "sku_suffix": "42-BRN", "attributes": { "Shoe Size": "42", "Color": "Brown" }, "purchase_price": 0, "stock": 10 }
+      ]
+    },
+    {
+      "code": "RTL-012",
+      "name": "Tas Ransel Laptop 15\"",
+      "nature": "FINISHED_GOOD",
+      "category": "aksesoris-tas",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 85000,
+      "selling_price": 249000,
+      "description": "Tas ransel laptop waterproof 15 inch, bahan polyester",
+      "attributes": { "gender": "Unisex", "material": "Polyester" },
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "NVY", "attributes": { "Color": "Navy" }, "purchase_price": 0, "stock": 45 },
+        { "sku_suffix": "GRY", "attributes": { "Color": "Grey" }, "purchase_price": 0, "stock": 40 }
+      ]
+    },
+    {
+      "code": "RTL-013",
+      "name": "Topi Baseball Cap",
+      "nature": "FINISHED_GOOD",
+      "category": "aksesoris-topi",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 25,
+      "purchase_price": 22000,
+      "selling_price": 69000,
+      "description": "Topi baseball cap dengan strap adjustable",
+      "attributes": { "gender": "Unisex" },
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "WHT", "attributes": { "Color": "White" }, "purchase_price": 0, "stock": 60 },
+        { "sku_suffix": "NVY", "attributes": { "Color": "Navy" }, "purchase_price": 0, "stock": 45 },
+        { "sku_suffix": "MRN", "attributes": { "Color": "Maroon" }, "purchase_price": 0, "stock": 35 }
+      ]
+    },
+    {
+      "code": "RTL-014",
+      "name": "Ikat Pinggang Kulit",
+      "nature": "FINISHED_GOOD",
+      "category": "aksesoris-ikat-pinggang",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 35000,
+      "selling_price": 99000,
+      "description": "Ikat pinggang kulit sintetis dengan buckle metal",
+      "attributes": { "gender": "Pria", "material": "Kulit Sintetis" },
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "BRN", "attributes": { "Color": "Brown" }, "purchase_price": 0, "stock": 30 }
+      ]
+    },
+    {
+      "code": "RTL-015",
+      "name": "Totebag Canvas Polos",
+      "nature": "FINISHED_GOOD",
+      "category": "aksesoris-tas",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 30,
+      "purchase_price": 18000,
+      "selling_price": 59000,
+      "description": "Totebag kanvas polos tebal, tali panjang, resleting atas",
+      "attributes": { "gender": "Unisex", "material": "Canvas" },
+      "conversions": [
+        { "from_unit": "LUSIN", "to_unit": "PCS", "factor": 12 }
+      ],
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Color": "Black" }, "purchase_price": 0, "stock": 50 },
+        { "sku_suffix": "CRM", "attributes": { "Color": "Cream" }, "purchase_price": 0, "stock": 55 },
+        { "sku_suffix": "NVY", "attributes": { "Color": "Navy" }, "purchase_price": 0, "stock": 45 }
+      ]
+    }
+  ],
+  "tags": [
+    { "code": "best-seller", "name": "Best Seller", "type": "best_seller", "products": ["RTL-001", "RTL-005", "RTL-007", "RTL-010"] },
+    { "code": "new-arrival", "name": "New Arrival", "type": "featured", "products": ["RTL-002", "RTL-006", "RTL-009"] },
+    { "code": "promo-sale", "name": "Sale / Diskon", "type": "general", "products": ["RTL-003", "RTL-008", "RTL-015"] },
+    { "code": "product-focus", "name": "Product Focus", "type": "product_focus", "products": ["RTL-005", "RTL-010", "RTL-012"] },
+    { "code": "limited-edition", "name": "Limited Edition", "type": "featured", "products": ["RTL-006", "RTL-011"] }
+  ],
+  "collections": [
+    {
+      "code": "summer-2026",
+      "name": "Summer Collection 2026",
+      "slug": "summer-2026",
+      "description": "Koleksi musim panas 2026 - kaos, kemeja, dan sneakers",
+      "start_date": "2026-03-01",
+      "end_date": "2026-08-31",
+      "products": ["RTL-001", "RTL-002", "RTL-004", "RTL-010", "RTL-013", "RTL-015"]
+    },
+    {
+      "code": "streetwear-essential",
+      "name": "Streetwear Essential",
+      "slug": "streetwear-essential",
+      "description": "Koleksi streetwear dasar: hoodie, oversized tee, sneakers",
+      "products": ["RTL-002", "RTL-005", "RTL-008", "RTL-010", "RTL-013"]
+    },
+    {
+      "code": "formal-look",
+      "name": "Formal Look",
+      "slug": "formal-look",
+      "description": "Koleksi tampilan formal: kemeja, celana, pantofel, ikat pinggang",
+      "products": ["RTL-004", "RTL-007", "RTL-011", "RTL-014"]
+    },
+    {
+      "code": "daily-casual",
+      "name": "Daily Casual",
+      "slug": "daily-casual",
+      "description": "Koleksi pakaian harian: kaos, chino, totebag, topi",
+      "products": ["RTL-001", "RTL-007", "RTL-012", "RTL-013", "RTL-015"]
+    }
+  ],
+  "modifier_groups": []
+}

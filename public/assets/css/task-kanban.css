@@ -1,0 +1,187 @@
+/*
+ * Task Kanban CSS
+ * WMS - Warehouse Management System
+ * ============================================================================
+ */
+
+/* ==========================================================================
+   Kanban Board Container
+   ========================================================================== */
+
+.kanban-board {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    height: calc(100vh - 250px);
+    min-height: 500px;
+}
+
+.kanban-board::-webkit-scrollbar {
+    height: 8px;
+}
+
+.kanban-board::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ==========================================================================
+   Kanban Column
+   ========================================================================== */
+
+.kanban-column {
+    flex: 0 0 320px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.kanban-column-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.kanban-column-body {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 0; /* Force flex to calculate height */
+    min-height: 0; /* Allow flex shrinking */
+}
+
+.kanban-column-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.kanban-column-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.kanban-column-body::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.kanban-column-body::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* ==========================================================================
+   Kanban Card
+   ========================================================================== */
+
+.kanban-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.kanban-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.kanban-card:active {
+    cursor: grabbing;
+}
+
+.kanban-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.kanban-card-header {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.kanban-card-body {
+    margin-bottom: 0.75rem;
+}
+
+.kanban-card-footer {
+    border-top: 1px solid #e9ecef;
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+/* ==========================================================================
+   Drag and Drop States
+   ========================================================================== */
+
+.kanban-column-body.drag-over {
+    background: rgba(0, 119, 182, 0.05);
+    border: 2px dashed #0077b6;
+    border-radius: 8px;
+}
+
+.kanban-card-placeholder {
+    background: #f0f0f0;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    height: 100px;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media (max-width: 1400px) {
+    .kanban-column {
+        flex: 0 0 280px;
+        min-width: 280px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .kanban-column {
+        flex: 0 0 260px;
+        min-width: 260px;
+    }
+}
+
+@media (max-width: 768px) {
+    .kanban-board {
+        flex-direction: column;
+        height: auto;
+        min-height: auto;
+    }
+
+    .kanban-column {
+        flex: 1;
+        min-width: 100%;
+        height: auto;
+        max-height: none;
+    }
+
+    .kanban-column-body {
+        height: auto;
+        max-height: 400px;
+    }
+}

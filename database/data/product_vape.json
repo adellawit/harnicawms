@@ -1,0 +1,302 @@
+{
+  "industry": "vape",
+  "description": "Demo data untuk toko vape (liquid bercukai, device, aksesoris)",
+  "units": [
+    { "code": "PCS", "name": "Pcs", "symbol": "pcs" },
+    { "code": "BTL", "name": "Botol", "symbol": "btl" },
+    { "code": "PACK", "name": "Pack", "symbol": "pck" },
+    { "code": "SET", "name": "Set", "symbol": "set" }
+  ],
+  "categories": [
+    { "code": "vape", "name": "Vape", "parent": null },
+    { "code": "vape-liquid", "name": "Liquid / E-Juice", "parent": "vape" },
+    { "code": "vape-device", "name": "Device / Mod", "parent": "vape" },
+    { "code": "vape-acc", "name": "Aksesoris Vape", "parent": "vape" }
+  ],
+  "attribute_definitions": [
+    {
+      "code": "nicotine",
+      "name": "Nicotine",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["3mg", "6mg", "9mg", "12mg"]
+    },
+    {
+      "code": "cukai-year",
+      "name": "Tahun Cukai",
+      "type": "select",
+      "is_variant_attribute": false,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["2025", "2026"]
+    },
+    {
+      "code": "volume-ml",
+      "name": "Volume (ml)",
+      "type": "select",
+      "is_variant_attribute": false,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["30ml", "60ml", "100ml"]
+    },
+    {
+      "code": "coil-resistance",
+      "name": "Coil Resistance",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": ["0.3ohm", "0.6ohm", "0.8ohm", "1.0ohm", "1.2ohm"]
+    },
+    {
+      "code": "device-color",
+      "name": "Warna Device",
+      "type": "select",
+      "is_variant_attribute": true,
+      "is_filterable": true,
+      "is_required": false,
+      "values": [
+        { "value": "Black", "swatch": "#000000" },
+        { "value": "Silver", "swatch": "#C0C0C0" },
+        { "value": "Red", "swatch": "#DC143C" },
+        { "value": "Blue", "swatch": "#1E90FF" },
+        { "value": "Green", "swatch": "#228B22" }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "code": "VPL-001",
+      "name": "Premium Tobacco Liquid 60ml",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-liquid",
+      "default_unit": "BTL",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 45000,
+      "selling_price": 95000,
+      "description": "Liquid rasa tobacco premium 60ml - Cukai 2025. Pita cukai resmi Kementerian Keuangan RI.",
+      "attributes": { "cukai-year": "2025", "volume-ml": "60ml" },
+      "variants": [
+        { "sku_suffix": "3MG", "attributes": { "Nicotine": "3mg" }, "purchase_price": 45000, "selling_price": 95000, "stock": 50 },
+        { "sku_suffix": "6MG", "attributes": { "Nicotine": "6mg" }, "purchase_price": 45000, "selling_price": 95000, "stock": 40 },
+        { "sku_suffix": "12MG", "attributes": { "Nicotine": "12mg" }, "purchase_price": 47000, "selling_price": 100000, "stock": 25 }
+      ]
+    },
+    {
+      "code": "VPL-002",
+      "name": "Fruity Blast Mixed Berry 60ml",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-liquid",
+      "default_unit": "BTL",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 25,
+      "purchase_price": 42000,
+      "selling_price": 89000,
+      "description": "Liquid rasa mixed berry segar 60ml - Cukai 2025. Pita cukai resmi Kementerian Keuangan RI.",
+      "attributes": { "cukai-year": "2025", "volume-ml": "60ml" },
+      "variants": [
+        { "sku_suffix": "3MG", "attributes": { "Nicotine": "3mg" }, "purchase_price": 42000, "selling_price": 89000, "stock": 60 },
+        { "sku_suffix": "6MG", "attributes": { "Nicotine": "6mg" }, "purchase_price": 42000, "selling_price": 89000, "stock": 45 }
+      ]
+    },
+    {
+      "code": "VPL-003",
+      "name": "Creamy Vanilla Custard 30ml",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-liquid",
+      "default_unit": "BTL",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 35000,
+      "selling_price": 75000,
+      "description": "Liquid creamy vanilla custard 30ml - Cukai 2026. Pita cukai resmi Kementerian Keuangan RI.",
+      "attributes": { "cukai-year": "2026", "volume-ml": "30ml" },
+      "variants": [
+        { "sku_suffix": "3MG", "attributes": { "Nicotine": "3mg" }, "purchase_price": 35000, "selling_price": 75000, "stock": 35 },
+        { "sku_suffix": "6MG", "attributes": { "Nicotine": "6mg" }, "purchase_price": 35000, "selling_price": 75000, "stock": 30 },
+        { "sku_suffix": "9MG", "attributes": { "Nicotine": "9mg" }, "purchase_price": 36000, "selling_price": 78000, "stock": 20 }
+      ]
+    },
+    {
+      "code": "VPL-004",
+      "name": "Menthol Ice Freeze 60ml",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-liquid",
+      "default_unit": "BTL",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 20,
+      "purchase_price": 40000,
+      "selling_price": 85000,
+      "description": "Liquid menthol ice dengan sensasi dingin extra 60ml - Cukai 2026. Pita cukai resmi Kementerian Keuangan RI.",
+      "attributes": { "cukai-year": "2026", "volume-ml": "60ml" },
+      "variants": [
+        { "sku_suffix": "3MG", "attributes": { "Nicotine": "3mg" }, "purchase_price": 40000, "selling_price": 85000, "stock": 55 },
+        { "sku_suffix": "6MG", "attributes": { "Nicotine": "6mg" }, "purchase_price": 40000, "selling_price": 85000, "stock": 40 }
+      ]
+    },
+    {
+      "code": "VPL-005",
+      "name": "Coffee Latte Creamy 30ml",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-liquid",
+      "default_unit": "BTL",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 33000,
+      "selling_price": 72000,
+      "description": "Liquid rasa coffee latte creamy 30ml - Cukai 2025. Pita cukai resmi Kementerian Keuangan RI.",
+      "attributes": { "cukai-year": "2025", "volume-ml": "30ml" },
+      "variants": [
+        { "sku_suffix": "3MG", "attributes": { "Nicotine": "3mg" }, "purchase_price": 33000, "selling_price": 72000, "stock": 40 },
+        { "sku_suffix": "6MG", "attributes": { "Nicotine": "6mg" }, "purchase_price": 33000, "selling_price": 72000, "stock": 30 },
+        { "sku_suffix": "12MG", "attributes": { "Nicotine": "12mg" }, "purchase_price": 35000, "selling_price": 78000, "stock": 15 }
+      ]
+    },
+    {
+      "code": "VPD-001",
+      "name": "Pod Kit Starter 800mAh",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-device",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 85000,
+      "selling_price": 175000,
+      "description": "Pod system starter kit 800mAh, cocok untuk pemula. Include 1 cartridge 0.8ohm.",
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Warna Device": "Black" }, "purchase_price": 85000, "selling_price": 175000, "stock": 20 },
+        { "sku_suffix": "SLV", "attributes": { "Warna Device": "Silver" }, "purchase_price": 85000, "selling_price": 175000, "stock": 15 },
+        { "sku_suffix": "RED", "attributes": { "Warna Device": "Red" }, "purchase_price": 85000, "selling_price": 175000, "stock": 10 }
+      ]
+    },
+    {
+      "code": "VPD-002",
+      "name": "Box Mod 220W Advanced Kit",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-device",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 5,
+      "purchase_price": 250000,
+      "selling_price": 450000,
+      "description": "Box mod 220W dual battery untuk advanced user. Include tank sub-ohm.",
+      "variants": [
+        { "sku_suffix": "BLK", "attributes": { "Warna Device": "Black" }, "purchase_price": 250000, "selling_price": 450000, "stock": 8 },
+        { "sku_suffix": "BLU", "attributes": { "Warna Device": "Blue" }, "purchase_price": 250000, "selling_price": 450000, "stock": 6 }
+      ]
+    },
+    {
+      "code": "VPD-003",
+      "name": "Disposable Pod 5000 Puff",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-device",
+      "default_unit": "PCS",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 30,
+      "purchase_price": 35000,
+      "selling_price": 75000,
+      "description": "Disposable pod sekali pakai 5000 puff, berbagai rasa.",
+      "variants": [
+        { "sku_suffix": "GRAPE", "attributes": { "Nicotine": "3mg" }, "purchase_price": 35000, "selling_price": 75000, "stock": 50 },
+        { "sku_suffix": "MANGO", "attributes": { "Nicotine": "3mg" }, "purchase_price": 35000, "selling_price": 75000, "stock": 45 },
+        { "sku_suffix": "LYCHEE", "attributes": { "Nicotine": "3mg" }, "purchase_price": 35000, "selling_price": 75000, "stock": 40 }
+      ]
+    },
+    {
+      "code": "VPA-001",
+      "name": "Replacement Coil 0.8ohm (Pack of 5)",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-acc",
+      "default_unit": "PACK",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 15,
+      "purchase_price": 45000,
+      "selling_price": 85000,
+      "description": "Replacement coil 0.8ohm kompatibel dengan VPD-001 Pod Kit. Isi 5 pcs per pack.",
+      "variants": [
+        { "sku_suffix": "08OHM", "attributes": { "Coil Resistance": "0.8ohm" }, "purchase_price": 45000, "selling_price": 85000, "stock": 30 },
+        { "sku_suffix": "12OHM", "attributes": { "Coil Resistance": "1.2ohm" }, "purchase_price": 42000, "selling_price": 80000, "stock": 25 }
+      ]
+    },
+    {
+      "code": "VPA-002",
+      "name": "Organic Cotton Wick Premium",
+      "nature": "FINISHED_GOOD",
+      "category": "vape-acc",
+      "default_unit": "PACK",
+      "is_stock_item": true,
+      "is_sale_item": true,
+      "is_purchase_item": true,
+      "min_stock": 10,
+      "purchase_price": 15000,
+      "selling_price": 35000,
+      "description": "Kapas organik premium untuk RDA/RTA. Isi 10 strip per pack.",
+      "purchase_price": 15000,
+      "selling_price": 35000,
+      "stock": 40
+    }
+  ],
+  "tags": [
+    {
+      "code": "vape-cukai-2025",
+      "name": "Cukai 2025",
+      "type": "cukai",
+      "products": ["VPL-001", "VPL-002", "VPL-005"]
+    },
+    {
+      "code": "vape-cukai-2026",
+      "name": "Cukai 2026",
+      "type": "cukai",
+      "products": ["VPL-003", "VPL-004"]
+    },
+    {
+      "code": "vape-bestseller",
+      "name": "Bestseller Vape",
+      "type": "general",
+      "products": ["VPL-001", "VPD-001", "VPD-003"]
+    },
+    {
+      "code": "vape-pemula",
+      "name": "Cocok untuk Pemula",
+      "type": "general",
+      "products": ["VPD-001", "VPD-003", "VPL-002"]
+    }
+  ],
+  "collections": [
+    {
+      "code": "vape-liquid-bercukai",
+      "name": "Liquid Bercukai Resmi",
+      "slug": "liquid-bercukai-resmi",
+      "description": "Koleksi liquid vape berpita cukai resmi dari Kementerian Keuangan RI",
+      "products": ["VPL-001", "VPL-002", "VPL-003", "VPL-004", "VPL-005"]
+    },
+    {
+      "code": "vape-starter-kit",
+      "name": "Starter Kit Pemula",
+      "slug": "starter-kit-pemula",
+      "description": "Paket device vape untuk pemula",
+      "products": ["VPD-001", "VPD-003"]
+    }
+  ]
+}

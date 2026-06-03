@@ -1,0 +1,1105 @@
+{
+  "source": "docs/Produk.xlsx",
+  "brand": "wwwcoffee",
+  "unit": {
+    "code": "PCS",
+    "name": "Pcs",
+    "symbol": "pcs"
+  },
+  "category": {
+    "code": "menu-minuman",
+    "name": "Minuman",
+    "parent": {
+      "code": "menu",
+      "name": "Menu"
+    }
+  },
+  "attribute": {
+    "code": "varian",
+    "name": "Varian",
+    "values": [
+      "Almond",
+      "Beans Sendiri Bikin Sendiri",
+      "Beans sendiri",
+      "Chocolate",
+      "Ham Cheese",
+      "Hot",
+      "Ice",
+      "Plain"
+    ]
+  },
+  "products": [
+    {
+      "code": "WWWCOFFEE-ANY-MENU-1-LITER",
+      "name": "Any Menu 1 Liter",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409131",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 100000.0,
+          "grabfood": 90000.0,
+          "gofood": 100000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-BLACK",
+      "name": "Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409111",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2604160",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-BLACK-CLASSIC",
+      "name": "Black Classic",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260411066",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411067",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-BLACK-DAHLIA-BOOSTER",
+      "name": "Black Dahlia Booster",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409126",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25000.0,
+          "gofood": 30000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-BLUE-SKY-COLLABS",
+      "name": "Blue Sky Collabs",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409127",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25000.0,
+          "gofood": 30000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CAPPUCINO",
+      "name": "Cappucino",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409118",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411059",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CEREMONIAL-MATCHA-GRADE",
+      "name": "Ceremonial Matcha Grade",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260411071",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 10000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CHOCOLATE",
+      "name": "Chocolate",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409123",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 22000.0,
+          "grabfood": 19800.0,
+          "gofood": 22000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411063",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CROISANT-MINI",
+      "name": "Croisant Mini",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2507144",
+          "varian": "Plain",
+          "harga_beli": 0.0,
+          "reguler": 8000.0,
+          "grabfood": 7000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507145",
+          "varian": "Almond",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507146",
+          "varian": "Ham Cheese",
+          "harga_beli": 0.0,
+          "reguler": 12000.0,
+          "grabfood": 11000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507147",
+          "varian": "Chocolate",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CROISANT-REGULER",
+      "name": "Croisant Reguler",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2507148",
+          "varian": "Plain",
+          "harga_beli": 0.0,
+          "reguler": 16000.0,
+          "grabfood": 14000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507149",
+          "varian": "Almond",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 23000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507150",
+          "varian": "Ham Cheese",
+          "harga_beli": 0.0,
+          "reguler": 27000.0,
+          "grabfood": 25000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2507151",
+          "varian": "Chocolate",
+          "harga_beli": 0.0,
+          "reguler": 23000.0,
+          "grabfood": 21000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-CUSTOM",
+      "name": "Custom",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409136",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 0.0,
+          "grabfood": 0.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-DIRTY-LATTE",
+      "name": "Dirty Latte",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2507141",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ESPRESSO",
+      "name": "Espresso",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "240917",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 13500.0,
+          "gofood": 15000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-EXTRA-SHOT-ESPRESSO",
+      "name": "Extra Shot Espresso",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409132",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 10000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-FEELS-IN-CANGGU",
+      "name": "Feels in Canggu",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409128",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25000.0,
+          "gofood": 30000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-FILTER-COFFEE",
+      "name": "Filter Coffee",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2601155",
+          "varian": "Beans sendiri",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2604158",
+          "varian": "Beans Sendiri Bikin Sendiri",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 10000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2409110",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 20000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "2601154",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-FRENCH-FRIES",
+      "name": "French Fries",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409135",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 18000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-CAFFE-LATTE",
+      "name": "Hot Caffe Latte",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409113",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 22000.0,
+          "grabfood": 20000.0,
+          "gofood": 27000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-CAPPUCINO",
+      "name": "Hot Cappucino",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409114",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 22000.0,
+          "grabfood": 20000.0,
+          "gofood": 27000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-CHOCOLOATE",
+      "name": "Hot Chocoloate",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409120",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 24000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-LEMON-TEA",
+      "name": "Hot Lemon Tea",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409121",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 18000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-LONG-BLACK",
+      "name": "Hot Long Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "240919",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 24000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-HOT-MATCHA-LATTE",
+      "name": "Hot Matcha Latte",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409122",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 24000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICE-LEMON-TEA",
+      "name": "Ice Lemon Tea",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409124",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 18000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICE-MANUAL-BREW-JAPANESE",
+      "name": "Ice Manual Brew (Japanese)",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409112",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25000.0,
+          "gofood": 30000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-APPLE-BLACK",
+      "name": "Iced Apple Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2410139",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25200.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-BOLD",
+      "name": "Iced Bold",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "240915",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 23000.0,
+          "grabfood": 20700.0,
+          "gofood": 23000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-BOLD-1-LITER",
+      "name": "Iced Bold 1 Liter",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409129",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 90000.0,
+          "grabfood": 81000.0,
+          "gofood": 90000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-LIGHT",
+      "name": "Iced Light",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "240916",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-LIGHT-1-LITER",
+      "name": "Iced Light 1 Liter",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409130",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 100000.0,
+          "grabfood": 90000.0,
+          "gofood": 100000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-MATCHA-STRAWBERRY",
+      "name": "Iced Matcha Strawberry",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2511153",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 30000.0,
+          "grabfood": 27000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-MONT-BLANC",
+      "name": "Iced Mont Blanc",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409116",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 30000.0,
+          "grabfood": 27000.0,
+          "gofood": 30000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-ORANGE-BLACK",
+      "name": "Iced Orange Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2602156",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 28000.0,
+          "grabfood": 25200.0,
+          "gofood": 28000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-ORANGE-WATER-BLACK",
+      "name": "Iced Orange Water Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260511073",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 15000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-PALM-CLASSIC",
+      "name": "Iced Palm Classic",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260411070",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 13500.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ICED-PEACH-BLACK",
+      "name": "Iced Peach Black",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260511072",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 28000.0,
+          "grabfood": 25200.0,
+          "gofood": 28000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-LATTE",
+      "name": "Latte",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409117",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411060",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-LIGHT-SWEET-EVENT",
+      "name": "Light & Sweet event",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2410138",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 0.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-MAGIC",
+      "name": "Magic",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409115",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411061",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-MATCHA",
+      "name": "Matcha",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409125",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 22000.0,
+          "grabfood": 19800.0,
+          "gofood": 22000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411062",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-MATCHA-PREMIUM",
+      "name": "Matcha Premium",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2508152",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 25000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-MOCHACCINO",
+      "name": "Mochaccino",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409119",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 25000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411058",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 28000.0,
+          "grabfood": 25200.0,
+          "gofood": 28000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-OAT-MILK",
+      "name": "Oat Milk",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409133",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 5000.0,
+          "grabfood": 4000.0,
+          "gofood": 5000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-ON-THE-ROCK",
+      "name": "On The Rock",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "240918",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 20000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-SEA-SALT-COFFEE-MILK",
+      "name": "Sea Salt Coffee Milk",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2410137",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 0.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-SPECIAL-BEANS",
+      "name": "Special Beans",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2409134",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 10000.0,
+          "grabfood": 9000.0,
+          "gofood": 10000.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-SWEET-CLASSIC",
+      "name": "Sweet Classic",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260411068",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 12000.0,
+          "grabfood": 10800.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411069",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 13500.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-VIETNAM-DRIP",
+      "name": "Vietnam Drip",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "260411064",
+          "varian": "Hot",
+          "harga_beli": 0.0,
+          "reguler": 20000.0,
+          "grabfood": 18000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        },
+        {
+          "kode": "260411065",
+          "varian": "Ice",
+          "harga_beli": 0.0,
+          "reguler": 25000.0,
+          "grabfood": 22500.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    },
+    {
+      "code": "WWWCOFFEE-Z-TEST",
+      "name": "z_test",
+      "brand": "wwwcoffee",
+      "description": "Brand: wwwcoffee",
+      "variants": [
+        {
+          "kode": "2604157",
+          "varian": "",
+          "harga_beli": 0.0,
+          "reguler": 15000.0,
+          "grabfood": 15000.0,
+          "gofood": 0.0,
+          "shopee_food": 0.0,
+          "keterangan": ""
+        }
+      ]
+    }
+  ]
+}

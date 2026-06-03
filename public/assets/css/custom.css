@@ -1,0 +1,3302 @@
+/*
+ * Custom CSS
+ * WMS - Warehouse Management System
+ * ============================================================================
+ */
+
+/* ==========================================================================
+   Global Font Family - DM Sans / Inter
+   ========================================================================== */
+
+:root {
+    --font-primary: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body {
+    font-family: var(--font-primary) !important;
+}
+
+/* Override template default font */
+body,
+.app-brand-text,
+.menu-link,
+.nav-link,
+.dropdown-item,
+.btn,
+.form-control,
+.form-select,
+.form-label,
+.card-title,
+.card-text,
+.table,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+a,
+label,
+input,
+textarea,
+select,
+button {
+    font-family: var(--font-primary) !important;
+}
+
+/* ==========================================================================
+   Image Crop Utilities
+   ========================================================================== */
+
+.image-crop {
+    width: 100px;
+    height: 100px;
+    overflow: hidden;
+    position: relative;
+}
+
+.image-crop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-crop-header {
+    width: 2.375rem;
+    height: 2.375rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.image-crop-header img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ==========================================================================
+   Avatar DataTable
+   ========================================================================== */
+
+.avatar-datatable {
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border-radius: 50%;
+    position: relative;
+}
+
+.avatar-datatable-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* ==========================================================================
+   Floating Footer
+   ========================================================================== */
+
+.layout-menu-fixed .floating-footer {
+    position: fixed;
+    bottom: 0;
+    left: 20rem;
+    right: 0;
+    background-color: white;
+    border-top: 1px solid #ddd;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.layout-menu-collapsed .floating-footer {
+    position: fixed;
+    bottom: 0;
+    left: 5.25rem;
+    right: 0;
+    background-color: white;
+    border-top: 1px solid #ddd;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.layout-page .content-wrapper .p-footer {
+    padding-bottom: 70px !important;
+}
+
+@media (max-width: 1199px) {
+    .layout-menu-fixed .floating-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: white;
+        border-top: 1px solid #ddd;
+        z-index: 1000;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .layout-page .content-wrapper .p-footer {
+        padding-bottom: 120px !important;
+    }
+}
+
+/* ==========================================================================
+   Estimated Cost Labels
+   ========================================================================== */
+
+.label-estimated-cost {
+    color: #212529;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.price-estimated-cost {
+    color: #007BFF;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   Modal Delete
+   ========================================================================== */
+
+.modal-delete {
+    background-color: #DC3545;
+}
+
+.modal-delete .btn-close {
+    background-color: #DC3545;
+    background-image: url("data:image/svg+xml,%3Csvg width='19' height='18' viewBox='0 0 19 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 4.5L5 13.5' stroke='%23ffffff' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 4.5L5 13.5' stroke='white' stroke-opacity='0.2' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 4.5L14 13.5' stroke='%23ffffff' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 4.5L14 13.5' stroke='white' stroke-opacity='0.2' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E%0A");
+}
+
+.modal-delete h5,
+.modal-delete p,
+.modal-delete label {
+    color: #FFFFFF;
+}
+
+/* ==========================================================================
+   Container & DataTable
+   ========================================================================== */
+
+/* Full width content */
+.container-xxl {
+    max-width: 100% !important;
+}
+
+/* DataTable inside card */
+.card-datatable {
+    padding: 1rem;
+}
+
+.card-datatable .card-header {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* DataTable Borders */
+.dataTable {
+    border: 1px solid #e2e8f0 !important;
+    border-collapse: collapse !important;
+}
+
+.dataTable thead th {
+    border: 1px solid #d1d5db !important;
+    border-bottom: 2px solid #0077b6 !important;
+}
+
+.dataTable tbody td {
+    border: 1px solid #e2e8f0 !important;
+}
+
+.dataTable tbody tr:hover {
+    background-color: rgba(0, 119, 182, 0.05);
+}
+
+/* Fit Size for No and Action Columns */
+.dataTable th:first-child,
+.dataTable td:first-child,
+.dataTable th:last-child,
+.dataTable td:last-child {
+    width: 1%;
+    white-space: nowrap;
+}
+
+/* Center align No column */
+.dataTable th:first-child,
+.dataTable td:first-child {
+    text-align: center;
+}
+
+/* Center align Action column */
+.dataTable th:last-child,
+.dataTable td:last-child {
+    text-align: center;
+}
+
+/* ==========================================================================
+   DataTable Action Dropdown
+   ========================================================================== */
+
+/* Dropdown Toggle Button */
+.dataTable .dropdown-toggle {
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.dataTable .dropdown-toggle:hover {
+    background: rgba(0, 119, 182, 0.1);
+}
+
+.dataTable .dropdown-toggle::after {
+    display: none;
+}
+
+.dataTable .dropdown-toggle .ti-dots-vertical {
+    font-size: 1.25rem;
+}
+
+/* Dropdown Menu */
+.dataTable .dropdown-menu {
+    min-width: 140px;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 1050;
+}
+
+/* DataTable wrapper */
+.dataTables_wrapper {
+    overflow: visible;
+}
+
+.dataTables_scrollBody {
+    overflow: visible;
+}
+
+.card-datatable {
+    overflow: visible;
+}
+
+.dataTables_scroll {
+    overflow: visible;
+}
+
+/* Table horizontal scroll only */
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom horizontal scrollbar */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #0077b6;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #005f8a;
+}
+
+/* Ensure dropdown appears outside table */
+.dataTable .dropdown {
+    position: static;
+}
+
+.dataTable td .dropdown-menu {
+    position: absolute;
+    z-index: 1050;
+}
+
+/* Dropdown Items */
+.dataTable .dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1e3a5f;
+    transition: all 0.2s ease;
+}
+
+.dataTable .dropdown-item:hover {
+    background: rgba(13, 110, 253, 0.1);
+    color: #0D6EFD;
+}
+
+.dataTable .dropdown-item i {
+    font-size: 1rem;
+    width: 20px;
+}
+
+/* Dropdown Item Colors on Hover */
+.dataTable .dropdown-item:hover .text-primary {
+    color: #0D6EFD !important;
+}
+
+.dataTable .dropdown-item:hover .text-warning {
+    color: #FFC107 !important;
+}
+
+.dataTable .dropdown-item:hover .text-danger {
+    color: #DC3545 !important;
+}
+
+.dataTable .dropdown-item:hover .text-success {
+    color: #198754 !important;
+}
+
+.dataTable .dropdown-item:hover .text-info {
+    color: #0DCAF0 !important;
+}
+
+.dataTable .dropdown-item:hover .text-secondary {
+    color: #6F42C1 !important;
+}
+
+/* ==========================================================================
+   Custom Button Styles - Standard Color Palette
+   Primary: #0D6EFD | Success: #198754 | Warning: #FFC107 | Info: #0DCAF0
+   Danger: #DC3545 | Secondary: #6F42C1 | Dark: #212529 | Light: #F8F9FA
+   ========================================================================== */
+
+/* Primary Button */
+.btn-primary {
+    background: #0D6EFD !important;
+    border-color: #0D6EFD !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background: #0B5ED7 !important;
+    border-color: #0A58CA !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    background: #0A58CA !important;
+    border-color: #0A53BE !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3);
+}
+
+/* Outline Primary Button */
+.btn-outline-primary {
+    color: #0D6EFD !important;
+    border-color: #0D6EFD !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+    color: #ffffff !important;
+    background: #0D6EFD !important;
+    border-color: #0D6EFD !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+/* Label Primary Button */
+.btn-label-primary {
+    color: #0D6EFD !important;
+    background: rgba(13, 110, 253, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-primary:hover,
+.btn-label-primary:focus {
+    color: #ffffff !important;
+    background: #0D6EFD !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+/* Info Button */
+.btn-info {
+    background: #0DCAF0 !important;
+    border-color: #0DCAF0 !important;
+    color: #000000 !important;
+    box-shadow: 0 2px 6px rgba(13, 202, 240, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-info:hover,
+.btn-info:focus {
+    background: #0BB5D4 !important;
+    border-color: #0AA2C0 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(13, 202, 240, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-info:active {
+    background: #0AA2C0 !important;
+    border-color: #0997B3 !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(13, 202, 240, 0.3);
+}
+
+/* Outline Info Button */
+.btn-outline-info {
+    color: #0DCAF0 !important;
+    border-color: #0DCAF0 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-info:hover,
+.btn-outline-info:focus {
+    color: #000000 !important;
+    background: #0DCAF0 !important;
+    border-color: #0DCAF0 !important;
+    box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+}
+
+/* Label Info Button */
+.btn-label-info {
+    color: #0DCAF0 !important;
+    background: rgba(13, 202, 240, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-info:hover,
+.btn-label-info:focus {
+    color: #000000 !important;
+    background: #0DCAF0 !important;
+    box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+}
+
+/* Success Button */
+.btn-success {
+    background: #198754 !important;
+    border-color: #198754 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(25, 135, 84, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover,
+.btn-success:focus {
+    background: #157347 !important;
+    border-color: #146C43 !important;
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-success:active {
+    background: #146C43 !important;
+    border-color: #13653F !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(25, 135, 84, 0.3);
+}
+
+/* Outline Success Button */
+.btn-outline-success {
+    color: #198754 !important;
+    border-color: #198754 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-success:hover,
+.btn-outline-success:focus {
+    color: #ffffff !important;
+    background: #198754 !important;
+    border-color: #198754 !important;
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+}
+
+/* Label Success Button */
+.btn-label-success {
+    color: #198754 !important;
+    background: rgba(25, 135, 84, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-success:hover,
+.btn-label-success:focus {
+    color: #ffffff !important;
+    background: #198754 !important;
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+}
+
+/* Warning Button */
+.btn-warning {
+    background: #FFC107 !important;
+    border-color: #FFC107 !important;
+    color: #000000 !important;
+    box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-warning:hover,
+.btn-warning:focus {
+    background: #FFB300 !important;
+    border-color: #FFB300 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-warning:active {
+    background: #FFB300 !important;
+    border-color: #FFB300 !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+/* Outline Warning Button */
+.btn-outline-warning {
+    color: #FFC107 !important;
+    border-color: #FFC107 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-warning:hover,
+.btn-outline-warning:focus {
+    color: #000000 !important;
+    background: #FFC107 !important;
+    border-color: #FFC107 !important;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+/* Label Warning Button */
+.btn-label-warning {
+    color: #FFC107 !important;
+    background: rgba(255, 193, 7, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-warning:hover,
+.btn-label-warning:focus {
+    color: #000000 !important;
+    background: #FFC107 !important;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+/* Danger Button */
+.btn-danger {
+    background: #DC3545 !important;
+    border-color: #DC3545 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover,
+.btn-danger:focus {
+    background: #BB2D3B !important;
+    border-color: #B02A37 !important;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-danger:active {
+    background: #B02A37 !important;
+    border-color: #A52834 !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+/* Outline Danger Button */
+.btn-outline-danger {
+    color: #DC3545 !important;
+    border-color: #DC3545 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+    color: #ffffff !important;
+    background: #DC3545 !important;
+    border-color: #DC3545 !important;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* Label Danger Button */
+.btn-label-danger {
+    color: #DC3545 !important;
+    background: rgba(220, 53, 69, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-danger:hover,
+.btn-label-danger:focus {
+    color: #ffffff !important;
+    background: #DC3545 !important;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* Secondary Button */
+.btn-secondary {
+    background: #6F42C1 !important;
+    border-color: #6F42C1 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(111, 66, 193, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus {
+    background: #5A2D91 !important;
+    border-color: #4F2878 !important;
+    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+    background: #4F2878 !important;
+    border-color: #452366 !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(111, 66, 193, 0.3);
+}
+
+/* Outline Secondary Button */
+.btn-outline-secondary {
+    color: #6F42C1 !important;
+    border-color: #6F42C1 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    color: #ffffff !important;
+    background: #6F42C1 !important;
+    border-color: #6F42C1 !important;
+    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+}
+
+/* Label Secondary Button */
+.btn-label-secondary {
+    color: #6F42C1 !important;
+    background: rgba(111, 66, 193, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-secondary:hover,
+.btn-label-secondary:focus {
+    color: #ffffff !important;
+    background: #6F42C1 !important;
+    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+}
+
+/* Dark Button */
+.btn-dark {
+    background: #212529 !important;
+    border-color: #212529 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(33, 37, 41, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-dark:hover,
+.btn-dark:focus {
+    background: #1C1F23 !important;
+    border-color: #1A1E21 !important;
+    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-dark:active {
+    background: #1A1E21 !important;
+    border-color: #171A1D !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(33, 37, 41, 0.3);
+}
+
+/* Outline Dark Button */
+.btn-outline-dark {
+    color: #212529 !important;
+    border-color: #212529 !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-dark:hover,
+.btn-outline-dark:focus {
+    color: #ffffff !important;
+    background: #212529 !important;
+    border-color: #212529 !important;
+    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.3);
+}
+
+/* Label Dark Button */
+.btn-label-dark {
+    color: #212529 !important;
+    background: rgba(33, 37, 41, 0.12) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-dark:hover,
+.btn-label-dark:focus {
+    color: #ffffff !important;
+    background: #212529 !important;
+    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.3);
+}
+
+/* Light Button */
+.btn-light {
+    background: #F8F9FA !important;
+    border-color: #F8F9FA !important;
+    color: #000000 !important;
+    box-shadow: 0 2px 6px rgba(248, 249, 250, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-light:hover,
+.btn-light:focus {
+    background: #E9ECEF !important;
+    border-color: #DEE2E6 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(248, 249, 250, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-light:active {
+    background: #DEE2E6 !important;
+    border-color: #D3D7DB !important;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(248, 249, 250, 0.3);
+}
+
+/* Outline Light Button */
+.btn-outline-light {
+    color: #F8F9FA !important;
+    border-color: #F8F9FA !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+    color: #000000 !important;
+    background: #F8F9FA !important;
+    border-color: #F8F9FA !important;
+    box-shadow: 0 4px 12px rgba(248, 249, 250, 0.3);
+}
+
+/* Label Light Button */
+.btn-label-light {
+    color: #6C757D !important;
+    background: rgba(248, 249, 250, 0.8) !important;
+    border-color: transparent !important;
+    transition: all 0.3s ease;
+}
+
+.btn-label-light:hover,
+.btn-label-light:focus {
+    color: #000000 !important;
+    background: #F8F9FA !important;
+    box-shadow: 0 4px 12px rgba(248, 249, 250, 0.3);
+}
+
+/* Button Icon Spacing */
+.btn i {
+    margin-right: 0.35rem;
+}
+
+.btn i:last-child {
+    margin-right: 0;
+    margin-left: 0.35rem;
+}
+
+/* Button Sizes with Rounded Corners */
+.btn {
+    border-radius: 8px;
+}
+
+.btn-sm {
+    border-radius: 6px;
+}
+
+.btn-lg {
+    border-radius: 10px;
+}
+
+/* Button Group */
+.btn-group .btn {
+    border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.btn-group .btn:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+/* ==========================================================================
+   Custom Badge Styles - Standard Color Palette
+   Primary: #0D6EFD | Success: #198754 | Warning: #FFC107 | Info: #0DCAF0
+   Danger: #DC3545 | Secondary: #6F42C1 | Dark: #212529 | Light: #F8F9FA
+   ========================================================================== */
+
+/* Badge Primary */
+.bg-label-primary {
+    background-color: rgba(13, 110, 253, 0.12) !important;
+    color: #0D6EFD !important;
+}
+
+/* Badge Success */
+.bg-label-success {
+    background-color: rgba(25, 135, 84, 0.12) !important;
+    color: #198754 !important;
+}
+
+/* Badge Warning */
+.bg-label-warning {
+    background-color: rgba(255, 193, 7, 0.12) !important;
+    color: #FFC107 !important;
+}
+
+/* Badge Info */
+.bg-label-info {
+    background-color: rgba(13, 202, 240, 0.12) !important;
+    color: #0DCAF0 !important;
+}
+
+/* Badge Danger */
+.bg-label-danger {
+    background-color: rgba(220, 53, 69, 0.12) !important;
+    color: #DC3545 !important;
+}
+
+/* Badge Secondary */
+.bg-label-secondary {
+    background-color: rgba(111, 66, 193, 0.12) !important;
+    color: #6F42C1 !important;
+}
+
+/* Badge Dark */
+.bg-label-dark {
+    background-color: rgba(33, 37, 41, 0.12) !important;
+    color: #212529 !important;
+}
+
+/* Badge Light */
+.bg-label-light {
+    background-color: rgba(248, 249, 250, 0.8) !important;
+    color: #6C757D !important;
+}
+
+/* ==========================================================================
+   Custom Sidebar Colors - Match Login Page Palette
+   Primary: #0077b6 | Primary Light: #00b4d8 | Accent: #90e0ef
+   ========================================================================== */
+
+/* Sidebar Background - Match Navbar Style */
+.bg-menu-theme,
+.layout-menu {
+    background: #ffffff !important;
+}
+
+/* App Brand Section - Match Navbar */
+.bg-menu-theme .app-brand.demo {
+    background: #ffffff !important;
+    border-bottom: 1px solid rgba(13, 110, 253, 0.1) !important;
+}
+
+.bg-menu-theme .app-brand-text {
+    color: #0D6EFD !important;
+}
+
+.bg-menu-theme .app-brand-logo img {
+    filter: brightness(0) invert(1);
+}
+
+/* Ensure brand logo text displays correctly */
+.bg-menu-theme .app-brand-logo .brand-logo-text {
+    background: linear-gradient(135deg, #0D6EFD 0%, #6366F1 100%);
+    color: #ffffff;
+}
+
+/* App brand link hover effect */
+.bg-menu-theme .app-brand-link:hover .app-brand-text {
+    color: #0B5ED7 !important;
+}
+
+.bg-menu-theme .app-brand-link:hover .brand-logo-text {
+    background: linear-gradient(135deg, #0B5ED7 0%, #6366F1 100%) !important;
+}
+
+/* Menu Inner Shadow */
+.bg-menu-theme .menu-inner-shadow {
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.05) 0%, transparent 100%) !important;
+}
+
+/* Menu Links */
+.bg-menu-theme .menu-link,
+.bg-menu-theme .menu-horizontal-prev,
+.bg-menu-theme .menu-horizontal-next {
+    color: #333333 !important;
+    text-shadow: none;
+}
+
+.bg-menu-theme .menu-link:hover,
+.bg-menu-theme .menu-link:focus {
+    color: #0D6EFD !important;
+    background-color: rgba(13, 110, 253, 0.08) !important;
+}
+
+/* Menu Icons */
+.bg-menu-theme .menu-icon {
+    color: #666666 !important;
+}
+
+.bg-menu-theme .menu-item:hover .menu-icon,
+.bg-menu-theme .menu-item.active .menu-icon {
+    color: #0D6EFD !important;
+}
+
+/* Active Menu Item */
+.bg-menu-theme.menu-vertical .menu-item.active>.menu-link:not(.menu-toggle) {
+    background: rgba(13, 110, 253, 0.1) !important;
+    box-shadow: 0px 2px 8px 0px rgba(13, 110, 253, 0.1) !important;
+    color: #0D6EFD !important;
+}
+
+[dir="rtl"] .bg-menu-theme.menu-vertical .menu-item.active>.menu-link:not(.menu-toggle) {
+    background: rgba(13, 110, 253, 0.1) !important;
+}
+
+/* Active Indicator Bar */
+.layout-wrapper:not(.layout-horizontal) .bg-menu-theme .menu-inner>.menu-item.active:before {
+    background-color: #0D6EFD !important;
+}
+
+/* Open/Toggle Menu Item */
+.bg-menu-theme .menu-inner .menu-item.open>.menu-link.menu-toggle,
+.bg-menu-theme .menu-inner .menu-item.active>.menu-link.menu-toggle {
+    background: rgba(13, 110, 253, 0.08) !important;
+}
+
+.bg-menu-theme .menu-inner .menu-item:not(.active) .menu-link:hover {
+    background: rgba(13, 110, 253, 0.08) !important;
+}
+
+/* Submenu - Transparent to show gradient */
+.bg-menu-theme .menu-sub {
+    background: transparent !important;
+    margin: 0;
+    padding: 0;
+}
+
+.bg-menu-theme .menu-sub .menu-link {
+    color: #333333 !important;
+}
+
+.bg-menu-theme .menu-sub .menu-link:hover {
+    color: #0D6EFD !important;
+    background: rgba(13, 110, 253, 0.08) !important;
+}
+
+.bg-menu-theme .menu-sub .menu-item.active>.menu-link {
+    color: #0D6EFD !important;
+    font-weight: 600;
+    background: rgba(13, 110, 253, 0.1) !important;
+}
+
+/* Submenu Bullet Points */
+.bg-menu-theme .menu-inner .menu-sub .menu-item:not(.active)>.menu-link::before {
+    color: #999999 !important;
+}
+
+.bg-menu-theme .menu-inner .menu-sub .menu-item.active>.menu-link::before {
+    color: #0D6EFD !important;
+}
+
+/* Menu Header */
+.bg-menu-theme .menu-header {
+    color: #999999 !important;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+}
+
+/* Menu Divider */
+.bg-menu-theme hr,
+.bg-menu-theme .menu-divider,
+.bg-menu-theme .menu-inner>.menu-item.open>.menu-sub::before {
+    border-color: transparent !important;
+}
+
+/* Override menu-light vendor CSS */
+.menu-light .menu-inner>.menu-item.open>.menu-sub::before {
+    border-color: transparent !important;
+}
+
+.menu-light hr,
+.menu-light .menu-divider,
+.menu-light .menu-inner>.menu-item.open>.menu-sub::before {
+    border-color: transparent !important;
+}
+
+/* Also hide any border on menu-sub directly */
+.bg-menu-theme .menu-sub {
+    border: none !important;
+}
+
+.bg-menu-theme .menu-sub::before {
+    border: none !important;
+}
+
+.menu-light .menu-sub::before {
+    border: none !important;
+}
+
+/* Remove border radius shadow that might create border effect */
+.bg-menu-theme .menu-inner>.menu-item.open>.menu-sub {
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* Scrollbar */
+.bg-menu-theme .ps__thumb-y,
+.bg-menu-theme .ps__rail-y.ps--clicking>.ps__thumb-y {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Layout Menu Toggle */
+.bg-menu-theme .layout-menu-toggle {
+    color: #666666 !important;
+}
+
+.bg-menu-theme .layout-menu-toggle:hover {
+    color: #0D6EFD !important;
+    background: rgba(13, 110, 253, 0.08) !important;
+    border-radius: 6px;
+}
+
+/* ==========================================================================
+   Login Page - Modern UI Styles
+   ========================================================================== */
+
+/* ==========================================================================
+   Brand Logo - Ars Text Logo
+   ========================================================================== */
+
+.brand-logo-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #0D6EFD 0%, #6366F1 100%);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+}
+
+/* ==========================================================================
+   Login Page - Modern UI Styles
+   ========================================================================== */
+
+/* CSS Variables for Login Page */
+:root {
+    --login-primary-gradient: linear-gradient(135deg, #0077b6 0%, #00b4d8 50%, #90e0ef 100%);
+    --login-glass-bg: rgba(255, 255, 255, 0.95);
+    --login-glass-border: rgba(255, 255, 255, 0.3);
+    --login-shadow-color: rgba(0, 119, 182, 0.15);
+}
+
+/* Login Page - Auth Wrapper acts as main container */
+.auth-wrapper {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    background: #ffffff;
+    /* Changed to match login-card (white) */
+    overflow-x: hidden;
+}
+
+/* Animated Background Shapes */
+.bg-shapes {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.shape {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    animation: float 20s infinite ease-in-out;
+}
+
+.shape-1 {
+    width: 400px;
+    height: 400px;
+    top: -100px;
+    left: -100px;
+    animation-delay: 0s;
+}
+
+.shape-2 {
+    width: 300px;
+    height: 300px;
+    bottom: -50px;
+    right: -50px;
+    animation-delay: -5s;
+}
+
+.shape-3 {
+    width: 200px;
+    height: 200px;
+    top: 50%;
+    left: 30%;
+    animation-delay: -10s;
+}
+
+.shape-4 {
+    width: 150px;
+    height: 150px;
+    top: 20%;
+    right: 20%;
+    animation-delay: -15s;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    25% {
+        transform: translate(30px, -30px) rotate(90deg);
+    }
+
+    50% {
+        transform: translate(0, -50px) rotate(180deg);
+    }
+
+    75% {
+        transform: translate(-30px, -30px) rotate(270deg);
+    }
+}
+
+/* Left Side - Branding */
+.auth-brand-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+    position: relative;
+    z-index: 1;
+}
+
+.brand-content {
+    text-align: center;
+    color: white;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.brand-logo {
+    height: 130px;
+    width: auto;
+    margin-bottom: 2rem;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.2));
+    animation: logoFloat 3s ease-in-out infinite;
+}
+
+.brand-logo-card {
+    width: 90px;
+    height: 90px;
+    background: #0D6EFD;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 700;
+    color: white;
+    margin: 0 auto 2rem auto;
+    /* Centered */
+    box-shadow: 0 10px 25px rgba(13, 110, 253, 0.3);
+    animation: logoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-15px);
+    }
+}
+
+.brand-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.brand-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    max-width: 400px;
+    line-height: 1.6;
+}
+
+.brand-features {
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateX(10px);
+}
+
+.feature-item i {
+    font-size: 1.25rem;
+}
+
+/* Single Card Container */
+.auth-card-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* Login page — form only, no side branding */
+.auth-login-only {
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-login-only .auth-card-container {
+    min-height: 100vh;
+}
+
+.auth-login-only .login-card {
+    width: 100%;
+    max-width: 420px;
+    margin: 0;
+}
+
+.auth-card {
+    display: flex;
+    width: 900px;
+    height: 520px;
+    max-width: 900px;
+    background: var(--login-glass-bg);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+/* Left Side - Branding (Inside Card) */
+.auth-card .auth-brand-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2rem;
+    background: linear-gradient(180deg, #f9f8ff 0%, #faf9ff 50%, #f8f7ff 100%);
+    position: relative;
+}
+
+.auth-card .auth-brand-side::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.auth-card .brand-content {
+    text-align: left;
+    color: #1e3a5f;
+    animation: fadeInUp 0.8s ease-out;
+    width: 100%;
+}
+
+.auth-card .brand-logo {
+    height: 100px;
+    width: auto;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.1));
+    animation: logoFloat 3s ease-in-out infinite;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.auth-card .brand-subtitle {
+    font-size: 1rem;
+    color: #1e3a5f;
+    opacity: 1;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.auth-card .brand-features {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.auth-card .feature-item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(13, 110, 253, 0.08);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    color: #333333;
+    font-size: 0.9rem;
+}
+
+.auth-card .feature-item:hover {
+    background: rgba(13, 110, 253, 0.15);
+    color: #0D6EFD;
+    transform: translateX(3px);
+}
+
+.auth-card .feature-item i {
+    font-si#666666;
+}
+
+.auth-card .feature-item:hover i {
+    color: #0D6EFD
+    color: var(--bs-primary);
+}
+
+/* Right Side - Login Form (Inside Card) */
+.auth-card .auth-form-side {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.auth-card .login-card {
+    width: 100%;
+    max-width: 100%;
+    background: transparent;
+    backdrop-filter: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    animation: none;
+}
+
+.auth-card .login-card .login-header {
+    margin-bottom: 2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+    .auth-card {
+        flex-direction: column;
+        width: 100%;
+        max-width: 500px;
+        height: auto;
+        min-height: 520px;
+    }
+
+    .auth-card .auth-brand-side {
+        padding: 2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .auth-card .auth-brand-side::before {
+        display: none;
+    }
+
+    .auth-card .auth-form-side {
+        padding: 2rem;
+    }
+
+    .auth-card .brand-features {
+        margin-top: 2rem;
+    }
+
+    .auth-card .feature-item {
+        font-size: 0.9rem;
+        padding: 0.6rem 1.2rem;
+    }
+}
+
+.login-card {
+    width: 100%;
+    max-width: 440px;
+    background: var(--login-glass-bg);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 3rem;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.15),
+        0 0 0 1px var(--login-glass-border);
+    animation: slideIn 0.6s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    width: 100%;
+}
+
+.login-header h3 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+.form-floating-custom {
+    position: relative;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    display: block;
+}
+
+.form-floating-custom .form-control {
+    width: 100%;
+    height: 56px;
+    padding: 1rem 1rem 1rem 3rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: #f8fafc;
+    box-sizing: border-box;
+}
+
+.form-floating-custom .form-control:focus {
+    border-color: #0077b6;
+    box-shadow: 0 0 0 4px rgba(0, 119, 182, 0.1);
+    background: white;
+}
+
+.form-floating-custom .form-control::placeholder {
+    color: #94a3b8;
+}
+
+.form-floating-custom .input-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 1.25rem;
+    transition: color 0.3s ease;
+    z-index: 2;
+    pointer-events: none;
+    display: inline-block;
+    width: 1.25rem;
+    line-height: 1;
+}
+
+.form-floating-custom:focus-within .input-icon {
+    color: #0077b6;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.3s ease;
+}
+
+.password-toggle-btn:hover {
+    color: #0077b6;
+}
+
+.btn-login {
+    width: 100%;
+    height: 56px;
+    background: #0D6EFD;
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.3);
+}
+
+.btn-login::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.btn-login:hover::before {
+    left: 100%;
+}
+
+.btn-login:hover {
+    background: #0B5ED7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+}
+
+.btn-login:active {
+    background: #0A58CA;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3);
+}
+
+.forgot-password-link {
+    display: block;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: #0077b6;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.forgot-password-link:hover {
+    color: #005f8f;
+    text-decoration: underline;
+}
+
+/* Alert Styles */
+.alert-modern {
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: shakeAlert 0.5s ease-in-out;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.alert-modern.alert-danger {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.alert-modern.alert-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+}
+
+.alert-modern i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.alert-modern span {
+    flex: 1;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.alert-modern .btn-close {
+    margin-left: auto;
+    padding: 0.5rem;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+@keyframes shakeAlert {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20% {
+        transform: translateX(-5px);
+    }
+
+    40% {
+        transform: translateX(5px);
+    }
+
+    60% {
+        transform: translateX(-5px);
+    }
+
+    80% {
+        transform: translateX(5px);
+    }
+}
+
+/* Modal Styles */
+.modal-modern .modal-content {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-modern .modal-header {
+    border: none;
+    padding: 2rem 2rem 1rem;
+}
+
+.modal-modern .modal-title {
+    font-weight: 700;
+    color: #1e3a5f;
+}
+
+.modal-modern .modal-body {
+    padding: 1rem 2rem 2rem;
+    color: #64748b;
+    text-align: center;
+}
+
+.modal-modern .modal-body .modal-top-icon {
+    font-size: 3rem;
+    color: #0077b6;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+/* Login Page Responsive */
+@media (max-width: 991px) {
+    .auth-brand-side {
+        display: none;
+    }
+
+    .login-card {
+        margin: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .login-card {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+    }
+
+    .brand-title {
+        font-size: 2rem;
+    }
+}
+
+/* Dark mode support for login */
+.dark-style .login-card {
+    background: rgba(47, 51, 73, 0.95);
+}
+
+.dark-style .login-header h3 {
+    color: #e2e8f0;
+}
+
+.dark-style .form-floating-custom .form-control {
+    background: #25293c;
+    border-color: #434968;
+    color: #e2e8f0;
+}
+
+/* ==========================================================================
+   Dashboard Footer Styles
+   ========================================================================== */
+
+.content-footer.footer {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-top: 1px solid rgba(0, 119, 182, 0.1);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.content-footer .footer-container {
+    padding: 0.5rem 0;
+}
+
+.content-footer .text-primary {
+    color: #0077b6 !important;
+}
+
+.content-footer .text-primary:hover {
+    color: #00b4d8 !important;
+}
+
+/* ==========================================================================
+   WYSIWYG Content Styling for Task Display - Match Quill Editor
+   ========================================================================== */
+
+.task-wysiwyg-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: #212529;
+    background: #ffffff;
+}
+
+.task-wysiwyg-content p {
+    margin: 0 0 0.75rem 0;
+    line-height: 1.6;
+}
+
+.task-wysiwyg-content p:last-child {
+    margin-bottom: 0;
+}
+
+.task-wysiwyg-content h1 {
+    font-size: 2.375rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem 0;
+    line-height: 1.3;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.625rem 0;
+    line-height: 1.3;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content h3 {
+    font-size: 1.625rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem 0;
+    line-height: 1.4;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content h4 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    margin: 0.875rem 0 0.5rem 0;
+    line-height: 1.4;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content h5 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0.75rem 0 0.5rem 0;
+    line-height: 1.5;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content h6 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0.625rem 0 0.5rem 0;
+    line-height: 1.5;
+    color: #1e3a5f;
+}
+
+/* List styling - match Quill editor padding */
+.task-wysiwyg-content ul,
+.task-wysiwyg-content ol {
+    margin: 0.75rem 0;
+    padding-left: 2rem;
+    padding-right: 0;
+}
+
+.task-wysiwyg-content ul>li,
+.task-wysiwyg-content ol>li {
+    margin-bottom: 0.5rem;
+    padding-left: 0;
+    list-style-position: outside;
+}
+
+.task-wysiwyg-content ul>li::before {
+    content: "•";
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+    color: #0077b6;
+    font-weight: bold;
+}
+
+.task-wysiwyg-content ol {
+    counter-reset: list-1;
+}
+
+.task-wysiwyg-content ol>li {
+    counter-increment: list-1;
+}
+
+.task-wysiwyg-content ol>li::before {
+    content: counter(list-1, decimal) ". ";
+    display: inline-block;
+    width: 2rem;
+    margin-left: -2rem;
+    text-align: right;
+    color: #0077b6;
+    font-weight: 500;
+}
+
+.task-wysiwyg-content strong {
+    font-weight: 600;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content em {
+    font-style: italic;
+}
+
+.task-wysiwyg-content u {
+    text-decoration: underline;
+}
+
+.task-wysiwyg-content a {
+    color: #0077b6;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.task-wysiwyg-content a:hover {
+    color: #005f8a;
+}
+
+.task-wysiwyg-content blockquote {
+    border-left: 4px solid #0077b6;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    background-color: rgba(0, 119, 182, 0.05);
+    border-radius: 0 0.5rem 0.5rem 0;
+    font-style: italic;
+    color: #495057;
+}
+
+.task-wysiwyg-content code {
+    background-color: #f1f3f5;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+    color: #e83e8c;
+}
+
+.task-wysiwyg-content pre {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    border: 1px solid #e2e8f0;
+}
+
+.task-wysiwyg-content pre code {
+    background-color: transparent;
+    padding: 0;
+    color: #212529;
+    font-size: 0.875rem;
+}
+
+.task-wysiwyg-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 0.75rem 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-wysiwyg-content hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 1.5rem 0;
+}
+
+.task-wysiwyg-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+}
+
+.task-wysiwyg-content table th,
+.task-wysiwyg-content table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+.task-wysiwyg-content table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #1e3a5f;
+}
+
+.task-wysiwyg-content table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* ==========================================================================
+   Fix Button/Link Focus & Active States - Match Main Color
+   ========================================================================== */
+
+/* Remove black focus outline and replace with main color */
+.btn:focus,
+.btn:active,
+.btn:focus-visible,
+.nav-link:focus,
+.nav-link:active,
+.nav-link:focus-visible,
+.dropdown-toggle:focus,
+.dropdown-toggle:active,
+.dropdown-toggle:focus-visible,
+.dropdown-item:focus,
+.dropdown-item:active,
+.dropdown-item:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+}
+
+/* Profile dropdown toggle - fix black click color */
+.navbar-dropdown .nav-link:focus,
+.navbar-dropdown .nav-link:active,
+.dropdown-user .nav-link:focus,
+.dropdown-user .nav-link:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.navbar-dropdown .nav-link:focus .avatar,
+.navbar-dropdown .nav-link:active .avatar {
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.3) !important;
+    border-radius: 50%;
+}
+
+/* Dropdown items - fix black active/focus color */
+.dropdown-menu .dropdown-item:focus,
+.dropdown-menu .dropdown-item:active {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+    color: #0D6EFD !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.dropdown-menu .dropdown-item:focus i,
+.dropdown-menu .dropdown-item:active i {
+    color: #0D6EFD !important;
+}
+
+/* General link focus/active states */
+a:focus,
+a:active,
+a:focus-visible {
+    outline-color: #0077b6 !important;
+}
+
+/* Remove Bootstrap default black shadow on buttons */
+.btn:not(:disabled):not(.disabled):active:focus,
+.btn:not(:disabled):not(.disabled).active:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 119, 182, 0.25) !important;
+}
+
+/* Fix checkbox and radio focus ring */
+.form-check-input:focus {
+    border-color: #0077b6 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 119, 182, 0.25) !important;
+}
+
+.form-check-input:checked {
+    background-color: #0077b6 !important;
+    border-color: #0077b6 !important;
+}
+
+/* Fix input focus ring */
+.form-control:focus,
+.form-select:focus {
+    border-color: #0077b6 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 119, 182, 0.15) !important;
+}
+
+/* Avatar click indicator */
+.avatar:active,
+.avatar:focus {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+}
+
+/* ==========================================================================
+   Background Color Putih (kecuali Sidebar & Login)
+   ========================================================================== */
+
+/* Layout page background putih */
+.layout-page {
+    background-color: #ffffff !important;
+}
+
+/* Content wrapper background putih */
+.content-wrapper {
+    background-color: #ffffff !important;
+}
+
+/* Navbar/Topbar background dengan subtle cream gradient */
+.bg-navbar-theme,
+#layout-navbar {
+    background: linear-gradient(90deg, #ffffff 0%, #f9f8ff 100%) !important;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+/* Container content background putih */
+.container-xxl,
+.container-fluid {
+    background-color: transparent !important;
+}
+
+/* Footer background putih */
+.content-footer {
+    background-color: #ffffff !important;
+}
+
+/* Footer tetap di bawah viewport saat konten pendek */
+.layout-wrapper.layout-content-navbar .layout-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.layout-wrapper.layout-content-navbar .layout-page > .layout-navbar {
+    flex-shrink: 0;
+}
+
+/* Navbar: breadcrumb kiri + notifikasi/avatar kanan */
+#layout-navbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    overflow: visible !important;
+}
+
+#layout-navbar .layout-navbar-breadcrumb {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: visible;
+    padding-right: 0.75rem;
+}
+
+#layout-navbar .layout-navbar-breadcrumb .breadcrumb {
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+    margin-bottom: 0;
+    font-size: 0.875rem;
+    --bs-breadcrumb-divider: '/';
+}
+
+#layout-navbar .layout-navbar-breadcrumb .breadcrumb-item {
+    white-space: nowrap;
+}
+
+#layout-navbar .layout-navbar-breadcrumb .breadcrumb-item a {
+    color: #677788;
+    text-decoration: none;
+}
+
+#layout-navbar .layout-navbar-breadcrumb .breadcrumb-item a:hover {
+    color: #212529;
+}
+
+#layout-navbar .layout-navbar-breadcrumb .breadcrumb-item.active {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* Override theme: .navbar-nav-right { flex-basis: 100% } memakan seluruh bar & menutupi avatar */
+#layout-navbar .navbar-nav-right {
+    flex-basis: auto !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    margin-left: auto !important;
+}
+
+#layout-navbar .navbar-nav-right .navbar-nav {
+    margin-left: 0 !important;
+}
+
+#layout-navbar .navbar-dropdown.dropdown-user .avatar {
+    display: inline-flex !important;
+}
+
+.layout-wrapper.layout-content-navbar .layout-page > .content-wrapper {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.layout-wrapper.layout-content-navbar .layout-page > .content-wrapper > *:first-child {
+    flex: 1 0 auto;
+}
+
+.layout-wrapper.layout-content-navbar .layout-page > .content-wrapper > .content-footer {
+    flex-shrink: 0;
+}
+
+/* Body background dengan subtle cream gradient */
+.light-style body {
+    background: linear-gradient(135deg, #ffffff 0%, rgba(99, 102, 241, 0.03) 100%) !important;
+}
+
+/* Card tetap putih dengan shadow */
+.card {
+    background-color: #ffffff !important;
+}
+
+/* ===== Navbar Elements - Blue Theme ===== */
+/* Navbar badges and notifications */
+.bg-navbar-theme .badge-notifications,
+.badge-primary {
+    background-color: #0D6EFD !important;
+}
+
+/* Prevent blink on notification badge - smooth transitions */
+#notification-badge-count {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-block !important;
+    transform: scale(1);
+}
+
+#notification-badge-count:empty {
+    display: none !important;
+}
+
+#notification-badge-count.hide {
+    opacity: 0 !important;
+    transform: scale(0.5);
+    width: 0 !important;
+    overflow: hidden;
+}
+
+/* Keep badge stable position to prevent layout shift */
+.navbar-dropdown .badge-notifications {
+    min-width: 1.25rem;
+    text-align: center;
+}
+
+/* Navbar dropdown links hover effect */
+.bg-navbar-theme .nav-link {
+    color: #333333 !important;
+    transition: all 0.3s ease;
+}
+
+.bg-navbar-theme .nav-link:hover {
+    color: #0D6EFD !important;
+}
+
+/* Avatar border with primary color */
+.border-primary {
+    border-color: #0D6EFD !important;
+}
+
+/* Navbar buttons */
+.bg-navbar-theme .btn-primary {
+    background-color: #0D6EFD !important;
+    border-color: #0D6EFD !important;
+}
+
+.bg-navbar-theme .btn-primary:hover {
+    background-color: #6366F1 !important;
+    border-color: #6366F1 !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3) !important;
+}
+
+/* Active menu indicator accent */
+.bg-menu-theme .menu-item.active::before {
+    background-color: #0D6EFD !important;
+}
+
+/*
+* demo.css
+* File include item demo only specific css only
+******************************************************************************/
+
+.light-style .menu .app-brand.demo {
+  height: 90px;
+}
+
+.dark-style .menu .app-brand.demo {
+  height: 90px;
+}
+
+.app-brand-logo.demo {
+  -ms-flex-align: center;
+  align-items: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  display: -ms-flexbox;
+  display: flex;
+  width: 34px;
+  height: auto;
+}
+
+.app-brand-logo.demo svg {
+  width: 35px;
+  height: 24px;
+}
+
+.app-brand-text.demo {
+  font-size: 1rem;
+  width: 200px;
+  line-height: 1.3;
+}
+
+/* ! For .layout-navbar-fixed added fix padding top tpo .layout-page */
+.layout-navbar-fixed .layout-wrapper:not(.layout-without-menu) .layout-page {
+  padding-top: 64px !important;
+}
+.layout-navbar-fixed .layout-wrapper:not(.layout-horizontal):not(.layout-without-menu) .layout-page {
+  padding-top: 78px !important;
+}
+/* Navbar page z-index issue solution */
+.content-wrapper .navbar {
+  z-index: auto;
+}
+
+/*
+* Content
+******************************************************************************/
+
+.demo-blocks > * {
+  display: block !important;
+}
+
+.demo-inline-spacing > * {
+  margin: 1rem 0.375rem 0 0 !important;
+}
+
+/* ? .demo-vertical-spacing class is used to have vertical margins between elements. To remove margin-top from the first-child, use .demo-only-element class with .demo-vertical-spacing class. For example, we have used this class in forms-input-groups.html file. */
+.demo-vertical-spacing > * {
+  margin-top: 1rem !important;
+  margin-bottom: 0 !important;
+}
+.demo-vertical-spacing.demo-only-element > :first-child {
+  margin-top: 0 !important;
+}
+
+.demo-vertical-spacing-lg > * {
+  margin-top: 1.875rem !important;
+  margin-bottom: 0 !important;
+}
+.demo-vertical-spacing-lg.demo-only-element > :first-child {
+  margin-top: 0 !important;
+}
+
+.demo-vertical-spacing-xl > * {
+  margin-top: 5rem !important;
+  margin-bottom: 0 !important;
+}
+.demo-vertical-spacing-xl.demo-only-element > :first-child {
+  margin-top: 0 !important;
+}
+
+.rtl-only {
+  display: none !important;
+  text-align: left !important;
+  direction: ltr !important;
+}
+
+[dir='rtl'] .rtl-only {
+  display: block !important;
+}
+
+/*
+* Layout demo
+******************************************************************************/
+
+.layout-demo-wrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  margin-top: 1rem;
+}
+.layout-demo-placeholder img {
+  width: 900px;
+}
+.layout-demo-info {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* ==========================================================================
+   Fix Layout Overlay - Hide on Desktop & Prevent Blocking Sidebar
+   ========================================================================== */
+
+/* Hide overlay on desktop screens */
+@media (min-width: 1200px) {
+    .layout-overlay {
+        display: none !important;
+    }
+}
+
+/* Ensure overlay doesn't block sidebar by default */
+.layout-overlay {
+    pointer-events: none !important;
+}
+
+/* Enable pointer events only when menu is expanded on mobile */
+@media (max-width: 1199.98px) {
+    .layout-menu-expanded .layout-overlay {
+        pointer-events: auto !important;
+    }
+}
+
+/* ==========================================================================
+   Remove Black Border Above Submenu Items (Comprehensive Fix)
+   ========================================================================== */
+
+/* Target ALL possible border sources in menu */
+.menu-inner > .menu-item.open > .menu-sub,
+.menu-inner > .menu-item.open > .menu-sub::before,
+.menu-inner > .menu-item.open > .menu-sub::after,
+.menu-sub,
+.menu-sub::before,
+.menu-sub::after {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Specific targeting for menu-light theme */
+.menu-light .menu-inner > .menu-item.open > .menu-sub,
+.menu-light .menu-inner > .menu-item.open > .menu-sub::before,
+.menu-light .menu-inner > .menu-item.open > .menu-sub::after,
+.menu-light .menu-sub,
+.menu-light .menu-sub::before,
+.menu-light .menu-sub::after {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Target bg-menu-theme */
+.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub,
+.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::after,
+.bg-menu-theme .menu-sub,
+.bg-menu-theme .menu-sub::before,
+.bg-menu-theme .menu-sub::after {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Target any HR or divider elements in menu */
+.menu-inner > .menu-item.open > .menu-sub > *,
+.menu-sub > *,
+.menu-sub hr,
+.menu-sub .menu-divider,
+.menu-inner > .menu-item.open > .menu-sub hr,
+.menu-inner > .menu-item.open > .menu-sub .menu-divider {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove borders from first child of submenu (most likely source) */
+.menu-inner > .menu-item.open > .menu-sub > li:first-child,
+.menu-inner > .menu-item.open > .menu-sub > .menu-item:first-child,
+.menu-sub > li:first-child,
+.menu-sub > .menu-item:first-child {
+    border-top: none !important;
+    border: none !important;
+}
+
+/* Universal removal for any border-like property on menu elements */
+.menu-vertical .menu-inner > .menu-item.open > .menu-sub,
+.menu-vertical .menu-sub {
+    border: none !important;
+    border-top: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Remove any ::before pseudo-element borders from parent menu items */
+.menu-inner > .menu-item.open::before,
+.menu-inner > .menu-item.open::after {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ==========================================================================
+   Ultra-specific Border Removal - Combined Selectors for Maximum Priority
+   ========================================================================== */
+
+/* Combine multiple classes for maximum specificity */
+.layout-wrapper .layout-menu.menu-vertical.menu-bg.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+body .layout-menu.menu-vertical.menu-bg.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+.light-style .layout-menu.menu-vertical.menu-bg.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+html.light-style .layout-menu.menu-vertical.menu-bg.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+.layout-wrapper .menu-light .menu-inner > .menu-item.open > .menu-sub::before,
+body .menu-light .menu-inner > .menu-item.open > .menu-sub::before,
+.light-style .menu-light .menu-inner > .menu-item.open > .menu-sub::before {
+    border-color: transparent !important;
+    border: none !important;
+    border-top: none !important;
+    content: none !important;
+    display: none !important;
+}
+
+/* Also target via !important on all border properties with maximum specificity */
+.layout-wrapper .layout-menu .menu-inner > .menu-item.open > .menu-sub,
+.layout-wrapper .layout-menu .menu-inner > .menu-item.open > .menu-sub::before,
+.layout-wrapper .layout-menu .menu-inner > .menu-item.open > .menu-sub::after {
+    border-top-style: none !important;
+    border-bottom-style: none !important;
+    border-left-style: none !important;
+    border-right-style: none !important;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+    border-left-width: 0 !important;
+    border-right-width: 0 !important;
+    border-color: transparent !important;
+    border: none !important;
+}
+
+/* Explicitly hide any pseudo-element content */
+.menu-inner > .menu-item.open > .menu-sub::before {
+    content: none !important;
+}
+
+/* Target vendor CSS selectors with higher specificity */
+.menu.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::before,
+.menu:not(.menu-dark) .menu-inner > .menu-item.open > .menu-sub::before {
+    border-color: transparent !important;
+    border: none !important;
+}
+
+/* ==========================================================================
+   Fix Open Menu Toggle Border - Remove Black Border
+   ========================================================================== */
+
+.bg-menu-theme .menu-inner .menu-item.open > .menu-link.menu-toggle,
+.layout-menu-hover.layout-menu-collapsed .bg-menu-theme .menu-inner .menu-item.open > .menu-link.menu-toggle,
+.bg-menu-theme .menu-inner .menu-item.active > .menu-link.menu-toggle,
+.layout-menu-hover.layout-menu-collapsed .bg-menu-theme .menu-inner .menu-item.active > .menu-link.menu-toggle {
+    border: none !important;
+    border-radius: 4px !important;
+}
+
+/* Also target with menu-light class */
+.menu-light .menu-inner .menu-item.open > .menu-link.menu-toggle,
+.menu-light .menu-inner .menu-item.active > .menu-link.menu-toggle {
+    border: none !important;
+}
+
+/* ==========================================================================
+   Global Monochrome Theme
+   ========================================================================== */
+
+:root {
+    --mono-900: #111111;
+    --mono-800: #1f1f1f;
+    --mono-700: #2f2f2f;
+    --mono-600: #4a4a4a;
+    --mono-500: #6b6b6b;
+    --mono-300: #cfcfcf;
+    --mono-200: #e5e5e5;
+    --mono-100: #f3f3f3;
+    --mono-050: #fafafa;
+
+    --bs-primary: #2f2f2f !important;
+    --bs-primary-rgb: 47, 47, 47 !important;
+}
+
+/* Global text and links */
+body,
+.text-body,
+.card-title,
+.card-text,
+.form-label,
+.nav-link,
+.menu-link,
+.dropdown-item,
+h1, h2, h3, h4, h5, h6 {
+    color: var(--mono-800) !important;
+}
+
+a,
+.text-primary {
+    color: var(--mono-700) !important;
+}
+
+a:hover,
+.nav-link:hover,
+.menu-link:hover,
+.dropdown-item:hover {
+    color: var(--mono-900) !important;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background: var(--mono-800) !important;
+    border-color: var(--mono-800) !important;
+}
+
+.btn-outline-primary {
+    color: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+    background: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+    color: #fff !important;
+}
+
+.btn-label-primary {
+    color: var(--mono-700) !important;
+    background: rgba(47, 47, 47, 0.12) !important;
+}
+
+/* Semantic colors forced to monochrome */
+.btn-success, .btn-info, .btn-warning, .btn-danger, .btn-secondary {
+    background: var(--mono-600) !important;
+    border-color: var(--mono-600) !important;
+    color: #fff !important;
+}
+
+.btn-success:hover, .btn-info:hover, .btn-warning:hover, .btn-danger:hover, .btn-secondary:hover,
+.btn-success:focus, .btn-info:focus, .btn-warning:focus, .btn-danger:focus, .btn-secondary:focus {
+    background: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+}
+
+/* Badge/label and helper colors */
+.bg-label-primary,
+.bg-label-success,
+.bg-label-info,
+.bg-label-warning,
+.bg-label-danger,
+.bg-label-secondary {
+    background-color: rgba(47, 47, 47, 0.12) !important;
+    color: var(--mono-700) !important;
+}
+
+.badge-primary,
+.badge.bg-primary,
+.page-item.active .page-link {
+    background-color: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+    color: #fff !important;
+}
+
+.page-link {
+    color: var(--mono-700) !important;
+}
+
+/* Inputs, toggles, focus */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--mono-600) !important;
+    box-shadow: 0 0 0 0.2rem rgba(47, 47, 47, 0.15) !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+}
+
+/* Sidebar + navbar accents */
+.bg-menu-theme .menu-link:hover,
+.bg-menu-theme .menu-item.active > .menu-link,
+.bg-menu-theme .menu-item.active > .menu-link .menu-icon,
+.bg-menu-theme .menu-sub .menu-link:hover,
+.bg-menu-theme .menu-sub .menu-item.active > .menu-link,
+.bg-navbar-theme .nav-link:hover,
+.bg-menu-theme .app-brand-text {
+    color: var(--mono-800) !important;
+}
+
+.bg-menu-theme.menu-vertical .menu-item.active > .menu-link:not(.menu-toggle),
+.bg-menu-theme .menu-inner .menu-item.open > .menu-link.menu-toggle,
+.bg-menu-theme .menu-inner .menu-item.active > .menu-link.menu-toggle {
+    background: rgba(47, 47, 47, 0.08) !important;
+}
+
+.layout-wrapper:not(.layout-horizontal) .bg-menu-theme .menu-inner > .menu-item.active:before,
+.bg-menu-theme .menu-item.active::before {
+    background-color: var(--mono-700) !important;
+}
+
+/* Brand chip/logo text */
+.brand-logo-text,
+.bg-menu-theme .app-brand-logo .brand-logo-text {
+    background: var(--mono-700) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Logo assets -> monochrome */
+.app-brand-logo img,
+.brand-logo,
+.auth-card .brand-logo,
+.login-card .brand-logo,
+.image-crop-header img {
+    filter: grayscale(100%) contrast(1.05) brightness(0.95) !important;
+}
+
+/* Keep logo chip/text logo monochrome-dark */
+.app-brand-logo .brand-logo-text {
+    background: var(--mono-800) !important;
+    color: #ffffff !important;
+}
+
+/* Login page monochrome enforcement */
+.auth-wrapper,
+.auth-card .auth-brand-side {
+    background: linear-gradient(180deg, #f7f7f7 0%, #efefef 100%) !important;
+}
+
+.login-header h3,
+.login-header p,
+.auth-card .brand-subtitle,
+.auth-card .feature-item,
+.forgot-password-link {
+    color: var(--mono-800) !important;
+}
+
+.auth-card .feature-item {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+.auth-card .feature-item:hover {
+    background: rgba(0, 0, 0, 0.12) !important;
+    color: var(--mono-900) !important;
+}
+
+.brand-logo-card,
+.btn-login {
+    background: var(--mono-700) !important;
+    border-color: var(--mono-700) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.btn-login:hover,
+.btn-login:active {
+    background: var(--mono-800) !important;
+    border-color: var(--mono-800) !important;
+}
+
+.form-floating-custom .form-control:focus {
+    border-color: var(--mono-600) !important;
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+.form-floating-custom:focus-within .input-icon,
+.password-toggle-btn:hover {
+    color: var(--mono-700) !important;
+}
+
+/* ==========================================================================
+   Sidebar v2 - Modern Workspace Layout
+   Workspace switcher card, refined menu items, indented submenu guide rail
+   ========================================================================== */
+
+/* Sidebar shell tightening */
+.layout-menu {
+    border-right: 1px solid var(--mono-200) !important;
+}
+
+/* --- Workspace switcher (top brand card) ------------------------------- */
+.bg-menu-theme .app-brand.demo.workspace-switcher,
+.light-style .menu .app-brand.demo.workspace-switcher,
+.app-brand.demo.workspace-switcher {
+    height: auto !important;
+    padding: 14px 14px 12px !important;
+    border-bottom: 1px solid var(--mono-200) !important;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
+.workspace-switcher .workspace-dropdown-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.workspace-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--mono-800);
+    text-decoration: none;
+}
+
+/* Static (non-clickable) workspace card: no pointer, no hover, no focus */
+.workspace-card.is-static {
+    cursor: default;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.workspace-card.is-static:hover,
+.workspace-card.is-static:focus,
+.workspace-card.is-static:active {
+    background: transparent !important;
+    color: var(--mono-800) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.workspace-logo {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--mono-800);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: .5px;
+    font-size: .68rem;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.workspace-logo .brand-logo-text {
+    background: transparent !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: inherit;
+    line-height: 1;
+}
+
+.workspace-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.workspace-title {
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--mono-900);
+    letter-spacing: .1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.workspace-subtitle {
+    font-size: .72rem;
+    color: var(--mono-500);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.workspace-chevron {
+    flex: 0 0 auto;
+    color: var(--mono-500);
+    font-size: 1rem;
+    transition: color .15s ease;
+}
+
+.workspace-card:hover .workspace-chevron,
+.workspace-switcher .dropdown.show .workspace-chevron {
+    color: var(--mono-800);
+}
+
+.bg-menu-theme .app-brand .workspace-collapse-btn,
+.bg-menu-theme .workspace-collapse-btn,
+.workspace-collapse-btn {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    color: var(--mono-500) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.bg-menu-theme .app-brand .workspace-collapse-btn:hover,
+.bg-menu-theme .workspace-collapse-btn:hover,
+.bg-menu-theme .workspace-collapse-btn:focus,
+.workspace-collapse-btn:hover,
+.workspace-collapse-btn:focus {
+    color: var(--mono-900) !important;
+    background: var(--mono-100) !important;
+}
+
+.workspace-collapse-btn i {
+    margin: 0 !important;
+}
+
+/* Workspace dropdown panel */
+.workspace-dropdown {
+    min-width: 220px;
+    padding: 6px 0;
+    border-radius: 10px;
+    border: 1px solid var(--mono-200);
+}
+
+.workspace-dropdown .dropdown-header {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--mono-500);
+    padding: 6px 14px;
+}
+
+.workspace-dropdown .workspace-dropdown-list {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.workspace-dropdown .dropdown-item {
+    font-size: .85rem;
+    padding: 7px 14px;
+}
+
+.workspace-dropdown .dropdown-item.active {
+    background: rgba(47, 47, 47, 0.06) !important;
+    color: var(--mono-800) !important;
+    font-weight: 600;
+}
+
+/* Hide default app-brand-text (kept inside other layouts) within v2 card */
+.workspace-switcher .app-brand-text.demo {
+    display: none !important;
+}
+
+/* --- Section header (Platform / Projects style) ----------------------- */
+.bg-menu-theme .menu-header,
+.menu-header {
+    color: var(--mono-500) !important;
+    text-transform: uppercase;
+    font-size: .68rem !important;
+    letter-spacing: .8px;
+    font-weight: 600 !important;
+    padding: 14px 1.5rem 6px !important;
+    margin: 0 !important;
+}
+
+.bg-menu-theme .menu-header .menu-header-text {
+    opacity: .9;
+}
+
+/* --- Menu items: refined hover, compact padding, smooth active --------- */
+.bg-menu-theme .menu-inner {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+
+.bg-menu-theme .menu-inner > .menu-item,
+.bg-menu-theme .menu-inner .menu-sub > .menu-item {
+    margin: 2px 0 !important;
+}
+
+.bg-menu-theme .menu-inner > .menu-item > .menu-link,
+.bg-menu-theme .menu-inner .menu-sub > .menu-item > .menu-link {
+    border-radius: 8px;
+    padding: 8px 12px !important;
+    font-size: .88rem;
+    font-weight: 500;
+    line-height: 1.25;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.bg-menu-theme .menu-icon {
+    font-size: 1.05rem !important;
+    margin-right: 10px !important;
+}
+
+.bg-menu-theme .menu-link:hover,
+.bg-menu-theme .menu-link:focus {
+    background: var(--mono-100) !important;
+    color: var(--mono-900) !important;
+}
+
+/* Top-level active leaf */
+.bg-menu-theme.menu-vertical .menu-item.active > .menu-link:not(.menu-toggle) {
+    background: var(--mono-100) !important;
+    color: var(--mono-900) !important;
+    box-shadow: none !important;
+    font-weight: 600;
+}
+
+/* Open/active toggles use a subtle tint, no harsh background */
+.bg-menu-theme .menu-inner .menu-item.open > .menu-link.menu-toggle,
+.bg-menu-theme .menu-inner .menu-item.active > .menu-link.menu-toggle {
+    background: transparent !important;
+    color: var(--mono-900) !important;
+}
+
+.bg-menu-theme .menu-inner .menu-item.open > .menu-link.menu-toggle:hover,
+.bg-menu-theme .menu-inner .menu-item.active > .menu-link.menu-toggle:hover {
+    background: var(--mono-100) !important;
+}
+
+/* Remove the global active left-bar accent on parent items - we use submenu rail instead */
+.layout-wrapper:not(.layout-horizontal) .bg-menu-theme .menu-inner > .menu-item.active::before,
+.bg-menu-theme .menu-item.active::before {
+    background-color: transparent !important;
+}
+
+/* Toggle chevron lighter weight */
+.bg-menu-theme .menu-toggle::after {
+    border-width: 1.25px !important;
+    opacity: .55;
+}
+
+.bg-menu-theme .menu-item.open > .menu-toggle::after,
+.bg-menu-theme .menu-item.active > .menu-toggle::after {
+    opacity: .9;
+}
+
+/* --- Submenu: vertical guide rail aligned with parent icon ------------- */
+/*
+ * Column math (px from sidebar's inner edge = col 0):
+ *   menu-inner padding-left ........ 10
+ *   menu-link margin-left (vendor) . 14   (.875rem)
+ *   menu-link padding-left ......... 12   (ours)
+ *   menu-icon width (vendor) ....... 22   (1.375rem)
+ *   icon margin-right .............. 10   (ours)
+ *
+ *   parent icon center = 10 + 14 + 12 + 22/2          = 47
+ *   parent text start  = 10 + 14 + 12 + 22 + 10       = 68
+ *
+ * Approach (works around the "Comprehensive Border Removal" block
+ * earlier in this file that nukes border/box-shadow on .menu-sub):
+ *   • Push menu-sub right via margin-left so its left edge sits on
+ *     the parent-icon-center column — then the rail is drawn AT the
+ *     menu-sub's left edge using a ::after with `background` (not
+ *     border, which is killed; not box-shadow, also killed).
+ *   • Force `margin: 0` on submenu links so vendor's .875rem
+ *     margin-left doesn't double-up the indent.
+ *   • Active accent uses ::before sitting on top of the rail.
+ *
+ * All selectors below are pre-fixed with `.layout-wrapper .layout-menu`
+ * to elevate specificity above the aggressive kill rules.
+ */
+
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub,
+.layout-wrapper .layout-menu.bg-menu-theme .menu-sub {
+    position: relative !important;
+    margin: 4px 0 6px !important;
+    padding: 0 !important;
+    list-style: none;
+}
+
+/* Level 2: shift menu-sub right so its left edge = parent icon center (col 47) */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub {
+    margin-left: 37px !important;        /* 10 + 37 = 47 */
+}
+
+/* Level 3 (nested): shift further so its left edge = parent text col (68) */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-sub {
+    margin-left: 21px !important;        /* relative to lvl-2 left (47) → 68 */
+}
+
+/* Rail = ::after with background (border/box-shadow are killed elsewhere) */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner > .menu-item.open > .menu-sub::after,
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-sub::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 4px !important;
+    bottom: 4px !important;
+    left: 0 !important;                  /* drawn at menu-sub's left edge */
+    right: auto !important;
+    width: 1px !important;
+    height: auto !important;
+    background: var(--mono-200) !important;
+    border: 0 none !important;
+    box-shadow: none !important;
+    pointer-events: none;
+    transform: none !important;
+    z-index: 0;
+}
+
+/* Override vendor margin on submenu links: keep margin-right .875rem so the
+   chevron column matches top-level menus (which have the same margin-right);
+   margin-left is 0 so our rail/accent math keeps working. */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-link {
+    margin: 0 .875rem 0 0 !important;
+}
+
+/* Sub-link visuals: text starts ~21px past the rail (col 68 from sidebar);
+   right padding leaves room for the chevron on .menu-toggle items. */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub > .menu-item > .menu-link {
+    position: relative !important;
+    padding-top: 8px !important;
+    padding-right: 32px !important;
+    padding-bottom: 8px !important;
+    padding-left: 21px !important;
+    border-radius: 0 8px 8px 0 !important;
+    color: var(--mono-600) !important;
+    font-weight: 500 !important;
+}
+
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-link:hover {
+    color: var(--mono-900) !important;
+    background: var(--mono-100) !important;
+}
+
+/* Hide vendor bullet on inactive items only (so we can repurpose ::before for active) */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-item:not(.active) > .menu-link::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* Active sub leaf */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-item.active > .menu-link {
+    background: var(--mono-100) !important;
+    color: var(--mono-900) !important;
+    font-weight: 600 !important;
+}
+
+/* Active accent bar — overlays the rail */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub .menu-item.active > .menu-link::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 6px !important;
+    bottom: 6px !important;
+    left: -1px !important;               /* sit on top of the rail */
+    right: auto !important;
+    width: 2px !important;
+    height: auto !important;
+    background: var(--mono-800) !important;
+    border: 0 none !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+    transform: none !important;
+    z-index: 1;
+}
+
+/* Open / active level-2 toggle (e.g. "Master"): no fill, just bold */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub > .menu-item.open > .menu-link.menu-toggle,
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub > .menu-item.active > .menu-link.menu-toggle {
+    background: transparent !important;
+    color: var(--mono-900) !important;
+    font-weight: 600 !important;
+}
+
+/* Keep submenu toggle chevron in the same right column as top-level menus.
+   Both top-level and submenu links now share margin-right: .875rem, so
+   right: 1rem (vendor default) lands every chevron in the same column. */
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub > .menu-item > .menu-link.menu-toggle {
+    padding-right: calc(1rem + 1.26em) !important;
+}
+
+.layout-wrapper .layout-menu.bg-menu-theme .menu-vertical .menu-toggle::after,
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-item > .menu-link.menu-toggle::after,
+.layout-wrapper .layout-menu.bg-menu-theme .menu-inner .menu-sub > .menu-item > .menu-link.menu-toggle::after {
+    right: 1rem !important;
+    left: auto !important;
+}
+
+/* Collapsed sidebar (icon-only mode): center the WIT logo on the SAME
+   vertical axis as the menu icons below.
+   We use absolute positioning with translate(-50%, -50%) so the logo
+   is geometrically dead-center inside the brand area, regardless of
+   any vendor padding/margin/flex rules that might still apply. */
+.layout-menu-collapsed:not(.layout-menu-hover) .app-brand.demo.workspace-switcher {
+    position: relative !important;
+    display: block !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    text-align: center !important;
+    overflow: hidden;
+}
+
+.layout-menu-collapsed:not(.layout-menu-hover) .workspace-card {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    display: inline-flex !important;
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.layout-menu-collapsed:not(.layout-menu-hover) .workspace-logo {
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+}
+
+.layout-menu-collapsed:not(.layout-menu-hover) .workspace-meta,
+.layout-menu-collapsed:not(.layout-menu-hover) .workspace-chevron,
+.layout-menu-collapsed:not(.layout-menu-hover) .workspace-collapse-btn {
+    display: none !important;
+}
+

@@ -1,0 +1,1129 @@
+// Generated from database/migrations — import at https://dbdiagram.io
+// Table names include PostgreSQL schema (quoted). Re-run: python3 scripts/migrations_to_dbml.py
+
+Table "auth.iam_accesses" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  role_id uuid [not null]
+  is_notification boolean [not null, default: false]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "auth.iam_has_accesses" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  iam_access_id uuid [not null]
+  sidebar_menu_id uuid [not null]
+  is_create boolean [not null, default: false]
+  is_read boolean [not null, default: false]
+  is_update boolean [not null, default: false]
+  is_delete boolean [not null, default: false]
+  is_custom_1 boolean [not null, default: false]
+  is_custom_2 boolean [not null, default: false]
+  is_custom_3 boolean [not null, default: false]
+  is_custom_4 boolean [not null, default: false]
+  is_custom_5 boolean [not null, default: false]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "auth.users" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  employee_id uuid
+  role_id uuid [not null]
+  current_business_unit_id uuid
+  is_super_admin boolean [not null, default: false]
+  first_name varchar(255) [not null]
+  last_name varchar(255) [not null]
+  username varchar(255) [unique, not null]
+  password varchar(255) [not null]
+  need_update_password boolean [not null, default: true]
+  url_image text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  email varchar(255) [unique]
+  phone varchar(30)
+}
+
+Table "configuration.dashboard_configuration_team_members" {
+  id uuid [pk]
+  role_id uuid [not null]
+  employee_id uuid [not null]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "configuration.dashboard_configurations" {
+  id uuid [pk]
+  role_id uuid [not null]
+  section varchar(100) [not null]
+  widget varchar(100)
+  is_visible boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "configuration.notifications" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  user_id uuid [not null]
+  type varchar(255) [not null, default: 'info']
+  title varchar(255) [not null]
+  message text
+  module varchar(255)
+  related_id varchar(255)
+  related_type varchar(255)
+  url varchar(255)
+  is_read boolean [not null, default: false]
+  read_at timestamp
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "crm.membership_point_configurations" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [not null]
+  transaction_amount_step bigint [not null, default: 100]
+  points_per_step int [not null, default: 1]
+  is_default boolean [not null, default: false]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  branch_id uuid
+}
+
+Table "customer.customer_groups" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  branch_id uuid [not null]
+  code varchar(50)
+  name varchar(150) [not null]
+  description text
+  price_list_id uuid
+  default_discount decimal(8,2) [not null, default: 0]
+  allow_credit boolean [not null, default: false]
+  credit_limit decimal(15,2)
+  payment_term_days int [not null, default: 0]
+  earn_point boolean [not null, default: false]
+  point_multiplier decimal(5,2) [not null, default: 1]
+  sort_order int [not null, default: 0]
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "customer.customers" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  customer_group_id uuid [not null]
+  code varchar(50) [not null]
+  name varchar(200) [not null]
+  tax_number varchar(50)
+  tax_name varchar(200)
+  tax_address text
+  contact_person varchar(100)
+  email varchar(150)
+  phone varchar(50)
+  mobile varchar(50)
+  address text
+  city varchar(100)
+  province varchar(100)
+  postal_code varchar(20)
+  country varchar(100)
+  lat decimal(10,8)
+  long decimal(11,8)
+  identity_type varchar(30)
+  identity_number varchar(50)
+  attachments jsonb
+  username varchar(100) [unique]
+  password varchar(255)
+  has_app_access boolean [not null, default: false]
+  customer_type varchar(30)
+  notes text
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "failed_jobs" {
+  uuid varchar(255) [unique, not null]
+  connection text [not null]
+  queue text [not null]
+  failed_at timestamp [not null]
+}
+
+Table "human_resources.employees" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  position_id uuid
+  division_id uuid
+  business_unit_id uuid
+  employee_code varchar(50) [unique, not null]
+  identity_number varchar(50) [unique, not null]
+  fullname varchar(150) [not null]
+  nickname varchar(100)
+  place_of_birth varchar(100)
+  date_of_birth date
+  religion varchar(50)
+  marital_status varchar(50)
+  number_of_dependents int [not null, default: 0]
+  address text
+  city varchar(100)
+  province varchar(100)
+  postal_code varchar(10)
+  phone_number varchar(50)
+  email varchar(150)
+  join_date date
+  contract_start_date date
+  contract_end_date date
+  tax_number varchar(50)
+  bpjs_kesehatan varchar(50)
+  bpjs_ketenagakerjaan varchar(50)
+  bank_name varchar(100)
+  bank_account_number varchar(100)
+  bank_account_name varchar(150)
+  emergency_contact_name varchar(150)
+  emergency_contact_relation varchar(100)
+  emergency_contact_phone varchar(50)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.business_unit_branches" {
+  branch_id uuid [not null]
+  warehouse_id uuid [not null]
+  is_default boolean [not null, default: false]
+}
+
+Table "master_data.business_unit_types" {
+  code varchar(30) [pk]
+  description varchar(100)
+}
+
+Table "master_data.business_units" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  parent_id uuid
+  type_code varchar(30) [not null]
+  code varchar(50) [not null]
+  name varchar(150) [not null]
+  brand_name varchar(150)
+  logo varchar(255)
+  legal_name varchar(200)
+  npwp varchar(30)
+  nib varchar(30)
+  email varchar(150)
+  phone varchar(50)
+  address text
+  city varchar(100)
+  province varchar(100)
+  postal_code varchar(20)
+  country varchar(50)
+  is_pos_active boolean [not null, default: false]
+  is_inventory_active boolean [not null, default: false]
+  tax_type varchar(30) [default: 'NONE']
+  tax_percentage decimal(5,2) [not null, default: 0]
+  service_charge_percentage decimal(5,2) [not null, default: 0]
+  timezone varchar(50)
+  currency varchar(10)
+  opening_date date
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.divisions" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.menus" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  parent_id uuid
+  name varchar(255) [not null]
+  code varchar(255) [not null]
+  text_sidebar varchar(255) [not null]
+  icon varchar(255)
+  has_page boolean [not null, default: false]
+  url_path varchar(255)
+  route_name varchar(255)
+  slug varchar(255)
+  level_sidebar int [not null, default: 1]
+  order_number int [not null, default: 0]
+  is_label boolean [not null, default: false]
+  has_create boolean [not null, default: false]
+  has_update boolean [not null, default: false]
+  has_read boolean [not null, default: false]
+  has_delete boolean [not null, default: false]
+  has_custom1 boolean [not null, default: false]
+  has_custom2 boolean [not null, default: false]
+  has_custom3 boolean [not null, default: false]
+  has_custom4 boolean [not null, default: false]
+  has_custom5 boolean [not null, default: false]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.method_payments" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  branch_id uuid [not null]
+  code varchar(50) [not null]
+  name varchar(150) [not null]
+  description text
+  sort_order int [not null, default: 0]
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.positions" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.roles" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [unique, not null]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "master_data.suppliers" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  code varchar(50) [unique, not null]
+  name varchar(200) [not null]
+  supplier_type_id uuid
+  company_id uuid
+  branch_id uuid
+  contact varchar(100)
+  phone varchar(50)
+  email varchar(150)
+  address text
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  is_ppn boolean [not null, default: false, note: 'PPN / NON PPN']
+  ppn_rate decimal(5,2) [note: 'PPN % jika PPN']
+}
+
+Table "password_reset_tokens" {
+  email varchar(255) [pk]
+  token varchar(255) [not null]
+  created_at timestamp
+}
+
+Table "personal_access_tokens" {
+  name varchar(255) [not null]
+  token varchar(64) [unique, not null]
+  abilities text
+  last_used_at timestamp
+  expires_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.attribute_definitions" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  name varchar(255) [not null]
+  code varchar(50) [unique, not null]
+  type varchar(30) [not null, default: 'select']
+  description text
+  validation_rules jsonb
+  sort_order int [not null, default: 0]
+  is_variant_attribute boolean [not null, default: false]
+  is_filterable boolean [not null, default: true]
+  is_required boolean [not null, default: false]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.attribute_values" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  attribute_definition_id uuid [not null]
+  value varchar(255) [not null]
+  code varchar(50)
+  swatch varchar(50)
+  sort_order int [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_attributes" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  attribute_definition_id uuid [not null]
+  attribute_value_id uuid
+  value_text text
+  created_by uuid
+  updated_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.product_batch_stock" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_batch_id uuid [not null]
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  quantity decimal(18,6) [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.product_batches" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  company_id uuid
+  batch_number varchar(100) [not null]
+  lot_number varchar(100)
+  production_date date
+  expiry_date date
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_categories" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  parent_id uuid
+  name varchar(255) [not null]
+  code varchar(50)
+  slug varchar(100)
+  description text
+  image varchar(255)
+  sort_order int [not null, default: 0]
+  path varchar(500)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_collection_assignments" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  product_collection_id uuid [not null]
+  sort_order int [not null, default: 0]
+  created_by uuid
+  created_at timestamp
+}
+
+Table "product.product_collections" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  parent_id uuid
+  name varchar(255) [not null]
+  code varchar(50)
+  slug varchar(100)
+  description text
+  image varchar(255)
+  start_date date
+  end_date date
+  sort_order int [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_cost_history" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  branch_id uuid
+  unit_id uuid
+  cost decimal(18,4) [not null]
+  cost_type varchar(30) [not null, default: 'average']
+  effective_date date [not null]
+  reference_type varchar(50)
+  reference_id uuid
+  created_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.product_natures" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  parent_id uuid
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_price_lists" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  code varchar(50) [unique, not null]
+  name varchar(255) [not null]
+  description varchar(255)
+  is_active boolean [not null, default: true]
+  company_id uuid
+  branch_id uuid
+  channel_type varchar(30)
+  external_channel_code varchar(50)
+  sort_order int [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_prices" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  company_id uuid
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  purchase_price decimal(18,4) [not null, default: 0]
+  selling_price decimal(18,4)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  price_list_id uuid
+}
+
+Table "product.product_stock" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  company_id uuid
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  quantity decimal(18,6) [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_stock_movements" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_stock_id uuid
+  product_id uuid [not null]
+  company_id uuid
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  stock_mutation_type_id uuid
+  type varchar(20) [not null]
+  quantity decimal(18,6) [not null]
+  quantity_before decimal(18,6) [not null]
+  quantity_after decimal(18,6) [not null]
+  reference_type varchar(50)
+  reference_id uuid
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  product_variant_stock_id uuid
+  product_variant_id uuid
+}
+
+Table "product.product_tag_assignments" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  product_tag_id uuid [not null]
+  sort_order int [not null, default: 0]
+  created_by uuid
+  created_at timestamp
+}
+
+Table "product.product_tags" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  name varchar(255) [not null]
+  code varchar(50)
+  type varchar(30) [not null, default: 'general']
+  color varchar(20)
+  description text
+  sort_order int [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_unit_conversions" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  from_unit_id uuid [not null]
+  to_unit_id uuid [not null]
+  conversion_factor decimal(18,6) [not null]
+  conversion_level int [not null, default: 1]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_units" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  symbol varchar(20)
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_variant_attributes" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_variant_id uuid [not null]
+  attribute_definition_id uuid [not null]
+  attribute_value_id uuid [not null]
+  created_by uuid
+  updated_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.product_variant_prices" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  variant_id uuid [not null]
+  company_id uuid
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  purchase_price decimal(18,4) [not null, default: 0]
+  selling_price decimal(18,4)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  price_list_id uuid
+}
+
+Table "product.product_variant_stock" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_variant_id uuid [not null]
+  product_id uuid [not null]
+  company_id uuid
+  branch_id uuid [not null]
+  unit_id uuid [not null]
+  quantity decimal(18,6) [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.product_variants" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  product_id uuid [not null]
+  sku varchar(100)
+  barcode varchar(100)
+  weight decimal(18,6)
+  image varchar(255)
+  sort_order int [not null, default: 0]
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  purchase_price decimal(18,4) [not null, default: 0]
+  selling_price decimal(18,4) [default: 0]
+}
+
+Table "product.products" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  company_id uuid
+  branch_id uuid
+  nature_id uuid
+  item_type_id uuid
+  product_nature_id uuid
+  procurement_type_id uuid
+  default_unit_id uuid
+  name varchar(255) [not null]
+  code varchar(255)
+  sku varchar(100)
+  description text
+  is_stock_item boolean [not null, default: true]
+  is_sale_item boolean [not null, default: false]
+  is_purchase_item boolean [not null, default: true]
+  min_stock decimal(18,4) [not null, default: 0]
+  max_stock decimal(18,4)
+  cogs_account_code varchar(50)
+  revenue_account_code varchar(50)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  category_id uuid
+}
+
+Table "product.purchase_order_items" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  purchase_order_id uuid [not null]
+  product_id uuid [not null]
+  variant_id uuid
+  unit_id uuid [not null]
+  quantity decimal(18,6) [not null]
+  unit_price decimal(18,4) [not null, default: 0]
+  discount_amount decimal(18,4) [not null, default: 0]
+  subtotal decimal(18,4) [not null, default: 0]
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.purchase_order_receive_items" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  receive_id uuid [not null]
+  purchase_order_item_id uuid [not null]
+  product_id uuid [not null]
+  variant_id uuid
+  unit_id uuid [not null]
+  quantity_received decimal(18,6) [not null]
+  notes text
+  created_by uuid
+  updated_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "product.purchase_order_receives" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  purchase_order_id uuid [not null]
+  receive_number varchar(50) [unique, not null]
+  receive_date date [not null]
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "product.purchase_orders" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  purchase_number varchar(50) [unique, not null]
+  purchase_date date [not null]
+  supplier_id uuid
+  supplier_name varchar(200)
+  supplier_contact varchar(100)
+  supplier_address text
+  company_id uuid
+  branch_id uuid
+  status varchar(30) [not null, default: 'draft']
+  expected_delivery_date date
+  notes text
+  subtotal decimal(18,4) [not null, default: 0]
+  tax_amount decimal(18,4) [not null, default: 0]
+  discount_amount decimal(18,4) [not null, default: 0]
+  total decimal(18,4) [not null, default: 0]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "public.cities" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  province_id uuid
+  name varchar(255) [not null]
+  latitude varchar(255)
+  longitude varchar(255)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "public.parameter_details" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  parameter_id uuid
+  key varchar(255) [not null]
+  value text
+  description varchar(255)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "public.parameters" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  description text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "public.provinces" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  name varchar(255) [not null]
+  code varchar(255) [unique, not null]
+  latitude varchar(255)
+  longitude varchar(255)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "public.stock_mutation_types" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  code varchar(50) [unique, not null]
+  name varchar(255) [not null]
+  direction varchar(10) [not null]
+  description text
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "transaction.sales_order_item_modifiers" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  sales_order_item_id uuid [not null]
+  modifier_option_id uuid [not null]
+  quantity decimal(18,6) [not null, default: 1]
+  unit_price decimal(18,4) [not null, default: 0]
+  subtotal decimal(18,4) [not null, default: 0]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "transaction.sales_order_items" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  sales_order_id uuid [not null]
+  product_id uuid [not null]
+  product_variant_id uuid
+  unit_id uuid [not null]
+  quantity decimal(18,6) [not null]
+  unit_price decimal(18,4) [not null, default: 0]
+  discount_amount decimal(18,4) [not null, default: 0]
+  subtotal decimal(18,4) [not null, default: 0]
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  discount_type varchar(10) [not null, default: 'percent']
+  discount_value decimal(18,4) [not null, default: 0]
+}
+
+Table "transaction.sales_order_payments" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  sales_order_id uuid [not null]
+  method_payment_id uuid
+  payment_code varchar(50)
+  amount decimal(18,4) [not null, default: 0]
+  change_amount decimal(18,4) [not null, default: 0]
+  status varchar(20) [not null, default: 'completed']
+  notes text
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table "transaction.sales_orders" {
+  id uuid [pk, note: 'default raw: public.uuid_generate_v7()']
+  sales_number varchar(50) [unique, not null]
+  sales_date date [not null]
+  order_type varchar(30) [not null, default: 'standard']
+  customer_id uuid
+  customer_name varchar(200)
+  customer_contact varchar(100)
+  customer_address text
+  company_id uuid
+  branch_id uuid [not null]
+  warehouse_id uuid
+  status varchar(30) [not null, default: 'draft']
+  expected_delivery_date date
+  fulfilled_at timestamp
+  subtotal decimal(18,4) [not null, default: 0]
+  tax_amount decimal(18,4) [not null, default: 0]
+  discount_amount decimal(18,4) [not null, default: 0]
+  shipping_amount decimal(18,4) [default: 0]
+  total decimal(18,4) [not null, default: 0]
+  notes text
+  reference varchar(100)
+  created_by uuid
+  updated_by uuid
+  deleted_by uuid
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+  price_list_id uuid
+  method_payment_id uuid
+  tax_rate decimal(5,2) [not null, default: 0]
+  tax_enabled boolean [not null, default: true]
+  discount_type varchar(10) [not null, default: 'percent']
+  discount_value decimal(18,4) [not null, default: 0]
+  item_discount_total decimal(18,4) [not null, default: 0]
+  payment_status varchar(20) [not null, default: 'unpaid']
+  paid_at timestamp
+}
+
+Ref: "customer.customer_groups".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "customer.customer_groups".price_list_id > "product.product_price_lists".id [delete: set null]
+Ref: "customer.customers".customer_group_id > "customer.customer_groups".id [delete: restrict]
+Ref: "human_resources.employees".position_id > "master_data.positions".id [delete: set null]
+Ref: "human_resources.employees".division_id > "master_data.divisions".id [delete: set null]
+Ref: "human_resources.employees".business_unit_id > "master_data.business_units".id [delete: set null]
+Ref: "configuration.notifications".user_id > "auth.users".id [delete: cascade]
+Ref: "product.product_natures".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_natures".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_natures".parent_id > "product.product_natures".id [delete: set null]
+Ref: "product.product_units".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_units".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.purchase_orders".supplier_id > "master_data.suppliers".id [delete: set null]
+Ref: "product.purchase_orders".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.purchase_orders".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.purchase_order_items".purchase_order_id > "product.purchase_orders".id [delete: cascade]
+Ref: "product.purchase_order_items".product_id > "product.products".id [delete: restrict]
+Ref: "product.purchase_order_items".unit_id > "product.product_units".id [delete: restrict]
+Ref: "product.purchase_order_items".variant_id > "product.product_variants".id [delete: set null]
+Ref: "auth.users".employee_id > "human_resources.employees".id [delete: cascade]
+Ref: "auth.users".role_id > "master_data.roles".id [delete: cascade]
+Ref: "auth.users".current_business_unit_id > "master_data.business_units".id [delete: set null]
+Ref: "public.cities".province_id > "public.provinces".id [delete: cascade]
+Ref: "auth.iam_accesses".role_id > "master_data.roles".id [delete: cascade]
+Ref: "product.products".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.products".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.products".nature_id > "product.product_natures".id [delete: set null]
+Ref: "product.products".item_type_id > "public.parameter_details".id [delete: set null]
+Ref: "product.products".product_nature_id > "public.parameter_details".id [delete: set null]
+Ref: "product.products".procurement_type_id > "public.parameter_details".id [delete: set null]
+Ref: "product.products".default_unit_id > "product.product_units".id [delete: set null]
+Ref: "product.purchase_order_receives".purchase_order_id > "product.purchase_orders".id [delete: cascade]
+Ref: "product.purchase_order_receive_items".receive_id > "product.purchase_order_receives".id [delete: cascade]
+Ref: "product.purchase_order_receive_items".purchase_order_item_id > "product.purchase_order_items".id [delete: cascade]
+Ref: "product.purchase_order_receive_items".product_id > "product.products".id [delete: restrict]
+Ref: "product.purchase_order_receive_items".variant_id > "product.product_variants".id [delete: set null]
+Ref: "product.purchase_order_receive_items".unit_id > "product.product_units".id [delete: restrict]
+Ref: "transaction.sales_orders".company_id > "master_data.business_units".id [delete: set null]
+Ref: "transaction.sales_orders".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "transaction.sales_orders".warehouse_id > "master_data.business_units".id [delete: set null]
+Ref: "transaction.sales_order_items".sales_order_id > "transaction.sales_orders".id [delete: cascade]
+Ref: "transaction.sales_order_items".product_id > "product.products".id [delete: restrict]
+Ref: "transaction.sales_order_items".product_variant_id > "product.product_variants".id [delete: set null]
+Ref: "transaction.sales_order_items".unit_id > "product.product_units".id [delete: restrict]
+Ref: "transaction.sales_order_item_modifiers".sales_order_item_id > "transaction.sales_order_items".id [delete: cascade]
+Ref: "transaction.sales_order_payments".sales_order_id > "transaction.sales_orders".id [delete: cascade]
+Ref: "transaction.sales_order_payments".method_payment_id > "master_data.method_payments".id [delete: set null]
+Ref: "auth.iam_has_accesses".iam_access_id > "auth.iam_accesses".id [delete: cascade]
+Ref: "auth.iam_has_accesses".sidebar_menu_id > "master_data.menus".id [delete: cascade]
+Ref: "product.attribute_definitions".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.attribute_values".attribute_definition_id > "product.attribute_definitions".id [delete: cascade]
+Ref: "product.product_attributes".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_attributes".attribute_definition_id > "product.attribute_definitions".id [delete: cascade]
+Ref: "product.product_attributes".attribute_value_id > "product.attribute_values".id [delete: cascade]
+Ref: "product.product_unit_conversions".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_unit_conversions".from_unit_id > "product.product_units".id [delete: cascade]
+Ref: "product.product_unit_conversions".to_unit_id > "product.product_units".id [delete: cascade]
+Ref: "master_data.business_units".type_code > "master_data.business_unit_types".code [delete: restrict]
+Ref: "master_data.business_units".parent_id > "master_data.business_units".id [delete: cascade]
+Ref: "public.parameter_details".parameter_id > "public.parameters".id [delete: cascade]
+Ref: "product.product_stock".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_stock".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_stock".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_stock".unit_id > "product.product_units".id [delete: restrict]
+Ref: "product.product_variants".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_variant_attributes".product_variant_id > "product.product_variants".id [delete: cascade]
+Ref: "product.product_variant_attributes".attribute_definition_id > "product.attribute_definitions".id [delete: cascade]
+Ref: "product.product_variant_attributes".attribute_value_id > "product.attribute_values".id [delete: cascade]
+Ref: "master_data.business_unit_branches".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "master_data.business_unit_branches".warehouse_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_stock_movements".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_stock_movements".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_stock_movements".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_stock_movements".unit_id > "product.product_units".id [delete: restrict]
+Ref: "product.product_stock_movements".stock_mutation_type_id > "public.stock_mutation_types".id [delete: set null]
+Ref: "product.product_prices".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_prices".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_prices".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_prices".unit_id > "product.product_units".id [delete: restrict]
+Ref: "master_data.menus".parent_id > "master_data.menus".id [delete: cascade]
+Ref: "product.product_tags".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_tags".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_tag_assignments".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_tag_assignments".product_tag_id > "product.product_tags".id [delete: cascade]
+Ref: "product.product_collections".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_collections".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_collections".parent_id > "product.product_collections".id [delete: set null]
+Ref: "product.product_collection_assignments".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_collection_assignments".product_collection_id > "product.product_collections".id [delete: cascade]
+Ref: "product.product_batches".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_batches".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_batch_stock".product_batch_id > "product.product_batches".id [delete: cascade]
+Ref: "product.product_batch_stock".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_batch_stock".unit_id > "product.product_units".id [delete: restrict]
+Ref: "master_data.suppliers".supplier_type_id > "public.parameter_details".id [delete: set null]
+Ref: "master_data.suppliers".company_id > "master_data.business_units".id [delete: set null]
+Ref: "master_data.suppliers".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "master_data.method_payments".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_cost_history".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_cost_history".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_cost_history".unit_id > "product.product_units".id [delete: set null]
+Ref: "product.product_variant_prices".variant_id > "product.product_variants".id [delete: cascade]
+Ref: "product.product_variant_prices".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_variant_prices".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_variant_prices".unit_id > "product.product_units".id [delete: restrict]
+Ref: "product.product_price_lists".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_price_lists".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_prices".price_list_id > "product.product_price_lists".id [delete: set null]
+Ref: "product.product_variant_prices".price_list_id > "product.product_price_lists".id [delete: set null]
+Ref: "product.product_variant_stock".product_variant_id > "product.product_variants".id [delete: cascade]
+Ref: "product.product_variant_stock".product_id > "product.products".id [delete: cascade]
+Ref: "product.product_variant_stock".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_variant_stock".branch_id > "master_data.business_units".id [delete: cascade]
+Ref: "product.product_variant_stock".unit_id > "product.product_units".id [delete: restrict]
+Ref: "product.product_categories".company_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_categories".branch_id > "master_data.business_units".id [delete: set null]
+Ref: "product.product_categories".parent_id > "product.product_categories".id [delete: set null]
+Ref: "product.products".category_id > "product.product_categories".id [delete: set null]
+Ref: "crm.membership_point_configurations".branch_id > "master_data.business_units".id [delete: set null]

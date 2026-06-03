@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        DB::statement('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+        DB::statement('CREATE SCHEMA IF NOT EXISTS public');
+
+        Schema::create('public.provinces', function (Blueprint $table) {
+            $table->uuid('id')
+                ->primary()
+                ->default(DB::raw('public.uuid_generate_v7()'));
+
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('latitude')->nullable();
+            $table->string('longitude')->nullable();
+
+            // === AUDIT ===
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
+            $table->uuid('deleted_by')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('public.provinces');
+    }
+};
