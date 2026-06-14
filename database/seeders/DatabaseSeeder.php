@@ -52,6 +52,9 @@ class DatabaseSeeder extends Seeder
             // Price lists & menu produk wwwcoffee (dari docs/Produk.xlsx)
             ProductPriceListSeeder::class,
             ProductMenuSeeder::class,
+
+            // Demo: rantai Distributor -> Agen + Produksi (HPP FIFO)
+            DistributionDemoSeeder::class,
         ]);
     }
 }
