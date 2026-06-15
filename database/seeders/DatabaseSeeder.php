@@ -53,9 +53,12 @@ class DatabaseSeeder extends Seeder
             // Customer groups & karyawan (requires business_units)
             CustomerSeeder::class,
 
-            // Price lists & menu produk wwwcoffee (dari docs/Produk.xlsx)
+            // Price lists (channel harga)
             ProductPriceListSeeder::class,
-            ProductMenuSeeder::class,
+            // ProductMenuSeeder::class, // dinonaktifkan: 49 produk menu kopi tidak dipakai (fokus herbal)
+
+            // Demo: rantai Distributor -> Agen + Produksi herbal (HPP FEFO, 2 gudang)
+            DistributionDemoSeeder::class,
         ]);
     }
 }

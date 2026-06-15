@@ -43,6 +43,8 @@ class MigrateAllCommand extends Command
         'database/migrations/operational',
         'database/migrations/configuration',
         'database/migrations/customer',
+        'database/migrations/manufacturing',
+        'database/migrations/distribution',
     ];
 
     /**
@@ -60,6 +62,8 @@ class MigrateAllCommand extends Command
         'configuration',
         'customer',
         'transaction',
+        'manufacturing',
+        'distribution',
     ];
 
     /**
