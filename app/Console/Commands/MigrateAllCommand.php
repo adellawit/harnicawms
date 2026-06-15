@@ -120,9 +120,11 @@ class MigrateAllCommand extends Command
             $this->info("Step {$stepNum}: Running migrations from [{$folderName}] folder...");
 
             $output = new BufferedOutput();
+            // Sub-migrations pakai BufferedOutput — tanpa --force, Laravel menunggu
+            // konfirmasi production yang tidak tampil di terminal (terlihat "stuck").
             Artisan::call('migrate', [
                 '--path' => $path,
-                '--force' => $force,
+                '--force' => $force || $isFresh || $this->option('no-interaction'),
             ], $output);
 
             $response = $output->fetch();
@@ -148,7 +150,9 @@ class MigrateAllCommand extends Command
         if ($withSeed) {
             $totalSteps = count($this->migrationPaths) + $stepStart;
             $this->info("Step {$totalSteps}: Seeding database...");
-            $this->call('db:seed', ['--force' => $force]);
+            $this->call('db:seed', [
+                '--force' => $force || $isFresh || $this->option('no-interaction'),
+            ]);
             $this->newLine();
         }
 

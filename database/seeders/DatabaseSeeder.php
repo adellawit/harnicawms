@@ -31,9 +31,11 @@ class DatabaseSeeder extends Seeder
             // Employees & users (depends on: positions, divisions, business_units, roles)
             EmployeeSeeder::class,
             UserSeeder::class,
+            TelegramAccountSeeder::class,
 
             // Menu and access (depends on: roles, menus)
             MenuSeeder::class,
+            AgentMenuSeeder::class,
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
 

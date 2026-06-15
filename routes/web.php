@@ -43,6 +43,8 @@ use App\Http\Controllers\Admin\MethodPaymentController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\XenditWebhookController;
+use App\Http\Controllers\TelegramWebhookController;
+use App\Http\Controllers\Admin\AgentChatController;
 use App\Http\Controllers\Admin\ComponentShowcaseController;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +68,9 @@ Route::get('/', function () {
 Route::post('/webhooks/xendit', [XenditWebhookController::class, 'handle'])
     ->name('webhooks.xendit');
 
+Route::post('/webhooks/telegram', [TelegramWebhookController::class, 'handle'])
+    ->name('webhooks.telegram');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     /// DASHBOARD CONTROLLER
@@ -76,6 +81,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     /// COMPONENT SHOWCASE
     Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
+
+    /// AGENT CHAT (WMS AI Assistant widget API)
+    Route::group([
+        'prefix' => 'agent',
+        'middleware' => ['permission:'.(config('agent.permission_menu') ?: 'AI Assistant').',is_read', 'throttle:'.(int) config('agent.rate_limit_per_minute', 30).',1'],
+    ], function () {
+        Route::post('/chat', [AgentChatController::class, 'chat'])->name('agent.chat');
+        Route::get('/conversations', [AgentChatController::class, 'conversations'])->name('agent.conversations');
+        Route::post('/conversations/new', [AgentChatController::class, 'newConversation'])->name('agent.conversations.new');
+        Route::get('/conversations/{conversationId}/messages', [AgentChatController::class, 'messages'])->name('agent.conversations.messages');
+        Route::delete('/conversations/{conversationId}', [AgentChatController::class, 'destroy'])->name('agent.conversations.destroy');
+    });
 
     /********************
      ** ACCOUNT ROUTES **

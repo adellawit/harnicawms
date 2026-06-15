@@ -372,6 +372,8 @@
     });
     </script>
 
+    @include('components.agent.chat-widget')
+
 </body>
 
 {{-- <body class="font-sans antialiased">

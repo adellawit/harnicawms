@@ -41,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Validate CSRF tokens in web middleware
         $middleware->validateCsrfTokens(except: [
             'webhooks/xendit',
+            'webhooks/telegram',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
