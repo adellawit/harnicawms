@@ -24,21 +24,21 @@
                         @if ($selected)
                             {{-- Produk dipilih dari daftar: terkunci --}}
                             <input type="hidden" name="product_variant_id" value="{{ $selected->id }}">
-                            <div class="col-md-5">
+                            <div class="col-md-6">
                                 <label class="form-label">Produk Jadi</label>
                                 <input type="text" class="form-control" value="{{ $selected->display_name ?? $selected->product?->name }}" readonly>
                             </div>
-                            <div class="col-md-5">
+                            <div class="col-md-6">
                                 <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control" required
                                     value="{{ old('name', ($selected->display_name ?? $selected->product?->name) . ' - Resep Standar') }}">
                             </div>
                         @else
-                            <div class="col-md-5">
+                            <div class="col-md-6">
                                 <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control" required value="{{ old('name') }}" placeholder="mis. Jamu Sehat Herbal - Resep Standar">
                             </div>
-                            <div class="col-md-5">
+                            <div class="col-md-6">
                                 <label class="form-label">Produk Jadi <span class="text-danger">*</span></label>
                                 <select name="product_variant_id" class="form-select" required>
                                     <option value="">-- Pilih --</option>
@@ -48,11 +48,8 @@
                                 </select>
                             </div>
                         @endif
-                        <div class="col-md-2">
-                            <label class="form-label">Qty Output <span class="text-danger">*</span></label>
-                            <input type="number" step="any" min="0.000001" name="output_quantity" class="form-control" value="{{ old('output_quantity', 1) }}" required>
-                        </div>
                     </div>
+                    <p class="text-muted small mb-0 mt-2"><i class="ti ti-info-circle me-1"></i> Resep disusun <strong>per 1 produk jadi</strong>. Jumlah produksi diinput nanti di Production Order.</p>
                 </div>
             </div>
 
@@ -63,7 +60,7 @@
                 </div>
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead><tr><th style="width:70%">Bahan</th><th>Qty (per output)</th><th></th></tr></thead>
+                        <thead><tr><th style="width:50%">Bahan</th><th style="width:20%">Qty (per 1 produk)</th><th style="width:25%">Satuan</th><th></th></tr></thead>
                         <tbody id="rows"></tbody>
                     </table>
                 </div>
@@ -77,6 +74,7 @@
     @push('page-js')
     <script>
         const COMPONENTS = @json($components);
+        const UNITS = @json($units);
         let idx = 0;
         function optionsHtml() {
             let h = '<option value="">-- Pilih bahan --</option>';
@@ -86,11 +84,27 @@
             });
             return h;
         }
+        function unitOptionsHtml() {
+            let h = '<option value="">-- Satuan --</option>';
+            UNITS.forEach(u => {
+                h += `<option value="${u.id}">${u.label}</option>`;
+            });
+            return h;
+        }
+        // Saat bahan dipilih, satuan default mengikuti satuan produk tsb (bisa diganti)
+        function syncUnit(sel, i) {
+            const comp = COMPONENTS.find(c => c.id === sel.value);
+            const unitSel = document.getElementById('unit-' + i);
+            if (comp && comp.unit_id && unitSel) {
+                unitSel.value = comp.unit_id;
+            }
+        }
         function addRow() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><select name="components[${idx}][variant_id]" class="form-select" required>${optionsHtml()}</select></td>
+                <td><select name="components[${idx}][variant_id]" class="form-select" required onchange="syncUnit(this, ${idx})">${optionsHtml()}</select></td>
                 <td><input type="number" step="any" min="0.000001" name="components[${idx}][quantity]" class="form-control" required></td>
+                <td><select name="components[${idx}][unit_id]" id="unit-${idx}" class="form-select" required>${unitOptionsHtml()}</select></td>
                 <td><button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>`;
             document.getElementById('rows').appendChild(tr);
             idx++;

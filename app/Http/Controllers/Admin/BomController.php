@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\BomItem;
+use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -42,6 +43,14 @@ class BomController extends Controller
     {
         $components = WmsContext::variantOptions(); // bahan baku
 
+        // Satuan tersimpan untuk dropdown qty bahan
+        $units = ProductUnit::whereNull('deleted_at')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($u) => ['id' => $u->id, 'label' => $u->symbol ? $u->name.' ('.$u->symbol.')' : $u->name])
+            ->values()
+            ->all();
+
         // Produk jadi yang dipilih dari daftar (terkunci); fallback ke dropdown bila kosong
         $selected = null;
         if ($request->filled('product_variant_id')) {
@@ -50,7 +59,7 @@ class BomController extends Controller
 
         $outputs = WmsContext::variantOptions('FINISHED_GOOD'); // fallback dropdown produk jadi
 
-        return view('admin.bom.create', compact('outputs', 'components', 'selected'));
+        return view('admin.bom.create', compact('outputs', 'components', 'selected', 'units'));
     }
 
     public function store(Request $request)
@@ -58,10 +67,10 @@ class BomController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'product_variant_id' => ['required', 'string'],
-            'output_quantity' => ['required', 'numeric', 'min:0.000001'],
             'components' => ['required', 'array', 'min:1'],
             'components.*.variant_id' => ['required', 'string'],
             'components.*.quantity' => ['required', 'numeric', 'min:0.000001'],
+            'components.*.unit_id' => ['required', 'string'],
         ]);
 
         $outputVariant = ProductVariant::with('product')->findOrFail($data['product_variant_id']);
@@ -79,7 +88,7 @@ class BomController extends Controller
                 'product_id' => $outputVariant->product_id,
                 'product_variant_id' => $outputVariant->id,
                 'output_unit_id' => $outputVariant->product->default_unit_id,
-                'output_quantity' => (float) $data['output_quantity'],
+                'output_quantity' => 1, // resep per 1 produk jadi; jumlah produksi diinput di Production Order
                 'name' => $data['name'],
                 'version' => 1,
                 'is_active' => true,
@@ -96,7 +105,7 @@ class BomController extends Controller
                     'bom_id' => $bom->id,
                     'component_product_id' => $variant->product_id,
                     'component_variant_id' => $variant->id,
-                    'unit_id' => $variant->product->default_unit_id,
+                    'unit_id' => $row['unit_id'] ?? $variant->product->default_unit_id,
                     'quantity' => (float) $row['quantity'],
                     'created_by' => $userId,
                     'updated_by' => $userId,

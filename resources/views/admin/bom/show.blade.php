@@ -16,7 +16,7 @@
                 <div class="row">
                     <div class="col-md-4"><small class="text-muted">Nama Resep</small><div class="fw-medium">{{ $bom->name }}</div></div>
                     <div class="col-md-4"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $bom->variant?->display_name ?? $bom->product?->name }}</div></div>
-                    <div class="col-md-4"><small class="text-muted">Qty Output</small><div class="fw-medium">{{ rtrim(rtrim(number_format($bom->output_quantity, 2), '0'), '.') }} {{ $bom->outputUnit?->code }}</div></div>
+                    <div class="col-md-4"><small class="text-muted">Jumlah Bahan</small><div class="fw-medium">{{ $bom->items->count() }} bahan <span class="text-muted small">(resep per 1 produk)</span></div></div>
                 </div>
             </div>
         </div>
@@ -25,13 +25,13 @@
             <div class="card-header"><h5 class="card-title mb-0">Komponen / Bahan Baku</h5></div>
             <div class="table-responsive text-nowrap">
                 <table class="table">
-                    <thead><tr><th>Bahan</th><th class="text-end">Qty per Output</th><th>Satuan</th></tr></thead>
+                    <thead><tr><th>Bahan</th><th class="text-end">Qty per 1 Produk</th><th>Satuan</th></tr></thead>
                     <tbody>
                         @foreach ($bom->items as $item)
                             <tr>
                                 <td>{{ $item->componentVariant?->display_name ?? $item->componentProduct?->name }}</td>
                                 <td class="text-end">{{ rtrim(rtrim(number_format($item->quantity, 4), '0'), '.') }}</td>
-                                <td>{{ $item->unit?->code }}</td>
+                                <td>{{ $item->unit?->name ?? $item->unit?->code }}</td>
                             </tr>
                         @endforeach
                     </tbody>
