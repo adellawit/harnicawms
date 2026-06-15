@@ -4,6 +4,14 @@ return [
 
     'enabled' => (bool) env('AGENT_ENABLED', false),
 
+    'widget_enabled' => (bool) env('AGENT_WIDGET_ENABLED', env('AGENT_ENABLED', false)),
+
+    /*
+    | Provider LLM untuk agent chat: deepseek | chatai
+    | Detail API key & model ada di config/ai.php
+    */
+    'provider' => strtolower((string) env('AI_PROVIDER', 'deepseek')),
+
     'max_tool_rounds' => (int) env('AGENT_MAX_TOOL_ROUNDS', 5),
 
     'max_message_length' => (int) env('AGENT_MAX_MESSAGE_LENGTH', 2000),
@@ -14,7 +22,7 @@ return [
 
     'permission_menu' => env('AGENT_PERMISSION_MENU', 'AI Assistant'),
 
-    'timeout' => (int) env('AGENT_DEEPSEEK_TIMEOUT', 30),
+    'timeout' => (int) env('AGENT_LLM_TIMEOUT', env('DEEPSEEK_TIMEOUT', 30)),
 
     'allowed_tools' => array_values(array_filter(array_map(
         'trim',

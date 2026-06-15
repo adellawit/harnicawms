@@ -6,8 +6,8 @@ use App\Models\MethodPayment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
 use App\Services\PosCheckoutService;
-use App\Services\XenditPaymentSyncService;
-use App\Services\XenditService;
+use App\Services\Xendit\PaymentSyncService;
+use App\Services\Xendit\XenditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,7 @@ class ShopCheckoutService
         protected ShopContextService $context,
         protected PosCheckoutService $checkout,
         protected XenditService $xendit,
-        protected XenditPaymentSyncService $paymentSync,
+        protected PaymentSyncService $paymentSync,
     ) {}
 
     public function generateSalesNumber(string $branchId): string

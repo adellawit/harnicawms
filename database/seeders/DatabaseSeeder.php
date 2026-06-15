@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
+use Database\Seeders\Telegram\AccountSeeder as TelegramAccountSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
             // Menu and access (depends on: roles, menus)
             MenuSeeder::class,
             AgentMenuSeeder::class,
+            AiConfigurationMenuSeeder::class,
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
 

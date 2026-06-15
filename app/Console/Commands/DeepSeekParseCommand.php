@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\TelegramAccount;
+use App\Models\Telegram\TelegramAccount;
 use App\Models\User;
 use App\Services\DeepSeek\DeepSeekTransactionParser;
 use App\Services\Telegram\TelegramCheckoutService;

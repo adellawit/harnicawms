@@ -372,7 +372,7 @@
     });
     </script>
 
-    @include('components.agent.chat-widget')
+    @include('components.ai.chat-widget')
 
 </body>
 

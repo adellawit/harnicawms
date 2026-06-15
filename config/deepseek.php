@@ -2,6 +2,15 @@
 
 return [
 
+    /*
+    |--------------------------------------------------------------------------
+    | DeepSeek API (Telegram POS parser & legacy)
+    |--------------------------------------------------------------------------
+    |
+    | Untuk WMS Agent Chat widget, gunakan config/ai.php + AI_PROVIDER.
+    |
+    */
+
     'enabled' => (bool) env('DEEPSEEK_ENABLED', true),
 
     'api_key' => env('DEEPSEEK_API_KEY'),

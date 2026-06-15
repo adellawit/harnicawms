@@ -1936,6 +1936,31 @@ class MenuSeeder extends Seeder
                 'has_custom4' => false,
                 'has_custom5' => false,
             ],
+            // Settings > AI Chat Configuration
+            [
+                'id' => 'c8901234-def0-4234-5678-9abcdef01234',
+                'parent_id' => 'c1234567-89ab-cdef-0123-456789abcdef',
+                'name' => 'AI Chat Configuration',
+                'code' => 'ai_chat_configuration',
+                'text_sidebar' => 'AI Chat Configuration',
+                'icon' => 'ti ti-message-chatbot',
+                'has_page' => false,
+                'url_path' => 'settings/ai-configuration',
+                'route_name' => 'settings.ai-configuration.index.view',
+                'slug' => 'ai-chat-configuration',
+                'level_sidebar' => 2,
+                'order_number' => 7,
+                'is_label' => false,
+                'has_create' => false,
+                'has_update' => true,
+                'has_read' => true,
+                'has_delete' => false,
+                'has_custom1' => false,
+                'has_custom2' => false,
+                'has_custom3' => false,
+                'has_custom4' => false,
+                'has_custom5' => false,
+            ],
         ];
 
         // Truncate table first (PostgreSQL friendly)

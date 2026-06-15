@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
+use App\Services\Ai\Contracts\LlmProviderInterface;
+use App\Services\Ai\LlmProviderManager;
 use App\Services\Shop\ShopContextService;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,7 +22,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LlmProviderManager::class);
+
+        $this->app->bind(LlmProviderInterface::class, function ($app) {
+            return $app->make(LlmProviderManager::class)->current();
+        });
     }
 
     /**

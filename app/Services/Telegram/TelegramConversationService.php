@@ -4,7 +4,7 @@ namespace App\Services\Telegram;
 
 use App\Models\MethodPayment;
 use App\Models\User;
-use App\Services\XenditService;
+use App\Services\Xendit\XenditService;
 use Illuminate\Support\Facades\Log;
 
 class TelegramConversationService

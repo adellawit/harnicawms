@@ -2,7 +2,7 @@
 
 namespace App\Services\Telegram;
 
-use App\Models\TelegramSession;
+use App\Models\Telegram\TelegramSession;
 use Carbon\Carbon;
 
 class TelegramSessionService

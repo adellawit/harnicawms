@@ -2,8 +2,8 @@
 
 namespace App\Services\Telegram;
 
-use App\Models\TelegramAccount;
-use App\Models\TelegramLinkCode;
+use App\Models\Telegram\TelegramAccount;
+use App\Models\Telegram\TelegramLinkCode;
 use App\Models\User;
 use Illuminate\Support\Str;
 

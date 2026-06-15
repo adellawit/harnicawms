@@ -38,7 +38,7 @@ return [
     ))),
 
     /*
-    | Base telegram_user_id untuk TelegramAccountSeeder (dev).
+    | Base telegram_user_id untuk AccountSeeder (dev).
     */
     'seed_base_telegram_id' => (int) env('TELEGRAM_SEED_BASE_ID', 900000001),
 

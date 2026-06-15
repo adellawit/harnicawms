@@ -13,8 +13,8 @@ use App\Models\SalesOrder;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
-use App\Services\XenditPaymentSyncService;
-use App\Services\XenditService;
+use App\Services\Xendit\PaymentSyncService;
+use App\Services\Xendit\XenditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -337,7 +337,7 @@ class ShopController extends Controller
         }
     }
 
-    public function paymentReturn(Request $request, XenditPaymentSyncService $paymentSync): RedirectResponse
+    public function paymentReturn(Request $request, PaymentSyncService $paymentSync): RedirectResponse
     {
         $status = $request->query('status', 'success');
         $orderId = $request->query('order_id');
@@ -366,7 +366,7 @@ class ShopController extends Controller
         ]);
     }
 
-    public function paymentStatus(Request $request, string $orderId, XenditPaymentSyncService $paymentSync): JsonResponse
+    public function paymentStatus(Request $request, string $orderId, PaymentSyncService $paymentSync): JsonResponse
     {
         $order = SalesOrder::findOrFail($orderId);
         $this->checkoutService()->assertOrderOwnedByCustomer($order);
