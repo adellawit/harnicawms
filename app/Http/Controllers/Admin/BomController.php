@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\BomItem;
 use App\Models\ProductVariant;
+use App\Services\FifoCostService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -151,7 +152,23 @@ class BomController extends Controller
         $bom = BillOfMaterial::with(['product', 'variant', 'outputUnit', 'items.componentVariant.product', 'items.unit'])
             ->findOrFail($id);
 
-        return view('admin.bom.show', compact('bom'));
+        // Ambil WIP warehouse untuk lookup harga bahan baku
+        $wipId = optional(WmsContext::wipWarehouse($bom->company_id))->id ?? $bom->company_id;
+
+        // Biaya per komponen: unit_cost dari layer FEFO terdepan
+        $itemCosts = $bom->items->mapWithKeys(function ($item) use ($wipId) {
+            $unitCost = FifoCostService::currentUnitCost($item->component_variant_id, $wipId);
+            return [
+                $item->id => [
+                    'unit_cost' => $unitCost,
+                    'line_total' => $unitCost * (float) $item->quantity,
+                ],
+            ];
+        });
+
+        $totalCost = $itemCosts->sum('line_total');
+
+        return view('admin.bom.show', compact('bom', 'itemCosts', 'totalCost'));
     }
 
     public function destroy(string $id)
