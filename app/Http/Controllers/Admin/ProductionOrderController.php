@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\ProductionOrder;
+use App\Services\StockAvailabilityService;
 use App\Services\Manufacturing\ProductionService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class ProductionOrderController extends Controller
 
     public function create()
     {
-        $boms = BillOfMaterial::with(['product', 'variant', 'items.componentVariant.product'])
+        $boms = BillOfMaterial::with(['product', 'variant', 'items.componentVariant.product', 'items.unit'])
             ->where('is_active', true)
             ->orderByDesc('created_at')
             ->get();
@@ -32,14 +33,28 @@ class ProductionOrderController extends Controller
         $fg = WmsContext::finishedGoodsWarehouse(optional($distributor)->id);
 
         // Data ringkas untuk preview kebutuhan bahan (dipakai JS)
-        $bomData = $boms->map(function (BillOfMaterial $b) {
+        $bomData = $boms->map(function (BillOfMaterial $b) use ($wip) {
+            $wipId = optional($wip)->id;
+
             return [
                 'id' => $b->id,
                 'output_quantity' => (float) $b->output_quantity,
-                'items' => $b->items->map(fn ($i) => [
-                    'label' => $i->componentVariant?->display_name ?? $i->componentProduct?->name,
-                    'qty' => (float) $i->quantity,
-                ])->values(),
+                'items' => $b->items->map(function ($i) use ($wipId) {
+                    $available = $wipId
+                        ? StockAvailabilityService::availableQuantity(
+                            $i->component_variant_id,
+                            $wipId,
+                            $i->unit_id
+                        )
+                        : 0.0;
+
+                    return [
+                        'label' => $i->componentVariant?->display_name ?? $i->componentProduct?->name,
+                        'qty' => (float) $i->quantity,
+                        'unit' => $i->unit?->symbol ?? $i->unit?->name ?? '',
+                        'available' => $available,
+                    ];
+                })->values(),
             ];
         })->values();
 

@@ -9,6 +9,8 @@ use App\Models\ProductNature;
 use App\Models\ProductPriceList;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
+use App\Services\FifoCostService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 
 class ProductPriceController extends Controller
@@ -80,7 +82,10 @@ class ProductPriceController extends Controller
         $allNatures = ProductNature::orderBy('name')->get(['id', 'name']);
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
+        $costBranchIds = $this->costBranchIds($companyId, $branchId);
+
         $variantPrices = collect();
+        $baseVariantPrices = collect();
         if ($branchId) {
             $priceQuery = ProductVariantPrice::where('branch_id', $branchId);
             if ($priceListId === '' || $priceListId === null) {
@@ -91,6 +96,17 @@ class ProductPriceController extends Controller
             $variantPrices = $priceQuery->get()
                 ->keyBy(fn ($p) => $p->variant_id . '_' . $p->unit_id);
         }
+
+        if ($costBranchIds->isNotEmpty()) {
+            $baseVariantPrices = ProductVariantPrice::query()
+                ->whereNull('price_list_id')
+                ->whereIn('branch_id', $costBranchIds)
+                ->get()
+                ->groupBy(fn ($p) => $p->variant_id . '_' . $p->unit_id)
+                ->map(fn ($rows) => $rows->first(fn ($r) => (float) $r->purchase_price > 0) ?? $rows->first());
+        }
+
+        $isBasePriceList = $priceListId === '' || $priceListId === null;
 
         $productData = [];
         foreach ($paginator as $product) {
@@ -106,6 +122,14 @@ class ProductPriceController extends Controller
                         return $va->attributeValue?->value ?? '';
                     })->filter()->implode(' / ');
 
+                    $hpp = $this->resolveVariantHpp(
+                        $variant->id,
+                        $unit?->id ?? $product->default_unit_id,
+                        $costBranchIds,
+                        $baseVariantPrices,
+                        $variant
+                    );
+
                     $productData[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
@@ -116,7 +140,11 @@ class ProductPriceController extends Controller
                         'category' => $product->category?->name ?? '-',
                         'unit' => $unit?->symbol ?? $unit?->name ?? '-',
                         'unit_id' => $unit?->id ?? $product->default_unit_id,
-                        'purchase_price' => (float) ($price?->purchase_price ?? $variant->purchase_price ?? 0),
+                        'fifo_cost' => $hpp['fifo_cost'],
+                        'hpp' => $hpp['display'],
+                        'purchase_price' => $isBasePriceList
+                            ? (float) ($price?->purchase_price ?? $hpp['display'] ?? $variant->purchase_price ?? 0)
+                            : (float) ($price?->purchase_price ?? 0),
                         'selling_price' => (float) ($price?->selling_price ?? $variant->selling_price ?? 0),
                         'is_first_variant' => $variant === $variants->first(),
                         'variant_count' => $variants->count(),
@@ -136,6 +164,14 @@ class ProductPriceController extends Controller
                 $unit = $product->defaultUnit;
                 $price = $variantPrices->get($defaultVariant->id . '_' . $unit?->id);
 
+                $hpp = $this->resolveVariantHpp(
+                    $defaultVariant->id,
+                    $unit?->id ?? $product->default_unit_id,
+                    $costBranchIds,
+                    $baseVariantPrices,
+                    $defaultVariant
+                );
+
                 $productData[] = [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
@@ -146,7 +182,11 @@ class ProductPriceController extends Controller
                     'category' => $product->category?->name ?? '-',
                     'unit' => $unit?->symbol ?? $unit?->name ?? '-',
                     'unit_id' => $unit?->id ?? $product->default_unit_id,
-                    'purchase_price' => (float) ($price?->purchase_price ?? $defaultVariant->purchase_price ?? 0),
+                    'fifo_cost' => $hpp['fifo_cost'],
+                    'hpp' => $hpp['display'],
+                    'purchase_price' => $isBasePriceList
+                        ? (float) ($price?->purchase_price ?? $hpp['display'] ?? $defaultVariant->purchase_price ?? 0)
+                        : (float) ($price?->purchase_price ?? 0),
                     'selling_price' => (float) ($price?->selling_price ?? $defaultVariant->selling_price ?? 0),
                     'is_first_variant' => true,
                     'variant_count' => 1,
@@ -162,7 +202,56 @@ class ProductPriceController extends Controller
             'allCategories' => $allCategories,
             'priceLists' => $priceLists,
             'filterPriceListId' => $priceListId,
+            'isBasePriceList' => $isBasePriceList,
         ]);
+    }
+
+    /**
+     * Cabang/gudang yang dipakai untuk lookup HPP FIFO & harga beli base.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    protected function costBranchIds(?string $companyId, ?string $branchId)
+    {
+        return collect([
+            optional(WmsContext::finishedGoodsWarehouse($companyId))->id,
+            optional(WmsContext::wipWarehouse($companyId))->id,
+            $branchId,
+        ])->filter()->unique()->values();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>  $costBranchIds
+     * @param  \Illuminate\Support\Collection<string, ProductVariantPrice>  $baseVariantPrices
+     * @return array{fifo_cost: float, display: float}
+     */
+    protected function resolveVariantHpp(
+        string $variantId,
+        ?string $unitId,
+        $costBranchIds,
+        $baseVariantPrices,
+        ProductVariant $variant
+    ): array {
+        $fifoCost = 0.0;
+
+        if ($unitId) {
+            foreach ($costBranchIds as $costBranchId) {
+                $cost = FifoCostService::currentUnitCost($variantId, $costBranchId, $unitId);
+                if ($cost > 0) {
+                    $fifoCost = $cost;
+                    break;
+                }
+            }
+        }
+
+        $basePrice = $baseVariantPrices->get($variantId . '_' . $unitId);
+        $avgPurchase = (float) ($basePrice?->purchase_price ?? $variant->purchase_price ?? 0);
+        $display = $fifoCost > 0 ? $fifoCost : $avgPurchase;
+
+        return [
+            'fifo_cost' => $fifoCost,
+            'display' => $display,
+        ];
     }
 
     public function saveData(Request $request)
@@ -192,11 +281,7 @@ class ProductPriceController extends Controller
         $saved = 0;
 
         foreach ($request->items as $item) {
-            $pp = normalize_number_input($item['purchase_price'] ?? null) ?? 0;
             $sp = normalize_number_input($item['selling_price'] ?? null);
-
-            if ($pp < 0) continue;
-
             $variantId = $item['variant_id'];
             $unitId = $item['unit_id'];
 
@@ -213,8 +298,47 @@ class ProductPriceController extends Controller
 
             $price = $priceQuery->first();
 
+            if ($priceListId) {
+                if ($sp === null || $sp === '') {
+                    continue;
+                }
+
+                $payload = [
+                    'company_id' => $companyId,
+                    'selling_price' => $sp,
+                    'updated_by' => $userId,
+                    'deleted_by' => null,
+                ];
+
+                if ($price) {
+                    if ($price->trashed()) {
+                        $price->restore();
+                    }
+                    $price->update($payload);
+                } else {
+                    ProductVariantPrice::create(array_merge($payload, [
+                        'variant_id' => $variantId,
+                        'branch_id' => $branchId,
+                        'unit_id' => $unitId,
+                        'price_list_id' => $priceListId,
+                        'purchase_price' => 0,
+                        'created_by' => $userId,
+                    ]));
+                }
+
+                $saved++;
+                continue;
+            }
+
+            $pp = normalize_number_input($item['purchase_price'] ?? null) ?? 0;
+            if ($pp < 0) {
+                continue;
+            }
+
             if ($price) {
-                if ($price->trashed()) $price->restore();
+                if ($price->trashed()) {
+                    $price->restore();
+                }
                 $price->update([
                     'company_id' => $companyId,
                     'purchase_price' => $pp,
@@ -228,7 +352,7 @@ class ProductPriceController extends Controller
                     'company_id' => $companyId,
                     'branch_id' => $branchId,
                     'unit_id' => $unitId,
-                    'price_list_id' => $priceListId,
+                    'price_list_id' => null,
                     'purchase_price' => $pp,
                     'selling_price' => $sp,
                     'created_by' => $userId,

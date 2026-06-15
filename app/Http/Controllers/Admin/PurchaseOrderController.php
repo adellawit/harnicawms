@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessUnit;
 use App\Models\ParameterDetail;
 use App\Models\Product;
 use App\Models\ProductPurchaseOrder;
@@ -17,6 +18,8 @@ use App\Models\StockMutationType;
 use App\Models\Supplier;
 use App\Services\InventoryCostService;
 use App\Services\StockMutationService;
+use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
@@ -402,6 +405,34 @@ class PurchaseOrderController extends Controller
         return view('admin.product.purchase-order.detail', compact('purchase'));
     }
 
+    public function exportPdf(Request $request, string $id)
+    {
+        $purchase = ProductPurchaseOrder::with([
+            'items.product',
+            'items.unit',
+            'items.variant.variantAttributes.attributeDefinition',
+            'items.variant.variantAttributes.attributeValue',
+            'branch',
+            'supplier',
+        ])->findOrFail($id);
+
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $showPrices = $request->boolean('show_prices', true);
+        $company = $purchase->company_id
+            ? BusinessUnit::find($purchase->company_id)
+            : WmsContext::distributor();
+
+        $filename = 'PO-' . preg_replace('/[^A-Za-z0-9\-_]/', '_', $purchase->purchase_number) . '.pdf';
+
+        return Pdf::loadView('admin.product.purchase-order.pdf', compact('purchase', 'showPrices', 'company'))
+            ->setPaper('a4', 'portrait')
+            ->download($filename);
+    }
+
     public function deleteData(Request $request)
     {
         $request->validate([
@@ -545,13 +576,17 @@ class PurchaseOrderController extends Controller
                 ->withErrors(['error' => 'All items have been fully received.']);
         }
 
-        return view('admin.product.purchase-order.receive', compact('purchase'));
+        $warehouses = $this->receiveWarehouseOptions($purchase);
+        $defaultWarehouseId = $this->defaultReceiveWarehouseId($purchase, $warehouses);
+
+        return view('admin.product.purchase-order.receive', compact('purchase', 'warehouses', 'defaultWarehouseId'));
     }
 
     public function receiveData(Request $request)
     {
         $request->validate([
             'purchase_order_id' => 'required|exists:product.purchase_orders,id',
+            'warehouse_id' => 'required|uuid',
             'receive_date' => 'required|date',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
@@ -589,6 +624,10 @@ class PurchaseOrderController extends Controller
         }
 
         $user = auth('web')->user();
+        $allowedWarehouseIds = collect($this->receiveWarehouseOptions($purchase))->pluck('id')->all();
+        if (! in_array($request->warehouse_id, $allowedWarehouseIds, true)) {
+            return redirect()->back()->withErrors(['error' => 'Gudang tujuan tidak valid.'])->withInput();
+        }
 
         DB::beginTransaction();
         try {
@@ -601,7 +640,7 @@ class PurchaseOrderController extends Controller
                 'updated_by' => $user->id,
             ]);
 
-            $warehouseId = $purchase->branch_id ?: $user->getBranchIdForTransaction();
+            $warehouseId = $request->warehouse_id;
             $companyId = $purchase->company_id ?: $user->getCompanyIdForProduct();
             $mutationType = StockMutationType::where('code', 'PURCHASE_RECEIPT')->first();
 
@@ -644,7 +683,7 @@ class PurchaseOrderController extends Controller
                         unitId: $poItem->unit_id,
                         quantity: $qtyReceived,
                         unitCost: (float) $poItem->unit_price,
-                        referenceType: ProductPurchaseOrderReceive::class,
+                        referenceType: 'PurchaseReceive',
                         referenceId: $receive->id,
                         userId: $user->id,
                         notes: "Receive {$receive->receive_number} from PO {$purchase->purchase_number}",
@@ -721,5 +760,52 @@ class PurchaseOrderController extends Controller
         }
 
         return view('admin.product.purchase-order.receive-detail', compact('receive'));
+    }
+
+    /**
+     * @return list<array{id: string, label: string}>
+     */
+    private function receiveWarehouseOptions(ProductPurchaseOrder $purchase): array
+    {
+        $options = [];
+        $seen = [];
+        $distId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
+
+        foreach (WmsContext::warehouses($distId) as $warehouse) {
+            $options[] = ['id' => $warehouse->id, 'label' => $warehouse->name];
+            $seen[$warehouse->id] = true;
+        }
+
+        if ($purchase->branch_id && ! isset($seen[$purchase->branch_id])) {
+            $branch = BusinessUnit::find($purchase->branch_id);
+            if ($branch) {
+                $options[] = [
+                    'id' => $branch->id,
+                    'label' => $branch->name.' (Cabang PO)',
+                ];
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param  list<array{id: string, label: string}>  $warehouses
+     */
+    private function defaultReceiveWarehouseId(ProductPurchaseOrder $purchase, array $warehouses): ?string
+    {
+        $distId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
+        $wipId = optional(WmsContext::wipWarehouse($distId))->id;
+        $allowed = collect($warehouses)->pluck('id')->all();
+
+        if ($wipId && in_array($wipId, $allowed, true)) {
+            return $wipId;
+        }
+
+        if ($purchase->branch_id && in_array($purchase->branch_id, $allowed, true)) {
+            return $purchase->branch_id;
+        }
+
+        return $allowed[0] ?? null;
     }
 }

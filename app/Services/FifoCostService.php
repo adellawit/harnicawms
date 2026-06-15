@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ProductCostHistory;
 use App\Models\ProductCostLayer;
+use App\Models\ProductVariant;
 use Illuminate\Support\Carbon;
 
 /**
@@ -75,6 +76,7 @@ class FifoCostService
 
     /**
      * Konsumsi qty secara FEFO (expiry terdekat dulu, fallback FIFO).
+     * Mendukung satuan konsumsi berbeda dari satuan layer (konversi via product_unit_conversions).
      *
      * @return array{total_cost: float, unit_cost: float, consumed: float, earliest_expiry: ?string}
      */
@@ -87,6 +89,7 @@ class FifoCostService
     ): array {
         $remainingToConsume = $quantity;
         $totalCost = 0.0;
+        $product = self::resolveProduct($variantId);
 
         $layers = self::fefoOrder(
             ProductCostLayer::query()
@@ -96,7 +99,7 @@ class FifoCostService
                 ->whereNull('deleted_at')
         )->lockForUpdate()->get();
 
-        $lastUnitCost = 0.0;
+        $lastUnitCostInConsumeUnit = 0.0;
         $earliestExpiry = null;
 
         foreach ($layers as $layer) {
@@ -104,13 +107,24 @@ class FifoCostService
                 break;
             }
 
-            $available = (float) $layer->quantity_remaining;
-            $take = min($available, $remainingToConsume);
+            $layerUnitId = $layer->unit_id;
+            $availableInLayerUnit = (float) $layer->quantity_remaining;
 
-            $totalCost += $take * (float) $layer->unit_cost;
-            $lastUnitCost = (float) $layer->unit_cost;
+            $availableInConsumeUnit = self::toConsumeUnit($product, $availableInLayerUnit, $layerUnitId, $unitId);
+            if ($availableInConsumeUnit === null || $availableInConsumeUnit <= 0) {
+                continue;
+            }
 
-            // expiry terdekat dari layer yang dipakai (untuk diteruskan ke layer berikutnya)
+            $takeInConsumeUnit = min($availableInConsumeUnit, $remainingToConsume);
+            $takeInLayerUnit = self::fromConsumeUnit($product, $takeInConsumeUnit, $unitId, $layerUnitId);
+            if ($takeInLayerUnit === null || $takeInLayerUnit <= 0) {
+                continue;
+            }
+
+            $costPerConsumeUnit = self::unitCostInConsumeUnit($product, (float) $layer->unit_cost, $layerUnitId, $unitId);
+            $totalCost += $takeInConsumeUnit * $costPerConsumeUnit;
+            $lastUnitCostInConsumeUnit = $costPerConsumeUnit;
+
             if ($layer->expiry_date) {
                 $exp = $layer->expiry_date->toDateString();
                 if ($earliestExpiry === null || $exp < $earliestExpiry) {
@@ -118,17 +132,17 @@ class FifoCostService
                 }
             }
 
-            $layer->quantity_remaining = $available - $take;
+            $layer->quantity_remaining = $availableInLayerUnit - $takeInLayerUnit;
             $layer->updated_by = $userId;
             $layer->save();
 
-            $remainingToConsume -= $take;
+            $remainingToConsume -= $takeInConsumeUnit;
         }
 
-        // Jika stok layer tidak cukup (mis. data awal belum lengkap), gunakan
-        // unit_cost terakhir yang diketahui untuk sisa agar HPP tetap wajar.
         if ($remainingToConsume > 0) {
-            $fallbackCost = $lastUnitCost > 0 ? $lastUnitCost : self::currentUnitCost($variantId, $branchId);
+            $fallbackCost = $lastUnitCostInConsumeUnit > 0
+                ? $lastUnitCostInConsumeUnit
+                : self::currentUnitCost($variantId, $branchId, $unitId);
             $totalCost += $remainingToConsume * $fallbackCost;
         }
 
@@ -144,9 +158,9 @@ class FifoCostService
     }
 
     /**
-     * HPP berjalan = unit_cost dari layer FEFO terdepan yang masih tersisa.
+     * HPP berjalan = unit_cost layer FEFO terdepan, dikonversi ke $targetUnitId bila perlu.
      */
-    public static function currentUnitCost(?string $variantId, string $branchId): float
+    public static function currentUnitCost(?string $variantId, string $branchId, ?string $targetUnitId = null): float
     {
         $layer = self::fefoOrder(
             ProductCostLayer::query()
@@ -156,11 +170,24 @@ class FifoCostService
                 ->whereNull('deleted_at')
         )->first();
 
-        return $layer ? (float) $layer->unit_cost : 0.0;
+        if (! $layer) {
+            return 0.0;
+        }
+
+        $cost = (float) $layer->unit_cost;
+        $targetUnitId = $targetUnitId ?: $layer->unit_id;
+
+        if ($targetUnitId === $layer->unit_id) {
+            return $cost;
+        }
+
+        $product = self::resolveProduct($variantId);
+
+        return self::unitCostInConsumeUnit($product, $cost, $layer->unit_id, $targetUnitId);
     }
 
     /**
-     * Nilai persediaan = Σ(quantity_remaining * unit_cost).
+     * Nilai persediaan = Σ(quantity_remaining * unit_cost) per layer (dalam satuan layer).
      */
     public static function inventoryValue(?string $variantId, string $branchId): float
     {
@@ -171,6 +198,59 @@ class FifoCostService
             ->whereNull('deleted_at')
             ->get()
             ->sum(fn ($l) => (float) $l->quantity_remaining * (float) $l->unit_cost);
+    }
+
+    protected static function resolveProduct(?string $variantId): ?\App\Models\Product
+    {
+        if (! $variantId) {
+            return null;
+        }
+
+        return ProductVariant::with(['product.unitConversions'])
+            ->find($variantId)
+            ?->product;
+    }
+
+    protected static function toConsumeUnit(?\App\Models\Product $product, float $qty, string $fromUnitId, string $toUnitId): ?float
+    {
+        if ($fromUnitId === $toUnitId) {
+            return $qty;
+        }
+
+        if (! $product) {
+            return null;
+        }
+
+        return UnitConversionService::convertQuantity($product, $qty, $fromUnitId, $toUnitId);
+    }
+
+    protected static function fromConsumeUnit(?\App\Models\Product $product, float $qty, string $fromUnitId, string $toUnitId): ?float
+    {
+        if ($fromUnitId === $toUnitId) {
+            return $qty;
+        }
+
+        if (! $product) {
+            return null;
+        }
+
+        return UnitConversionService::convertQuantity($product, $qty, $fromUnitId, $toUnitId);
+    }
+
+    protected static function unitCostInConsumeUnit(?\App\Models\Product $product, float $unitCost, string $layerUnitId, string $consumeUnitId): float
+    {
+        if ($layerUnitId === $consumeUnitId) {
+            return $unitCost;
+        }
+
+        if ($product) {
+            $converted = UnitConversionService::convertUnitCost($product, $unitCost, $layerUnitId, $consumeUnitId);
+            if ($converted !== null) {
+                return $converted;
+            }
+        }
+
+        return $unitCost;
     }
 
     protected static function recordHistory(

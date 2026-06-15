@@ -9,6 +9,8 @@ use App\Models\ProductNature;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
 use App\Models\ProductVariantPrice;
+use App\Services\FifoCostService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 
 class ProductStockController extends Controller
@@ -31,6 +33,21 @@ class ProductStockController extends Controller
         // Pagination
         $perPage = $request->get('per_page', 20);
 
+        // Lokasi stok: cabang + gudang (WIP, FG) yang dapat diakses
+        $locations = \App\Models\BusinessUnit::query()
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->whereIn('type_code', ['BRANCH', 'WAREHOUSE'])
+            ->when(! empty($accessibleIds), fn ($q) => $q->whereIn('id', $accessibleIds))
+            ->orderByRaw("CASE type_code WHEN 'WAREHOUSE' THEN 0 ELSE 1 END")
+            ->orderBy('name')
+            ->get(['id', 'name', 'type_code', 'code']);
+
+        $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse())->id;
+        $isWarehouseFilter = $branchId && $locations->contains(
+            fn ($l) => $l->id === $branchId && $l->type_code === 'WAREHOUSE'
+        );
+
         // Products: tampilkan semua produk yang accessible ke user ini
         $query = Product::with([
                 'defaultUnit:id,name,symbol',
@@ -44,9 +61,13 @@ class ProductStockController extends Controller
             ])
             ->where('is_stock_item', true)
             ->when(
-                $branchId,
-                fn ($q) => $q->where('branch_id', $branchId),
-                fn ($q) => $q->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
+                $isWarehouseFilter,
+                fn ($q) => $q,
+                fn ($q) => $q->when(
+                    $branchId,
+                    fn ($q) => $q->where('branch_id', $branchId),
+                    fn ($q) => $q->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
+                )
             )
             ->orderBy('name');
 
@@ -81,7 +102,7 @@ class ProductStockController extends Controller
         $allNatures = ProductNature::orderBy('name')->get(['id', 'name']);
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
-        // Stock: tampilkan stok dari semua accessible BU (aggregate jika tidak ada filter branch)
+        $costBranchId = $branchId ?: $fgWarehouseId;
         $variantStocks = collect();
         $variantPrices = collect();
 
@@ -127,6 +148,11 @@ class ProductStockController extends Controller
                         return $va->attributeValue?->value ?? '';
                     })->filter()->implode(' / ');
 
+                    $fifoCost = ($costBranchId && $unit?->id)
+                        ? FifoCostService::currentUnitCost($variant->id, $costBranchId, $unit->id)
+                        : 0.0;
+                    $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $variant->purchase_price);
+
                     $productData[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
@@ -139,7 +165,8 @@ class ProductStockController extends Controller
                         'quantity' => $stock?->quantity ?? 0,
                         'unit' => $unit?->symbol ?? $unit?->name ?? '-',
                         'unit_id' => $unit?->id,
-                        'purchase_price' => $price?->purchase_price ?? $variant->purchase_price,
+                        'purchase_price' => $displayPurchase,
+                        'fifo_cost' => $fifoCost,
                         'selling_price' => $price?->selling_price ?? $variant->selling_price,
                         'min_stock' => $product->min_stock ?? 0,
                         'is_first_variant' => $variant === $variants->first(),
@@ -167,6 +194,11 @@ class ProductStockController extends Controller
                 $unit = $stock?->unit ?? $product->defaultUnit;
                 $price = $variantPrices->get($defaultVariant->id . '_' . $unit?->id);
 
+                $fifoCost = ($costBranchId && $unit?->id)
+                    ? FifoCostService::currentUnitCost($defaultVariant->id, $costBranchId, $unit->id)
+                    : 0.0;
+                $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $defaultVariant->purchase_price);
+
                 $productData[] = [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
@@ -179,7 +211,8 @@ class ProductStockController extends Controller
                     'quantity' => $stock?->quantity ?? 0,
                     'unit' => $unit?->symbol ?? $unit?->name ?? '-',
                     'unit_id' => $unit?->id,
-                    'purchase_price' => $price?->purchase_price ?? $defaultVariant->purchase_price,
+                    'purchase_price' => $displayPurchase,
+                    'fifo_cost' => $fifoCost,
                     'selling_price' => $price?->selling_price ?? $defaultVariant->selling_price,
                     'min_stock' => $product->min_stock ?? 0,
                     'is_first_variant' => true,
@@ -194,6 +227,8 @@ class ProductStockController extends Controller
             'allProducts' => $allProducts,
             'allNatures' => $allNatures,
             'allCategories' => $allCategories,
+            'locations' => $locations,
+            'fgWarehouseId' => $fgWarehouseId,
         ]);
     }
 }

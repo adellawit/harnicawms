@@ -1,15 +1,24 @@
 <?php return array(
     'root' => array(
         'name' => 'laravel/laravel',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => '96275d0e436e938655e8ab68a3453fc0305f9b76',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'e2747b97fe448f76983f30ba79c5aa7c7cfcbc93',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
+        'barryvdh/laravel-dompdf' => array(
+            'pretty_version' => 'v3.1.2',
+            'version' => '3.1.2.0',
+            'reference' => 'ee3b72b19ccdf57d0243116ecb2b90261344dedc',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../barryvdh/laravel-dompdf',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'barryvdh/laravel-snappy' => array(
             'pretty_version' => 'v1.0.4',
             'version' => '1.0.4.0',
@@ -154,6 +163,33 @@
             'reference' => '31ad66abc0fc9e1a1f2d9bc6a42668d2fbbcd6dd',
             'type' => 'library',
             'install_path' => __DIR__ . '/../doctrine/lexer',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'dompdf/dompdf' => array(
+            'pretty_version' => 'v3.1.5',
+            'version' => '3.1.5.0',
+            'reference' => 'f11ead23a8a76d0ff9bbc6c7c8fd7e05ca328496',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../dompdf/dompdf',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'dompdf/php-font-lib' => array(
+            'pretty_version' => '1.0.2',
+            'version' => '1.0.2.0',
+            'reference' => 'a6e9a688a2a80016ac080b97be73d3e10c444c9a',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../dompdf/php-font-lib',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'dompdf/php-svg-lib' => array(
+            'pretty_version' => '1.0.2',
+            'version' => '1.0.2.0',
+            'reference' => '8259ffb930817e72b1ff1caef5d226501f3dfeb1',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../dompdf/php-svg-lib',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -524,9 +560,9 @@
             'dev_requirement' => false,
         ),
         'laravel/laravel' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '96275d0e436e938655e8ab68a3453fc0305f9b76',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'e2747b97fe448f76983f30ba79c5aa7c7cfcbc93',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -700,6 +736,15 @@
             'reference' => '728434227fe21be27ff6d86621a1b13107a2562c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../markbaker/matrix',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'masterminds/html5' => array(
+            'pretty_version' => '2.10.0',
+            'version' => '2.10.0.0',
+            'reference' => 'fcf91eb64359852f00d921887b219479b4f21251',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../masterminds/html5',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -1072,8 +1117,8 @@
         'psr/http-client-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/http-factory' => array(
@@ -1088,8 +1133,8 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/http-message' => array(
@@ -1104,8 +1149,8 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/log' => array(
@@ -1180,6 +1225,15 @@
             'replaced' => array(
                 0 => '4.9.2',
             ),
+        ),
+        'sabberworm/php-css-parser' => array(
+            'pretty_version' => 'v9.3.0',
+            'version' => '9.3.0.0',
+            'reference' => '88dbd0f7f91abbfe4402d0a3071e9ff4d81ed949',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../sabberworm/php-css-parser',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'sebastian/cli-parser' => array(
             'pretty_version' => '3.0.2',
@@ -1733,6 +1787,15 @@
             'reference' => '24dd4de28d2e3988b311751ac49e684d783e2345',
             'type' => 'library',
             'install_path' => __DIR__ . '/../symfony/yaml',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'thecodingmachine/safe' => array(
+            'pretty_version' => 'v3.4.0',
+            'version' => '3.4.0.0',
+            'reference' => '705683a25bacf0d4860c7dea4d7947bfd09eea19',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../thecodingmachine/safe',
             'aliases' => array(),
             'dev_requirement' => false,
         ),

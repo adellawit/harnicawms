@@ -58,6 +58,14 @@
                     </button>
                 </div>
             </div>
+            @unless($isBasePriceList ?? true)
+            <div class="card-body border-bottom py-2">
+                <small class="text-muted">
+                    <i class="ti ti-info-circle me-1"></i>
+                    Kolom <strong>HPP / FIFO</strong> bersifat referensi (dari gudang FG/WIP). Atur <strong>Harga Jual</strong> per price list channel di bawah.
+                </small>
+            </div>
+            @endunless
             <div class="card-datatable text-nowrap table-responsive">
                 <table class="table table-bordered table-hover" id="table">
                     <thead class="table-light">
@@ -67,7 +75,10 @@
                             <th>Product / Variant</th>
                             <th>Product Type</th>
                             <th>Category</th>
-                            <th class="text-end" style="width:200px">Purchase Price / Unit</th>
+                            <th class="text-end" style="width:140px">HPP / FIFO</th>
+                            @if($isBasePriceList ?? true)
+                            <th class="text-end" style="width:180px">Purchase Price / Unit</th>
+                            @endif
                             <th class="text-end" style="width:200px">Selling Price / Unit</th>
                         </tr>
                     </thead>
@@ -92,7 +103,7 @@
                                     </td>
                                     <td>{{ $item['nature'] }}</td>
                                     <td>{{ $item['category'] }}</td>
-                                    <td class="text-center" colspan="2">
+                                    <td class="text-center" colspan="{{ ($isBasePriceList ?? true) ? 3 : 2 }}">
                                         <small class="text-muted">{{ $item['variant_count'] }} variants</small>
                                     </td>
                                 </tr>
@@ -122,6 +133,18 @@
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
                                 <td class="text-end">
+                                    @if(($item['hpp'] ?? 0) > 0)
+                                        <span class="{{ ($item['fifo_cost'] ?? 0) > 0 ? 'text-primary fw-medium' : 'text-muted' }}"
+                                              title="{{ ($item['fifo_cost'] ?? 0) > 0 ? 'HPP dari layer FIFO/FEFO' : 'HPP rata-rata dari penerimaan PO' }}">
+                                            {{ format_number($item['hpp'], 2, true) }}
+                                        </span>
+                                        <small class="text-muted d-block">/ {{ $item['unit'] }}</small>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
+                                @if($isBasePriceList ?? true)
+                                <td class="text-end">
                                     @if($hasUpdatePermission)
                                         <div class="input-group input-group-sm">
                                             <input type="text"
@@ -135,6 +158,7 @@
                                         <small class="text-muted">/ {{ $item['unit'] }}</small>
                                     @endif
                                 </td>
+                                @endif
                                 <td class="text-end">
                                     @if($hasUpdatePermission)
                                         <div class="input-group input-group-sm">
@@ -152,7 +176,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">No products found.</td>
+                                <td colspan="{{ ($isBasePriceList ?? true) ? 8 : 7 }}" class="text-center text-muted py-4">No products found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -342,24 +366,29 @@
 
                         var $ppInput = $row.find('[data-field="purchase_price"]');
                         var $spInput = $row.find('[data-field="selling_price"]');
-                        if ($ppInput.length === 0) return;
+                        if ($spInput.length === 0) return;
 
-                        var ppRaw = $ppInput.val() ? unformatPrice(String($ppInput.val()).trim()) : '';
+                        var ppRaw = $ppInput.length ? ($ppInput.val() ? unformatPrice(String($ppInput.val()).trim()) : '') : '';
                         var spRaw = $spInput.val() ? unformatPrice(String($spInput.val()).trim()) : '';
 
-                        if (ppRaw !== '' || spRaw !== '') {
-                            items.push({
-                                variant_id: variantId,
-                                product_id: productId,
-                                unit_id: unitId,
-                                purchase_price: ppRaw || '0',
-                                selling_price: spRaw || ''
-                            });
+                        var isBaseList = !priceListId || priceListId === '';
+                        if (!isBaseList && spRaw === '') return;
+                        if (isBaseList && ppRaw === '' && spRaw === '') return;
+
+                        var item = {
+                            variant_id: variantId,
+                            product_id: productId,
+                            unit_id: unitId,
+                            selling_price: spRaw || ''
+                        };
+                        if (isBaseList) {
+                            item.purchase_price = ppRaw || '0';
                         }
+                        items.push(item);
                     });
 
                     if (items.length === 0) {
-                        showAlert('warning', 'No prices to save. Please fill in at least one purchase or selling price.');
+                        showAlert('warning', 'No prices to save. Please fill in at least one selling price.');
                         return;
                     }
 

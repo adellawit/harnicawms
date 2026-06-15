@@ -36,7 +36,7 @@
                                 <td class="text-end">Rp {{ number_format($l->unit_cost,2) }}</td>
                                 <td class="text-end">Rp {{ number_format($l->quantity_remaining * $l->unit_cost,2) }}</td>
                                 <td>@if($l->expiry_date)<span class="badge bg-label-warning">{{ $l->expiry_date->format('d/m/Y') }}</span>@else<span class="text-muted">-</span>@endif</td>
-                                <td><span class="badge bg-label-secondary">{{ $l->source_type }}</span></td>
+                                <td><span class="badge bg-label-secondary">{{ $l->source_type_label }}</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="8" class="text-center text-muted py-4">Belum ada layer biaya.</td></tr>
@@ -59,7 +59,7 @@
                                 <td>{{ $h->branch?->name }}</td>
                                 <td class="text-end">Rp {{ number_format($h->cost,2) }}</td>
                                 <td><span class="badge bg-label-info">{{ strtoupper($h->cost_type) }}</span></td>
-                                <td><span class="badge bg-label-secondary">{{ $h->reference_type }}</span></td>
+                                <td><span class="badge bg-label-secondary">{{ $h->reference_type_label }}</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="6" class="text-center text-muted py-4">Belum ada histori.</td></tr>

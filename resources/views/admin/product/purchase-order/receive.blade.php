@@ -42,11 +42,24 @@
 
                 <div class="card-body">
                     <div class="row g-3 mb-4">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label" for="receive_date">Receive Date <span class="text-danger">*</span></label>
                             <input type="text" id="receive_date" name="receive_date" class="form-control flatpickr-date" placeholder="DD/MM/YYYY" value="{{ old('receive_date', date('d/m/Y')) }}" required />
                         </div>
-                        <div class="col-md-8">
+                        <div class="col-md-4">
+                            <label class="form-label" for="warehouse_id">Gudang Tujuan <span class="text-danger">*</span></label>
+                            <select id="warehouse_id" name="warehouse_id" class="form-select" required>
+                                @forelse ($warehouses as $warehouse)
+                                    <option value="{{ $warehouse['id'] }}" @selected(old('warehouse_id', $defaultWarehouseId) === $warehouse['id'])>
+                                        {{ $warehouse['label'] }}
+                                    </option>
+                                @empty
+                                    <option value="">-- Tidak ada gudang --</option>
+                                @endforelse
+                            </select>
+                            <small class="text-muted">Bahan baku produksi: pilih <strong>Gudang WIP</strong>.</small>
+                        </div>
+                        <div class="col-md-5">
                             <label class="form-label" for="notes">Notes</label>
                             <input type="text" id="notes" name="notes" class="form-control" value="{{ old('notes') }}" placeholder="Optional receive notes..." />
                         </div>
@@ -142,6 +155,10 @@
                 });
 
                 $('#btn-submit').click(function() {
+                    if (!$('#warehouse_id').val()) {
+                        alert('Pilih gudang tujuan penerimaan.');
+                        return;
+                    }
                     var hasQty = false;
                     $('.item-receive-qty').each(function() {
                         if (parseFloat($(this).val()) > 0) hasQty = true;

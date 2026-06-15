@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DashboardConfigurationController;
 use App\Http\Controllers\Admin\BusinessUnitController;
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\WarehouseController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\HelperController;
@@ -212,6 +213,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/edit/data', [BranchController::class, 'editData'])->name('branch.edit.data')->middleware('permission:Branch,is_update');
             Route::post('/delete', [BranchController::class, 'deleteData'])->name('branch.delete.data')->middleware('permission:Branch,is_delete');
             Route::post('/restore', [BranchController::class, 'restoreData'])->name('branch.restore.data')->middleware('permission:Branch,is_delete');
+        });
+
+        Route::group(['prefix' => 'warehouse'], function () {
+            Route::get('/', [WarehouseController::class, 'indexView'])->name('warehouse.index.view')->middleware('permission:Warehouse,is_read');
+            Route::post('/data', [WarehouseController::class, 'indexData'])->name('warehouse.index.data');
+            Route::get('/insert', [WarehouseController::class, 'insertView'])->name('warehouse.insert.view')->middleware('permission:Warehouse,is_create');
+            Route::post('/insert/data', [WarehouseController::class, 'insertData'])->name('warehouse.insert.data')->middleware('permission:Warehouse,is_create');
+            Route::get('/edit/{id}', [WarehouseController::class, 'editView'])->name('warehouse.edit.view')->middleware('permission:Warehouse,is_update');
+            Route::post('/edit/data', [WarehouseController::class, 'editData'])->name('warehouse.edit.data')->middleware('permission:Warehouse,is_update');
+            Route::post('/delete', [WarehouseController::class, 'deleteData'])->name('warehouse.delete.data')->middleware('permission:Warehouse,is_delete');
+            Route::post('/restore', [WarehouseController::class, 'restoreData'])->name('warehouse.restore.data')->middleware('permission:Warehouse,is_delete');
         });
     });
 
@@ -489,6 +501,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/edit/{id}', [PurchaseOrderController::class, 'editView'])->name('product.purchase-order.edit.view')->middleware('permission:Purchase Order,is_update');
             Route::post('/edit/data', [PurchaseOrderController::class, 'editData'])->name('product.purchase-order.edit.data')->middleware('permission:Purchase Order,is_update');
             Route::get('/detail/{id}', [PurchaseOrderController::class, 'detailView'])->name('product.purchase-order.detail.view')->middleware('permission:Purchase Order,is_read');
+            Route::get('/detail/{id}/pdf', [PurchaseOrderController::class, 'exportPdf'])->name('product.purchase-order.pdf')->middleware('permission:Purchase Order,is_read');
             Route::post('/delete', [PurchaseOrderController::class, 'deleteData'])->name('product.purchase-order.delete.data')->middleware('permission:Purchase Order,is_delete');
             Route::post('/restore', [PurchaseOrderController::class, 'restoreData'])->name('product.purchase-order.restore.data')->middleware('permission:Purchase Order,is_delete');
 

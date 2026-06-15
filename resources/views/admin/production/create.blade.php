@@ -65,7 +65,7 @@
                 <div class="card-header"><h5 class="card-title mb-0">Kebutuhan Bahan Baku</h5></div>
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead><tr><th>Bahan</th><th class="text-end">Qty Dibutuhkan</th></tr></thead>
+                        <thead><tr><th>Bahan</th><th class="text-end">Stok WIP</th><th class="text-end">Qty Dibutuhkan</th><th class="text-center">Status</th></tr></thead>
                         <tbody id="bomRows"></tbody>
                     </table>
                 </div>
@@ -75,6 +75,9 @@
                 <input class="form-check-input" type="checkbox" name="complete" value="1" id="completeChk" checked>
                 <label class="form-check-label" for="completeChk">Langsung selesaikan produksi (konsumsi bahan baku FIFO & hitung HPP produk jadi)</label>
             </div>
+            <x-alert type="warning" class="mb-3" id="bomStockWarn" style="display:none">
+                Stok bahan baku di Gudang WIP tidak mencukupi. Terima barang atau kurangi qty produksi sebelum melanjutkan.
+            </x-alert>
 
             <button type="submit" class="btn btn-primary"><i class="ti ti-check me-1"></i> Proses Produksi</button>
             <a href="{{ route('production.index') }}" class="btn btn-outline-secondary">Batal</a>
@@ -94,10 +97,23 @@
             if (!bom) { box.style.display = 'none'; return; }
             const scale = bom.output_quantity > 0 ? (qty / bom.output_quantity) : qty;
             rows.innerHTML = '';
+            let allOk = true;
             bom.items.forEach(it => {
                 const need = (it.qty * scale);
-                rows.innerHTML += `<tr><td>${it.label}</td><td class="text-end">${(+need.toFixed(4))}</td></tr>`;
+                const ok = it.available >= need;
+                if (!ok) allOk = false;
+                const unit = it.unit ? ` ${it.unit}` : '';
+                rows.innerHTML += `<tr class="${ok ? '' : 'table-danger'}">
+                    <td>${it.label}</td>
+                    <td class="text-end">${(+it.available.toFixed(4))}${unit}</td>
+                    <td class="text-end">${(+need.toFixed(4))}${unit}</td>
+                    <td class="text-center">${ok
+                        ? '<span class="badge bg-label-success">Cukup</span>'
+                        : '<span class="badge bg-label-danger">Kurang</span>'}</td>
+                </tr>`;
             });
+            document.getElementById('completeChk').disabled = !allOk;
+            document.getElementById('bomStockWarn').style.display = allOk ? 'none' : 'block';
             box.style.display = '';
         }
     </script>

@@ -37,6 +37,10 @@
                         $hasRemaining = $purchase->items->contains(fn ($item) => $item->quantity_remaining > 0);
                     @endphp
 
+                    <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pdfModal">
+                        <i class="ti ti-file-type-pdf me-1"></i>Generate PDF
+                    </button>
+
                     @if($canReceive && $hasRemaining)
                         <a href="{{ route('product.purchase-order.receive.view', $purchase->id) }}" class="btn btn-success btn-sm me-1">
                             <i class="ti ti-package me-1"></i>Receive
@@ -240,6 +244,44 @@
         </div>
         @endif
     </div>
+
+    <div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pdfModalLabel">Generate PDF Purchase Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mengunduh PDF.</p>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showPricesToggle" checked>
+                        <label class="form-check-label" for="showPricesToggle">Tampilkan kolom harga</label>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Jika dimatikan, kolom harga satuan, subtotal, dan ringkasan total tidak akan ditampilkan di PDF.
+                    </small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnDownloadPdf">
+                        <i class="ti ti-download me-1"></i>Unduh PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @push('page-js')
+    <script>
+        document.getElementById('btnDownloadPdf')?.addEventListener('click', function () {
+            const showPrices = document.getElementById('showPricesToggle').checked ? 1 : 0;
+            const url = @json(route('product.purchase-order.pdf', $purchase->id)) + '?show_prices=' + showPrices;
+            window.open(url, '_blank');
+            bootstrap.Modal.getInstance(document.getElementById('pdfModal'))?.hide();
+        });
+    </script>
+    @endpush
 
     @if($poStatus === 'draft' && !$purchase->trashed())
     <x-confirm-modal id="deleteModal" title="Delete Purchase Order" :action="route('product.purchase-order.delete.data')" confirmText="Delete">
