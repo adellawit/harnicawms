@@ -12,9 +12,11 @@ use App\Models\ProductPurchaseOrderReceiveItem;
 use App\Models\ProductStock;
 use App\Models\ProductStockMovement;
 use App\Models\ProductUnit;
+use App\Models\ProductVariant;
 use App\Models\StockMutationType;
 use App\Models\Supplier;
 use App\Services\InventoryCostService;
+use App\Services\StockMutationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
@@ -627,6 +629,28 @@ class PurchaseOrderController extends Controller
                     $companyId,
                     $user->id
                 );
+
+                // Juga update product_variant_stock + cost layer (FEFO) agar halaman stok akurat
+                $variantId = $poItem->variant_id
+                    ?: ProductVariant::where('product_id', $poItem->product_id)
+                        ->where('is_active', true)
+                        ->value('id');
+                if ($variantId) {
+                    StockMutationService::inbound(
+                        productId: $poItem->product_id,
+                        variantId: $variantId,
+                        companyId: $companyId,
+                        branchId: $warehouseId,
+                        unitId: $poItem->unit_id,
+                        quantity: $qtyReceived,
+                        unitCost: (float) $poItem->unit_price,
+                        referenceType: ProductPurchaseOrderReceive::class,
+                        referenceId: $receive->id,
+                        userId: $user->id,
+                        notes: "Receive {$receive->receive_number} from PO {$purchase->purchase_number}",
+                        date: $request->receive_date,
+                    );
+                }
 
                 $stock = ProductStock::firstOrCreate(
                     [

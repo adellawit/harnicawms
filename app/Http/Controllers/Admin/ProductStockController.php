@@ -15,18 +15,23 @@ class ProductStockController extends Controller
 {
     protected function getBranchId(): ?string
     {
-        return auth('web')->user()->current_business_unit_id;
+        return auth('web')->user()->getBranchIdForTransaction();
     }
 
     public function indexView(Request $request)
     {
-        $defaultBranchId = $this->getBranchId();
-        $branchId = $request->get('branch_id', $defaultBranchId);
+        $user = auth('web')->user();
+
+        // Semua BU yang dapat diakses user (untuk filter produk & stok)
+        $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
+
+        // Branch/warehouse spesifik jika dipilih lewat filter (default: semua accessible)
+        $branchId = $request->get('branch_id'); // null = semua accessible
 
         // Pagination
         $perPage = $request->get('per_page', 20);
 
-        // Get base query for products
+        // Products: tampilkan semua produk yang accessible ke user ini
         $query = Product::with([
                 'defaultUnit:id,name,symbol',
                 'nature:id,name',
@@ -38,7 +43,11 @@ class ProductStockController extends Controller
                 },
             ])
             ->where('is_stock_item', true)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when(
+                $branchId,
+                fn ($q) => $q->where('branch_id', $branchId),
+                fn ($q) => $q->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
+            )
             ->orderBy('name');
 
         if ($request->filled('product_id')) {
@@ -64,7 +73,7 @@ class ProductStockController extends Controller
 
         // Get all products for filter dropdown
         $allProducts = Product::where('is_stock_item', true)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
             ->orderBy('name')
             ->get(['id', 'name', 'sku']);
 
@@ -72,17 +81,30 @@ class ProductStockController extends Controller
         $allNatures = ProductNature::orderBy('name')->get(['id', 'name']);
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
-        // Get variant stocks for current branch
+        // Stock: tampilkan stok dari semua accessible BU (aggregate jika tidak ada filter branch)
         $variantStocks = collect();
         $variantPrices = collect();
 
+        $stockQuery = ProductVariantStock::with('unit:id,name,symbol');
         if ($branchId) {
-            $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
-                ->where('branch_id', $branchId)
-                ->get()
-                ->keyBy('product_variant_id');
+            $stockQuery->where('branch_id', $branchId);
+        } elseif (! empty($accessibleIds)) {
+            $stockQuery->whereIn('branch_id', $accessibleIds);
+        }
 
-            $variantPrices = ProductVariantPrice::where('branch_id', $branchId)
+        // Aggregate quantity per variant (sum across branches if no specific branch selected)
+        $variantStocks = $stockQuery->get()
+            ->groupBy('product_variant_id')
+            ->map(function ($rows) {
+                $first = $rows->first();
+                $first->quantity = $rows->sum('quantity');
+                return $first;
+            });
+
+        // Prices: dari branch transaksi utama
+        $pricesBranchId = $branchId ?: $this->getBranchId() ?: ($accessibleIds[0] ?? null);
+        if ($pricesBranchId) {
+            $variantPrices = ProductVariantPrice::where('branch_id', $pricesBranchId)
                 ->get()
                 ->keyBy(fn ($p) => $p->variant_id . '_' . $p->unit_id);
         }
