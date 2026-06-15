@@ -238,10 +238,11 @@ class PurchaseOrderController extends Controller
     public function editView(Request $request, string $id)
     {
         $purchase = ProductPurchaseOrder::with(['items.product', 'items.unit', 'items.variant'])->findOrFail($id);
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
+        $branchId = $user->current_business_unit_id;
 
         $products = Product::whereNull('deleted_at')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
@@ -303,9 +304,9 @@ class PurchaseOrderController extends Controller
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
 
+        $user = auth('web')->user();
         $purchase = ProductPurchaseOrder::findOrFail($request->id);
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
         $statusKey = $purchase->status_key ?? $purchase->status;
@@ -392,8 +393,8 @@ class PurchaseOrderController extends Controller
             'supplier',
         ])->findOrFail($id);
 
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
         return view('admin.product.purchase-order.detail', compact('purchase'));
@@ -406,8 +407,8 @@ class PurchaseOrderController extends Controller
         ]);
 
         $purchase = ProductPurchaseOrder::findOrFail($request->id);
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
         $statusKey = $purchase->status_key ?? $purchase->status;
@@ -430,13 +431,12 @@ class PurchaseOrderController extends Controller
             'id' => 'required|exists:product.purchase_orders,id',
         ]);
 
+        $user = auth('web')->user();
         $purchase = ProductPurchaseOrder::withTrashed()->findOrFail($request->id);
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
 
-        $user = auth('web')->user();
         $purchase->updated_by = $user->id;
         $purchase->deleted_by = null;
         $purchase->save();
@@ -526,8 +526,8 @@ class PurchaseOrderController extends Controller
             'items.receiveItems',
         ])->findOrFail($id);
 
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
 
@@ -558,8 +558,8 @@ class PurchaseOrderController extends Controller
         ]);
 
         $purchase = ProductPurchaseOrder::with('items.receiveItems')->findOrFail($request->purchase_order_id);
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $purchase->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
 
@@ -691,8 +691,8 @@ class PurchaseOrderController extends Controller
             'createdByUser',
         ])->findOrFail($id);
 
-        $branchId = auth('web')->user()->current_business_unit_id;
-        if ($branchId && $receive->purchaseOrder->branch_id !== $branchId) {
+        $user = auth('web')->user();
+        if (! in_array($receive->purchaseOrder->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
 
