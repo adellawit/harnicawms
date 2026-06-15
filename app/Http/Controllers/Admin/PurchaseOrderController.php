@@ -48,15 +48,19 @@ class PurchaseOrderController extends Controller
     public function indexData(Request $request)
     {
         $user = auth('web')->user();
-        $defaultBranchId = $user->current_business_unit_id;
         $branchId = $request->get('branch_id');
 
         $data = ProductPurchaseOrder::query();
 
         if ($branchId) {
+            // explicit filter from branch selector dropdown
             $data->where('branch_id', $branchId);
-        } elseif ($defaultBranchId) {
-            $data->where('branch_id', $defaultBranchId);
+        } else {
+            // show all POs accessible to this user (company users see all child branches)
+            $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
+            if (! empty($accessibleIds)) {
+                $data->whereIn('branch_id', $accessibleIds);
+            }
         }
 
         if ($request->status === 'deleted') {
