@@ -57,8 +57,8 @@
                         <form method="POST" action="{{ route('replenishment.ship', $order->id) }}" class="mb-4">
                             @csrf
                             <div class="row g-2 mb-2">
-                                <div class="col-4"><input type="text" name="carrier" class="form-control form-control-sm" placeholder="Kurir"></div>
-                                <div class="col-4"><input type="text" name="tracking_number" class="form-control form-control-sm" placeholder="No. Resi"></div>
+                                <div class="col-4"><input type="text" name="carrier" class="form-control form-control-sm" placeholder="Kurir *" required></div>
+                                <div class="col-4"><input type="text" name="tracking_number" class="form-control form-control-sm" placeholder="No. Resi *" required></div>
                                 <div class="col-4"><input type="date" name="ship_date" class="form-control form-control-sm" value="{{ date('Y-m-d') }}"></div>
                             </div>
                             <table class="table table-sm">
@@ -84,8 +84,11 @@
                                 <div class="d-flex justify-content-between">
                                     <div>
                                         <span class="fw-medium">{{ $sh->shipment_number }}</span>
-                                        <span class="badge bg-label-{{ $sh->status === 'delivered' ? 'success' : 'warning' }}">{{ $sh->status }}</span>
-                                        <div class="small text-muted">{{ optional($sh->ship_date)->format('d/m/Y') }} · {{ $sh->carrier ?? '-' }} · Resi: {{ $sh->tracking_number ?? '-' }}</div>
+                                        <span class="badge bg-label-{{ $sh->status === 'delivered' ? 'success' : 'warning' }}">{{ $sh->status === 'delivered' ? 'Diterima' : 'Dalam Perjalanan' }}</span>
+                                        <div class="small text-muted mt-1">{{ optional($sh->ship_date)->format('d/m/Y') }} · Kurir: {{ $sh->carrier ?? '-' }}</div>
+                                        <div class="mt-1">
+                                            <span class="badge bg-primary"><i class="ti ti-barcode me-1"></i> Resi: {{ $sh->tracking_number ?? '-' }}</span>
+                                        </div>
                                     </div>
                                     @if ($sh->status !== 'delivered')
                                     <form method="POST" action="{{ route('replenishment.receive', [$order->id, $sh->id]) }}" onsubmit="return confirm('Terima barang ini di Agen?')">

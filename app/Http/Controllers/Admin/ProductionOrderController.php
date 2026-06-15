@@ -28,6 +28,8 @@ class ProductionOrderController extends Controller
             ->orderByDesc('created_at')
             ->get();
         $distributor = WmsContext::distributor();
+        $wip = WmsContext::wipWarehouse(optional($distributor)->id);
+        $fg = WmsContext::finishedGoodsWarehouse(optional($distributor)->id);
 
         // Data ringkas untuk preview kebutuhan bahan (dipakai JS)
         $bomData = $boms->map(function (BillOfMaterial $b) {
@@ -41,7 +43,7 @@ class ProductionOrderController extends Controller
             ];
         })->values();
 
-        return view('admin.production.create', compact('boms', 'distributor', 'bomData'));
+        return view('admin.production.create', compact('boms', 'distributor', 'bomData', 'wip', 'fg'));
     }
 
     public function store(Request $request)
@@ -51,19 +53,25 @@ class ProductionOrderController extends Controller
             'planned_qty' => ['required', 'numeric', 'min:0.000001'],
             'overhead_cost' => ['nullable', 'numeric', 'min:0'],
             'production_date' => ['nullable', 'date'],
+            'output_expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'complete' => ['nullable'],
         ]);
 
         $bom = BillOfMaterial::with('product')->findOrFail($data['bom_id']);
         $distributor = WmsContext::distributor();
+        $distId = optional($distributor)->id;
+        $wip = WmsContext::wipWarehouse($distId);
+        $fg = WmsContext::finishedGoodsWarehouse($distId);
         $userId = Auth::id();
 
         $order = ProductionOrder::create([
             'order_number' => ProductionService::generateNumber(),
             'production_date' => $data['production_date'] ?? now()->toDateString(),
-            'company_id' => optional($distributor)->id,
-            'branch_id' => optional($distributor)->id, // gudang distributor = company id
+            'output_expiry_date' => $data['output_expiry_date'] ?? null,
+            'company_id' => $distId,
+            'branch_id' => optional($fg)->id ?? $distId,          // output -> Gudang Barang Jadi
+            'source_warehouse_id' => optional($wip)->id ?? $distId, // bahan baku <- Gudang WIP
             'bom_id' => $bom->id,
             'product_id' => $bom->product_id,
             'product_variant_id' => $bom->product_variant_id,

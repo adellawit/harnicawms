@@ -20,10 +20,12 @@ class ShipmentItem extends Model
         'product_variant_id',
         'unit_id',
         'quantity',
+        'expiry_date',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:6',
+        'expiry_date' => 'date',
     ];
 
     public function shipment(): BelongsTo

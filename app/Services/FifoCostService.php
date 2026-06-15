@@ -7,16 +7,31 @@ use App\Models\ProductCostLayer;
 use Illuminate\Support\Carbon;
 
 /**
- * FIFO costing engine.
+ * FEFO costing engine (First Expired First Out) dengan fallback FIFO.
  *
- * - addLayer(): setiap barang masuk membuat satu layer biaya (qty + unit_cost).
- * - consume(): barang keluar mengkonsumsi layer tertua dulu (First In First Out)
- *   dan mengembalikan total HPP (COGS) dari layer yang terpakai.
+ * Cocok untuk produk herbal yang punya tanggal kadaluarsa: konsumsi mengambil
+ * layer dengan expiry_date TERDEKAT lebih dulu; layer tanpa expiry diperlakukan
+ * paling akhir (nulls last) lalu diurutkan FIFO (effective_date, created_at).
+ *
+ * - addLayer(): setiap barang masuk membuat satu layer biaya (qty + unit_cost + expiry).
+ * - consume(): barang keluar mengkonsumsi layer sesuai urutan FEFO dan mengembalikan
+ *   total HPP (COGS) + expiry terdekat dari layer yang terpakai.
  *
  * Semua method diasumsikan dipanggil di dalam DB::transaction oleh caller.
  */
 class FifoCostService
 {
+    /**
+     * Terapkan urutan FEFO (expiry terdekat dulu, NULLS LAST) lalu FIFO.
+     */
+    protected static function fefoOrder($query)
+    {
+        return $query
+            ->orderByRaw('expiry_date ASC NULLS LAST')
+            ->orderBy('effective_date')
+            ->orderBy('created_at');
+    }
+
     /**
      * Buat layer biaya baru (barang masuk) + catat histori HPP.
      */
@@ -31,7 +46,8 @@ class FifoCostService
         string $sourceType,
         ?string $sourceId,
         ?string $userId = null,
-        ?string $date = null
+        ?string $date = null,
+        ?string $expiryDate = null
     ): ProductCostLayer {
         $effectiveDate = $date ?: Carbon::now()->toDateString();
 
@@ -47,6 +63,7 @@ class FifoCostService
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'effective_date' => $effectiveDate,
+            'expiry_date' => $expiryDate,
             'created_by' => $userId,
             'updated_by' => $userId,
         ]);
@@ -57,9 +74,9 @@ class FifoCostService
     }
 
     /**
-     * Konsumsi qty secara FIFO dari layer tertua.
+     * Konsumsi qty secara FEFO (expiry terdekat dulu, fallback FIFO).
      *
-     * @return array{total_cost: float, unit_cost: float, consumed: float}
+     * @return array{total_cost: float, unit_cost: float, consumed: float, earliest_expiry: ?string}
      */
     public static function consume(
         ?string $variantId,
@@ -71,17 +88,16 @@ class FifoCostService
         $remainingToConsume = $quantity;
         $totalCost = 0.0;
 
-        $layers = ProductCostLayer::query()
-            ->where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
-            ->where('quantity_remaining', '>', 0)
-            ->whereNull('deleted_at')
-            ->orderBy('effective_date')
-            ->orderBy('created_at')
-            ->lockForUpdate()
-            ->get();
+        $layers = self::fefoOrder(
+            ProductCostLayer::query()
+                ->where('product_variant_id', $variantId)
+                ->where('branch_id', $branchId)
+                ->where('quantity_remaining', '>', 0)
+                ->whereNull('deleted_at')
+        )->lockForUpdate()->get();
 
         $lastUnitCost = 0.0;
+        $earliestExpiry = null;
 
         foreach ($layers as $layer) {
             if ($remainingToConsume <= 0) {
@@ -93,6 +109,14 @@ class FifoCostService
 
             $totalCost += $take * (float) $layer->unit_cost;
             $lastUnitCost = (float) $layer->unit_cost;
+
+            // expiry terdekat dari layer yang dipakai (untuk diteruskan ke layer berikutnya)
+            if ($layer->expiry_date) {
+                $exp = $layer->expiry_date->toDateString();
+                if ($earliestExpiry === null || $exp < $earliestExpiry) {
+                    $earliestExpiry = $exp;
+                }
+            }
 
             $layer->quantity_remaining = $available - $take;
             $layer->updated_by = $userId;
@@ -115,22 +139,22 @@ class FifoCostService
             'total_cost' => round($totalCost, 4),
             'unit_cost' => $unitCost,
             'consumed' => $consumed,
+            'earliest_expiry' => $earliestExpiry,
         ];
     }
 
     /**
-     * HPP berjalan = unit_cost dari layer tertua yang masih tersisa.
+     * HPP berjalan = unit_cost dari layer FEFO terdepan yang masih tersisa.
      */
     public static function currentUnitCost(?string $variantId, string $branchId): float
     {
-        $layer = ProductCostLayer::query()
-            ->where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
-            ->where('quantity_remaining', '>', 0)
-            ->whereNull('deleted_at')
-            ->orderBy('effective_date')
-            ->orderBy('created_at')
-            ->first();
+        $layer = self::fefoOrder(
+            ProductCostLayer::query()
+                ->where('product_variant_id', $variantId)
+                ->where('branch_id', $branchId)
+                ->where('quantity_remaining', '>', 0)
+                ->whereNull('deleted_at')
+        )->first();
 
         return $layer ? (float) $layer->unit_cost : 0.0;
     }

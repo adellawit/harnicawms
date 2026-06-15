@@ -31,6 +31,7 @@ return new class extends Migration
             $table->string('source_type', 50)->nullable(); // PurchaseReceive, Production, ReplenishmentReceipt, ReturnIn, Inbound
             $table->uuid('source_id')->nullable();
             $table->date('effective_date');
+            $table->date('expiry_date')->nullable(); // untuk FEFO (produk herbal)
 
             $table->uuid('created_by')->nullable();
             $table->uuid('updated_by')->nullable();
@@ -43,7 +44,8 @@ return new class extends Migration
             $table->index('product_variant_id');
             $table->index('branch_id');
             $table->index('effective_date');
-            // Hot path for FIFO consumption (oldest remaining first)
+            $table->index('expiry_date');
+            // Hot path for FEFO/FIFO consumption (earliest expiry / oldest remaining first)
             $table->index(['product_variant_id', 'branch_id', 'quantity_remaining']);
         });
 

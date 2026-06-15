@@ -33,6 +33,51 @@ class WmsContext
     }
 
     /**
+     * Gudang WIP (penerimaan bahan baku & pemrosesan) milik Distributor.
+     */
+    public static function wipWarehouse(?string $distributorId = null): ?BusinessUnit
+    {
+        return self::warehouseByCode('WH-WIP', $distributorId);
+    }
+
+    /**
+     * Gudang Barang Jadi milik Distributor.
+     */
+    public static function finishedGoodsWarehouse(?string $distributorId = null): ?BusinessUnit
+    {
+        return self::warehouseByCode('WH-FG', $distributorId);
+    }
+
+    /**
+     * Daftar gudang Distributor (WIP & Barang Jadi) untuk dropdown.
+     *
+     * @return \Illuminate\Support\Collection<int, BusinessUnit>
+     */
+    public static function warehouses(?string $distributorId = null)
+    {
+        $distributorId = $distributorId ?: optional(self::distributor())->id;
+
+        return BusinessUnit::where('type_code', 'WAREHOUSE')
+            ->when($distributorId, fn ($q) => $q->where('parent_id', $distributorId))
+            ->whereNull('deleted_at')
+            ->orderBy('code')
+            ->get();
+    }
+
+    protected static function warehouseByCode(string $code, ?string $distributorId): ?BusinessUnit
+    {
+        $distributorId = $distributorId ?: optional(self::distributor())->id;
+
+        return BusinessUnit::where('type_code', 'WAREHOUSE')
+            ->where('code', $code)
+            ->when($distributorId, fn ($q) => $q->where('parent_id', $distributorId))
+            ->whereNull('deleted_at')
+            ->first()
+            // fallback tanpa filter parent (jika data parent berbeda)
+            ?? BusinessUnit::where('type_code', 'WAREHOUSE')->where('code', $code)->whereNull('deleted_at')->first();
+    }
+
+    /**
      * Daftar Agen (branch) di bawah Distributor.
      *
      * @return \Illuminate\Support\Collection<int, BusinessUnit>

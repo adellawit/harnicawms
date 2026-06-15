@@ -40,6 +40,7 @@ class InboundController extends Controller
             'quantity' => ['required', 'numeric', 'min:0.000001'],
             'unit_cost' => ['required', 'numeric', 'min:0'],
             'date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -66,7 +67,8 @@ class InboundController extends Controller
                 null,
                 $userId,
                 $data['notes'] ?? 'Stok masuk manual',
-                $data['date'] ?? null
+                $data['date'] ?? null,
+                $data['expiry_date'] ?? null
             );
         });
 
@@ -76,11 +78,15 @@ class InboundController extends Controller
     private function branchOptions()
     {
         $distributor = WmsContext::distributor();
+        $distId = optional($distributor)->id;
         $options = [];
-        if ($distributor) {
-            $options[] = ['id' => $distributor->id, 'label' => $distributor->name . ' (Distributor)'];
+
+        // Gudang distributor (WIP & Barang Jadi) - utama untuk penerimaan bahan baku
+        foreach (WmsContext::warehouses($distId) as $wh) {
+            $options[] = ['id' => $wh->id, 'label' => $wh->name];
         }
-        foreach (WmsContext::agents(optional($distributor)->id) as $agent) {
+        // Agen (opsional)
+        foreach (WmsContext::agents($distId) as $agent) {
             $options[] = ['id' => $agent->id, 'label' => $agent->name . ' (Agen)'];
         }
 

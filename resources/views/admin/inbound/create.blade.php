@@ -48,9 +48,13 @@
                             <label class="form-label">HPP / Unit (Rp) <span class="text-danger">*</span></label>
                             <input type="number" step="any" min="0" name="unit_cost" class="form-control" required>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Tanggal</label>
+                        <div class="col-md-2">
+                            <label class="form-label">Tgl Terima</label>
                             <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Expired Date <span class="text-muted small">(FEFO)</span></label>
+                            <input type="date" name="expiry_date" class="form-control">
                         </div>
                         <div class="col-12">
                             <label class="form-label">Catatan</label>

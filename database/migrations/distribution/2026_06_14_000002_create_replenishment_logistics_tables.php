@@ -48,6 +48,7 @@ return new class extends Migration
             $table->uuid('product_variant_id')->nullable();
             $table->uuid('unit_id');
             $table->decimal('quantity', 18, 6)->default(0);
+            $table->date('expiry_date')->nullable(); // expiry dari layer FG (FEFO) -> diteruskan ke layer Agen
 
             $table->timestamps();
 

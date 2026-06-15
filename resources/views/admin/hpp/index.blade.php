@@ -25,7 +25,7 @@
             <div class="card-header"><h6 class="card-title mb-0">Layer Biaya Berjalan (sisa stok per layer)</h6></div>
             <div class="table-responsive text-nowrap">
                 <table class="table">
-                    <thead><tr><th>Tanggal</th><th>Produk / Varian</th><th>Lokasi</th><th class="text-end">Sisa Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Nilai</th><th>Sumber</th></tr></thead>
+                    <thead><tr><th>Tanggal</th><th>Produk / Varian</th><th>Lokasi</th><th class="text-end">Sisa Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Nilai</th><th>Expired</th><th>Sumber</th></tr></thead>
                     <tbody>
                         @forelse ($layers as $l)
                             <tr>
@@ -35,10 +35,11 @@
                                 <td class="text-end">{{ rtrim(rtrim(number_format($l->quantity_remaining,4),'0'),'.') }}</td>
                                 <td class="text-end">Rp {{ number_format($l->unit_cost,2) }}</td>
                                 <td class="text-end">Rp {{ number_format($l->quantity_remaining * $l->unit_cost,2) }}</td>
+                                <td>@if($l->expiry_date)<span class="badge bg-label-warning">{{ $l->expiry_date->format('d/m/Y') }}</span>@else<span class="text-muted">-</span>@endif</td>
                                 <td><span class="badge bg-label-secondary">{{ $l->source_type }}</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada layer biaya.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada layer biaya.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

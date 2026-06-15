@@ -11,6 +11,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentItem;
 use App\Services\FifoCostService;
 use App\Services\StockMutationService;
+use App\Support\WmsContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -41,6 +42,9 @@ class ReplenishmentStockService
                 'updated_by' => $userId,
             ]);
 
+            // Kirim dari Gudang Barang Jadi milik distributor
+            $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse($order->distributor_id))->id ?? $order->distributor_id;
+
             foreach ($order->items as $item) {
                 $qty = (float) ($payload['qty'][$item->id] ?? 0);
                 $outstanding = (float) $item->qty_ordered - (float) $item->qty_shipped;
@@ -49,11 +53,11 @@ class ReplenishmentStockService
                     continue;
                 }
 
-                StockMutationService::outbound(
+                $result = StockMutationService::outbound(
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
-                    $order->distributor_id, // stok distributor disimpan di branch=company id (gudang distributor)
+                    $fgWarehouseId,
                     $item->unit_id,
                     $qty,
                     'ReplenishmentShipment',
@@ -69,6 +73,7 @@ class ReplenishmentStockService
                     'product_variant_id' => $item->product_variant_id,
                     'unit_id' => $item->unit_id,
                     'quantity' => $qty,
+                    'expiry_date' => $result['earliest_expiry'], // FEFO: teruskan expiry ke agen
                 ]);
 
                 $item->qty_shipped = (float) $item->qty_shipped + $qty;
@@ -106,7 +111,7 @@ class ReplenishmentStockService
                     continue;
                 }
 
-                // Stok masuk ke gudang Agen pada harga transfer = HPP agen
+                // Stok masuk ke gudang Agen pada harga transfer = HPP agen, expiry diteruskan (FEFO)
                 StockMutationService::inbound(
                     $sItem->product_id,
                     $sItem->product_variant_id,
@@ -118,7 +123,9 @@ class ReplenishmentStockService
                     'ReplenishmentReceipt',
                     $receipt->id,
                     $userId,
-                    'Penerimaan dari distributor - order ' . $order->order_number
+                    'Penerimaan dari distributor - order ' . $order->order_number,
+                    null,
+                    optional($sItem->expiry_date)->toDateString()
                 );
 
                 ReceiptItem::create([
@@ -149,6 +156,8 @@ class ReplenishmentStockService
     public static function returnGoods(ReplenishmentOrder $order, array $payload, ?string $userId = null): ReturnOrder
     {
         return DB::transaction(function () use ($order, $payload, $userId) {
+            $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse($order->distributor_id))->id ?? $order->distributor_id;
+
             $return = ReturnOrder::create([
                 'return_number' => self::generateNumber('returns', 'return_number', 'RTN'),
                 'order_id' => $order->id,
@@ -170,8 +179,8 @@ class ReplenishmentStockService
                     continue;
                 }
 
-                // Stok keluar dari Agen (FIFO)
-                StockMutationService::outbound(
+                // Stok keluar dari Agen (FEFO) - tangkap expiry untuk dikembalikan ke FG
+                $out = StockMutationService::outbound(
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
@@ -184,19 +193,21 @@ class ReplenishmentStockService
                     'Retur ke distributor - order ' . $order->order_number
                 );
 
-                // Stok masuk kembali ke Distributor pada harga transfer
+                // Stok masuk kembali ke Gudang Barang Jadi distributor pada harga transfer + expiry
                 StockMutationService::inbound(
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
-                    $order->distributor_id,
+                    $fgWarehouseId,
                     $item->unit_id,
                     $qty,
                     (float) $item->unit_price,
                     'ReplenishmentReturn',
                     $return->id,
                     $userId,
-                    'Retur masuk dari agen - order ' . $order->order_number
+                    'Retur masuk dari agen - order ' . $order->order_number,
+                    null,
+                    $out['earliest_expiry']
                 );
 
                 ReturnItem::create([

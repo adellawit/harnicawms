@@ -21,8 +21,12 @@
         <form method="POST" action="{{ route('production.store') }}">
             @csrf
             <div class="card mb-4">
-                <div class="card-header"><h5 class="card-title mb-0">Perintah Produksi @if($distributor)<small class="text-muted">— Lokasi: {{ $distributor->name }}</small>@endif</h5></div>
+                <div class="card-header"><h5 class="card-title mb-0">Perintah Produksi</h5></div>
                 <div class="card-body">
+                    <div class="alert alert-info d-flex align-items-center py-2" role="alert">
+                        <i class="ti ti-arrow-right me-2"></i>
+                        <span>Bahan baku diambil dari <strong>{{ optional($wip)->name ?? 'Gudang WIP' }}</strong>, produk jadi masuk ke <strong>{{ optional($fg)->name ?? 'Gudang Barang Jadi' }}</strong>.</span>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Resep (BOM) <span class="text-danger">*</span></label>
@@ -42,10 +46,14 @@
                             <input type="number" step="any" min="0" name="overhead_cost" class="form-control" value="0">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label">Tanggal</label>
+                            <label class="form-label">Tgl Produksi</label>
                             <input type="date" name="production_date" class="form-control" value="{{ date('Y-m-d') }}">
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-3">
+                            <label class="form-label">Expired Produk Jadi <span class="text-muted small">(FEFO)</span></label>
+                            <input type="date" name="output_expiry_date" class="form-control">
+                        </div>
+                        <div class="col-md-9">
                             <label class="form-label">Catatan</label>
                             <input type="text" name="notes" class="form-control" placeholder="opsional">
                         </div>

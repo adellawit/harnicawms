@@ -26,6 +26,7 @@ class ProductCostLayer extends Model
         'source_type',
         'source_id',
         'effective_date',
+        'expiry_date',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -36,6 +37,7 @@ class ProductCostLayer extends Model
         'quantity_remaining' => 'decimal:6',
         'unit_cost' => 'decimal:4',
         'effective_date' => 'date',
+        'expiry_date' => 'date',
     ];
 
     public function product(): BelongsTo

@@ -30,6 +30,7 @@
                             <th class="text-end">Qty</th>
                             <th class="text-end">Sisa</th>
                             <th class="text-end">HPP / Unit</th>
+                            <th>Expired</th>
                             <th>Sumber</th>
                         </tr>
                     </thead>
@@ -42,10 +43,11 @@
                                 <td class="text-end">{{ rtrim(rtrim(number_format($layer->quantity, 2), '0'), '.') }}</td>
                                 <td class="text-end">{{ rtrim(rtrim(number_format($layer->quantity_remaining, 2), '0'), '.') }}</td>
                                 <td class="text-end">Rp {{ number_format($layer->unit_cost, 2) }}</td>
+                                <td>@if($layer->expiry_date)<span class="badge bg-label-warning">{{ $layer->expiry_date->format('d/m/Y') }}</span>@else<span class="text-muted">-</span>@endif</td>
                                 <td><span class="badge bg-label-secondary">{{ $layer->source_type }}</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada data. Klik "Stok Masuk" untuk menambah.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada data. Klik "Stok Masuk" untuk menambah.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

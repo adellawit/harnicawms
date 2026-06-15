@@ -20,6 +20,8 @@ class ProductionOrder extends Model
         'production_date',
         'company_id',
         'branch_id',
+        'source_warehouse_id',
+        'output_expiry_date',
         'bom_id',
         'product_id',
         'product_variant_id',
@@ -38,6 +40,7 @@ class ProductionOrder extends Model
 
     protected $casts = [
         'production_date' => 'date',
+        'output_expiry_date' => 'date',
         'planned_qty' => 'decimal:6',
         'produced_qty' => 'decimal:6',
         'total_material_cost' => 'decimal:4',

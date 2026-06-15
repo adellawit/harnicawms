@@ -43,6 +43,9 @@ class ProductionService
             $order->materials()->delete();
             $order->outputs()->delete();
 
+            // Bahan baku dikonsumsi dari Gudang WIP (fallback ke branch output bila belum diset)
+            $materialWarehouse = $order->source_warehouse_id ?: $order->branch_id;
+
             if ($bom) {
                 foreach ($bom->items as $item) {
                     $qtyNeeded = (float) $item->quantity * $scale;
@@ -50,11 +53,11 @@ class ProductionService
                         continue;
                     }
 
-                    $cogs = StockMutationService::outbound(
+                    $result = StockMutationService::outbound(
                         $item->component_product_id,
                         $item->component_variant_id,
                         $order->company_id,
-                        $order->branch_id,
+                        $materialWarehouse,
                         $item->unit_id,
                         $qtyNeeded,
                         'ProductionConsume',
@@ -63,6 +66,7 @@ class ProductionService
                         'Konsumsi bahan baku produksi ' . $order->order_number
                     );
 
+                    $cogs = $result['total_cost'];
                     $unitCost = $qtyNeeded > 0 ? round($cogs / $qtyNeeded, 4) : 0.0;
                     $totalMaterialCost += $cogs;
 
@@ -82,7 +86,7 @@ class ProductionService
             $totalCost = $totalMaterialCost + $overhead;
             $outputUnitCost = $producedQty > 0 ? round($totalCost / $producedQty, 4) : 0.0;
 
-            // Produk jadi masuk stok dengan HPP terhitung
+            // Produk jadi masuk ke Gudang Barang Jadi (branch_id) dengan HPP terhitung + expiry (FEFO)
             StockMutationService::inbound(
                 $order->product_id,
                 $order->product_variant_id,
@@ -95,7 +99,8 @@ class ProductionService
                 $order->id,
                 $userId,
                 'Hasil produksi ' . $order->order_number,
-                optional($order->production_date)->toDateString()
+                optional($order->production_date)->toDateString(),
+                optional($order->output_expiry_date)->toDateString()
             );
 
             ProductionOrderOutput::create([

@@ -19,7 +19,9 @@ return new class extends Migration
             $table->string('order_number', 50)->unique();
             $table->date('production_date');
             $table->uuid('company_id')->nullable();
-            $table->uuid('branch_id');                  // lokasi produksi (gudang distributor)
+            $table->uuid('branch_id');                  // gudang OUTPUT produk jadi (Gudang Barang Jadi)
+            $table->uuid('source_warehouse_id')->nullable(); // gudang asal bahan baku (Gudang WIP)
+            $table->date('output_expiry_date')->nullable();  // expiry produk jadi (herbal) untuk FEFO
             $table->uuid('bom_id')->nullable();
             $table->uuid('product_id');                 // produk jadi
             $table->uuid('product_variant_id')->nullable();
@@ -50,6 +52,7 @@ return new class extends Migration
         Schema::table('manufacturing.production_orders', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('master_data.business_units')->onDelete('set null');
             $table->foreign('branch_id')->references('id')->on('master_data.business_units')->onDelete('cascade');
+            $table->foreign('source_warehouse_id')->references('id')->on('master_data.business_units')->onDelete('set null');
             $table->foreign('bom_id')->references('id')->on('manufacturing.bill_of_materials')->onDelete('set null');
             $table->foreign('product_id')->references('id')->on('product.products')->onDelete('restrict');
             $table->foreign('product_variant_id')->references('id')->on('product.product_variants')->onDelete('set null');

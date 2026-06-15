@@ -113,10 +113,13 @@ class ReplenishmentOrderController extends Controller
         $order = ReplenishmentOrder::with('items')->findOrFail($id);
         $data = $request->validate([
             'ship_date' => ['nullable', 'date'],
-            'carrier' => ['nullable', 'string'],
-            'tracking_number' => ['nullable', 'string'],
+            'carrier' => ['required', 'string'],
+            'tracking_number' => ['required', 'string'], // nomor resi wajib agar agen bisa lacak
             'notes' => ['nullable', 'string'],
             'qty' => ['required', 'array'],
+        ], [
+            'carrier.required' => 'Kurir wajib diisi.',
+            'tracking_number.required' => 'Nomor resi wajib diisi agar pengiriman bisa dilacak agen.',
         ]);
 
         try {
