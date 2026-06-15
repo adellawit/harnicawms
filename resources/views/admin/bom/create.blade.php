@@ -21,22 +21,36 @@
                 <div class="card-header"><h5 class="card-title mb-0">Produk Jadi (Output)</h5></div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-5">
-                            <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
-                            <input type="text" name="name" class="form-control" required placeholder="mis. Es Kopi Susu - Resep Standar">
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label">Produk Jadi <span class="text-danger">*</span></label>
-                            <select name="product_variant_id" class="form-select" required>
-                                <option value="">-- Pilih --</option>
-                                @foreach ($outputs as $v)
-                                    <option value="{{ $v['id'] }}">{{ $v['label'] }} @if($v['nature'])[{{ $v['nature'] }}]@endif</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @if ($selected)
+                            {{-- Produk dipilih dari daftar: terkunci --}}
+                            <input type="hidden" name="product_variant_id" value="{{ $selected->id }}">
+                            <div class="col-md-5">
+                                <label class="form-label">Produk Jadi</label>
+                                <input type="text" class="form-control" value="{{ $selected->display_name ?? $selected->product?->name }}" readonly>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required
+                                    value="{{ old('name', ($selected->display_name ?? $selected->product?->name) . ' - Resep Standar') }}">
+                            </div>
+                        @else
+                            <div class="col-md-5">
+                                <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required value="{{ old('name') }}" placeholder="mis. Jamu Sehat Herbal - Resep Standar">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Produk Jadi <span class="text-danger">*</span></label>
+                                <select name="product_variant_id" class="form-select" required>
+                                    <option value="">-- Pilih --</option>
+                                    @foreach ($outputs as $v)
+                                        <option value="{{ $v['id'] }}">{{ $v['label'] }} @if($v['nature'])[{{ $v['nature'] }}]@endif</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                         <div class="col-md-2">
                             <label class="form-label">Qty Output <span class="text-danger">*</span></label>
-                            <input type="number" step="any" min="0.000001" name="output_quantity" class="form-control" value="1" required>
+                            <input type="number" step="any" min="0.000001" name="output_quantity" class="form-control" value="{{ old('output_quantity', 1) }}" required>
                         </div>
                     </div>
                 </div>

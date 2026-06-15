@@ -13,21 +13,44 @@ use Illuminate\Support\Facades\DB;
 
 class BomController extends Controller
 {
+    /**
+     * Daftar produk jadi (FINISHED_GOOD) beserta status resep (BOM)-nya.
+     * Resep diinput per produk lewat aksi di tiap baris.
+     */
     public function index()
     {
-        $boms = BillOfMaterial::with(['product', 'variant', 'items'])
-            ->orderByDesc('created_at')
+        $variants = ProductVariant::query()
+            ->with(['product.nature', 'product.defaultUnit'])
+            ->whereHas('product', function ($q) {
+                $q->whereNull('deleted_at')
+                    ->whereHas('nature', fn ($n) => $n->where('code', 'FINISHED_GOOD'));
+            })
+            ->whereNull('deleted_at')
+            ->orderBy('created_at')
             ->get();
 
-        return view('admin.bom.index', compact('boms'));
+        // Map BOM aktif per varian (untuk status & link)
+        $boms = BillOfMaterial::with('items')
+            ->whereIn('product_variant_id', $variants->pluck('id'))
+            ->get()
+            ->keyBy('product_variant_id');
+
+        return view('admin.bom.index', compact('variants', 'boms'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        $outputs = WmsContext::variantOptions(); // produk jadi/semi
         $components = WmsContext::variantOptions(); // bahan baku
 
-        return view('admin.bom.create', compact('outputs', 'components'));
+        // Produk jadi yang dipilih dari daftar (terkunci); fallback ke dropdown bila kosong
+        $selected = null;
+        if ($request->filled('product_variant_id')) {
+            $selected = ProductVariant::with('product')->find($request->query('product_variant_id'));
+        }
+
+        $outputs = WmsContext::variantOptions('FINISHED_GOOD'); // fallback dropdown produk jadi
+
+        return view('admin.bom.create', compact('outputs', 'components', 'selected'));
     }
 
     public function store(Request $request)
@@ -43,6 +66,12 @@ class BomController extends Controller
 
         $outputVariant = ProductVariant::with('product')->findOrFail($data['product_variant_id']);
         $userId = Auth::id();
+
+        // Cegah resep ganda untuk produk yang sama
+        if (BillOfMaterial::where('product_variant_id', $outputVariant->id)->exists()) {
+            return redirect()->route('bom.index')
+                ->with('error', 'Produk ini sudah memiliki resep (BOM). Hapus dulu yang lama untuk membuat ulang.');
+        }
 
         DB::transaction(function () use ($data, $outputVariant, $userId) {
             $bom = BillOfMaterial::create([
