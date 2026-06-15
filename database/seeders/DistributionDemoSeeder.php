@@ -144,6 +144,7 @@ class DistributionDemoSeeder extends Seeder
         if (! $product) {
             $product = Product::create([
                 'company_id' => $companyId,
+                'branch_id' => $companyId, // set branch_id = distributor agar terlihat di product/items
                 'nature_id' => $natureId,
                 'default_unit_id' => $unit->id,
                 'name' => $name,
