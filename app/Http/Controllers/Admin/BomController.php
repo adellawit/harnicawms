@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\BomItem;
-use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -41,13 +40,44 @@ class BomController extends Controller
 
     public function create(Request $request)
     {
-        $components = WmsContext::variantOptions(); // bahan baku
-
-        // Satuan tersimpan untuk dropdown qty bahan
-        $units = ProductUnit::whereNull('deleted_at')
-            ->orderBy('name')
+        // Bahan baku + daftar satuan yang berlaku untuk MASING-MASING bahan
+        // (satuan default produk + satuan dari konversi yang di-set di bahan tsb)
+        $components = ProductVariant::query()
+            ->with([
+                'product.nature',
+                'product.defaultUnit',
+                'product.unitConversions.fromUnit',
+                'product.unitConversions.toUnit',
+            ])
+            ->whereHas('product', fn ($q) => $q->where('is_stock_item', true)->whereNull('deleted_at'))
+            ->whereNull('deleted_at')
+            ->orderBy('created_at')
             ->get()
-            ->map(fn ($u) => ['id' => $u->id, 'label' => $u->symbol ? $u->name.' ('.$u->symbol.')' : $u->name])
+            ->map(function (ProductVariant $v) {
+                $product = $v->product;
+
+                $units = collect();
+                if ($product?->defaultUnit) {
+                    $units->push($product->defaultUnit);
+                }
+                foreach ($product?->unitConversions ?? [] as $conv) {
+                    $units->push($conv->fromUnit);
+                    $units->push($conv->toUnit);
+                }
+                $units = $units->filter()->unique('id')->map(fn ($u) => [
+                    'id' => $u->id,
+                    'label' => $u->symbol ? $u->name.' ('.$u->symbol.')' : $u->name,
+                ])->values()->all();
+
+                return [
+                    'id' => $v->id,
+                    'label' => $v->display_name,
+                    'nature' => $product?->nature?->code,
+                    'default_unit_id' => $product?->default_unit_id,
+                    'units' => $units,
+                ];
+            })
+            ->filter(fn ($c) => ! empty($c['units']))
             ->values()
             ->all();
 
@@ -59,7 +89,7 @@ class BomController extends Controller
 
         $outputs = WmsContext::variantOptions('FINISHED_GOOD'); // fallback dropdown produk jadi
 
-        return view('admin.bom.create', compact('outputs', 'components', 'selected', 'units'));
+        return view('admin.bom.create', compact('outputs', 'components', 'selected'));
     }
 
     public function store(Request $request)

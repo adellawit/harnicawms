@@ -74,7 +74,6 @@
     @push('page-js')
     <script>
         const COMPONENTS = @json($components);
-        const UNITS = @json($units);
         let idx = 0;
         function optionsHtml() {
             let h = '<option value="">-- Pilih bahan --</option>';
@@ -84,19 +83,23 @@
             });
             return h;
         }
-        function unitOptionsHtml() {
+        // Satuan hanya yang di-set pada bahan tsb (default + konversi); default terpilih
+        function unitOptionsHtml(comp) {
             let h = '<option value="">-- Satuan --</option>';
-            UNITS.forEach(u => {
-                h += `<option value="${u.id}">${u.label}</option>`;
-            });
+            if (comp) {
+                comp.units.forEach(u => {
+                    const sel = u.id === comp.default_unit_id ? 'selected' : '';
+                    h += `<option value="${u.id}" ${sel}>${u.label}</option>`;
+                });
+            }
             return h;
         }
-        // Saat bahan dipilih, satuan default mengikuti satuan produk tsb (bisa diganti)
+        // Saat bahan dipilih, isi ulang dropdown satuan sesuai bahan itu
         function syncUnit(sel, i) {
             const comp = COMPONENTS.find(c => c.id === sel.value);
             const unitSel = document.getElementById('unit-' + i);
-            if (comp && comp.unit_id && unitSel) {
-                unitSel.value = comp.unit_id;
+            if (unitSel) {
+                unitSel.innerHTML = unitOptionsHtml(comp);
             }
         }
         function addRow() {
@@ -104,7 +107,7 @@
             tr.innerHTML = `
                 <td><select name="components[${idx}][variant_id]" class="form-select" required onchange="syncUnit(this, ${idx})">${optionsHtml()}</select></td>
                 <td><input type="number" step="any" min="0.000001" name="components[${idx}][quantity]" class="form-control" required></td>
-                <td><select name="components[${idx}][unit_id]" id="unit-${idx}" class="form-select" required>${unitOptionsHtml()}</select></td>
+                <td><select name="components[${idx}][unit_id]" id="unit-${idx}" class="form-select" required>${unitOptionsHtml(null)}</select></td>
                 <td><button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>`;
             document.getElementById('rows').appendChild(tr);
             idx++;
