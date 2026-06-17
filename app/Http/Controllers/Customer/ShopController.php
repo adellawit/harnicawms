@@ -260,8 +260,9 @@ class ShopController extends Controller
 
         $xendit = app(XenditService::class);
         $pgMethods = $methodPayments->filter(fn ($m) => $xendit->usesXenditForMethod($m->code, $m));
+        $standardMethods = $methodPayments->filter(fn ($m) => ! $m->uses_payment_gateway);
         $codMethod = $methodPayments->first(fn ($m) => strtoupper($m->code) === 'COD');
-        $xenditChannelGroups = $xendit->isConfigured()
+        $xenditChannelGroups = $xendit->isPaymentGatewayReady()
             ? $xendit->buildPaymentChannelGroups($pgMethods)
             : [];
 
@@ -276,7 +277,10 @@ class ShopController extends Controller
             'codMethod' => $codMethod,
             'codIcon' => $codIcon,
             'xenditChannelGroups' => $xenditChannelGroups,
-            'hasPaymentOptions' => $codMethod !== null || count($xenditChannelGroups) > 0,
+            'standardMethods' => $standardMethods,
+            'hasPaymentOptions' => $codMethod !== null
+                || count($xenditChannelGroups) > 0
+                || $standardMethods->isNotEmpty(),
         ]);
     }
 

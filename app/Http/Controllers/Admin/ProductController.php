@@ -190,6 +190,39 @@ class ProductController extends Controller
             ->toJson();
     }
 
+    public function printBarcodeView(string $id)
+    {
+        $product = Product::with([
+            'variants' => fn ($q) => $q->whereNull('deleted_at')
+                ->with(['variantAttributes.attributeValue:id,value'])
+                ->orderBy('sort_order')
+                ->orderBy('sku'),
+        ])->findOrFail($id);
+
+        $labels = $product->variants->map(function (ProductVariant $variant) use ($product) {
+            $attrs = $variant->variantAttributes
+                ->pluck('attributeValue.value')
+                ->filter()
+                ->implode(' / ');
+
+            $barcode = $variant->barcode ?: $variant->sku ?: $product->sku ?: $product->code;
+
+            return [
+                'id' => $variant->id,
+                'sku' => $variant->sku ?: $product->sku ?: '-',
+                'barcode' => (string) $barcode,
+                'variant_label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
+                'product_name' => $product->name,
+                'is_active' => (bool) $variant->is_active,
+            ];
+        })->filter(fn (array $label) => filled($label['barcode']))->values();
+
+        return view('admin.product.master.print-barcode', [
+            'product' => $product,
+            'labels' => $labels,
+        ]);
+    }
+
     // === STEP 1: Insert Product Basic Info ===
     public function generateCodeApi(Request $request)
     {

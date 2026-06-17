@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProductCategory;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\DataTables;
@@ -103,6 +104,43 @@ class ProductCategoryController extends Controller
         ]);
 
         return redirect()->route('product.category.index.view')->with('success', 'Category added successfully');
+    }
+
+    public function quickStore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'parent_id' => 'nullable|exists:product.product_categories,id',
+            'name' => 'required|string|max:255',
+            'code' => 'nullable|string|max:100',
+            'sort_order' => 'nullable|integer|min:0',
+            'description' => 'nullable|string',
+        ], [
+            'name.required' => 'Category name is required.',
+        ]);
+
+        $user = auth('web')->user();
+
+        $category = ProductCategory::create([
+            'company_id' => $user->getCompanyIdForProduct(),
+            'branch_id' => $user->current_business_unit_id,
+            'parent_id' => $validated['parent_id'] ?? null,
+            'name' => $validated['name'],
+            'code' => $validated['code'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'description' => $validated['description'] ?? null,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Category added successfully.',
+            'data' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'label' => $category->name,
+            ],
+        ]);
     }
 
     public function editView(Request $request, $id)

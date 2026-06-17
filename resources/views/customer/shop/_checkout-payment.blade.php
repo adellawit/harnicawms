@@ -27,6 +27,29 @@
         </div>
     @endif
 
+    @if (($standardMethods ?? collect())->isNotEmpty())
+        <div class="shop-pay-group">
+            <div class="shop-pay-group-title">
+                <i class="ti ti-cash"></i>
+                <span>Metode pembayaran</span>
+            </div>
+            <div class="shop-pay-grid">
+                @foreach ($standardMethods as $method)
+                    <label class="shop-pay-option">
+                        <input type="radio" name="payment_method_id" class="shop-pay-radio"
+                            value="{{ $method->id }}" data-xendit-channel=""
+                            @checked($pickFirst)>
+                        @php $pickFirst = false; @endphp
+                        <span class="shop-pay-option-card">
+                            <img src="{{ asset('assets/img/payments/default.svg') }}" alt="{{ $method->name }}" class="shop-pay-icon" loading="lazy">
+                            <span class="shop-pay-label">{{ $method->name }}</span>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     @foreach ($xenditChannelGroups as $group)
         @if (!empty($group['channels']))
             <div class="shop-pay-group">

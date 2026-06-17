@@ -11,10 +11,11 @@
 
     <div class="container-xxl flex-grow-1 container-p-y">
         @php
+            $hasReadPermission = session('permissions.Product.is_read', false) == 1;
             $hasUpdatePermission = session('permissions.Product.is_update', false) == 1;
             $hasDeletePermission = session('permissions.Product.is_delete', false) == 1;
             $hasCreatePermission = session('permissions.Product.is_create', false) == 1;
-            $hasAnyActionPermission = $hasUpdatePermission || $hasDeletePermission;
+            $hasAnyActionPermission = $hasReadPermission || $hasUpdatePermission || $hasDeletePermission;
 
             $branches = \App\Models\BusinessUnit::where('is_active', true)
                 ->where('type_code', 'BRANCH')
@@ -243,6 +244,7 @@
                         } },
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, width: '60px', render: function(d,t,r) {
                             var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
+                            if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" target="_blank" href="{{ url("product/items") }}/'+r.id+'/print-barcode"><i class="ti ti-printer me-2 text-info"></i>Print Barcode</a></li>';
                             if (@json($hasUpdatePermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                             if (@json($hasDeletePermission)) html += r.deleted_at ? '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-refresh me-2 text-success"></i>Restore</button></li>' : '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';
                             return html + '</ul></div>';

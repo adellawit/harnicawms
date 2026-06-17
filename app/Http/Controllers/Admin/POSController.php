@@ -117,7 +117,7 @@ class POSController extends Controller
             'methodPayments' => $methodPayments,
             'customers' => $customers,
             'taxRate' => 11,
-            'xenditEnabled' => $this->xendit->isConfigured(),
+            'xenditEnabled' => $this->xendit->isPaymentGatewayReady(),
             'xenditMethodCodes' => $xenditMethodCodes,
             'xenditActiveChannels' => $xenditActiveChannels,
             'xenditSyncChannels' => config('xendit.sync_channels_from_api', true),

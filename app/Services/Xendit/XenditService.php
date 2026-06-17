@@ -14,6 +14,16 @@ class XenditService
         return config('xendit.enabled') && ! empty(config('xendit.secret_key'));
     }
 
+    public function isPaymentGatewayModeActive(): bool
+    {
+        return (bool) config('xendit.use_payment_gateway');
+    }
+
+    public function isPaymentGatewayReady(): bool
+    {
+        return $this->isPaymentGatewayModeActive() && $this->isConfigured();
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -297,7 +307,7 @@ class XenditService
 
     public function usesXenditForMethod(?string $methodCode, ?\App\Models\MethodPayment $method = null): bool
     {
-        if (! $this->isConfigured()) {
+        if (! $this->isPaymentGatewayReady()) {
             return false;
         }
 

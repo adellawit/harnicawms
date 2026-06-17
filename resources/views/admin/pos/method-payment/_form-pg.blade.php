@@ -13,7 +13,7 @@
     <small class="text-muted d-block mt-1">
         Grup PG dipakai sebagai kategori di POS. Channel PG adalah metode spesifik dari Xendit.
         @if(empty($xenditConfigured))
-            <span class="text-warning">Xendit belum dikonfigurasi di .env.</span>
+            <span class="text-warning">Payment Gateway belum aktif. Aktifkan di Settings → Payment Gateway Configuration.</span>
         @endif
     </small>
 </div>

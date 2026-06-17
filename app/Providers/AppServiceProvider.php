@@ -79,6 +79,8 @@ class AppServiceProvider extends ServiceProvider
             database_path('migrations/operational'),
             database_path('migrations/configuration'),
             database_path('migrations/customer'),
+            database_path('migrations/manufacturing'),
+            database_path('migrations/distribution'),
         ]);
 
         // Force HTTPS for production domain and secure connections

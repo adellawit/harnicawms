@@ -17,6 +17,12 @@ return [
     'enabled' => (bool) env('XENDIT_ENABLED', false),
 
     /*
+    | true  = POS/Shop/Telegram memakai Payment Gateway (Xendit) + Cash.
+    | false = hanya metode pembayaran manual (tanpa PG).
+    */
+    'use_payment_gateway' => (bool) env('XENDIT_USE_PAYMENT_GATEWAY', false),
+
+    /*
     | Kode method_payment internal yang diproses via Xendit.
     */
     'method_codes' => array_filter(array_map(

@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             AgentMenuSeeder::class,
             AiConfigurationMenuSeeder::class,
+            ManufacturingMenuSeeder::class,
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
 
@@ -59,6 +60,9 @@ class DatabaseSeeder extends Seeder
 
             // Demo: rantai Distributor -> Agen + Produksi herbal (HPP FEFO, 2 gudang)
             DistributionDemoSeeder::class,
+
+            // Demo: produk manufaktur sepatu + BOM dari product_manufacture.json
+            ManufacturingBomSeeder::class,
         ]);
     }
 }

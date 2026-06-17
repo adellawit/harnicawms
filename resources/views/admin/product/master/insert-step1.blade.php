@@ -8,6 +8,36 @@
             .breadcrumb-item a:hover {
                 color: #212529 !important;
             }
+            .select-with-action {
+                display: flex;
+                align-items: stretch;
+            }
+            .select-with-action__field {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .select-with-action__field .select2-container {
+                width: 100% !important;
+            }
+            .select-with-action__field .select2-container .select2-selection--single {
+                border-top-right-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+                border-right: 0 !important;
+                min-height: calc(2.25rem + 2px);
+            }
+            .select-with-action .btn-add-inline {
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+                flex-shrink: 0;
+                display: inline-flex;
+                align-items: center;
+                white-space: nowrap;
+                padding-left: 0.875rem;
+                padding-right: 0.875rem;
+            }
+            .select-with-action.is-invalid .select2-selection--single {
+                border-color: var(--bs-form-invalid-border-color, #ff4c51) !important;
+            }
         </style>
     @endpush
 
@@ -87,24 +117,38 @@
 
                     <div class="col-md-6">
                         <label for="category_id" class="form-label">Category</label>
-                        <select id="category_id" name="category_id" class="select2 form-select @error('category_id') is-invalid @enderror" data-allow-clear="true">
-                            <option value="">Select Category</option>
-                            @foreach ($categories as $category)
-                                <option value="{{ $category->id }}" {{ (old('category_id') ?? $tempProduct['category_id'] ?? '') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <div class="select-with-action @error('category_id') is-invalid @enderror">
+                            <div class="select-with-action__field">
+                                <select id="category_id" name="category_id" class="select2 form-select @error('category_id') is-invalid @enderror" data-allow-clear="true">
+                                    <option value="">Select Category</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}" {{ (old('category_id') ?? $tempProduct['category_id'] ?? '') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-add-inline" data-bs-toggle="modal" data-bs-target="#quickCategoryModal" title="Add New Category">
+                                <i class="ti ti-plus me-1"></i>Add New
+                            </button>
+                        </div>
+                        @error('category_id') <span class="invalid-feedback d-block">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="col-md-6">
                         <label for="default_unit_id" class="form-label">Default Unit <span class="text-danger">*</span></label>
-                        <select id="default_unit_id" name="default_unit_id" class="select2 form-select @error('default_unit_id') is-invalid @enderror" data-allow-clear="true" required>
-                            <option value="">Select Unit</option>
-                            @foreach ($units as $unit)
-                                <option value="{{ $unit->id }}" {{ (old('default_unit_id') ?? $tempProduct['default_unit_id'] ?? '') == $unit->id ? 'selected' : '' }}>{{ $unit->name }} ({{ $unit->symbol }})</option>
-                            @endforeach
-                        </select>
-                        @error('default_unit_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <div class="select-with-action @error('default_unit_id') is-invalid @enderror">
+                            <div class="select-with-action__field">
+                                <select id="default_unit_id" name="default_unit_id" class="select2 form-select @error('default_unit_id') is-invalid @enderror" data-allow-clear="true" required>
+                                    <option value="">Select Unit</option>
+                                    @foreach ($units as $unit)
+                                        <option value="{{ $unit->id }}" {{ (old('default_unit_id') ?? $tempProduct['default_unit_id'] ?? '') == $unit->id ? 'selected' : '' }}>{{ $unit->name }} ({{ $unit->symbol }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-add-inline" data-bs-toggle="modal" data-bs-target="#quickUnitModal" title="Add New Unit">
+                                <i class="ti ti-plus me-1"></i>Add New
+                            </button>
+                        </div>
+                        @error('default_unit_id') <span class="invalid-feedback d-block">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="col-md-6">
@@ -153,6 +197,106 @@
             </div>
         </div>
 
+        {{-- Quick Add Category --}}
+        <div class="modal fade" id="quickCategoryModal" tabindex="-1" aria-labelledby="quickCategoryModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title d-flex align-items-center gap-2" id="quickCategoryModalLabel">
+                            <span class="avatar avatar-sm d-inline-flex align-items-center justify-content-center rounded bg-label-primary">
+                                <i class="ti ti-category"></i>
+                            </span>
+                            <span>Add New Category</span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">The new category will be available in the dropdown after saving.</p>
+                        <div id="quickCategoryAlert" class="alert alert-danger d-none mb-3"></div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="quick_category_name" class="form-label">Category Name <span class="text-danger">*</span></label>
+                                <input type="text" id="quick_category_name" class="form-control" placeholder="e.g. Herbal">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="quick_category_code" class="form-label">Code</label>
+                                <input type="text" id="quick_category_code" class="form-control" placeholder="Optional">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="quick_category_sort_order" class="form-label">Sort Order</label>
+                                <input type="number" id="quick_category_sort_order" class="form-control" value="0" min="0">
+                            </div>
+                            <div class="col-12">
+                                <label for="quick_category_parent_id" class="form-label">Parent Category</label>
+                                <select id="quick_category_parent_id" class="select2 form-select" data-allow-clear="true">
+                                    <option value="">-- None --</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="quick_category_description" class="form-label">Description</label>
+                                <textarea id="quick_category_description" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="btnSaveQuickCategory">
+                            <i class="ti ti-device-floppy me-1"></i> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Quick Add Unit --}}
+        <div class="modal fade" id="quickUnitModal" tabindex="-1" aria-labelledby="quickUnitModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title d-flex align-items-center gap-2" id="quickUnitModalLabel">
+                            <span class="avatar avatar-sm d-inline-flex align-items-center justify-content-center rounded bg-label-primary">
+                                <i class="ti ti-ruler-measure"></i>
+                            </span>
+                            <span>Add New Unit</span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">The new unit will be available in the dropdown after saving.</p>
+                        <div id="quickUnitAlert" class="alert alert-danger d-none mb-3"></div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="quick_unit_name" class="form-label">Unit Name <span class="text-danger">*</span></label>
+                                <input type="text" id="quick_unit_name" class="form-control" placeholder="e.g. Kilogram">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="quick_unit_code" class="form-label">Code <span class="text-danger">*</span></label>
+                                <input type="text" id="quick_unit_code" class="form-control text-uppercase" placeholder="e.g. KG">
+                                <div class="form-text">Auto-generated from name if left empty.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="quick_unit_symbol" class="form-label">Symbol</label>
+                                <input type="text" id="quick_unit_symbol" class="form-control" placeholder="e.g. kg">
+                            </div>
+                            <div class="col-12">
+                                <label for="quick_unit_description" class="form-label">Description</label>
+                                <textarea id="quick_unit_description" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="btnSaveQuickUnit">
+                            <i class="ti ti-device-floppy me-1"></i> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
     <!-- / Content -->
 
@@ -176,6 +320,149 @@
                         console.error('Error regenerating code:', error);
                     });
             }
+
+            function appendSelectOption(selectId, id, label) {
+                const $select = $(selectId);
+                if ($select.find('option[value="' + id + '"]').length === 0) {
+                    $select.append(new Option(label, id, false, false));
+                }
+                $select.val(id).trigger('change');
+            }
+
+            function showQuickAlert(alertId, message) {
+                const alertEl = document.getElementById(alertId);
+                alertEl.textContent = message;
+                alertEl.classList.remove('d-none');
+            }
+
+            function hideQuickAlert(alertId) {
+                document.getElementById(alertId).classList.add('d-none');
+            }
+
+            function parseValidationErrors(payload) {
+                if (payload.errors) {
+                    return Object.values(payload.errors).flat().join(' ');
+                }
+
+                return payload.message || 'Failed to save data.';
+            }
+
+            document.getElementById('quickCategoryModal').addEventListener('shown.bs.modal', function () {
+                $('#quick_category_parent_id').select2({
+                    dropdownParent: $('#quickCategoryModal'),
+                    allowClear: true,
+                    width: '100%',
+                });
+            });
+
+            document.getElementById('quickUnitModal').addEventListener('shown.bs.modal', function () {
+                hideQuickAlert('quickUnitAlert');
+            });
+
+            document.getElementById('quickCategoryModal').addEventListener('show.bs.modal', function () {
+                hideQuickAlert('quickCategoryAlert');
+            });
+
+            document.getElementById('quick_unit_name').addEventListener('blur', function () {
+                const codeInput = document.getElementById('quick_unit_code');
+                if (codeInput.value.trim() !== '') {
+                    return;
+                }
+
+                codeInput.value = this.value
+                    .trim()
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]+/g, '_')
+                    .replace(/^_+|_+$/g, '')
+                    .substring(0, 50);
+            });
+
+            document.getElementById('btnSaveQuickCategory').addEventListener('click', function () {
+                const btn = this;
+                btn.disabled = true;
+                hideQuickAlert('quickCategoryAlert');
+
+                fetch('{{ route('product.quick-category.store') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({
+                        name: document.getElementById('quick_category_name').value.trim(),
+                        code: document.getElementById('quick_category_code').value.trim() || null,
+                        sort_order: document.getElementById('quick_category_sort_order').value || 0,
+                        parent_id: document.getElementById('quick_category_parent_id').value || null,
+                        description: document.getElementById('quick_category_description').value.trim() || null,
+                    }),
+                })
+                    .then(async (response) => {
+                        const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(parseValidationErrors(data));
+                        }
+
+                        appendSelectOption('#category_id', data.data.id, data.data.label);
+                        appendSelectOption('#quick_category_parent_id', data.data.id, data.data.label);
+
+                        document.getElementById('quick_category_name').value = '';
+                        document.getElementById('quick_category_code').value = '';
+                        document.getElementById('quick_category_sort_order').value = '0';
+                        $('#quick_category_parent_id').val('').trigger('change');
+                        document.getElementById('quick_category_description').value = '';
+
+                        bootstrap.Modal.getInstance(document.getElementById('quickCategoryModal')).hide();
+                    })
+                    .catch((error) => {
+                        showQuickAlert('quickCategoryAlert', error.message);
+                    })
+                    .finally(() => {
+                        btn.disabled = false;
+                    });
+            });
+
+            document.getElementById('btnSaveQuickUnit').addEventListener('click', function () {
+                const btn = this;
+                btn.disabled = true;
+                hideQuickAlert('quickUnitAlert');
+
+                fetch('{{ route('product.quick-unit.store') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({
+                        name: document.getElementById('quick_unit_name').value.trim(),
+                        code: document.getElementById('quick_unit_code').value.trim(),
+                        symbol: document.getElementById('quick_unit_symbol').value.trim() || null,
+                        description: document.getElementById('quick_unit_description').value.trim() || null,
+                    }),
+                })
+                    .then(async (response) => {
+                        const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(parseValidationErrors(data));
+                        }
+
+                        appendSelectOption('#default_unit_id', data.data.id, data.data.label);
+
+                        document.getElementById('quick_unit_name').value = '';
+                        document.getElementById('quick_unit_code').value = '';
+                        document.getElementById('quick_unit_symbol').value = '';
+                        document.getElementById('quick_unit_description').value = '';
+
+                        bootstrap.Modal.getInstance(document.getElementById('quickUnitModal')).hide();
+                    })
+                    .catch((error) => {
+                        showQuickAlert('quickUnitAlert', error.message);
+                    })
+                    .finally(() => {
+                        btn.disabled = false;
+                    });
+            });
         </script>
     @endpush
 

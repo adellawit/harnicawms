@@ -47,6 +47,7 @@
                                 'codMethod' => $codMethod,
                                 'codIcon' => $codIcon,
                                 'xenditChannelGroups' => $xenditChannelGroups,
+                                'standardMethods' => $standardMethods ?? collect(),
                             ])
                         @else
                             <div class="alert alert-warning small mb-0">Tidak ada metode pembayaran aktif untuk cabang ini.</div>

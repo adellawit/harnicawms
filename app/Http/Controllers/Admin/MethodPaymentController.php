@@ -53,7 +53,7 @@ class MethodPaymentController extends Controller
         return [
             'pgGroupCodes' => $this->xendit->paymentGroupCodes(),
             'channelCatalogByGroup' => $this->xendit->channelCatalogByGroup(),
-            'xenditConfigured' => $this->xendit->isConfigured(),
+            'xenditConfigured' => $this->xendit->isPaymentGatewayReady(),
         ];
     }
 
@@ -100,7 +100,7 @@ class MethodPaymentController extends Controller
         return view('admin.pos.method-payment.index', array_merge(
             compact('status', 'isFilter'),
             $this->pgFormOptions(),
-            ['canSyncPg' => $this->xendit->isConfigured()]
+            ['canSyncPg' => $this->xendit->isPaymentGatewayReady()]
         ));
     }
 
@@ -205,9 +205,9 @@ class MethodPaymentController extends Controller
             ]);
         }
 
-        if (in_array($request->settlement_type, ['pg_group', 'pg_channel'], true) && ! $this->xendit->isConfigured()) {
+        if (in_array($request->settlement_type, ['pg_group', 'pg_channel'], true) && ! $this->xendit->isPaymentGatewayReady()) {
             return back()->withInput()->withErrors([
-                'settlement_type' => 'Payment Gateway (Xendit) belum dikonfigurasi. Set XENDIT_ENABLED dan XENDIT_SECRET_KEY di .env.',
+                'settlement_type' => 'Payment Gateway belum aktif. Aktifkan di Settings → Payment Gateway Configuration.',
             ]);
         }
 
@@ -274,9 +274,9 @@ class MethodPaymentController extends Controller
             ]);
         }
 
-        if (in_array($request->settlement_type, ['pg_group', 'pg_channel'], true) && ! $this->xendit->isConfigured()) {
+        if (in_array($request->settlement_type, ['pg_group', 'pg_channel'], true) && ! $this->xendit->isPaymentGatewayReady()) {
             return back()->withInput()->withErrors([
-                'settlement_type' => 'Payment Gateway (Xendit) belum dikonfigurasi.',
+                'settlement_type' => 'Payment Gateway belum aktif. Aktifkan di Settings → Payment Gateway Configuration.',
             ]);
         }
 
@@ -296,9 +296,9 @@ class MethodPaymentController extends Controller
 
     public function syncPgChannels(Request $request)
     {
-        if (! $this->xendit->isConfigured()) {
+        if (! $this->xendit->isPaymentGatewayReady()) {
             return redirect()->route('pos.method-payment.index')
-                ->with('error', 'Xendit belum dikonfigurasi. Tidak dapat sinkron channel PG.');
+                ->with('error', 'Payment Gateway belum aktif. Tidak dapat sinkron channel PG.');
         }
 
         $branchIds = $this->getAccessibleBranchIds();

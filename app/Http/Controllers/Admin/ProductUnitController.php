@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProductUnit;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\DataTables;
@@ -90,6 +91,48 @@ class ProductUnitController extends Controller
         ]);
 
         return redirect()->route('product.unit.index.view')->with('success', 'Unit added successfully');
+    }
+
+    public function quickStore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:50|unique:product.product_units,code',
+            'symbol' => 'nullable|string|max:20',
+            'description' => 'nullable|string',
+        ], [
+            'name.required' => 'Unit name is required.',
+            'code.required' => 'Unit code is required.',
+            'code.unique' => 'Unit code already exists.',
+        ]);
+
+        $user = auth('web')->user();
+
+        $unit = ProductUnit::create([
+            'company_id' => $user->getCompanyIdForProduct(),
+            'branch_id' => $user->current_business_unit_id,
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'symbol' => $validated['symbol'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $label = $unit->symbol
+            ? "{$unit->name} ({$unit->symbol})"
+            : $unit->name;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Unit added successfully.',
+            'data' => [
+                'id' => $unit->id,
+                'name' => $unit->name,
+                'symbol' => $unit->symbol,
+                'label' => $label,
+            ],
+        ]);
     }
 
     public function editView(Request $request, $id)

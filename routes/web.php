@@ -47,6 +47,7 @@ use App\Http\Controllers\Telegram\WebhookController as TelegramWebhookController
 use App\Http\Controllers\Ai\ChatController;
 use App\Http\Controllers\Ai\ConversationController;
 use App\Http\Controllers\Admin\AiConfigurationController;
+use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -319,6 +320,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/ai-configuration/test', [AiConfigurationController::class, 'testConnection'])
             ->name('settings.ai-configuration.test')
             ->middleware('permission:AI Chat Configuration,is_update');
+
+        Route::get('/payment-gateway-configuration', [PaymentGatewayConfigurationController::class, 'indexView'])
+            ->name('settings.payment-gateway-configuration.index.view')
+            ->middleware('permission:Payment Gateway Configuration,is_read');
+        Route::post('/payment-gateway-configuration', [PaymentGatewayConfigurationController::class, 'update'])
+            ->name('settings.payment-gateway-configuration.update')
+            ->middleware('permission:Payment Gateway Configuration,is_update');
+        Route::post('/payment-gateway-configuration/test', [PaymentGatewayConfigurationController::class, 'testConnection'])
+            ->name('settings.payment-gateway-configuration.test')
+            ->middleware('permission:Payment Gateway Configuration,is_update');
     });
 
     /*****************
@@ -387,6 +398,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/insert/step1', [ProductController::class, 'insertViewStep1'])->name('product.insert.view.step1')->middleware('permission:Product,is_create');
             Route::post('/insert/step1/data', [ProductController::class, 'insertDataStep1'])->name('product.insert.data.step1')->middleware('permission:Product,is_create');
             Route::get('/generate-code', [ProductController::class, 'generateCodeApi'])->name('product.generate.code')->middleware('permission:Product,is_create');
+            Route::post('/quick-unit', [ProductUnitController::class, 'quickStore'])->name('product.quick-unit.store')->middleware('permission:Product,is_create');
+            Route::post('/quick-category', [ProductCategoryController::class, 'quickStore'])->name('product.quick-category.store')->middleware('permission:Product,is_create');
             Route::get('/insert/step2', [ProductController::class, 'insertViewStep2'])->name('product.insert.view.step2')->middleware('permission:Product,is_create');
             Route::post('/insert/step2/data', [ProductController::class, 'insertDataStep2'])->name('product.insert.data.step2')->middleware('permission:Product,is_create');
             Route::get('/insert/step3', [ProductController::class, 'insertViewStep3'])->name('product.insert.view.step3')->middleware('permission:Product,is_create');
@@ -395,6 +408,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/conversion/remove-temp', [ProductController::class, 'removeTempConversion'])->name('product.conversion.remove-temp');
             Route::post('/conversion/update-temp', [ProductController::class, 'updateTempConversion'])->name('product.conversion.update-temp');
             Route::get('/edit/{id}', [ProductController::class, 'editView'])->name('product.edit.view')->middleware('permission:Product,is_update');
+            Route::get('/{id}/print-barcode', [ProductController::class, 'printBarcodeView'])->name('product.print-barcode.view')->middleware('permission:Product,is_read');
             Route::get('/variants/{product_id}', [ProductController::class, 'variantsView'])->name('product.variants.view')->middleware('permission:Product,is_read');
             // Variant CRUD Routes
             Route::post('/variants/{product_id}/store', [ProductController::class, 'storeVariant'])->name('product.variant.store')->middleware('permission:Product,is_create');
