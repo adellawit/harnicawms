@@ -149,15 +149,20 @@ class BomController extends Controller
 
     public function show(string $id)
     {
-        $bom = BillOfMaterial::with(['product', 'variant', 'outputUnit', 'items.componentVariant.product', 'items.unit'])
+        $bom = BillOfMaterial::with(['product', 'variant', 'outputUnit', 'items.componentVariant.product.unitConversions', 'items.unit'])
             ->findOrFail($id);
 
         // Ambil WIP warehouse untuk lookup harga bahan baku
         $wipId = optional(WmsContext::wipWarehouse($bom->company_id))->id ?? $bom->company_id;
 
-        // Biaya per komponen: unit_cost dari layer FEFO terdepan
+        // Biaya per komponen: HPP layer FEFO dikonversi ke satuan BOM item
         $itemCosts = $bom->items->mapWithKeys(function ($item) use ($wipId) {
-            $unitCost = FifoCostService::currentUnitCost($item->component_variant_id, $wipId);
+            $unitCost = FifoCostService::currentUnitCost(
+                $item->component_variant_id,
+                $wipId,
+                $item->unit_id
+            );
+
             return [
                 $item->id => [
                     'unit_cost' => $unitCost,

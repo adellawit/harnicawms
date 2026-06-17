@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\StockSourceTypeLabel;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,5 +39,10 @@ class ProductCostHistory extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function getReferenceTypeLabelAttribute(): string
+    {
+        return StockSourceTypeLabel::label($this->reference_type);
     }
 }

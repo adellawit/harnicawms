@@ -6,6 +6,7 @@ use App\Models\ProductionOrder;
 use App\Models\ProductionOrderMaterial;
 use App\Models\ProductionOrderOutput;
 use App\Models\Product;
+use App\Services\StockAvailabilityService;
 use App\Services\StockMutationService;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +27,7 @@ class ProductionService
         }
 
         return DB::transaction(function () use ($order, $userId) {
-            $bom = $order->bom()->with('items')->first();
+            $bom = $order->bom()->with(['items.componentVariant.product', 'items.componentProduct'])->first();
             $producedQty = (float) ($order->produced_qty > 0 ? $order->produced_qty : $order->planned_qty);
 
             if ($producedQty <= 0) {
@@ -47,6 +48,25 @@ class ProductionService
             $materialWarehouse = $order->source_warehouse_id ?: $order->branch_id;
 
             if ($bom) {
+                foreach ($bom->items as $item) {
+                    $qtyNeeded = (float) $item->quantity * $scale;
+                    if ($qtyNeeded <= 0) {
+                        continue;
+                    }
+
+                    $label = $item->componentVariant?->display_name
+                        ?? $item->componentProduct?->name
+                        ?? 'Bahan baku';
+
+                    StockAvailabilityService::assertSufficient(
+                        $item->component_variant_id,
+                        $materialWarehouse,
+                        $item->unit_id,
+                        $qtyNeeded,
+                        $label
+                    );
+                }
+
                 foreach ($bom->items as $item) {
                     $qtyNeeded = (float) $item->quantity * $scale;
                     if ($qtyNeeded <= 0) {

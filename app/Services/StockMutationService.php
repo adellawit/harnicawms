@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\ProductStockMovement;
+use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
+use App\Services\UnitConversionService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -73,9 +75,33 @@ class StockMutationService
             return ['total_cost' => 0.0, 'unit_cost' => 0.0, 'earliest_expiry' => null];
         }
 
+        $product = ProductVariant::with(['product.unitConversions'])->find($variantId)?->product;
+
         $stock = self::lockStock($variantId, $productId, $branchId, $unitId, $companyId, $userId);
         $before = (float) $stock->quantity;
-        $after = $before - $quantity;
+
+        $deductInStockUnit = $quantity;
+        if ($product && $stock->unit_id !== $unitId) {
+            $converted = UnitConversionService::convertQuantity($product, $quantity, $unitId, $stock->unit_id);
+            if ($converted !== null) {
+                $deductInStockUnit = $converted;
+            }
+        }
+
+        $after = $before - $deductInStockUnit;
+
+        if ($after < -1e-6) {
+            $variant = ProductVariant::with('product')->find($variantId);
+            $label = $variant?->display_name ?? $variant?->product?->name ?? 'Produk';
+
+            throw new \RuntimeException(sprintf(
+                'Stok %s tidak cukup. Tersedia: %s, diminta: %s.',
+                $label,
+                rtrim(rtrim(number_format(max($before, 0), 4, '.', ''), '0'), '.'),
+                rtrim(rtrim(number_format($deductInStockUnit, 4, '.', ''), '0'), '.')
+            ));
+        }
+
         $stock->quantity = $after;
         $stock->updated_by = $userId;
         $stock->save();

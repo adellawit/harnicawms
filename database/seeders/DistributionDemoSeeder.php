@@ -33,8 +33,8 @@ class DistributionDemoSeeder extends Seeder
         }
 
         // === 2 Gudang ===
-        $wip = $this->ensureWarehouse('WH-WIP', 'Gudang WIP (Bahan Baku & Proses)', $distributor->id);
-        $fg = $this->ensureWarehouse('WH-FG', 'Gudang Barang Jadi', $distributor->id);
+        $wip = $this->ensureWarehouse('WH-WIP', 'Gudang WIP (Bahan Baku & Proses)', $distributor->id, 'WIP');
+        $fg = $this->ensureWarehouse('WH-FG', 'Gudang Barang Jadi', $distributor->id, 'FG');
 
         $natureRaw = ProductNature::where('code', 'RAW_MATERIAL')->first();
         $natureFg = ProductNature::where('code', 'FINISHED_GOOD')->first();
@@ -124,14 +124,15 @@ class DistributionDemoSeeder extends Seeder
         $this->command?->info('DistributionDemoSeeder: 2 gudang, bahan baku herbal + expiry (FEFO), & BOM Jamu Sehat dibuat.');
     }
 
-    private function ensureWarehouse(string $code, string $name, string $parentId): BusinessUnit
+    private function ensureWarehouse(string $code, string $name, string $parentId, ?string $type = null): BusinessUnit
     {
-        return BusinessUnit::firstOrCreate(
+        return BusinessUnit::updateOrCreate(
             ['code' => $code],
             [
                 'parent_id' => $parentId,
                 'type_code' => 'WAREHOUSE',
                 'name' => $name,
+                'brand_name' => $type,
                 'is_active' => true,
                 'is_inventory_active' => true,
             ]

@@ -20,6 +20,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [InboundController::class, 'index'])->name('inbound.index')->middleware('permission:Stok Masuk,is_read');
         Route::get('/create', [InboundController::class, 'create'])->name('inbound.create')->middleware('permission:Stok Masuk,is_create');
         Route::post('/', [InboundController::class, 'store'])->name('inbound.store')->middleware('permission:Stok Masuk,is_create');
+        Route::get('/transfer', [InboundController::class, 'transferCreate'])->name('inbound.transfer.create')->middleware('permission:Stok Masuk,is_update');
+        Route::post('/transfer', [InboundController::class, 'transferStore'])->name('inbound.transfer.store')->middleware('permission:Stok Masuk,is_update');
     });
 
     // --- Bill of Materials (Resep) ---

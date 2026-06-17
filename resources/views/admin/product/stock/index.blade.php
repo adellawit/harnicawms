@@ -13,14 +13,11 @@
             $filterVariant = request('variant_search', '');
             $filterPerPage = request('per_page', 20);
 
-            $branches = \App\Models\BusinessUnit::where('is_active', true)
-                ->where('type_code', 'BRANCH')
-                ->orderBy('name')
-                ->get(['id', 'name']);
-            $defaultBranch = auth('web')->user()->current_business_unit_id;
-            $filterBranchId = request('branch_id', $defaultBranch);
+            $branches = $locations ?? collect();
+            $defaultBranch = request('branch_id') ?: ($fgWarehouseId ?? auth('web')->user()->current_business_unit_id);
+            $filterBranchId = request('branch_id', '');
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch;
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== '';
         @endphp
 
         <x-page-header
@@ -52,7 +49,7 @@
                             <th>Category</th>
                             <th class="text-end">Qty / Unit</th>
                             <th class="text-end">Min Stock</th>
-                            <th class="text-end">Purchase Price</th>
+                            <th class="text-end">HPP / Purchase</th>
                             <th class="text-end">Selling Price</th>
                             <th class="text-center" style="width:120px">Status</th>
                         </tr>
@@ -106,7 +103,7 @@
                                 </td>
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
-                                <td class="text-end">
+                                <td class="text-end {{ $displayQty < 0 ? 'text-danger fw-semibold' : '' }}">
                                     {{ format_number($displayQty, 2, true) }}
                                     <small class="text-muted">{{ $item['unit'] }}</small>
                                 </td>
@@ -115,13 +112,21 @@
                                     <small class="text-muted">{{ $item['unit'] }}</small>
                                 </td>
                                 <td class="text-end">
-                                    {{ $item['purchase_price'] > 0 ? format_number($item['purchase_price'], 2, true) : '-' }}
+                                    @if(($item['fifo_cost'] ?? 0) > 0)
+                                        <span class="text-primary" title="HPP FIFO">{{ format_number($item['fifo_cost'], 2, true) }}</span>
+                                    @elseif($item['purchase_price'] > 0)
+                                        {{ format_number($item['purchase_price'], 2, true) }}
+                                    @else
+                                        -
+                                    @endif
                                 </td>
                                 <td class="text-end">
                                     {{ $item['selling_price'] > 0 ? format_number($item['selling_price'], 2, true) : '-' }}
                                 </td>
                                 <td class="text-center">
-                                    @if($displayMinStock > 0)
+                                    @if($displayQty < 0)
+                                        <x-badge color="danger">Negative</x-badge>
+                                    @elseif($displayMinStock > 0)
                                         @if($displayQty < $displayMinStock)
                                             <x-badge color="danger">Low Stock</x-badge>
                                         @else
@@ -157,13 +162,16 @@
 
     <x-modal id="filterModal" title="Filter">
         <div class="mb-3">
-            <label class="form-label">Branch</label>
+            <label class="form-label">Lokasi (Gudang / Cabang)</label>
             <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
-                <option value="">All Branch</option>
+                <option value="">Semua Lokasi</option>
                 @foreach($branches as $b)
-                    <option value="{{ $b->id }}" @if($filterBranchId === $b->id) selected @endif>{{ $b->name }}</option>
+                    <option value="{{ $b->id }}" @if($filterBranchId === $b->id) selected @endif>
+                        {{ $b->name }}{{ $b->type_code === 'WAREHOUSE' ? ' (Gudang)' : '' }}
+                    </option>
                 @endforeach
             </select>
+            <small class="text-muted">Tip: pilih <strong>Gudang Barang Jadi</strong> untuk lihat stok hasil produksi + HPP.</small>
         </div>
         <div class="mb-3">
             <label class="form-label">Variant</label>
