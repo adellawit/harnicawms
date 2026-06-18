@@ -28,7 +28,7 @@ class ManufacturingMenuSeeder extends Seeder
                 'route_name' => null,
                 'slug' => 'produksi',
                 'level_sidebar' => 1,
-                'order_number' => 20,
+                'order_number' => 6,
                 'is_label' => false,
                 'has_create' => true,
                 'has_update' => true,

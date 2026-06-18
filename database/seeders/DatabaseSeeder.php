@@ -61,6 +61,9 @@ class DatabaseSeeder extends Seeder
             // Demo: rantai Distributor -> Agen + Produksi herbal (HPP FEFO, 2 gudang)
             DistributionDemoSeeder::class,
 
+            // Sync master_data.warehouses dari business_units WAREHOUSE + default per cabang
+            WarehouseSeeder::class,
+
             // Demo: produk manufaktur sepatu + BOM dari product_manufacture.json
             ManufacturingBomSeeder::class,
         ]);
