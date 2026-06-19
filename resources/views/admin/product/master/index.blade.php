@@ -11,10 +11,11 @@
 
     <div class="container-xxl flex-grow-1 container-p-y">
         @php
-            $hasReadPermission = session('permissions.Product.is_read', false) == 1;
-            $hasUpdatePermission = session('permissions.Product.is_update', false) == 1;
-            $hasDeletePermission = session('permissions.Product.is_delete', false) == 1;
-            $hasCreatePermission = session('permissions.Product.is_create', false) == 1;
+            $isSuperAdmin = auth('web')->user()?->is_super_admin;
+            $hasReadPermission = $isSuperAdmin || session('permissions.Product.is_read', false) == 1;
+            $hasUpdatePermission = $isSuperAdmin || session('permissions.Product.is_update', false) == 1;
+            $hasDeletePermission = $isSuperAdmin || session('permissions.Product.is_delete', false) == 1;
+            $hasCreatePermission = $isSuperAdmin || session('permissions.Product.is_create', false) == 1;
             $hasAnyActionPermission = $hasReadPermission || $hasUpdatePermission || $hasDeletePermission;
 
             $branches = \App\Models\BusinessUnit::where('is_active', true)
@@ -63,6 +64,10 @@
                             <th style="width: 200px;">Product</th>
                             <th style="width: 250px;">Variant</th>
                             <th style="width: 120px;">Product Type</th>
+                            <th style="width: 140px;">Item Type</th>
+                            <th style="width: 140px;">Nature</th>
+                            <th style="width: 140px;">Procurement</th>
+                            <th style="width: 160px;">Lifecycle</th>
                             <th style="width: 120px;">Category</th>
                             <th style="width: 150px;">Created At</th>
                             <th style="width: 80px;">Status</th>
@@ -117,6 +122,59 @@
                                 @empty
                                 @endforelse
                             </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Item Type</label>
+                            <select id="filterItemType" class="select2-modal form-select" data-allow-clear="true">
+                                <option value="">All</option>
+                                @foreach($itemTypes as $id => $name)
+                                    <option value="{{ $id }}" {{ request('item_type_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nature</label>
+                            <select id="filterProductNature" class="select2-modal form-select" data-allow-clear="true">
+                                <option value="">All</option>
+                                @foreach($productNatures as $id => $name)
+                                    <option value="{{ $id }}" {{ request('product_nature_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Procurement</label>
+                            <select id="filterProcurementType" class="select2-modal form-select" data-allow-clear="true">
+                                <option value="">All</option>
+                                @foreach($procurementTypes as $id => $name)
+                                    <option value="{{ $id }}" {{ request('procurement_type_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Stock</label>
+                                <select id="filterStockItem" class="select2-modal form-select" data-allow-clear="true">
+                                    <option value="">All</option>
+                                    <option value="1" {{ request('is_stock_item') === '1' ? 'selected' : '' }}>Yes</option>
+                                    <option value="0" {{ request('is_stock_item') === '0' ? 'selected' : '' }}>No</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Sales</label>
+                                <select id="filterSaleItem" class="select2-modal form-select" data-allow-clear="true">
+                                    <option value="">All</option>
+                                    <option value="1" {{ request('is_sale_item') === '1' ? 'selected' : '' }}>Yes</option>
+                                    <option value="0" {{ request('is_sale_item') === '0' ? 'selected' : '' }}>No</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Purchase</label>
+                                <select id="filterPurchaseItem" class="select2-modal form-select" data-allow-clear="true">
+                                    <option value="">All</option>
+                                    <option value="1" {{ request('is_purchase_item') === '1' ? 'selected' : '' }}>Yes</option>
+                                    <option value="0" {{ request('is_purchase_item') === '0' ? 'selected' : '' }}>No</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Status</label>
@@ -226,6 +284,12 @@
                             d.product = "{{ request('product', '') }}";
                             d.nature_id = "{{ request('nature_id', '') }}";
                             d.category_id = "{{ request('category_id', '') }}";
+                            d.item_type_id = "{{ request('item_type_id', '') }}";
+                            d.product_nature_id = "{{ request('product_nature_id', '') }}";
+                            d.procurement_type_id = "{{ request('procurement_type_id', '') }}";
+                            d.is_stock_item = "{{ request('is_stock_item', '') }}";
+                            d.is_sale_item = "{{ request('is_sale_item', '') }}";
+                            d.is_purchase_item = "{{ request('is_purchase_item', '') }}";
                         }
                     },
                     columns: [
@@ -235,6 +299,10 @@
                         { data: 'name', width: '200px' },
                         { data: 'variants_list', orderable: false, searchable: false, width: '250px' },
                         { data: 'nature_name', orderable: false, searchable: false, width: '120px' },
+                        { data: 'item_type_name', orderable: false, searchable: false, width: '140px' },
+                        { data: 'product_nature_name', orderable: false, searchable: false, width: '140px' },
+                        { data: 'procurement_type_name', orderable: false, searchable: false, width: '140px' },
+                        { data: 'lifecycle_flags', orderable: false, searchable: false, width: '160px' },
                         { data: 'category_name', orderable: false, searchable: false, width: '120px' },
                         { data: 'created_at', width: '150px', render: function(d) {
                             return d ? moment(d).format("DD MMM YYYY - HH:mm") : '-';
@@ -245,6 +313,7 @@
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, width: '60px', render: function(d,t,r) {
                             var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
                             if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" target="_blank" href="{{ url("product/items") }}/'+r.id+'/print-barcode"><i class="ti ti-printer me-2 text-info"></i>Print Barcode</a></li>';
+                            if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items/variants") }}/'+r.id+'"><i class="ti ti-list me-2 text-primary"></i>Manage Variants</a></li>';
                             if (@json($hasUpdatePermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                             if (@json($hasDeletePermission)) html += r.deleted_at ? '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-refresh me-2 text-success"></i>Restore</button></li>' : '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';
                             return html + '</ul></div>';
@@ -266,6 +335,12 @@
                     if ($('#filterProduct').val()) params.push('product=' + encodeURIComponent($('#filterProduct').val()));
                     if ($('#filterNature').val()) params.push('nature_id=' + $('#filterNature').val());
                     if ($('#filterCategory').val()) params.push('category_id=' + $('#filterCategory').val());
+                    if ($('#filterItemType').val()) params.push('item_type_id=' + $('#filterItemType').val());
+                    if ($('#filterProductNature').val()) params.push('product_nature_id=' + $('#filterProductNature').val());
+                    if ($('#filterProcurementType').val()) params.push('procurement_type_id=' + $('#filterProcurementType').val());
+                    if ($('#filterStockItem').val() !== '') params.push('is_stock_item=' + $('#filterStockItem').val());
+                    if ($('#filterSaleItem').val() !== '') params.push('is_sale_item=' + $('#filterSaleItem').val());
+                    if ($('#filterPurchaseItem').val() !== '') params.push('is_purchase_item=' + $('#filterPurchaseItem').val());
                     if ($('#filterStatus').val()) params.push('status=' + $('#filterStatus').val());
                     if ($('#filterBranch').val()) params.push('branch_id=' + $('#filterBranch').val());
                     return '/product/items' + (params.length > 0 ? '?' + params.join('&') : '');
@@ -273,7 +348,7 @@
                 
                 // Initialize Select2 for filter modal (same pattern as /product/stock)
                 $('#filterModal').on('shown.bs.modal', function () {
-                    $('#filterBranch, #filterNature, #filterCategory, #filterStatus').each(function () {
+                    $('#filterBranch, #filterNature, #filterCategory, #filterItemType, #filterProductNature, #filterProcurementType, #filterStockItem, #filterSaleItem, #filterPurchaseItem, #filterStatus').each(function () {
                         if (!$(this).hasClass('select2-hidden-accessible')) {
                             $(this).select2({
                                 dropdownParent: $('#filterModal'),

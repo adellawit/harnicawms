@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -95,9 +96,9 @@ class BusinessUnit extends Model
     }
 
     /**
-     * Get warehouses associated with this branch.
+     * Legacy warehouses associated through the old business_unit_branches pivot.
      */
-    public function warehouses()
+    public function legacyWarehouses(): BelongsToMany
     {
         return $this->belongsToMany(
             BusinessUnit::class,
@@ -108,9 +109,38 @@ class BusinessUnit extends Model
     }
 
     /**
-     * Get branches associated with this warehouse.
+     * Get warehouses owned by this branch in the new warehouse master.
      */
-    public function branches()
+    public function ownedWarehouses(): HasMany
+    {
+        return $this->hasMany(Warehouse::class, 'branch_id', 'id');
+    }
+
+    /**
+     * Get shared/central warehouses assigned to this branch.
+     */
+    public function assignedWarehouses(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Warehouse::class,
+            'master_data.branch_warehouse_assignments',
+            'branch_id',
+            'warehouse_id'
+        )->withPivot(['is_default', 'priority']);
+    }
+
+    /**
+     * Get warehouses associated with this branch.
+     */
+    public function warehouses(): BelongsToMany
+    {
+        return $this->assignedWarehouses();
+    }
+
+    /**
+     * Legacy branches associated with this warehouse business unit.
+     */
+    public function legacyBranches(): BelongsToMany
     {
         return $this->belongsToMany(
             BusinessUnit::class,
@@ -118,5 +148,13 @@ class BusinessUnit extends Model
             'warehouse_id',
             'branch_id'
         )->withPivot('is_default');
+    }
+
+    /**
+     * Branches assigned to this warehouse when the current model is a Warehouse-backed BusinessUnit.
+     */
+    public function branches(): BelongsToMany
+    {
+        return $this->legacyBranches();
     }
 }

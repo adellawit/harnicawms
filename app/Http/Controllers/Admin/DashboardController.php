@@ -17,6 +17,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
 use App\Models\Supplier;
+use App\Support\WmsContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -215,12 +216,25 @@ class DashboardController extends Controller
 
         // ── INVENTORY KPIs ──
         $totalSku = Product::where('is_stock_item', true)->count();
-        $totalStock = (float) ProductVariantStock::when($branchId, fn ($q) => $q->where('branch_id', $branchId))->sum('quantity');
+        $warehouseId = $branchId ? optional(WmsContext::defaultWarehouse($branchId))->id : null;
+        $totalStock = (float) ProductVariantStock::when($branchId, function ($query) use ($branchId, $warehouseId) {
+            $query->when(
+                $warehouseId,
+                fn ($q) => $q->where('warehouse_id', $warehouseId),
+                fn ($q) => $q->where('branch_id', $branchId)
+            );
+        })->sum('quantity');
 
         $inventoryValue = (float) DB::table('product.product_variant_stock as pvs')
             ->join('product.product_variants as pv', 'pv.id', '=', 'pvs.product_variant_id')
             ->whereNull('pvs.deleted_at')
-            ->when($branchId, fn ($q) => $q->where('pvs.branch_id', $branchId))
+            ->when($branchId, function ($query) use ($branchId, $warehouseId) {
+                $query->when(
+                    $warehouseId,
+                    fn ($q) => $q->where('pvs.warehouse_id', $warehouseId),
+                    fn ($q) => $q->where('pvs.branch_id', $branchId)
+                );
+            })
             ->select(DB::raw('COALESCE(SUM(pvs.quantity * pv.purchase_price), 0) as value'))
             ->value('value');
 
@@ -231,7 +245,13 @@ class DashboardController extends Controller
             ->whereNull('p.deleted_at')
             ->whereNull('pvs.deleted_at')
             ->where('p.is_stock_item', true)
-            ->when($branchId, fn ($q) => $q->where('pvs.branch_id', $branchId))
+            ->when($branchId, function ($query) use ($branchId, $warehouseId) {
+                $query->when(
+                    $warehouseId,
+                    fn ($q) => $q->where('pvs.warehouse_id', $warehouseId),
+                    fn ($q) => $q->where('pvs.branch_id', $branchId)
+                );
+            })
             ->whereRaw('pvs.quantity <= p.min_stock')
             ->where('pvs.quantity', '>', 0)
             ->select('p.sku', 'p.name', DB::raw("COALESCE(bu.name, '-') as warehouse"), 'pvs.quantity as on_hand', 'p.min_stock')
@@ -246,7 +266,13 @@ class DashboardController extends Controller
             ->whereNull('p.deleted_at')
             ->whereNull('pvs.deleted_at')
             ->where('p.is_stock_item', true)
-            ->when($branchId, fn ($q) => $q->where('pvs.branch_id', $branchId))
+            ->when($branchId, function ($query) use ($branchId, $warehouseId) {
+                $query->when(
+                    $warehouseId,
+                    fn ($q) => $q->where('pvs.warehouse_id', $warehouseId),
+                    fn ($q) => $q->where('pvs.branch_id', $branchId)
+                );
+            })
             ->where('pvs.quantity', '<=', 0)
             ->distinct('p.id')
             ->count('p.id');
@@ -257,7 +283,13 @@ class DashboardController extends Controller
             ->leftJoin('product.product_categories as pc', 'pc.id', '=', 'p.category_id')
             ->whereNull('pvs.deleted_at')
             ->whereNull('p.deleted_at')
-            ->when($branchId, fn ($q) => $q->where('pvs.branch_id', $branchId))
+            ->when($branchId, function ($query) use ($branchId, $warehouseId) {
+                $query->when(
+                    $warehouseId,
+                    fn ($q) => $q->where('pvs.warehouse_id', $warehouseId),
+                    fn ($q) => $q->where('pvs.branch_id', $branchId)
+                );
+            })
             ->select(DB::raw("COALESCE(pc.name, 'Uncategorized') as category"), DB::raw('SUM(pvs.quantity) as qty'))
             ->groupBy('pc.name')
             ->orderByDesc('qty')
@@ -287,8 +319,13 @@ class DashboardController extends Controller
             LIMIT 10
         ";
         if ($branchId) {
-            $deadStockSql = str_replace('WHERE pvs.deleted_at IS NULL', "WHERE pvs.deleted_at IS NULL AND pvs.branch_id = :branch_id", $deadStockSql);
-            $deadStockProducts = DB::select($deadStockSql, ['branch_id' => $branchId]);
+            if ($warehouseId) {
+                $deadStockSql = str_replace('WHERE pvs.deleted_at IS NULL', "WHERE pvs.deleted_at IS NULL AND pvs.warehouse_id = :warehouse_id", $deadStockSql);
+                $deadStockProducts = DB::select($deadStockSql, ['warehouse_id' => $warehouseId]);
+            } else {
+                $deadStockSql = str_replace('WHERE pvs.deleted_at IS NULL', "WHERE pvs.deleted_at IS NULL AND pvs.branch_id = :branch_id", $deadStockSql);
+                $deadStockProducts = DB::select($deadStockSql, ['branch_id' => $branchId]);
+            }
         } else {
             $deadStockProducts = DB::select($deadStockSql);
         }

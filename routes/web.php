@@ -81,6 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/task-list', [DashboardController::class, 'getTaskListData'])->name('dashboard.task.list');
     Route::post('/dashboard/client-list', [DashboardController::class, 'getClientListData'])->name('dashboard.client.list');
     Route::post('/dashboard/subscription-list', [DashboardController::class, 'getSubscriptionListData'])->name('dashboard.subscription.list');
+    Route::redirect('/warehouse', '/business/warehouse');
 
     /// COMPONENT SHOWCASE
     Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');

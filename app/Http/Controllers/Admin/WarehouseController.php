@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\City;
 use App\Models\Province;
+use App\Models\Warehouse;
+use App\Models\WarehouseType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -37,6 +39,7 @@ class WarehouseController extends Controller
     {
         $user = auth('web')->user();
         $accessibleIds = $this->getAccessibleBusinessUnitIds();
+        $companyId = $user->getCompanyIdForProduct();
 
         $query = BusinessUnit::whereNull('deleted_at')
             ->where('type_code', 'COMPANY');
@@ -62,49 +65,77 @@ class WarehouseController extends Controller
     public function indexView(Request $request)
     {
         $status = $request->filled('status') ? $request->status : '';
-        $isFilter = $status !== '';
+        $scope = $request->get('scope', 'all');
+        $isFilter = $status !== '' || $scope !== 'all';
 
         $user = auth('web')->user();
         $accessibleIds = $this->getAccessibleBusinessUnitIds();
+        $companyId = $user->getCompanyIdForProduct();
 
         $parentCompanies = $this->companiesQuery()
-            ->with(['children' => function ($query) use ($accessibleIds, $user) {
-                $query->where('type_code', 'WAREHOUSE')
-                    ->whereNull('deleted_at')
-                    ->with(['branches' => fn ($q) => $q->whereNull('deleted_at')])
-                    ->orderBy('name');
-
-                if (! $user->is_super_admin && ! empty($accessibleIds)) {
-                    $query->whereIn('id', $accessibleIds);
-                }
-            }])
             ->orderBy('name')
             ->get();
 
-        return view('admin.business.warehouse.index', compact('status', 'isFilter', 'parentCompanies'));
+        $warehouses = Warehouse::query()
+            ->with(['branches' => fn ($q) => $q->whereNull('deleted_at'), 'branch'])
+            ->when(! $user->is_super_admin && ! empty($accessibleIds), function ($query) use ($accessibleIds, $companyId) {
+                $query->where(function ($q) use ($accessibleIds) {
+                    $q->whereIn('branch_id', $accessibleIds)
+                        ->orWhereHas('branches', fn ($branch) => $branch->whereIn('master_data.business_units.id', $accessibleIds));
+                })->when($companyId, function ($query) use ($companyId) {
+                    $query->orWhere(function ($q) use ($companyId) {
+                        $q->where('company_id', $companyId)
+                            ->whereNull('branch_id');
+                    });
+                });
+            })
+            ->when($scope === 'distributor', fn ($query) => $query->whereNull('branch_id')->doesntHave('branches'))
+            ->when($scope === 'branch', fn ($query) => $query->whereNotNull('branch_id'))
+            ->when($scope === 'shared', fn ($query) => $query->whereNull('branch_id')->has('branches'))
+            ->when($status === 'deleted', fn ($query) => $query->onlyTrashed())
+            ->when($status !== 'active' && $status !== 'deleted', fn ($query) => $query->withTrashed())
+            ->orderBy('name')
+            ->get()
+            ->groupBy('company_id');
+
+        $parentCompanies->each(function ($company) use ($warehouses) {
+            $company->setRelation('children', $warehouses->get($company->id, collect()));
+        });
+
+        return view('admin.business.warehouse.index', compact('status', 'scope', 'isFilter', 'parentCompanies'));
     }
 
     public function indexData(Request $request)
     {
         $user = auth('web')->user();
         $accessibleIds = $this->getAccessibleBusinessUnitIds();
+        $companyId = $user->getCompanyIdForProduct();
 
-        $data = BusinessUnit::select(
-            'business_units.id',
-            'business_units.parent_id',
-            'business_units.type_code',
-            'business_units.code',
-            'business_units.name',
-            'business_units.brand_name',
-            'business_units.is_active',
-            'business_units.is_inventory_active',
-            'business_units.created_at',
-            'business_units.deleted_at'
-        )->from('master_data.business_units as business_units')
-            ->where('business_units.type_code', 'WAREHOUSE');
+        $data = Warehouse::query()
+            ->select([
+                'id',
+                'company_id',
+                'branch_id',
+                'code',
+                'name',
+                'warehouse_type_code',
+                'is_active',
+                'is_inventory_active',
+                'created_at',
+                'deleted_at',
+            ]);
 
         if (! $user->is_super_admin && ! empty($accessibleIds)) {
-            $data = $data->whereIn('business_units.id', $accessibleIds);
+            $data = $data->where(function ($query) use ($accessibleIds, $companyId) {
+                $query->whereIn('branch_id', $accessibleIds)
+                    ->orWhereHas('branches', fn ($branch) => $branch->whereIn('master_data.business_units.id', $accessibleIds))
+                    ->when($companyId, function ($q) use ($companyId) {
+                        $q->orWhere(function ($inner) use ($companyId) {
+                            $inner->where('company_id', $companyId)
+                                ->whereNull('branch_id');
+                        });
+                    });
+            });
         }
 
         if ($request['status'] === 'deleted') {
@@ -113,7 +144,7 @@ class WarehouseController extends Controller
             $data = $data->withTrashed();
         }
 
-        $data = $data->orderBy('business_units.name', 'ASC')->get();
+        $data = $data->orderBy('name', 'ASC');
 
         $dt = new DataTables();
 
@@ -122,9 +153,9 @@ class WarehouseController extends Controller
             ->filter(function ($query) use ($request) {
                 if ($search = $request->get('search')['value'] ?? null) {
                     $query->where(function ($q) use ($search) {
-                        $q->where('business_units.name', 'LIKE', "%{$search}%")
-                            ->orWhere('business_units.code', 'LIKE', "%{$search}%")
-                            ->orWhere('business_units.brand_name', 'LIKE', "%{$search}%");
+                        $q->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('code', 'LIKE', "%{$search}%")
+                            ->orWhere('warehouse_type_code', 'LIKE', "%{$search}%");
                     });
                 }
             })
@@ -146,9 +177,7 @@ class WarehouseController extends Controller
         $data = $this->validateWarehouse($request);
 
         DB::transaction(function () use ($request, $data) {
-            $warehouse = BusinessUnit::create(array_merge($data, [
-                'type_code' => 'WAREHOUSE',
-                'is_pos_active' => $request->has('is_pos_active'),
+            $warehouse = Warehouse::create(array_merge($data, [
                 'is_inventory_active' => $request->has('is_inventory_active'),
                 'is_active' => $request->has('is_active'),
                 'created_by' => auth('web')->id(),
@@ -163,8 +192,7 @@ class WarehouseController extends Controller
 
     public function editView(string $id)
     {
-        $warehouse = BusinessUnit::where('id', $id)
-            ->where('type_code', 'WAREHOUSE')
+        $warehouse = Warehouse::where('id', $id)
             ->with(['branches'])
             ->withTrashed()
             ->first();
@@ -179,7 +207,7 @@ class WarehouseController extends Controller
             ->orderBy('name')
             ->get();
 
-        $branches = $this->branchesForCompanies([$warehouse->parent_id]);
+        $branches = $this->branchesForCompanies([$warehouse->company_id]);
         $linkedBranchIds = $warehouse->branches->pluck('id')->all();
         $defaultBranchId = $warehouse->branches->firstWhere('pivot.is_default', true)?->id;
 
@@ -204,14 +232,12 @@ class WarehouseController extends Controller
     {
         $data = $this->validateWarehouse($request, $request->id);
 
-        $warehouse = BusinessUnit::where('id', $request->id)
-            ->where('type_code', 'WAREHOUSE')
+        $warehouse = Warehouse::where('id', $request->id)
             ->withTrashed()
             ->firstOrFail();
 
         DB::transaction(function () use ($request, $data, $warehouse) {
             $warehouse->update(array_merge($data, [
-                'is_pos_active' => $request->has('is_pos_active'),
                 'is_inventory_active' => $request->has('is_inventory_active'),
                 'is_active' => $request->has('is_active'),
                 'updated_by' => auth('web')->id(),
@@ -226,11 +252,10 @@ class WarehouseController extends Controller
     public function deleteData(Request $request)
     {
         $request->validate([
-            'warehouse_id_deleted' => 'required|string|exists:master_data.business_units,id',
+            'warehouse_id_deleted' => 'required|string|exists:master_data.warehouses,id',
         ]);
 
-        $warehouse = BusinessUnit::where('id', $request->warehouse_id_deleted)
-            ->where('type_code', 'WAREHOUSE')
+        $warehouse = Warehouse::where('id', $request->warehouse_id_deleted)
             ->firstOrFail();
 
         $warehouse->updated_by = auth('web')->id();
@@ -244,11 +269,10 @@ class WarehouseController extends Controller
     public function restoreData(Request $request)
     {
         $request->validate([
-            'warehouse_id_restored' => 'required|string|exists:master_data.business_units,id',
+            'warehouse_id_restored' => 'required|string|exists:master_data.warehouses,id',
         ]);
 
-        $warehouse = BusinessUnit::where('id', $request->warehouse_id_restored)
-            ->where('type_code', 'WAREHOUSE')
+        $warehouse = Warehouse::where('id', $request->warehouse_id_restored)
             ->withTrashed()
             ->firstOrFail();
 
@@ -268,13 +292,13 @@ class WarehouseController extends Controller
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('master_data.business_units', 'code')->ignore($ignoreId),
+                Rule::unique('master_data.warehouses', 'code')
+                    ->where(fn ($query) => $query->where('company_id', $request->parent_id))
+                    ->ignore($ignoreId),
             ],
             'name' => 'required|string|max:255',
-            'brand_name' => 'nullable|string|max:255',
+            'brand_name' => 'nullable|exists:master_data.warehouse_types,code',
             'legal_name' => 'nullable|string|max:255',
-            'npwp' => 'nullable|string|max:50',
-            'nib' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:150',
             'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
@@ -282,12 +306,6 @@ class WarehouseController extends Controller
             'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:10',
             'country' => 'nullable|string|max:100',
-            'tax_type' => 'nullable|in:inclusive,exclusive',
-            'tax_percentage' => 'nullable|numeric|min:0|max:100',
-            'service_charge_percentage' => 'nullable|numeric|min:0|max:100',
-            'timezone' => 'nullable|string|max:50',
-            'currency' => 'nullable|string|max:10',
-            'opening_date' => 'nullable|date',
             'branch_ids' => 'nullable|array',
             'branch_ids.*' => 'uuid|exists:master_data.business_units,id',
             'default_branch_id' => 'nullable|uuid|exists:master_data.business_units,id',
@@ -298,18 +316,33 @@ class WarehouseController extends Controller
             'name.required' => 'Nama gudang wajib diisi.',
         ]);
 
-        return $request->only([
-            'parent_id', 'code', 'name', 'brand_name', 'legal_name', 'npwp', 'nib',
-            'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country',
-            'tax_type', 'tax_percentage', 'service_charge_percentage', 'timezone',
-            'currency', 'opening_date',
-        ]);
+        $branchIds = array_values(array_unique(array_filter($request->input('branch_ids', []))));
+        $defaultBranchId = $request->input('default_branch_id');
+        $ownerBranchId = $defaultBranchId ?: ($branchIds[0] ?? null);
+
+        return [
+            'company_id' => $request->parent_id,
+            'branch_id' => $ownerBranchId,
+            'warehouse_type_code' => $request->brand_name ?: 'GENERAL',
+            'code' => $request->code,
+            'name' => $request->name,
+            'short_name' => $request->brand_name,
+            'legal_name' => $request->legal_name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'city' => $request->city,
+            'province' => $request->province,
+            'postal_code' => $request->postal_code,
+            'country' => $request->country,
+            'is_default' => $ownerBranchId && $ownerBranchId === $defaultBranchId,
+        ];
     }
 
     /**
      * @param  list<string>  $branchIds
      */
-    protected function syncLinkedBranches(BusinessUnit $warehouse, array $branchIds, ?string $defaultBranchId): void
+    protected function syncLinkedBranches(Warehouse $warehouse, array $branchIds, ?string $defaultBranchId): void
     {
         $branchIds = array_values(array_unique(array_filter($branchIds)));
 
@@ -342,7 +375,7 @@ class WarehouseController extends Controller
             ->get(['id', 'name', 'code', 'parent_id']);
     }
 
-    protected function resolveLocationIds(BusinessUnit $unit): array
+    protected function resolveLocationIds($unit): array
     {
         $selectedProvinceId = null;
         $selectedCityId = null;
@@ -371,11 +404,11 @@ class WarehouseController extends Controller
      */
     protected function warehouseTypes(): array
     {
-        return [
-            'WIP' => 'Gudang WIP (Bahan Baku & Proses)',
-            'FG' => 'Gudang Barang Jadi',
-            'GENERAL' => 'Gudang Umum',
-            'TRANSIT' => 'Gudang Transit',
-        ];
+        return WarehouseType::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name', 'code')
+            ->all();
     }
 }

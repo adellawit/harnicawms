@@ -13,6 +13,7 @@ use App\Models\ProductVariantStock;
 use App\Models\ProductStockMovement;
 use App\Models\ProductUnit;
 use App\Models\ProductUnitConversion;
+use App\Support\WmsContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -43,13 +44,15 @@ class ProductImport implements ToCollection, WithHeadingRow
     {
         $unitCache = collect(ProductUnit::whereNull('deleted_at')->get()->all());
         $natureCache = collect(ProductNature::whereNull('deleted_at')->get()->all());
+        $warehouseId = optional(WmsContext::defaultWarehouse($this->branchId))->id;
+        $parameterCache = collect(ParameterDetail::with('parameter')
+            ->whereHas('parameter', fn ($q) => $q->whereIn('code', ['ITEM_TYPE', 'PRODUCT_NATURE', 'PROCUREMENT_TYPE']))
+            ->whereNull('deleted_at')
+            ->get());
 
-        $itemTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'ITEM_TYPE'))
-            ->where('key', 'raw_material')->value('id');
-        $productNatureId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PRODUCT_NATURE'))
-            ->where('key', 'inventory')->value('id');
-        $procurementTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PROCUREMENT_TYPE'))
-            ->where('key', 'purchase')->value('id');
+        $defaultItemTypeId = $this->findParameterDetail($parameterCache, 'ITEM_TYPE', 'finished_good')?->id;
+        $defaultProductNatureId = $this->findParameterDetail($parameterCache, 'PRODUCT_NATURE', 'inventory')?->id;
+        $defaultProcurementTypeId = $this->findParameterDetail($parameterCache, 'PROCUREMENT_TYPE', 'purchase')?->id;
 
         $validatedRows = [];
         $namesInFile = [];
@@ -68,8 +71,16 @@ class ProductImport implements ToCollection, WithHeadingRow
             $purchasePrice = $this->parseNumber($row['harga_beli_satuan_besar'] ?? '');
             $minStock = $this->parseNumber($row['jumlah_minimum_satuan_besar'] ?? '');
             $natureName = trim($row['kategori'] ?? $row['nature'] ?? '');
+            $itemTypeName = trim($row['item_type'] ?? '');
+            $productNatureName = trim($row['inventory_nature'] ?? $row['product_nature'] ?? '');
+            $procurementTypeName = trim($row['procurement_type'] ?? '');
             $code = trim($row['kode'] ?? '');
             $sku = trim($row['sku'] ?? '');
+            $isStockItem = $this->parseBoolean($row['stock_item'] ?? null, true);
+            $isSaleItem = $this->parseBoolean($row['sales_item'] ?? null, false);
+            $isPurchaseItem = $this->parseBoolean($row['purchase_item'] ?? null, true);
+            $cogsAccountCode = trim((string) ($row['cogs_account'] ?? ''));
+            $revenueAccountCode = trim((string) ($row['revenue_account'] ?? ''));
 
             if (empty($bigUnitName)) {
                 $this->errors[] = "Baris {$rowNum}: Satuan Besar kosong untuk '{$name}'.";
@@ -107,6 +118,14 @@ class ProductImport implements ToCollection, WithHeadingRow
                 'purchase_price' => $purchasePrice,
                 'min_stock' => $minStock,
                 'nature_name' => $natureName,
+                'item_type_id' => $this->findParameterDetail($parameterCache, 'ITEM_TYPE', $itemTypeName)?->id ?: $defaultItemTypeId,
+                'product_nature_id' => $this->findParameterDetail($parameterCache, 'PRODUCT_NATURE', $productNatureName)?->id ?: $defaultProductNatureId,
+                'procurement_type_id' => $this->findParameterDetail($parameterCache, 'PROCUREMENT_TYPE', $procurementTypeName)?->id ?: $defaultProcurementTypeId,
+                'is_stock_item' => $isStockItem,
+                'is_sale_item' => $isSaleItem,
+                'is_purchase_item' => $isPurchaseItem,
+                'cogs_account_code' => $cogsAccountCode,
+                'revenue_account_code' => $revenueAccountCode,
                 'code' => $code,
                 'sku' => $sku,
             ];
@@ -159,18 +178,20 @@ class ProductImport implements ToCollection, WithHeadingRow
                     'company_id' => $this->companyId,
                     'branch_id' => $this->branchId,
                     'nature_id' => $nature?->id,
-                    'item_type_id' => $itemTypeId,
-                    'product_nature_id' => $productNatureId,
-                    'procurement_type_id' => $procurementTypeId,
+                    'item_type_id' => $data['item_type_id'],
+                    'product_nature_id' => $data['product_nature_id'],
+                    'procurement_type_id' => $data['procurement_type_id'],
                     'default_unit_id' => $bigUnit->id,
                     'name' => $data['name'],
                     'code' => $data['code'] ?: null,
                     'sku' => ! empty($data['sku']) ? $data['sku'] : $this->generateSku(),
-                    'is_stock_item' => true,
-                    'is_sale_item' => false,
-                    'is_purchase_item' => true,
+                    'is_stock_item' => $data['is_stock_item'],
+                    'is_sale_item' => $data['is_sale_item'],
+                    'is_purchase_item' => $data['is_purchase_item'],
                     'min_stock' => $data['min_stock'] ?? 0,
                     'max_stock' => null,
+                    'cogs_account_code' => $data['cogs_account_code'] ?: null,
+                    'revenue_account_code' => $data['revenue_account_code'] ?: null,
                     'created_by' => $this->userId,
                     'updated_by' => $this->userId,
                 ]);
@@ -217,13 +238,14 @@ class ProductImport implements ToCollection, WithHeadingRow
                     'updated_by' => $this->userId,
                 ]);
 
-                if ($data['quantity'] !== null && $data['quantity'] > 0) {
+                if ($data['is_stock_item'] && $data['quantity'] !== null && $data['quantity'] > 0) {
                     $qtySmall = $data['quantity'] * $convFactor;
                     $stock = ProductVariantStock::create([
                         'product_variant_id' => $variant->id,
                         'product_id' => $product->id,
                         'company_id' => $this->companyId,
                         'branch_id' => $this->branchId,
+                        'warehouse_id' => $warehouseId,
                         'unit_id' => $storageUnitId,
                         'quantity' => $qtySmall,
                         'created_by' => $this->userId,
@@ -236,6 +258,7 @@ class ProductImport implements ToCollection, WithHeadingRow
                         'product_id' => $product->id,
                         'company_id' => $this->companyId,
                         'branch_id' => $this->branchId,
+                        'warehouse_id' => $warehouseId,
                         'unit_id' => $storageUnitId,
                         'stock_mutation_type_id' => $this->getInitialBalanceMutationId(),
                         'type' => 'in',
@@ -301,6 +324,44 @@ class ProductImport implements ToCollection, WithHeadingRow
             mb_strtolower($u->symbol ?? '') === $lower ||
             mb_strtolower($u->code ?? '') === $lower
         );
+    }
+
+    protected function findParameterDetail(Collection $details, string $parameterCode, ?string $value): ?ParameterDetail
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $needle = mb_strtolower(str_replace([' ', '-'], '_', $value));
+
+        return $details->first(function (ParameterDetail $detail) use ($parameterCode, $needle) {
+            if ($detail->parameter?->code !== $parameterCode) {
+                return false;
+            }
+
+            $key = mb_strtolower((string) $detail->key);
+            $label = mb_strtolower(str_replace([' ', '-'], '_', (string) $detail->value));
+
+            return $key === $needle || $label === $needle;
+        });
+    }
+
+    protected function parseBoolean($value, bool $default): bool
+    {
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = mb_strtolower(trim((string) $value));
+
+        return in_array($normalized, ['1', 'yes', 'ya', 'true', 'y'], true)
+            ? true
+            : (in_array($normalized, ['0', 'no', 'tidak', 'false', 'n'], true) ? false : $default);
     }
 
     protected function parseNumber($value): ?float

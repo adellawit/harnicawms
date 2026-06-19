@@ -18,6 +18,8 @@ class Shipment extends Model
     protected $fillable = [
         'shipment_number',
         'order_id',
+        'source_warehouse_id',
+        'destination_warehouse_id',
         'ship_date',
         'carrier',
         'tracking_number',
@@ -40,5 +42,15 @@ class Shipment extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ShipmentItem::class, 'shipment_id', 'id');
+    }
+
+    public function sourceWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'source_warehouse_id', 'id');
+    }
+
+    public function destinationWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'destination_warehouse_id', 'id');
     }
 }

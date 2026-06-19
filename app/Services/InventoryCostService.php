@@ -7,6 +7,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
 use App\Models\ProductPurchaseOrderItem;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 
 class InventoryCostService
@@ -49,7 +50,8 @@ class InventoryCostService
         float $qtyReceived,
         string $branchId,
         string $companyId,
-        string $userId
+        string $userId,
+        ?string $warehouseId = null
     ): void {
         if ($qtyReceived <= 0) {
             return;
@@ -60,27 +62,31 @@ class InventoryCostService
             return;
         }
 
+        [$warehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
+
         // Jalankan dalam transaksi luar (caller sudah dalam DB::transaction)
         if ($poItem->variant_id) {
             self::updateVariantAverageCost(
                 $poItem->variant_id,
                 $poItem->product_id,
                 $poItem->unit_id,
-                $branchId,
+                $operationalBranchId,
                 $companyId,
                 $userId,
                 $qtyReceived,
-                $unitCost
+                $unitCost,
+                $warehouseId
             );
         } else {
             self::updateProductAverageCost(
                 $poItem->product_id,
                 $poItem->unit_id,
-                $branchId,
+                $operationalBranchId,
                 $companyId,
                 $userId,
                 $qtyReceived,
-                $unitCost
+                $unitCost,
+                $warehouseId
             );
         }
     }
@@ -93,11 +99,12 @@ class InventoryCostService
         string $companyId,
         string $userId,
         float $qtyReceived,
-        float $unitCost
+        float $unitCost,
+        ?string $warehouseId = null
     ): void {
         // Ambil stok existing untuk variant/unit/branch
         $stockQty = (float) ProductVariantStock::where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->where('unit_id', $unitId)
             ->whereNull('deleted_at')
             ->sum('quantity');
@@ -149,11 +156,12 @@ class InventoryCostService
         string $companyId,
         string $userId,
         float $qtyReceived,
-        float $unitCost
+        float $unitCost,
+        ?string $warehouseId = null
     ): void {
         // Stok existing di level product/unit/branch dari variant stock
         $stockQty = (float) ProductVariantStock::where('product_id', $productId)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->where('unit_id', $unitId)
             ->whereNull('deleted_at')
             ->sum('quantity');
@@ -193,6 +201,35 @@ class InventoryCostService
                 'updated_by' => $userId,
             ]);
         }
+    }
+
+    /**
+     * @return array{0: ?string, 1: string}
+     */
+    protected static function resolveWarehouseContext(string $branchId, ?string $warehouseId): array
+    {
+        $warehouse = null;
+
+        if ($warehouseId) {
+            $warehouse = Warehouse::query()->whereKey($warehouseId)->first();
+        }
+
+        if (! $warehouse) {
+            $warehouse = Warehouse::query()
+                ->where('id', $branchId)
+                ->orWhere('legacy_business_unit_id', $branchId)
+                ->first();
+        }
+
+        if (! $warehouse) {
+            $warehouse = Warehouse::defaultForBranch($branchId);
+        }
+
+        if (! $warehouse) {
+            return [null, $branchId];
+        }
+
+        return [$warehouse->id, $warehouse->branch_id ?: $branchId];
     }
 }
 

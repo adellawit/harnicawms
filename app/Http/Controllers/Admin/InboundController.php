@@ -86,7 +86,7 @@ class InboundController extends Controller
             ->get()
             ->groupBy('product_variant_id')
             ->map(fn ($rows) => $rows->map(fn ($row) => [
-                'branch_id' => $row->branch_id,
+                'branch_id' => $row->warehouse_id ?: $row->branch_id,
                 'quantity' => (float) $row->quantity,
             ])->values());
 
@@ -129,7 +129,10 @@ class InboundController extends Controller
 
         $available = (float) ProductVariantStock::query()
             ->where('product_variant_id', $variant->id)
-            ->where('branch_id', $data['from_branch_id'])
+            ->where(function ($query) use ($data) {
+                $query->where('warehouse_id', $data['from_branch_id'])
+                    ->orWhere('branch_id', $data['from_branch_id']);
+            })
             ->whereNull('deleted_at')
             ->value('quantity');
 

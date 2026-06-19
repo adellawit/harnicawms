@@ -133,6 +133,46 @@
                         @error('category_id') <span class="invalid-feedback d-block">{{ $message }}</span> @enderror
                     </div>
 
+                    <div class="col-md-4">
+                        <label for="item_type_id" class="form-label">Item Type</label>
+                        <select id="item_type_id" name="item_type_id" class="select2 form-select @error('item_type_id') is-invalid @enderror" data-allow-clear="true">
+                            <option value="">Select Item Type</option>
+                            @foreach ($itemTypes as $itemType)
+                                <option value="{{ $itemType->id }}" @selected((old('item_type_id') ?? $tempProduct['item_type_id'] ?? $defaultItemTypeId ?? '') == $itemType->id)>
+                                    {{ $itemType->value }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('item_type_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="product_nature_id" class="form-label">Inventory Nature</label>
+                        <select id="product_nature_id" name="product_nature_id" class="select2 form-select @error('product_nature_id') is-invalid @enderror" data-allow-clear="true">
+                            <option value="">Select Nature</option>
+                            @foreach ($productNatures as $productNature)
+                                <option value="{{ $productNature->id }}" data-key="{{ $productNature->key }}" @selected((old('product_nature_id') ?? $tempProduct['product_nature_id'] ?? $defaultProductNatureId ?? '') == $productNature->id)>
+                                    {{ $productNature->value }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">Inventory item akan track stok dan HPP.</small>
+                        @error('product_nature_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="procurement_type_id" class="form-label">Procurement Type</label>
+                        <select id="procurement_type_id" name="procurement_type_id" class="select2 form-select @error('procurement_type_id') is-invalid @enderror" data-allow-clear="true">
+                            <option value="">Select Procurement</option>
+                            @foreach ($procurementTypes as $procurementType)
+                                <option value="{{ $procurementType->id }}" data-key="{{ $procurementType->key }}" @selected((old('procurement_type_id') ?? $tempProduct['procurement_type_id'] ?? $defaultProcurementTypeId ?? '') == $procurementType->id)>
+                                    {{ $procurementType->value }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('procurement_type_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
                     <div class="col-md-6">
                         <label for="default_unit_id" class="form-label">Default Unit <span class="text-danger">*</span></label>
                         <div class="select-with-action @error('default_unit_id') is-invalid @enderror">
@@ -160,15 +200,33 @@
                     </div>
 
                     @php
+                        $isStockItem = filter_var(old('is_stock_item', $tempProduct['is_stock_item'] ?? true), FILTER_VALIDATE_BOOLEAN);
                         $isSaleItem = filter_var(old('is_sale_item', $tempProduct['is_sale_item'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                        $isPurchaseItem = filter_var(old('is_purchase_item', $tempProduct['is_purchase_item'] ?? true), FILTER_VALIDATE_BOOLEAN);
                     @endphp
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label for="is_stock_item" class="form-label">Stock Item</label>
+                        <select id="is_stock_item" name="is_stock_item" class="select2 form-select">
+                            <option value="1" {{ $isStockItem ? 'selected' : '' }}>Yes — track stock & HPP</option>
+                            <option value="0" {{ ! $isStockItem ? 'selected' : '' }}>No — non-stock/service</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
                         <label for="is_sale_item" class="form-label">Item Sales</label>
                         <select id="is_sale_item" name="is_sale_item" class="select2 form-select">
                             <option value="0" {{ ! $isSaleItem ? 'selected' : '' }}>No — tidak tampil di POS</option>
                             <option value="1" {{ $isSaleItem ? 'selected' : '' }}>Yes — bisa dijual di POS</option>
                         </select>
                         <small class="text-muted">Produk dengan Item Sales aktif muncul di Point of Sales.</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="is_purchase_item" class="form-label">Purchase Item</label>
+                        <select id="is_purchase_item" name="is_purchase_item" class="select2 form-select">
+                            <option value="1" {{ $isPurchaseItem ? 'selected' : '' }}>Yes — bisa dibeli/PO</option>
+                            <option value="0" {{ ! $isPurchaseItem ? 'selected' : '' }}>No — tidak untuk pembelian</option>
+                        </select>
                     </div>
 
                     <div class="col-12">
@@ -187,6 +245,18 @@
                         <label for="max_stock" class="form-label">Maximum Stock</label>
                         <input type="text" class="form-control @error('max_stock') is-invalid @enderror" id="max_stock" name="max_stock" value="{{ old('max_stock') ?? $tempProduct['max_stock'] ?? '' }}">
                         @error('max_stock') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="cogs_account_code" class="form-label">COGS Account Code</label>
+                        <input type="text" class="form-control @error('cogs_account_code') is-invalid @enderror" id="cogs_account_code" name="cogs_account_code" value="{{ old('cogs_account_code') ?? $tempProduct['cogs_account_code'] ?? '' }}" placeholder="Optional">
+                        @error('cogs_account_code') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="revenue_account_code" class="form-label">Revenue Account Code</label>
+                        <input type="text" class="form-control @error('revenue_account_code') is-invalid @enderror" id="revenue_account_code" name="revenue_account_code" value="{{ old('revenue_account_code') ?? $tempProduct['revenue_account_code'] ?? '' }}" placeholder="Optional">
+                        @error('revenue_account_code') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="col-12 mt-4 text-end">

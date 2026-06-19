@@ -94,6 +94,11 @@ class SalesOrder extends Model
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
     }
 
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
+    }
+
     public function priceList(): BelongsTo
     {
         return $this->belongsTo(ProductPriceList::class, 'price_list_id', 'id');

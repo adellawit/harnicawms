@@ -19,6 +19,7 @@ class Receipt extends Model
         'receipt_number',
         'order_id',
         'shipment_id',
+        'warehouse_id',
         'receive_date',
         'notes',
         'created_by',
@@ -43,5 +44,10 @@ class Receipt extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ReceiptItem::class, 'receipt_id', 'id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 }

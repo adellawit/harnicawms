@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\BusinessUnit;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -35,46 +36,80 @@ class WmsContext
     /**
      * Gudang WIP (penerimaan bahan baku & pemrosesan) milik Distributor.
      */
-    public static function wipWarehouse(?string $distributorId = null): ?BusinessUnit
+    public static function wipWarehouse(?string $distributorId = null): ?Warehouse
     {
-        return self::warehouseByCode('WH-WIP', $distributorId);
+        return self::warehouseByType('WIP', $distributorId)
+            ?? self::warehouseByCode('WH-WIP', $distributorId);
     }
 
     /**
      * Gudang Barang Jadi milik Distributor.
      */
-    public static function finishedGoodsWarehouse(?string $distributorId = null): ?BusinessUnit
+    public static function finishedGoodsWarehouse(?string $distributorId = null): ?Warehouse
     {
-        return self::warehouseByCode('WH-FG', $distributorId);
+        return self::warehouseByType('FG', $distributorId)
+            ?? self::warehouseByCode('WH-FG', $distributorId);
     }
 
     /**
-     * Daftar gudang Distributor (WIP & Barang Jadi) untuk dropdown.
+     * Daftar gudang untuk company/cabang konteks.
      *
-     * @return \Illuminate\Support\Collection<int, BusinessUnit>
+     * @return \Illuminate\Support\Collection<int, Warehouse>
      */
-    public static function warehouses(?string $distributorId = null)
+    public static function warehouses(?string $contextId = null)
     {
-        $distributorId = $distributorId ?: optional(self::distributor())->id;
+        $contextId = $contextId ?: auth()->user()?->getBranchIdForTransaction() ?: optional(self::distributor())->id;
+        $businessUnit = $contextId ? BusinessUnit::find($contextId) : null;
 
-        return BusinessUnit::where('type_code', 'WAREHOUSE')
-            ->when($distributorId, fn ($q) => $q->where('parent_id', $distributorId))
-            ->whereNull('deleted_at')
+        $query = Warehouse::inventoryActive();
+
+        if ($businessUnit?->type_code === 'BRANCH') {
+            $query->forBranchAccess($businessUnit->id);
+        } else {
+            $companyId = $businessUnit?->type_code === 'COMPANY'
+                ? $businessUnit->id
+                : optional(self::distributor())->id;
+
+            $query->forCompany($companyId);
+        }
+
+        return $query
             ->orderBy('code')
             ->get();
     }
 
-    protected static function warehouseByCode(string $code, ?string $distributorId): ?BusinessUnit
+    public static function defaultWarehouse(?string $branchId = null): ?Warehouse
+    {
+        $branchId = $branchId ?: auth()->user()?->getBranchIdForTransaction();
+
+        if (! $branchId) {
+            return null;
+        }
+
+        return Warehouse::defaultForBranch($branchId);
+    }
+
+    protected static function warehouseByCode(string $code, ?string $distributorId): ?Warehouse
     {
         $distributorId = $distributorId ?: optional(self::distributor())->id;
 
-        return BusinessUnit::where('type_code', 'WAREHOUSE')
+        return Warehouse::inventoryActive()
             ->where('code', $code)
-            ->when($distributorId, fn ($q) => $q->where('parent_id', $distributorId))
-            ->whereNull('deleted_at')
+            ->when($distributorId, fn ($q) => $q->where('company_id', $distributorId))
             ->first()
-            // fallback tanpa filter parent (jika data parent berbeda)
-            ?? BusinessUnit::where('type_code', 'WAREHOUSE')->where('code', $code)->whereNull('deleted_at')->first();
+            ?? Warehouse::inventoryActive()->where('code', $code)->first();
+    }
+
+    protected static function warehouseByType(string $typeCode, ?string $distributorId): ?Warehouse
+    {
+        $distributorId = $distributorId ?: optional(self::distributor())->id;
+
+        return Warehouse::inventoryActive()
+            ->where('warehouse_type_code', $typeCode)
+            ->when($distributorId, fn ($q) => $q->where('company_id', $distributorId))
+            ->orderByDesc('is_default')
+            ->orderBy('code')
+            ->first();
     }
 
     /**

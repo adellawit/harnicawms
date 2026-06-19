@@ -48,7 +48,8 @@ class FifoCostService
         ?string $sourceId,
         ?string $userId = null,
         ?string $date = null,
-        ?string $expiryDate = null
+        ?string $expiryDate = null,
+        ?string $warehouseId = null
     ): ProductCostLayer {
         $effectiveDate = $date ?: Carbon::now()->toDateString();
 
@@ -57,6 +58,7 @@ class FifoCostService
             'product_variant_id' => $variantId,
             'company_id' => $companyId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'unit_id' => $unitId,
             'quantity' => $quantity,
             'quantity_remaining' => $quantity,
@@ -85,7 +87,8 @@ class FifoCostService
         string $branchId,
         string $unitId,
         float $quantity,
-        ?string $userId = null
+        ?string $userId = null,
+        ?string $warehouseId = null
     ): array {
         $remainingToConsume = $quantity;
         $totalCost = 0.0;
@@ -94,7 +97,7 @@ class FifoCostService
         $layers = self::fefoOrder(
             ProductCostLayer::query()
                 ->where('product_variant_id', $variantId)
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->where('quantity_remaining', '>', 0)
                 ->whereNull('deleted_at')
         )->lockForUpdate()->get();
@@ -142,7 +145,7 @@ class FifoCostService
         if ($remainingToConsume > 0) {
             $fallbackCost = $lastUnitCostInConsumeUnit > 0
                 ? $lastUnitCostInConsumeUnit
-                : self::currentUnitCost($variantId, $branchId, $unitId);
+                : self::currentUnitCost($variantId, $branchId, $unitId, $warehouseId);
             $totalCost += $remainingToConsume * $fallbackCost;
         }
 
@@ -160,12 +163,12 @@ class FifoCostService
     /**
      * HPP berjalan = unit_cost layer FEFO terdepan, dikonversi ke $targetUnitId bila perlu.
      */
-    public static function currentUnitCost(?string $variantId, string $branchId, ?string $targetUnitId = null): float
+    public static function currentUnitCost(?string $variantId, string $branchId, ?string $targetUnitId = null, ?string $warehouseId = null): float
     {
         $layer = self::fefoOrder(
             ProductCostLayer::query()
                 ->where('product_variant_id', $variantId)
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->where('quantity_remaining', '>', 0)
                 ->whereNull('deleted_at')
         )->first();
@@ -189,11 +192,11 @@ class FifoCostService
     /**
      * Nilai persediaan = Σ(quantity_remaining * unit_cost) per layer (dalam satuan layer).
      */
-    public static function inventoryValue(?string $variantId, string $branchId): float
+    public static function inventoryValue(?string $variantId, string $branchId, ?string $warehouseId = null): float
     {
         return (float) ProductCostLayer::query()
             ->where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->where('quantity_remaining', '>', 0)
             ->whereNull('deleted_at')
             ->get()

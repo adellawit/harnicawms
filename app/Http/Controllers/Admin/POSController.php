@@ -14,6 +14,7 @@ use App\Models\ProductVariantStock;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
 use App\Services\PosCheckoutService;
+use App\Support\WmsContext;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use Illuminate\Http\Request;
@@ -41,6 +42,7 @@ class POSController extends Controller
     public function indexView(Request $request)
     {
         $branchId = $this->getBranchId();
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
         $companyId = $this->getCompanyId();
 
         // Type Transaction = Price Lists
@@ -155,7 +157,7 @@ class POSController extends Controller
                 ->first();
             $defaultUnitId = $firstPrice?->unit_id
                 ?? ProductVariantStock::where('product_id', $product->id)
-                    ->where('branch_id', $branchId)
+                    ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                     ->whereNull('deleted_at')
                     ->value('unit_id');
         }
@@ -176,7 +178,7 @@ class POSController extends Controller
                 ->first();
 
             $stockRow = ProductVariantStock::where('product_variant_id', $v->id)
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->where('unit_id', $defaultUnitId)
                 ->whereNull('deleted_at')
                 ->first();

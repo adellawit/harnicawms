@@ -11,10 +11,12 @@
 
     <div class="container-xxl flex-grow-1 container-p-y">
         @php
-            $hasUpdatePermission = session('permissions.Warehouse.is_update', false) == 1;
-            $hasDeletePermission = session('permissions.Warehouse.is_delete', false) == 1;
+            $isSuperAdmin = auth('web')->user()?->is_super_admin;
+            $hasUpdatePermission = $isSuperAdmin || session('permissions.Warehouse.is_update', false) == 1;
+            $hasDeletePermission = $isSuperAdmin || session('permissions.Warehouse.is_delete', false) == 1;
             $hasAnyActionPermission = $hasUpdatePermission || $hasDeletePermission;
             $typeLabels = ['WIP' => 'WIP', 'FG' => 'Barang Jadi', 'GENERAL' => 'Umum', 'TRANSIT' => 'Transit'];
+            $scope = $scope ?? request('scope', 'all');
         @endphp
 
         <x-page-header :breadcrumbs="[
@@ -41,6 +43,19 @@
                 </div>
             </div>
             <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    @foreach([
+                        'all' => 'Semua',
+                        'distributor' => 'Distributor',
+                        'branch' => 'Cabang',
+                        'shared' => 'Shared',
+                    ] as $key => $label)
+                        <a href="{{ route('warehouse.index.view', array_filter(['scope' => $key === 'all' ? null : $key, 'status' => $status ?: null])) }}"
+                           class="btn btn-sm btn-{{ $scope === $key ? 'primary' : 'label-secondary' }}">
+                            {{ $label }}
+                        </a>
+                    @endforeach
+                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered warehouse-table">
                         <thead class="table-light">
@@ -49,6 +64,7 @@
                                 <th>Nama</th>
                                 <th>Kode</th>
                                 <th>Tipe</th>
+                                <th>Cakupan</th>
                                 <th>Cabang Terkait</th>
                                 <th class="text-center">Inventory</th>
                                 <th class="text-center">Aktif</th>
@@ -60,7 +76,7 @@
                             @forelse ($parentCompanies as $parent)
                                 <tr class="table-secondary">
                                     <td></td>
-                                    <td colspan="{{ $hasAnyActionPermission ? 7 : 6 }}">
+                                    <td colspan="{{ $hasAnyActionPermission ? 8 : 7 }}">
                                         <strong><span class="badge bg-label-info me-1">COMPANY</span>{{ $parent->name }}</strong>
                                         @if($parent->children->count())
                                             <span class="badge bg-label-secondary ms-2">{{ $parent->children->count() }} gudang</span>
@@ -68,16 +84,26 @@
                                     </td>
                                 </tr>
                                 @forelse ($parent->children as $wh)
+                                    @php
+                                        $warehouseScope = $wh->branch_id
+                                            ? ['label' => 'Cabang', 'color' => 'success']
+                                            : ($wh->branches->isNotEmpty()
+                                                ? ['label' => 'Shared', 'color' => 'warning']
+                                                : ['label' => 'Distributor', 'color' => 'info']);
+                                    @endphp
                                     <tr>
                                         <td class="text-center">{{ $rowNumber++ }}</td>
                                         <td><span class="text-muted">└</span> {{ $wh->name }}</td>
                                         <td><code>{{ $wh->code }}</code></td>
                                         <td>{{ $typeLabels[$wh->brand_name] ?? ($wh->brand_name ?: '-') }}</td>
+                                        <td><span class="badge bg-label-{{ $warehouseScope['color'] }}">{{ $warehouseScope['label'] }}</span></td>
                                         <td>
                                             @if($wh->branches->isNotEmpty())
                                                 {{ $wh->branches->pluck('name')->implode(', ') }}
+                                            @elseif($wh->branch)
+                                                {{ $wh->branch->name }}
                                             @else
-                                                <span class="text-muted">Semua / Distributor</span>
+                                                <span class="text-muted">Distributor / Pusat</span>
                                             @endif
                                         </td>
                                         <td class="text-center">
@@ -108,10 +134,10 @@
                                         @endif
                                     </tr>
                                 @empty
-                                    <tr><td colspan="{{ $hasAnyActionPermission ? 8 : 7 }}" class="text-center text-muted">Belum ada gudang di company ini.</td></tr>
+                                    <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center text-muted">Belum ada gudang di company ini.</td></tr>
                                 @endforelse
                             @empty
-                                <tr><td colspan="{{ $hasAnyActionPermission ? 8 : 7 }}" class="text-center">Tidak ada data company.</td></tr>
+                                <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center">Tidak ada data company.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

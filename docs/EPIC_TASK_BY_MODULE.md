@@ -485,7 +485,193 @@
 | Sprint 3 | `WH-05` (T05–T10) | Inbound, POS, distribusi, seeder, command |
 | Sprint 4 | `WH-06` | Cleanup legacy + reporting |
 
-## 12. Tracking Summary (Current Inventory)
+## 12. Partner Network: Agent & Reseller Warehouse (New)
+
+> Scope: memisahkan partner eksternal dari struktur internal `business_units`.
+> `business_units` tetap untuk HOLDING / COMPANY / BRANCH internal.
+> Agent dan Reseller dikelola sebagai partner network, dengan integrasi gudang untuk Agent.
+
+**Aturan data:**
+- `company_id` = Distributor / principal company
+- `branch_id` = outlet/cabang operasional internal distributor
+- `agent_id` = partner Agent eksternal
+- `reseller_id` = partner Reseller eksternal
+- `warehouse_id` = lokasi fisik stok
+
+### Epic PN-01: Partner Master Schema
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-01-T01` | Migration schema `partner` | Backend | P0 | Todo |
+| `PN-01-T02` | Migration `partner.agents` untuk master Agent | Backend | P0 | Todo |
+| `PN-01-T03` | Migration `partner.resellers` untuk master Reseller | Backend | P0 | Todo |
+| `PN-01-T04` | Migration `partner.agent_reseller_assignments` | Backend | P0 | Todo |
+| `PN-01-T05` | Seeder status/lifecycle partner | Backend | P1 | Todo |
+
+#### Detail Task PN-01
+
+**`PN-01-T01` — Schema partner**
+- Buat schema `partner` untuk data jaringan eksternal distributor.
+- Pisahkan dari `master_data.business_units` agar tree internal tetap bersih.
+- Siapkan migration guard `CREATE SCHEMA IF NOT EXISTS partner`.
+
+**`PN-01-T02` — agents**
+- Tabel `partner.agents`: `id`, `company_id`, `code`, `name`, `status`, `approval_status`.
+- Data kontak: `email`, `phone`, `address`, `city`, `province`, `postal_code`.
+- Link opsional: `default_warehouse_id`, `approved_at`, `approved_by`.
+- Agent bukan `business_units`; Agent adalah partner eksternal distributor.
+
+**`PN-01-T03` — resellers**
+- Tabel `partner.resellers`: `id`, `company_id`, `agent_id`, `code`, `name`, `status`.
+- Data kontak/customer profile untuk aktivitas penjualan reseller.
+- Reseller tidak punya warehouse default di fase awal.
+- Reseller dapat dipetakan ke customer/member bila diperlukan.
+
+**`PN-01-T04` — agent_reseller_assignments**
+- Assignment reseller ke agent dengan histori perpindahan.
+- Kolom: `agent_id`, `reseller_id`, `effective_from`, `effective_to`, `is_active`.
+- Satu reseller hanya boleh punya satu assignment aktif pada waktu yang sama.
+
+**`PN-01-T05` — Partner lifecycle seed**
+- Seeder status Agent: `draft`, `pending_approval`, `active`, `suspended`, `terminated`.
+- Seeder status Reseller: `active`, `inactive`, `suspended`.
+- Seeder approval status: `pending`, `approved`, `rejected`.
+
+### Epic PN-02: Agent Warehouse Integration
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-02-T01` | Ubah `master_data.warehouses` agar bisa dimiliki Agent | Backend | P0 | Todo |
+| `PN-02-T02` | Auto create/link warehouse saat Agent approved | Backend | P0 | Todo |
+| `PN-02-T03` | Default warehouse Agent untuk penerimaan replenishment | Backend | P0 | Todo |
+| `PN-02-T04` | Validasi warehouse milik Agent saat receive/return | Backend | P0 | Todo |
+
+#### Detail Task PN-02
+
+**`PN-02-T01` — Warehouse ownership**
+- Rekomendasi struktur jangka panjang: `owner_type` (`COMPANY`, `BRANCH`, `AGENT`) + `owner_id`.
+- Tetap simpan `company_id` untuk scope distributor.
+- `branch_id` hanya untuk cabang internal, bukan Agent.
+- Pastikan index lookup per `(owner_type, owner_id)` dan `(company_id, warehouse_type_code)`.
+
+**`PN-02-T02` — Approve Agent**
+- Saat Agent disetujui, sistem membuat atau menghubungkan warehouse Agent.
+- Warehouse default Agent dipakai untuk receipt dan return flow.
+- Code warehouse dapat digenerate dari kode Agent agar mudah dilacak.
+
+**`PN-02-T03` — Default warehouse Agent**
+- `Agent::defaultWarehouse()` mengarah ke warehouse default milik Agent.
+- Fallback hanya boleh ke warehouse aktif yang owner-nya Agent yang sama.
+- Tidak fallback ke gudang branch internal karena Agent bukan `business_units`.
+
+**`PN-02-T04` — Warehouse validation**
+- Receive replenishment harus masuk ke warehouse milik Agent terkait.
+- Return dari Agent harus keluar dari warehouse milik Agent terkait.
+- Tolak transaksi jika warehouse tidak aktif atau beda distributor.
+
+### Epic PN-03: Replenishment Refactor for Partner Agent
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-03-T01` | Refactor `replenishment_orders.agent_id` ke `partner.agents` | Backend | P0 | Todo |
+| `PN-03-T02` | Shipment: distributor FG warehouse → agent warehouse | Backend | P0 | Todo |
+| `PN-03-T03` | Receipt: masuk ke default warehouse Agent | Backend | P0 | Todo |
+| `PN-03-T04` | Return: keluar dari warehouse Agent → FG distributor | Backend | P1 | Todo |
+| `PN-03-T05` | UI replenishment pilih Agent partner, bukan branch | Backend+Frontend | P0 | Todo |
+
+#### Detail Task PN-03
+
+**`PN-03-T01` — Repoint agent_id**
+- `distribution.replenishment_orders.agent_id` mengarah ke `partner.agents`.
+- `distributor_id` tetap mengarah ke `master_data.business_units` tipe COMPANY.
+- Backfill data lama dari `business_units` BRANCH jika ada demo/legacy Agent.
+
+**`PN-03-T02` — Shipment**
+- Kurangi stok dari `source_warehouse_id` gudang FG distributor.
+- Isi `destination_warehouse_id` dengan default warehouse Agent.
+- Audit movement mencatat `warehouse_id`, `company_id`, dan `agent_id`.
+
+**`PN-03-T03` — Receipt**
+- Tambah stok ke `warehouse_id` default Agent.
+- Harga transfer menjadi cost layer Agent.
+- Expiry/FEFO diteruskan dari shipment item.
+
+**`PN-03-T04` — Return**
+- Kurangi stok dari warehouse Agent.
+- Tambah stok kembali ke gudang FG distributor.
+- Simpan audit referensi `agent_id` dan `source_warehouse_id`.
+
+**`PN-03-T05` — UI replenishment**
+- Dropdown Agent membaca `partner.agents` aktif.
+- Tampilkan warehouse default Agent di form/detail.
+- Validasi UI mencegah order jika Agent belum punya warehouse aktif.
+
+### Epic PN-04: Agent & Reseller Management UI
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-04-T01` | CRUD Agent + approval workflow | Backend+Frontend | P0 | Todo |
+| `PN-04-T02` | CRUD Reseller | Backend+Frontend | P0 | Todo |
+| `PN-04-T03` | Assignment Reseller ke Agent | Backend+Frontend | P1 | Todo |
+| `PN-04-T04` | Detail Agent tampilkan warehouse, stock summary, reseller list | Backend+Frontend | P1 | Todo |
+
+#### Detail Task PN-04
+
+**`PN-04-T01` — Agent management**
+- Halaman list/create/edit/detail Agent.
+- Approval workflow: pending → approved/rejected.
+- Saat approved, panggil proses create/link warehouse Agent.
+
+**`PN-04-T02` — Reseller management**
+- Halaman list/create/edit/detail Reseller.
+- Reseller berada di bawah scope distributor dan dapat ditugaskan ke Agent.
+- Siapkan link opsional ke customer/member profile.
+
+**`PN-04-T03` — Assignment**
+- Form assignment Reseller ke Agent.
+- Support histori assignment dan satu assignment aktif.
+- Validasi Agent dan Reseller harus dalam `company_id` yang sama.
+
+**`PN-04-T04` — Agent detail dashboard**
+- Tampilkan warehouse default Agent.
+- Tampilkan summary stok per warehouse Agent.
+- Tampilkan daftar Reseller aktif di bawah Agent.
+
+### Epic PN-05: Reporting & Access
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-05-T01` | Filter laporan stok per Agent warehouse | Backend+Frontend | P1 | Todo |
+| `PN-05-T02` | Sales/replenishment report per Agent dan Reseller | Backend+Frontend | P1 | Todo |
+| `PN-05-T03` | Permission menu Partner Network | Backend | P1 | Todo |
+
+#### Detail Task PN-05
+
+**`PN-05-T01` — Agent warehouse reporting**
+- Filter laporan stok berdasarkan Agent dan warehouse Agent.
+- Stock card tetap menggunakan `warehouse_id` sebagai sumber kebenaran stok.
+- Export laporan mencantumkan Agent, warehouse, dan distributor.
+
+**`PN-05-T02` — Agent & Reseller sales report**
+- Laporan replenishment per Agent.
+- Laporan penjualan/aktivitas per Reseller jika data transaksi reseller sudah tersedia.
+- KPI: order value, received qty, return qty, active reseller count.
+
+**`PN-05-T03` — Partner Network permissions**
+- Seeder menu Partner Network.
+- Permission CRUD Agent, approval Agent, CRUD Reseller, assignment Reseller.
+- Scope akses mengikuti distributor aktif user.
+
+### Partner Network Sprint Recommendation
+
+| Sprint | Epic | Fokus |
+|---|---|---|
+| Sprint 1 | `PN-01` + `PN-02` | Schema partner + ownership warehouse Agent |
+| Sprint 2 | `PN-03` | Refactor replenishment Agent dari branch ke partner |
+| Sprint 3 | `PN-04` | UI Agent/Reseller + approval workflow |
+| Sprint 4 | `PN-05` | Reporting, permission, dan hardening akses |
+
+## 13. Tracking Summary (Current Inventory)
 
 | Module | Epic Count | Task Count | Status |
 |---|---:|---:|---|
@@ -500,3 +686,4 @@
 | Reporting | 2 | 5 | Existing |
 | CRM & Membership | 3 | 9 | Planned |
 | **Warehouse & Multi-Location WMS** | **6** | **35** | **Migration Done / App Todo** |
+| **Partner Network: Agent & Reseller Warehouse** | **5** | **21** | **Planned** |

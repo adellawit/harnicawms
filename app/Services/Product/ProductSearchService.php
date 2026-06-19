@@ -5,6 +5,7 @@ namespace App\Services\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
+use App\Support\WmsContext;
 use Illuminate\Support\Collection;
 
 class ProductSearchService
@@ -188,6 +189,7 @@ class ProductSearchService
     public function mapVariant(ProductVariant $variant, string $branchId, string $priceListId): ?array
     {
         $product = $variant->product;
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
 
         if ($product === null) {
             return null;
@@ -204,7 +206,7 @@ class ProductSearchService
                 ->value('unit_id')
                 ?? ProductVariantStock::query()
                     ->where('product_variant_id', $variant->id)
-                    ->where('branch_id', $branchId)
+                    ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                     ->whereNull('deleted_at')
                     ->value('unit_id');
         }
@@ -223,7 +225,7 @@ class ProductSearchService
 
         $stockRow = ProductVariantStock::query()
             ->where('product_variant_id', $variant->id)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->where('unit_id', $defaultUnitId)
             ->whereNull('deleted_at')
             ->first();

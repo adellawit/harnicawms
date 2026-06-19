@@ -13,6 +13,7 @@ use App\Models\SalesOrder;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
+use App\Support\WmsContext;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use Illuminate\Http\JsonResponse;
@@ -129,6 +130,7 @@ class ShopController extends Controller
             ->get();
 
         $result = [];
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
         foreach ($variants as $v) {
             $unitId = $defaultUnitId ?? ProductVariantPrice::where('variant_id', $v->id)
                 ->where('branch_id', $branchId)
@@ -153,7 +155,7 @@ class ShopController extends Controller
             }
 
             $stockRow = ProductVariantStock::where('product_variant_id', $v->id)
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->where('unit_id', $unitId)
                 ->whereNull('deleted_at')
                 ->first();

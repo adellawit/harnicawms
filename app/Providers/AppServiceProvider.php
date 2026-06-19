@@ -58,6 +58,10 @@ class AppServiceProvider extends ServiceProvider
         // Usage: @permission('Menu Name', 'is_create') or @permission('Menu Name')
         // Reads from session('permissions') which is built during login from iam_has_accesses table
         Blade::if('permission', function ($menuName, $action = 'is_read') {
+            if (auth()->check() && auth()->user()?->is_super_admin) {
+                return true;
+            }
+
             $permissions = session('permissions', []);
 
             if (empty($permissions)) {

@@ -30,9 +30,16 @@ class ReplenishmentStockService
     public static function ship(ReplenishmentOrder $order, array $payload, ?string $userId = null): Shipment
     {
         return DB::transaction(function () use ($order, $payload, $userId) {
+            $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->distributor_id);
+            $fgWarehouseId = optional($fgWarehouse)->id ?? $order->distributor_id;
+            $fgBranchId = optional($fgWarehouse)->branch_id ?? $fgWarehouseId;
+            $destinationWarehouseId = optional(WmsContext::defaultWarehouse($order->agent_id))->id;
+
             $shipment = Shipment::create([
                 'shipment_number' => self::generateNumber('shipments', 'shipment_number', 'SHP'),
                 'order_id' => $order->id,
+                'source_warehouse_id' => $fgWarehouseId,
+                'destination_warehouse_id' => $destinationWarehouseId,
                 'ship_date' => $payload['ship_date'] ?? Carbon::now()->toDateString(),
                 'carrier' => $payload['carrier'] ?? null,
                 'tracking_number' => $payload['tracking_number'] ?? null,
@@ -41,9 +48,6 @@ class ReplenishmentStockService
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
-
-            // Kirim dari Gudang Barang Jadi milik distributor
-            $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse($order->distributor_id))->id ?? $order->distributor_id;
 
             foreach ($order->items as $item) {
                 $qty = (float) ($payload['qty'][$item->id] ?? 0);
@@ -57,13 +61,14 @@ class ReplenishmentStockService
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
-                    $fgWarehouseId,
+                    $fgBranchId,
                     $item->unit_id,
                     $qty,
                     'ReplenishmentShipment',
                     $shipment->id,
                     $userId,
-                    'Pengiriman ke agen - order ' . $order->order_number
+                    'Pengiriman ke agen - order ' . $order->order_number,
+                    $fgWarehouseId
                 );
 
                 ShipmentItem::create([
@@ -98,6 +103,7 @@ class ReplenishmentStockService
                 'receipt_number' => self::generateNumber('receipts', 'receipt_number', 'RCV'),
                 'order_id' => $order->id,
                 'shipment_id' => $shipment->id,
+                'warehouse_id' => $shipment->destination_warehouse_id ?: optional(WmsContext::defaultWarehouse($order->agent_id))->id,
                 'receive_date' => Carbon::now()->toDateString(),
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -107,6 +113,7 @@ class ReplenishmentStockService
                 $orderItem = $sItem->orderItem;
                 $transferPrice = $orderItem ? (float) $orderItem->unit_price : 0.0;
                 $qty = (float) $sItem->quantity;
+                $agentWarehouse = WmsContext::defaultWarehouse($order->agent_id);
                 if ($qty <= 0) {
                     continue;
                 }
@@ -125,7 +132,8 @@ class ReplenishmentStockService
                     $userId,
                     'Penerimaan dari distributor - order ' . $order->order_number,
                     null,
-                    optional($sItem->expiry_date)->toDateString()
+                    optional($sItem->expiry_date)->toDateString(),
+                    optional($agentWarehouse)->id
                 );
 
                 ReceiptItem::create([
@@ -156,7 +164,10 @@ class ReplenishmentStockService
     public static function returnGoods(ReplenishmentOrder $order, array $payload, ?string $userId = null): ReturnOrder
     {
         return DB::transaction(function () use ($order, $payload, $userId) {
-            $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse($order->distributor_id))->id ?? $order->distributor_id;
+            $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->distributor_id);
+            $fgWarehouseId = optional($fgWarehouse)->id ?? $order->distributor_id;
+            $fgBranchId = optional($fgWarehouse)->branch_id ?? $fgWarehouseId;
+            $agentWarehouse = WmsContext::defaultWarehouse($order->agent_id);
 
             $return = ReturnOrder::create([
                 'return_number' => self::generateNumber('returns', 'return_number', 'RTN'),
@@ -190,7 +201,8 @@ class ReplenishmentStockService
                     'ReplenishmentReturn',
                     $return->id,
                     $userId,
-                    'Retur ke distributor - order ' . $order->order_number
+                    'Retur ke distributor - order ' . $order->order_number,
+                    optional($agentWarehouse)->id
                 );
 
                 // Stok masuk kembali ke Gudang Barang Jadi distributor pada harga transfer + expiry
@@ -198,7 +210,7 @@ class ReplenishmentStockService
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
-                    $fgWarehouseId,
+                    $fgBranchId,
                     $item->unit_id,
                     $qty,
                     (float) $item->unit_price,
@@ -207,7 +219,8 @@ class ReplenishmentStockService
                     $userId,
                     'Retur masuk dari agen - order ' . $order->order_number,
                     null,
-                    $out['earliest_expiry']
+                    $out['earliest_expiry'],
+                    $fgWarehouseId
                 );
 
                 ReturnItem::create([

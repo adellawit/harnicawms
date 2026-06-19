@@ -54,19 +54,60 @@ class ProductController extends Controller
         return $prefix.'-'.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
     }
 
+    protected function productParameterOptions(string $code)
+    {
+        return ParameterDetail::query()
+            ->whereHas('parameter', fn ($q) => $q->where('code', $code))
+            ->whereNull('deleted_at')
+            ->orderBy('value')
+            ->get(['id', 'key', 'value', 'description']);
+    }
+
+    protected function defaultProductParameterId(string $code, string $key): ?string
+    {
+        return ParameterDetail::query()
+            ->whereHas('parameter', fn ($q) => $q->where('code', $code))
+            ->where('key', $key)
+            ->whereNull('deleted_at')
+            ->value('id');
+    }
+
     public function indexView(Request $request)
     {
         $status = $request->filled('status') ? $request->status : '';
         $branchId = $request->get('branch_id', auth('web')->user()->current_business_unit_id);
-        $isFilter = $status !== '' || $request->filled('sku') || $request->filled('product') || $request->filled('nature_id') || $request->filled('category_id') || $branchId !== auth('web')->user()->current_business_unit_id;
+        $isFilter = $status !== ''
+            || $request->filled('sku')
+            || $request->filled('product')
+            || $request->filled('nature_id')
+            || $request->filled('category_id')
+            || $request->filled('item_type_id')
+            || $request->filled('product_nature_id')
+            || $request->filled('procurement_type_id')
+            || $request->filled('is_stock_item')
+            || $request->filled('is_sale_item')
+            || $request->filled('is_purchase_item')
+            || $branchId !== auth('web')->user()->current_business_unit_id;
         $natures = ProductNature::whereNull('deleted_at')
             ->orderBy('name')
             ->pluck('name', 'id');
         $categories = ProductCategory::whereNull('deleted_at')
             ->orderBy('name')
             ->pluck('name', 'id');
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE')->pluck('value', 'id');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE')->pluck('value', 'id');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE')->pluck('value', 'id');
 
-        return view('admin.product.master.index', compact('status', 'isFilter', 'natures', 'categories', 'branchId'));
+        return view('admin.product.master.index', compact(
+            'status',
+            'isFilter',
+            'natures',
+            'categories',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes',
+            'branchId'
+        ));
     }
 
     public function indexData(Request $request)
@@ -77,10 +118,16 @@ class ProductController extends Controller
             'products.id',
             'products.nature_id',
             'products.category_id',
+            'products.item_type_id',
+            'products.product_nature_id',
+            'products.procurement_type_id',
             'products.default_unit_id',
             'products.name',
             'products.code',
             'products.sku',
+            'products.is_stock_item',
+            'products.is_sale_item',
+            'products.is_purchase_item',
             'products.created_at',
             'products.deleted_at',
             'products.branch_id'
@@ -88,6 +135,9 @@ class ProductController extends Controller
             ->with([
                 'nature:id,name',
                 'category:id,name',
+                'itemType:id,value,key',
+                'productNature:id,value,key',
+                'procurementType:id,value,key',
                 'defaultUnit:id,name,symbol',
                 'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
                 'prices' => fn ($q) => $branchId ? $q->where('branch_id', $branchId) : $q,
@@ -119,6 +169,24 @@ class ProductController extends Controller
 
         if ($request->filled('category_id') && $request->category_id !== '') {
             $data = $data->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('item_type_id') && $request->item_type_id !== '') {
+            $data = $data->where('item_type_id', $request->item_type_id);
+        }
+
+        if ($request->filled('product_nature_id') && $request->product_nature_id !== '') {
+            $data = $data->where('product_nature_id', $request->product_nature_id);
+        }
+
+        if ($request->filled('procurement_type_id') && $request->procurement_type_id !== '') {
+            $data = $data->where('procurement_type_id', $request->procurement_type_id);
+        }
+
+        foreach (['is_stock_item', 'is_sale_item', 'is_purchase_item'] as $flag) {
+            if ($request->filled($flag) && $request->{$flag} !== '') {
+                $data = $data->where($flag, (bool) $request->{$flag});
+            }
         }
 
         if ($request->filled('status') && $request->status !== '') {
@@ -165,6 +233,23 @@ class ProductController extends Controller
             })
             ->addColumn('nature_name', fn ($row) => $row->nature?->name ?? '-')
             ->addColumn('category_name', fn ($row) => $row->category?->name ?? '-')
+            ->addColumn('item_type_name', fn ($row) => $row->itemType?->value ?? '-')
+            ->addColumn('product_nature_name', fn ($row) => $row->productNature?->value ?? '-')
+            ->addColumn('procurement_type_name', fn ($row) => $row->procurementType?->value ?? '-')
+            ->addColumn('lifecycle_flags', function ($row) {
+                $badges = [];
+                $badges[] = $row->is_stock_item
+                    ? '<span class="badge bg-label-primary me-1">Stock</span>'
+                    : '<span class="badge bg-label-secondary me-1">Non Stock</span>';
+                if ($row->is_sale_item) {
+                    $badges[] = '<span class="badge bg-label-success me-1">Sales</span>';
+                }
+                if ($row->is_purchase_item) {
+                    $badges[] = '<span class="badge bg-label-info me-1">Purchase</span>';
+                }
+
+                return implode('', $badges);
+            })
             ->addColumn('purchase_price', function ($row) {
                 $factor = $row->getFactorToSmallest();
                 $smallUnitId = $row->getSmallestUnitId();
@@ -186,7 +271,7 @@ class ProductController extends Controller
                     });
                 }
             })
-            ->rawColumns(['variants_list', 'nature_name', 'unit_name', 'purchase_price'])
+            ->rawColumns(['variants_list', 'nature_name', 'unit_name', 'purchase_price', 'lifecycle_flags'])
             ->toJson();
     }
 
@@ -256,6 +341,12 @@ class ProductController extends Controller
             })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE');
+        $defaultItemTypeId = $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
+        $defaultProductNatureId = $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
+        $defaultProcurementTypeId = $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
 
         // Check for temp data from previous attempts
         $tempProduct = session()->get('temp_product', []);
@@ -263,7 +354,19 @@ class ProductController extends Controller
         // Generate auto code for new products
         $generatedCode = $this->generateCode();
 
-        return view('admin.product.master.insert-step1', compact('natures', 'categories', 'units', 'tempProduct', 'generatedCode'));
+        return view('admin.product.master.insert-step1', compact(
+            'natures',
+            'categories',
+            'units',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes',
+            'defaultItemTypeId',
+            'defaultProductNatureId',
+            'defaultProcurementTypeId',
+            'tempProduct',
+            'generatedCode'
+        ));
     }
 
     public function insertDataStep1(Request $request)
@@ -274,10 +377,14 @@ class ProductController extends Controller
         ]);
 
         $branchId = auth('web')->user()->current_business_unit_id;
+        $companyId = auth('web')->user()->getCompanyIdForProduct();
 
         $request->validate([
             'nature_id' => 'nullable|exists:product.product_natures,id',
             'category_id' => 'nullable|exists:product.product_categories,id',
+            'item_type_id' => 'nullable|exists:public.parameter_details,id',
+            'product_nature_id' => 'nullable|exists:public.parameter_details,id',
+            'procurement_type_id' => 'nullable|exists:public.parameter_details,id',
             'default_unit_id' => 'required|exists:product.product_units,id',
             'name' => [
                 'required', 'string', 'max:255',
@@ -291,12 +398,21 @@ class ProductController extends Controller
                     }
                 },
             ],
-            'code' => 'nullable|string|max:100|unique:product.products,code',
+            'code' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('product.products', 'code')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'description' => 'nullable|string',
             'min_stock' => 'nullable|numeric|min:0',
             'max_stock' => 'nullable|numeric|min:0',
             'has_variants' => 'nullable|boolean',
+            'is_stock_item' => 'nullable|boolean',
             'is_sale_item' => 'nullable|boolean',
+            'is_purchase_item' => 'nullable|boolean',
+            'cogs_account_code' => 'nullable|string|max:50',
+            'revenue_account_code' => 'nullable|string|max:50',
         ], [
             'code.unique' => 'Code already exists.',
         ]);
@@ -308,19 +424,26 @@ class ProductController extends Controller
         session()->put('temp_product', [
             'nature_id' => $request->nature_id ?: null,
             'category_id' => $request->category_id ?: null,
+            'item_type_id' => $request->item_type_id ?: null,
+            'product_nature_id' => $request->product_nature_id ?: null,
+            'procurement_type_id' => $request->procurement_type_id ?: null,
             'default_unit_id' => $request->default_unit_id,
             'name' => $request->name,
             'code' => $code,
             'description' => $request->description,
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
-            'has_variants' => $request->has('has_variants'),
+            'has_variants' => $request->boolean('has_variants'),
+            'is_stock_item' => $request->boolean('is_stock_item', true),
             'is_sale_item' => $request->boolean('is_sale_item'),
+            'is_purchase_item' => $request->boolean('is_purchase_item', true),
+            'cogs_account_code' => $request->cogs_account_code,
+            'revenue_account_code' => $request->revenue_account_code,
             'purchase_price' => normalize_number_input($request->purchase_price),
             'selling_price' => normalize_number_input($request->selling_price),
         ]);
 
-        if ($request->has('has_variants')) {
+        if ($request->boolean('has_variants')) {
             return redirect()->route('product.insert.view.step2');
         } else {
             return redirect()->route('product.insert.view.step3');
@@ -437,11 +560,13 @@ class ProductController extends Controller
                 ->get(['id', 'name', 'symbol']);
 
             $conversions = session()->get('temp_conversions', []);
+            $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
 
             return view('admin.product.master.insert-step3-prices', compact(
                 'tempProduct',
                 'units',
                 'conversions',
+                'selectedUnit',
                 'branchId',
                 'companyId'
             ));
@@ -462,22 +587,23 @@ class ProductController extends Controller
 
         $branchId = auth('web')->user()->current_business_unit_id;
         $companyId = auth('web')->user()->getCompanyIdForProduct();
+        $hasVariants = (bool) ($tempProduct['has_variants'] ?? false);
 
         // Get variants from request body or session
         $variants = [];
-        if ($request->has('variants')) {
+        if ($hasVariants && $request->has('variants')) {
             $variantsData = $request->input('variants');
             if (is_string($variantsData)) {
                 $variants = json_decode($variantsData, true) ?? [];
             } else {
                 $variants = $variantsData;
             }
-        } else {
+        } elseif ($hasVariants) {
             $variants = session()->get('temp_variants', []);
         }
 
-        // Validate at least one variant
-        if (empty($variants)) {
+        // Validate at least one variant only when this product uses variants.
+        if ($hasVariants && empty($variants)) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'Please add at least one variant.']);
             }
@@ -489,9 +615,9 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             $user = auth('web')->user();
-            $itemTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'ITEM_TYPE'))->where('key', 'raw_material')->value('id');
-            $productNatureId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PRODUCT_NATURE'))->where('key', 'inventory')->value('id');
-            $procurementTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PROCUREMENT_TYPE'))->where('key', 'purchase')->value('id');
+            $itemTypeId = $tempProduct['item_type_id'] ?? $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
+            $productNatureId = $tempProduct['product_nature_id'] ?? $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
+            $procurementTypeId = $tempProduct['procurement_type_id'] ?? $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
 
             // Get the smallest unit for price calculation
             $smallestUnitId = null;
@@ -522,11 +648,13 @@ class ProductController extends Controller
                 'code' => $tempProduct['code'] ?? null,
                 'description' => $tempProduct['description'],
                 'sku' => $this->generateSku(),
-                'is_stock_item' => true,
+                'is_stock_item' => (bool) ($tempProduct['is_stock_item'] ?? true),
                 'is_sale_item' => (bool) ($tempProduct['is_sale_item'] ?? false),
-                'is_purchase_item' => true,
+                'is_purchase_item' => (bool) ($tempProduct['is_purchase_item'] ?? true),
                 'min_stock' => $tempProduct['min_stock'] ?? 0,
                 'max_stock' => $tempProduct['max_stock'] ?? null,
+                'cogs_account_code' => $tempProduct['cogs_account_code'] ?? null,
+                'revenue_account_code' => $tempProduct['revenue_account_code'] ?? null,
                 'created_by' => $user->id,
                 'updated_by' => $user->id,
             ]);
@@ -549,8 +677,6 @@ class ProductController extends Controller
             $factor = $product->getFactorToSmallest();
             $smallestUnitId = $product->getSmallestUnitId();
             $defaultUnitId = $product->default_unit_id;
-
-            $hasVariants = $tempProduct['has_variants'] ?? false;
 
             if ($hasVariants) {
                 // Create variants with prices
@@ -625,6 +751,11 @@ class ProductController extends Controller
                 }
             } else {
                 // No variants - create default variant and prices
+                if ($request->filled('purchase_price') || $request->filled('selling_price')) {
+                    $tempProduct['purchase_price'] = normalize_number_input($request->purchase_price);
+                    $tempProduct['selling_price'] = normalize_number_input($request->selling_price);
+                }
+
                 $variant = ProductVariant::create([
                     'product_id' => $product->id,
                     'sku' => null,
@@ -724,8 +855,19 @@ class ProductController extends Controller
             })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE');
 
-        return view('admin.product.master.edit', compact('product', 'natures', 'categories', 'units'));
+        return view('admin.product.master.edit', compact(
+            'product',
+            'natures',
+            'categories',
+            'units',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes'
+        ));
     }
 
     public function variantsView(Request $request, $productId)
@@ -1071,11 +1213,15 @@ class ProductController extends Controller
         ]);
 
         $branchId = auth('web')->user()->current_business_unit_id;
+        $companyId = auth('web')->user()->getCompanyIdForProduct();
 
         $request->validate([
             'id' => 'required|exists:product.products,id',
             'nature_id' => 'nullable|exists:product.product_natures,id',
             'category_id' => 'nullable|exists:product.product_categories,id',
+            'item_type_id' => 'nullable|exists:public.parameter_details,id',
+            'product_nature_id' => 'nullable|exists:public.parameter_details,id',
+            'procurement_type_id' => 'nullable|exists:public.parameter_details,id',
             'default_unit_id' => 'required|exists:product.product_units,id',
             'name' => [
                 'required', 'string', 'max:255',
@@ -1090,10 +1236,22 @@ class ProductController extends Controller
                     }
                 },
             ],
-            'code' => ['nullable', 'string', 'max:100', Rule::unique('product.products', 'code')->ignore($request->id)],
+            'code' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('product.products', 'code')
+                    ->where(fn ($query) => $query->where('company_id', $companyId))
+                    ->ignore($request->id),
+            ],
             'description' => 'nullable|string',
             'min_stock' => 'nullable|numeric|min:0',
             'max_stock' => 'nullable|numeric|min:0',
+            'is_stock_item' => 'nullable|boolean',
+            'is_sale_item' => 'nullable|boolean',
+            'is_purchase_item' => 'nullable|boolean',
+            'cogs_account_code' => 'nullable|string|max:50',
+            'revenue_account_code' => 'nullable|string|max:50',
         ], [
             'code.unique' => 'Code already exists.',
         ]);
@@ -1103,12 +1261,20 @@ class ProductController extends Controller
         $product->update([
             'nature_id' => $request->nature_id ?: null,
             'category_id' => $request->category_id ?: null,
+            'item_type_id' => $request->item_type_id ?: null,
+            'product_nature_id' => $request->product_nature_id ?: null,
+            'procurement_type_id' => $request->procurement_type_id ?: null,
             'default_unit_id' => $request->default_unit_id,
             'name' => $request->name,
             'code' => $request->code ?: null,
             'description' => $request->description,
+            'is_stock_item' => $request->boolean('is_stock_item'),
+            'is_sale_item' => $request->boolean('is_sale_item'),
+            'is_purchase_item' => $request->boolean('is_purchase_item'),
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
+            'cogs_account_code' => $request->cogs_account_code ?: null,
+            'revenue_account_code' => $request->revenue_account_code ?: null,
             'updated_by' => $user->id,
         ]);
 
@@ -1320,11 +1486,17 @@ class ProductController extends Controller
             'No', 'SKU', 'Kode', 'Product', 'Nature', 'Satuan Besar',
             'Konversi', 'Satuan Kecil', 'Jumlah (Satuan Besar)',
             'Harga Beli Satuan Besar', 'Jumlah Minimum (Satuan Besar)', 'Kategori',
+            'Item Type', 'Inventory Nature', 'Procurement Type',
+            'Stock Item', 'Sales Item', 'Purchase Item',
+            'COGS Account', 'Revenue Account',
         ];
 
         $example = [
-            1, '', 'AQ-001', 'Aqua', 'Dus',
+            1, '', 'AQ-001', 'Aqua', 'Finished Good', 'Dus',
             24, 'Botol', 10, 50000, 5, 'Minuman',
+            'Finished Good', 'Inventory Item', 'Purchase',
+            'Yes', 'Yes', 'Yes',
+            '5000', '4000',
         ];
 
         $callback = function () use ($headers, $example) {

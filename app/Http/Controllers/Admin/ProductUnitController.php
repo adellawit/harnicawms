@@ -33,7 +33,10 @@ class ProductUnitController extends Controller
         )->from('product.product_units as product_units');
 
         if ($branchId) {
-            $data = $data->where('product_units.branch_id', $branchId);
+            $data = $data->where(function ($query) use ($branchId) {
+                $query->whereNull('product_units.branch_id')
+                    ->orWhere('product_units.branch_id', $branchId);
+            });
         }
 
         if ($request->status === 'deleted') {

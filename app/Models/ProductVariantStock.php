@@ -20,6 +20,7 @@ class ProductVariantStock extends Model
         'product_id',
         'company_id',
         'branch_id',
+        'warehouse_id',
         'unit_id',
         'quantity',
         'created_by',
@@ -49,6 +50,16 @@ class ProductVariantStock extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
+    }
+
+    public function scopeForWarehouse($query, ?string $warehouseId)
+    {
+        return $query->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId));
     }
 
     public function movements(): HasMany

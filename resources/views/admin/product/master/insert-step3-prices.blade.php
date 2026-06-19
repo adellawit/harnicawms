@@ -95,7 +95,7 @@
                     </div>
 
                     <div class="col-12 mt-4 text-end">
-                        <a href="{{ route('product.insert.view.step2') }}" class="btn btn-label-secondary">Back</a>
+                        <a href="{{ route('product.insert.view.step1') }}" class="btn btn-label-secondary">Back</a>
                         <button type="submit" class="btn btn-primary">
                             <i class="ti ti-save me-1"></i> Save Product
                         </button>

@@ -9,6 +9,7 @@ use App\Models\ProductNature;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
 use App\Models\ProductVariantPrice;
+use App\Models\Warehouse;
 use App\Services\FifoCostService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -27,26 +28,34 @@ class ProductStockController extends Controller
         // Semua BU yang dapat diakses user (untuk filter produk & stok)
         $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
 
-        // Branch/warehouse spesifik jika dipilih lewat filter (default: semua accessible)
-        $branchId = $request->get('branch_id'); // null = semua accessible
+        // Lokasi spesifik jika dipilih lewat filter. Parameter lama tetap bernama branch_id.
+        $locationId = $request->get('branch_id');
 
         // Pagination
         $perPage = $request->get('per_page', 20);
 
-        // Lokasi stok: cabang + gudang (WIP, FG) yang dapat diakses
-        $locations = \App\Models\BusinessUnit::query()
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->whereIn('type_code', ['BRANCH', 'WAREHOUSE'])
-            ->when(! empty($accessibleIds), fn ($q) => $q->whereIn('id', $accessibleIds))
-            ->orderByRaw("CASE type_code WHEN 'WAREHOUSE' THEN 0 ELSE 1 END")
-            ->orderBy('name')
-            ->get(['id', 'name', 'type_code', 'code']);
-
         $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse())->id;
-        $isWarehouseFilter = $branchId && $locations->contains(
-            fn ($l) => $l->id === $branchId && $l->type_code === 'WAREHOUSE'
-        );
+        $selectedWarehouse = $locationId ? Warehouse::with('branch')->find($locationId) : null;
+        $warehouseId = $selectedWarehouse?->id;
+        $selectedBranchId = $selectedWarehouse?->branch_id ?: $locationId;
+
+        $warehouseQuery = Warehouse::query()
+            ->with('branch:id,name')
+            ->inventoryActive()
+            ->when(! empty($accessibleIds), function ($q) use ($accessibleIds) {
+                $q->where(function ($inner) use ($accessibleIds) {
+                    $inner->whereIn('branch_id', $accessibleIds)
+                        ->orWhereHas('assignedBranches', fn ($assigned) => $assigned->whereIn('master_data.business_units.id', $accessibleIds));
+                });
+            })
+            ->orderBy('code');
+
+        $locations = $warehouseQuery->get(['id', 'name', 'code', 'branch_id', 'warehouse_type_code'])
+            ->map(function (Warehouse $warehouse) {
+                $warehouse->type_code = 'WAREHOUSE';
+                $warehouse->name = $warehouse->name . ($warehouse->branch ? ' - ' . $warehouse->branch->name : '');
+                return $warehouse;
+            });
 
         // Products: tampilkan semua produk yang accessible ke user ini
         $query = Product::with([
@@ -61,13 +70,9 @@ class ProductStockController extends Controller
             ])
             ->where('is_stock_item', true)
             ->when(
-                $isWarehouseFilter,
-                fn ($q) => $q,
-                fn ($q) => $q->when(
-                    $branchId,
-                    fn ($q) => $q->where('branch_id', $branchId),
-                    fn ($q) => $q->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
-                )
+                $selectedBranchId && ! $selectedWarehouse,
+                fn ($q) => $q->where('branch_id', $selectedBranchId),
+                fn ($q) => $q->when(! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds))
             )
             ->orderBy('name');
 
@@ -102,16 +107,14 @@ class ProductStockController extends Controller
         $allNatures = ProductNature::orderBy('name')->get(['id', 'name']);
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
-        $costBranchId = $branchId ?: $fgWarehouseId;
+        $costBranchId = $selectedBranchId ?: auth('web')->user()->getBranchIdForTransaction();
+        $costWarehouseId = $warehouseId ?: $fgWarehouseId;
         $variantStocks = collect();
         $variantPrices = collect();
 
-        $stockQuery = ProductVariantStock::with('unit:id,name,symbol');
-        if ($branchId) {
-            $stockQuery->where('branch_id', $branchId);
-        } elseif (! empty($accessibleIds)) {
-            $stockQuery->whereIn('branch_id', $accessibleIds);
-        }
+        $stockQuery = ProductVariantStock::with('unit:id,name,symbol')
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))
+            ->when(! $warehouseId && ! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds));
 
         // Aggregate quantity per variant (sum across branches if no specific branch selected)
         $variantStocks = $stockQuery->get()
@@ -123,7 +126,7 @@ class ProductStockController extends Controller
             });
 
         // Prices: dari branch transaksi utama
-        $pricesBranchId = $branchId ?: $this->getBranchId() ?: ($accessibleIds[0] ?? null);
+        $pricesBranchId = $selectedBranchId ?: $this->getBranchId() ?: ($accessibleIds[0] ?? null);
         if ($pricesBranchId) {
             $variantPrices = ProductVariantPrice::where('branch_id', $pricesBranchId)
                 ->get()
@@ -149,7 +152,7 @@ class ProductStockController extends Controller
                     })->filter()->implode(' / ');
 
                     $fifoCost = ($costBranchId && $unit?->id)
-                        ? FifoCostService::currentUnitCost($variant->id, $costBranchId, $unit->id)
+                        ? FifoCostService::currentUnitCost($variant->id, $costBranchId, $unit->id, $costWarehouseId)
                         : 0.0;
                     $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $variant->purchase_price);
 
@@ -195,7 +198,7 @@ class ProductStockController extends Controller
                 $price = $variantPrices->get($defaultVariant->id . '_' . $unit?->id);
 
                 $fifoCost = ($costBranchId && $unit?->id)
-                    ? FifoCostService::currentUnitCost($defaultVariant->id, $costBranchId, $unit->id)
+                    ? FifoCostService::currentUnitCost($defaultVariant->id, $costBranchId, $unit->id, $costWarehouseId)
                     : 0.0;
                 $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $defaultVariant->purchase_price);
 

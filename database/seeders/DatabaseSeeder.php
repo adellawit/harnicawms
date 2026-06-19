@@ -41,9 +41,11 @@ class DatabaseSeeder extends Seeder
             ManufacturingMenuSeeder::class,
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
+            WarehouseMenuSeeder::class,
 
             // Product reference data
             StockMutationTypeSeeder::class,
+            ProductUnitSeeder::class,
 
             // Unified Product Master parameters (ITEM_TYPE, PRODUCT_NATURE, PROCUREMENT_TYPE)
             ProductParameterSeeder::class,

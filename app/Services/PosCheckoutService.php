@@ -12,6 +12,7 @@ use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
 use App\Models\StockMutationType;
 use App\Services\MembershipPointService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -127,6 +128,8 @@ class PosCheckoutService
             $customerName = $customer?->name;
         }
 
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+
         $order = SalesOrder::create([
             'sales_number' => $salesNumber,
             'sales_date' => now()->toDateString(),
@@ -135,6 +138,7 @@ class PosCheckoutService
             'customer_name' => $customerName ?? 'Walk-in Customer',
             'company_id' => $companyId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'price_list_id' => $request->price_list_id,
             'method_payment_id' => $request->payment_method_id,
             'status' => $status,
@@ -213,6 +217,7 @@ class PosCheckoutService
                     salesOrderId: $order->id,
                     mutationType: $salesMutationType,
                     userId: $userId ?? $order->created_by,
+                    warehouseId: $order->warehouse_id,
                 );
             }
 
@@ -231,50 +236,20 @@ class PosCheckoutService
         string $salesOrderId,
         ?StockMutationType $mutationType,
         ?string $userId,
+        ?string $warehouseId = null,
     ): void {
-        $stock = ProductVariantStock::where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
-            ->where('unit_id', $unitId)
-            ->whereNull('deleted_at')
-            ->lockForUpdate()
-            ->first();
-
-        $qtyBefore = (float) ($stock?->quantity ?? 0);
-        $qtyAfter = $qtyBefore - $quantity;
-
-        if ($stock) {
-            $stock->update([
-                'quantity' => $qtyAfter,
-                'updated_by' => $userId,
-            ]);
-        } else {
-            $stock = ProductVariantStock::create([
-                'product_variant_id' => $variantId,
-                'product_id' => $productId,
-                'company_id' => $companyId,
-                'branch_id' => $branchId,
-                'unit_id' => $unitId,
-                'quantity' => $qtyAfter,
-                'created_by' => $userId,
-            ]);
-        }
-
-        ProductStockMovement::create([
-            'product_variant_stock_id' => $stock->id,
-            'product_variant_id' => $variantId,
-            'product_id' => $productId,
-            'company_id' => $companyId,
-            'branch_id' => $branchId,
-            'unit_id' => $unitId,
-            'stock_mutation_type_id' => $mutationType?->id,
-            'type' => 'out',
-            'quantity' => $quantity,
-            'quantity_before' => $qtyBefore,
-            'quantity_after' => $qtyAfter,
-            'reference_type' => SalesOrder::class,
-            'reference_id' => $salesOrderId,
-            'notes' => 'POS Sale',
-            'created_by' => $userId,
-        ]);
+        StockMutationService::outbound(
+            $productId,
+            $variantId,
+            $companyId,
+            $branchId,
+            $unitId,
+            $quantity,
+            SalesOrder::class,
+            $salesOrderId,
+            $userId,
+            'POS Sale',
+            $warehouseId
+        );
     }
 }
