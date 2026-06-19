@@ -498,6 +498,58 @@
 - `reseller_id` = partner Reseller eksternal
 - `warehouse_id` = lokasi fisik stok
 
+### Epic PN-00: Partner Registration & Application Workflow
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-00-T01` | Halaman pendaftaran partner publik/internal dengan pilihan Agent atau Reseller | Backend+Frontend | P0 | Todo |
+| `PN-00-T02` | Migration `partner.partner_applications` untuk data pendaftar | Backend | P0 | Todo |
+| `PN-00-T03` | Migration `partner.partner_application_documents` untuk upload syarat | Backend | P0 | Todo |
+| `PN-00-T04` | Auto-create/link customer atau lead dari pendaftaran partner | Backend | P0 | Todo |
+| `PN-00-T05` | Follow-up workflow manual untuk admin distributor dan Agent | Backend+Frontend | P0 | Todo |
+| `PN-00-T06` | Convert calon Agent menjadi Agent + transaksi awal PO/Invoice | Backend+Frontend | P0 | Todo |
+| `PN-00-T07` | Assign calon Reseller ke Agent dan convert oleh Agent | Backend+Frontend | P0 | Todo |
+
+#### Detail Task PN-00
+
+**`PN-00-T01` — Partner registration page**
+- Form pendaftaran khusus partner dengan pilihan `AGENT` atau `RESELLER`.
+- Field awal: `name`, `email`, `phone`, `requested_purchase_amount`, alamat, dan catatan kebutuhan.
+- Setelah submit, pendaftar belum langsung menjadi Agent/Reseller; status awal adalah application/lead.
+
+**`PN-00-T02` — partner_applications**
+- Tabel `partner.partner_applications`: `id`, `company_id`, `partner_type`, `name`, `email`, `phone`, `requested_purchase_amount`, `status`.
+- Link proses: `customer_id`, `assigned_agent_id`, `converted_agent_id`, `converted_reseller_id`.
+- Timestamp proses: `submitted_at`, `reviewed_at`, `assigned_at`, `converted_at`, `rejected_at`.
+- Status: `submitted`, `in_review`, `assigned`, `qualified`, `rejected`, `converted`.
+
+**`PN-00-T03` — partner_application_documents**
+- Tabel dokumen syarat: `application_id`, `document_type`, `file_path`, `status`, `notes`.
+- Support multiple upload sesuai jenis partner.
+- Status dokumen: `submitted`, `approved`, `rejected`, `needs_revision`.
+
+**`PN-00-T04` — Customer / lead creation**
+- Setiap pendaftaran membuat atau menghubungkan data customer/lead.
+- Customer menjadi sumber follow-up manual sebelum conversion.
+- Hindari duplikasi customer berdasarkan email/phone dalam scope distributor.
+
+**`PN-00-T05` — Manual follow-up workflow**
+- Admin distributor follow up calon Agent dari data customer/application.
+- Untuk calon Reseller, admin distributor melakukan validasi awal lalu assign ke Agent.
+- Catat histori follow-up: PIC, channel, notes, next follow-up date, dan status.
+
+**`PN-00-T06` — Convert Agent**
+- Admin distributor dapat convert customer/application menjadi Agent jika syarat terpenuhi.
+- Conversion membuat record `partner.agents` dan menjalankan proses create/link warehouse Agent.
+- Jika pembelian awal terjadi, sistem membuat dokumen transaksi distributor seperti PO/Sales Order/Invoice sesuai flow yang dipakai agar tercatat.
+- Application ditutup dengan status `converted`.
+
+**`PN-00-T07` — Assign & convert Reseller**
+- Calon Reseller di-assign ke Agent untuk follow-up lanjutan.
+- Agent hanya bisa melihat dan mengelola application Reseller yang ditugaskan kepadanya.
+- Setelah pembayaran/syarat terpenuhi, Agent mengubah application menjadi `partner.resellers`.
+- Conversion membuat assignment aktif Reseller ke Agent.
+
 ### Epic PN-01: Partner Master Schema
 
 | Task ID | Task | Type | Priority | Status |
@@ -666,8 +718,8 @@
 
 | Sprint | Epic | Fokus |
 |---|---|---|
-| Sprint 1 | `PN-01` + `PN-02` | Schema partner + ownership warehouse Agent |
-| Sprint 2 | `PN-03` | Refactor replenishment Agent dari branch ke partner |
+| Sprint 1 | `PN-00` + `PN-01` | Registration/application workflow + schema partner |
+| Sprint 2 | `PN-02` + `PN-03` | Ownership warehouse Agent + refactor replenishment |
 | Sprint 3 | `PN-04` | UI Agent/Reseller + approval workflow |
 | Sprint 4 | `PN-05` | Reporting, permission, dan hardening akses |
 
@@ -686,4 +738,4 @@
 | Reporting | 2 | 5 | Existing |
 | CRM & Membership | 3 | 9 | Planned |
 | **Warehouse & Multi-Location WMS** | **6** | **35** | **Migration Done / App Todo** |
-| **Partner Network: Agent & Reseller Warehouse** | **5** | **21** | **Planned** |
+| **Partner Network: Agent & Reseller Warehouse** | **6** | **28** | **Planned** |
