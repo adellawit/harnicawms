@@ -186,9 +186,12 @@ class InboundController extends Controller
         foreach (WmsContext::warehouses($distId) as $wh) {
             $options[] = ['id' => $wh->id, 'label' => $wh->name];
         }
-        // Agen (opsional)
+        // Agent partner: gunakan gudang default Agent sebagai lokasi fisik.
         foreach (WmsContext::agents($distId) as $agent) {
-            $options[] = ['id' => $agent->id, 'label' => $agent->name . ' (Agen)'];
+            $warehouseId = $agent->default_warehouse_id ?: optional(WmsContext::defaultAgentWarehouse($agent->id))->id;
+            if ($warehouseId) {
+                $options[] = ['id' => $warehouseId, 'label' => $agent->name . ' (Gudang Agent)'];
+            }
         }
 
         return $options;

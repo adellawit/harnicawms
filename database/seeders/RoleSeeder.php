@@ -35,6 +35,10 @@ class RoleSeeder extends Seeder
                 'id' => "1f1e2b3c-4d5e-4789-a0b1-c2d3e4f5a6b7",
                 'name' => 'Finance',
             ],
+            [
+                'id' => '2ac6f6a1-7b8c-4d9e-9f10-111213141516',
+                'name' => 'Agent',
+            ],
         ];
 
         foreach ($roles as $role) {

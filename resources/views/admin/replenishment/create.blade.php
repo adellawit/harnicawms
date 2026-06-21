@@ -16,7 +16,7 @@
         @endif
 
         @if ($agents->isEmpty())
-            <x-alert type="warning">Belum ada Agen (branch) di bawah Distributor ini.</x-alert>
+            <x-alert type="warning">Belum ada Agent partner aktif di bawah Distributor ini.</x-alert>
         @else
         <form method="POST" action="{{ route('replenishment.store') }}">
             @csrf
@@ -25,10 +25,10 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Agen (Pemesan) <span class="text-danger">*</span></label>
+                            <label class="form-label">Agent Partner (Pemesan) <span class="text-danger">*</span></label>
                             <select name="agent_id" class="form-select" required>
-                                <option value="">-- Pilih Agen --</option>
-                                @foreach ($agents as $a)<option value="{{ $a->id }}">{{ $a->name }}</option>@endforeach
+                                <option value="">-- Pilih Agent --</option>
+                                @foreach ($agents as $a)<option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>@endforeach
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -38,6 +38,22 @@
                         <div class="col-md-3">
                             <label class="form-label">Catatan</label>
                             <input type="text" name="notes" class="form-control" placeholder="opsional">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">No. Invoice</label>
+                            <input type="text" name="invoice_number" class="form-control" placeholder="opsional">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Referensi Pembayaran</label>
+                            <input type="text" name="payment_reference" class="form-control" placeholder="opsional">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status Pembayaran</label>
+                            <select name="payment_status" class="form-select">
+                                <option value="unpaid">Belum Dibayar</option>
+                                <option value="partial">Sebagian</option>
+                                <option value="paid">Lunas</option>
+                            </select>
                         </div>
                     </div>
                 </div>

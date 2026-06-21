@@ -33,7 +33,7 @@ class ReplenishmentStockService
             $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->distributor_id);
             $fgWarehouseId = optional($fgWarehouse)->id ?? $order->distributor_id;
             $fgBranchId = optional($fgWarehouse)->branch_id ?? $fgWarehouseId;
-            $destinationWarehouseId = optional(WmsContext::defaultWarehouse($order->agent_id))->id;
+            $destinationWarehouseId = optional(WmsContext::defaultAgentWarehouse($order->agent_id))->id;
 
             $shipment = Shipment::create([
                 'shipment_number' => self::generateNumber('shipments', 'shipment_number', 'SHP'),
@@ -103,7 +103,7 @@ class ReplenishmentStockService
                 'receipt_number' => self::generateNumber('receipts', 'receipt_number', 'RCV'),
                 'order_id' => $order->id,
                 'shipment_id' => $shipment->id,
-                'warehouse_id' => $shipment->destination_warehouse_id ?: optional(WmsContext::defaultWarehouse($order->agent_id))->id,
+                'warehouse_id' => $shipment->destination_warehouse_id ?: optional(WmsContext::defaultAgentWarehouse($order->agent_id))->id,
                 'receive_date' => Carbon::now()->toDateString(),
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -113,7 +113,8 @@ class ReplenishmentStockService
                 $orderItem = $sItem->orderItem;
                 $transferPrice = $orderItem ? (float) $orderItem->unit_price : 0.0;
                 $qty = (float) $sItem->quantity;
-                $agentWarehouse = WmsContext::defaultWarehouse($order->agent_id);
+                $agentWarehouse = $shipment->destinationWarehouse ?: WmsContext::defaultAgentWarehouse($order->agent_id);
+                $agentBranchId = optional($agentWarehouse)->branch_id ?: $order->distributor_id;
                 if ($qty <= 0) {
                     continue;
                 }
@@ -123,7 +124,7 @@ class ReplenishmentStockService
                     $sItem->product_id,
                     $sItem->product_variant_id,
                     $order->distributor_id,
-                    $order->agent_id, // branch = agen
+                    $agentBranchId,
                     $sItem->unit_id,
                     $qty,
                     $transferPrice,
@@ -167,7 +168,8 @@ class ReplenishmentStockService
             $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->distributor_id);
             $fgWarehouseId = optional($fgWarehouse)->id ?? $order->distributor_id;
             $fgBranchId = optional($fgWarehouse)->branch_id ?? $fgWarehouseId;
-            $agentWarehouse = WmsContext::defaultWarehouse($order->agent_id);
+            $agentWarehouse = WmsContext::defaultAgentWarehouse($order->agent_id);
+            $agentBranchId = optional($agentWarehouse)->branch_id ?: $order->distributor_id;
 
             $return = ReturnOrder::create([
                 'return_number' => self::generateNumber('returns', 'return_number', 'RTN'),
@@ -195,7 +197,7 @@ class ReplenishmentStockService
                     $item->product_id,
                     $item->product_variant_id,
                     $order->distributor_id,
-                    $order->agent_id,
+                    $agentBranchId,
                     $item->unit_id,
                     $qty,
                     'ReplenishmentReturn',

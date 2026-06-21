@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,10 @@ class ReplenishmentOrder extends Model
         'distributor_id',
         'agent_id',
         'price_list_id',
+        'invoice_number',
+        'payment_reference',
+        'payment_status',
+        'paid_at',
         'status',
         'subtotal',
         'tax_amount',
@@ -34,6 +39,7 @@ class ReplenishmentOrder extends Model
 
     protected $casts = [
         'order_date' => 'date',
+        'paid_at' => 'datetime',
         'subtotal' => 'decimal:4',
         'tax_amount' => 'decimal:4',
         'discount_amount' => 'decimal:4',
@@ -67,6 +73,6 @@ class ReplenishmentOrder extends Model
 
     public function agent(): BelongsTo
     {
-        return $this->belongsTo(BusinessUnit::class, 'agent_id', 'id');
+        return $this->belongsTo(Agent::class, 'agent_id', 'id');
     }
 }

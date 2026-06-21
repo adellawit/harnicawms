@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\BusinessUnit;
+use App\Models\Partner\Agent;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
@@ -89,6 +90,17 @@ class WmsContext
         return Warehouse::defaultForBranch($branchId);
     }
 
+    public static function defaultAgentWarehouse(?string $agentId = null): ?Warehouse
+    {
+        if (! $agentId) {
+            return null;
+        }
+
+        $agent = Agent::with('defaultWarehouse')->find($agentId);
+
+        return $agent?->defaultWarehouse ?: Warehouse::defaultForAgent($agentId);
+    }
+
     protected static function warehouseByCode(string $code, ?string $distributorId): ?Warehouse
     {
         $distributorId = $distributorId ?: optional(self::distributor())->id;
@@ -113,16 +125,16 @@ class WmsContext
     }
 
     /**
-     * Daftar Agen (branch) di bawah Distributor.
+     * Daftar Agen partner di bawah Distributor.
      *
-     * @return \Illuminate\Support\Collection<int, BusinessUnit>
+     * @return \Illuminate\Support\Collection<int, Agent>
      */
     public static function agents(?string $distributorId = null)
     {
         $distributorId = $distributorId ?: optional(self::distributor())->id;
 
-        return BusinessUnit::where('type_code', 'BRANCH')
-            ->when($distributorId, fn ($q) => $q->where('parent_id', $distributorId))
+        return Agent::active()
+            ->when($distributorId, fn ($q) => $q->where('company_id', $distributorId))
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();

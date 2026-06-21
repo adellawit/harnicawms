@@ -502,23 +502,23 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-00-T01` | Halaman pendaftaran partner publik/internal dengan pilihan Agent atau Reseller | Backend+Frontend | P0 | Todo |
-| `PN-00-T02` | Migration `partner.partner_applications` untuk data pendaftar | Backend | P0 | Todo |
-| `PN-00-T03` | Migration `partner.partner_application_documents` untuk upload syarat | Backend | P0 | Todo |
-| `PN-00-T04` | Auto-create/link customer atau lead dari pendaftaran partner | Backend | P0 | Todo |
-| `PN-00-T05` | Follow-up workflow manual untuk admin distributor dan Agent | Backend+Frontend | P0 | Todo |
-| `PN-00-T06` | Convert calon Agent menjadi Agent + transaksi awal PO/Invoice | Backend+Frontend | P0 | Todo |
-| `PN-00-T07` | Assign calon Reseller ke Agent dan convert oleh Agent | Backend+Frontend | P0 | Todo |
+| `PN-00-T01` | Halaman pendaftaran partner publik/internal dengan pilihan Agent atau Reseller | Backend+Frontend | P0 | Done |
+| `PN-00-T02` | Migration `partner.partner_applications` untuk data pendaftar | Backend | P0 | Done |
+| `PN-00-T03` | Migration `partner.partner_application_documents` untuk upload syarat | Backend | P0 | Done |
+| `PN-00-T04` | Auto-create/link customer atau lead dari pendaftaran partner | Backend | P0 | Done |
+| `PN-00-T05` | Follow-up workflow manual untuk admin distributor dan Agent | Backend+Frontend | P0 | Done |
+| `PN-00-T06` | Convert calon Agent menjadi Agent + transaksi awal PO/Invoice | Backend+Frontend | P0 | Done |
+| `PN-00-T07` | Assign calon Reseller ke Agent dan convert oleh Agent | Backend+Frontend | P0 | Done |
 
 #### Detail Task PN-00
 
 **`PN-00-T01` — Partner registration page**
 - Form pendaftaran khusus partner dengan pilihan `AGENT` atau `RESELLER`.
-- Field awal: `name`, `email`, `phone`, `requested_purchase_amount`, alamat, dan catatan kebutuhan.
+- Field awal: `name`, `email`, `phone`, `requested_purchase_quantity`, alamat, dan catatan kebutuhan.
 - Setelah submit, pendaftar belum langsung menjadi Agent/Reseller; status awal adalah application/lead.
 
 **`PN-00-T02` — partner_applications**
-- Tabel `partner.partner_applications`: `id`, `company_id`, `partner_type`, `name`, `email`, `phone`, `requested_purchase_amount`, `status`.
+- Tabel `partner.partner_applications`: `id`, `company_id`, `partner_type`, `name`, `email`, `phone`, `requested_purchase_quantity`, `status`.
 - Link proses: `customer_id`, `assigned_agent_id`, `converted_agent_id`, `converted_reseller_id`.
 - Timestamp proses: `submitted_at`, `reviewed_at`, `assigned_at`, `converted_at`, `rejected_at`.
 - Status: `submitted`, `in_review`, `assigned`, `qualified`, `rejected`, `converted`.
@@ -554,11 +554,11 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-01-T01` | Migration schema `partner` | Backend | P0 | Todo |
-| `PN-01-T02` | Migration `partner.agents` untuk master Agent | Backend | P0 | Todo |
-| `PN-01-T03` | Migration `partner.resellers` untuk master Reseller | Backend | P0 | Todo |
-| `PN-01-T04` | Migration `partner.agent_reseller_assignments` | Backend | P0 | Todo |
-| `PN-01-T05` | Seeder status/lifecycle partner | Backend | P1 | Todo |
+| `PN-01-T01` | Migration schema `partner` | Backend | P0 | Done |
+| `PN-01-T02` | Migration `partner.agents` untuk master Agent | Backend | P0 | Done |
+| `PN-01-T03` | Migration `partner.resellers` untuk master Reseller | Backend | P0 | Done |
+| `PN-01-T04` | Migration `partner.agent_reseller_assignments` | Backend | P0 | Done |
+| `PN-01-T05` | Seeder status/lifecycle partner | Backend | P1 | Done |
 
 #### Detail Task PN-01
 
@@ -593,10 +593,10 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-02-T01` | Ubah `master_data.warehouses` agar bisa dimiliki Agent | Backend | P0 | Todo |
-| `PN-02-T02` | Auto create/link warehouse saat Agent approved | Backend | P0 | Todo |
-| `PN-02-T03` | Default warehouse Agent untuk penerimaan replenishment | Backend | P0 | Todo |
-| `PN-02-T04` | Validasi warehouse milik Agent saat receive/return | Backend | P0 | Todo |
+| `PN-02-T01` | Ubah `master_data.warehouses` agar bisa dimiliki Agent | Backend | P0 | Done |
+| `PN-02-T02` | Auto create/link warehouse saat Agent approved | Backend | P0 | Done |
+| `PN-02-T03` | Default warehouse Agent untuk penerimaan replenishment | Backend | P0 | Done |
+| `PN-02-T04` | Validasi warehouse milik Agent saat receive/return | Backend | P0 | Done |
 
 #### Detail Task PN-02
 
@@ -625,11 +625,11 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-03-T01` | Refactor `replenishment_orders.agent_id` ke `partner.agents` | Backend | P0 | Todo |
-| `PN-03-T02` | Shipment: distributor FG warehouse → agent warehouse | Backend | P0 | Todo |
-| `PN-03-T03` | Receipt: masuk ke default warehouse Agent | Backend | P0 | Todo |
-| `PN-03-T04` | Return: keluar dari warehouse Agent → FG distributor | Backend | P1 | Todo |
-| `PN-03-T05` | UI replenishment pilih Agent partner, bukan branch | Backend+Frontend | P0 | Todo |
+| `PN-03-T01` | Refactor `replenishment_orders.agent_id` ke `partner.agents` | Backend | P0 | Done |
+| `PN-03-T02` | Shipment: distributor FG warehouse → agent warehouse | Backend | P0 | Done |
+| `PN-03-T03` | Receipt: masuk ke default warehouse Agent | Backend | P0 | Done |
+| `PN-03-T04` | Return: keluar dari warehouse Agent → FG distributor | Backend | P1 | Done |
+| `PN-03-T05` | UI replenishment pilih Agent partner, bukan branch | Backend+Frontend | P0 | Done |
 
 #### Detail Task PN-03
 
@@ -662,10 +662,10 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-04-T01` | CRUD Agent + approval workflow | Backend+Frontend | P0 | Todo |
-| `PN-04-T02` | CRUD Reseller | Backend+Frontend | P0 | Todo |
-| `PN-04-T03` | Assignment Reseller ke Agent | Backend+Frontend | P1 | Todo |
-| `PN-04-T04` | Detail Agent tampilkan warehouse, stock summary, reseller list | Backend+Frontend | P1 | Todo |
+| `PN-04-T01` | CRUD Agent + approval workflow | Backend+Frontend | P0 | Done |
+| `PN-04-T02` | CRUD Reseller | Backend+Frontend | P0 | Done |
+| `PN-04-T03` | Assignment Reseller ke Agent | Backend+Frontend | P1 | Done |
+| `PN-04-T04` | Detail Agent tampilkan warehouse, stock summary, reseller list | Backend+Frontend | P1 | Done |
 
 #### Detail Task PN-04
 
@@ -693,9 +693,9 @@
 
 | Task ID | Task | Type | Priority | Status |
 |---|---|---|---|---|
-| `PN-05-T01` | Filter laporan stok per Agent warehouse | Backend+Frontend | P1 | Todo |
-| `PN-05-T02` | Sales/replenishment report per Agent dan Reseller | Backend+Frontend | P1 | Todo |
-| `PN-05-T03` | Permission menu Partner Network | Backend | P1 | Todo |
+| `PN-05-T01` | Filter laporan stok per Agent warehouse | Backend+Frontend | P1 | Done |
+| `PN-05-T02` | Sales/replenishment report per Agent dan Reseller | Backend+Frontend | P1 | Done |
+| `PN-05-T03` | Permission menu Partner Network | Backend | P1 | Done |
 
 #### Detail Task PN-05
 
@@ -714,13 +714,48 @@
 - Permission CRUD Agent, approval Agent, CRUD Reseller, assignment Reseller.
 - Scope akses mengikuti distributor aktif user.
 
+### Epic PN-06: Agent Portal & Login Access
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-06-T01` | Tambah mapping `partner.agents.user_id` ke `auth.users` | Backend | P0 | Done |
+| `PN-06-T02` | Seeder role dan IAM access khusus `Agent` | Backend | P0 | Done |
+| `PN-06-T03` | Auto-create akun login Agent saat convert/approve Agent | Backend | P0 | Done |
+| `PN-06-T04` | Scope halaman Partner Network untuk user Agent | Backend+Frontend | P0 | Done |
+| `PN-06-T05` | Scope replenishment agar Agent hanya melihat order miliknya | Backend | P0 | Done |
+
+#### Detail Task PN-06
+
+**`PN-06-T01` — Agent user mapping**
+- Tambah `user_id` nullable pada `partner.agents`.
+- Relasi `Agent::user()` dan `User::partnerAgent()`.
+- Satu Agent hanya boleh terhubung ke satu user.
+
+**`PN-06-T02` — Role Agent**
+- Tambah role `Agent` pada `master_data.roles`.
+- Buat IAM access untuk role Agent.
+- Permission Agent dibatasi ke Partner Network dan action yang relevan.
+
+**`PN-06-T03` — Auto-create login Agent**
+- Saat application Agent dikonversi, sistem membuat akun `auth.users`.
+- Username memakai email Agent jika tersedia, fallback ke kode Agent.
+- Password awal: `agent12345`, dengan `need_update_password = true`.
+
+**`PN-06-T04` — Partner scope**
+- User Agent hanya melihat data Agent miliknya.
+- User Agent hanya melihat Reseller dan application yang assigned ke dirinya.
+
+**`PN-06-T05` — Replenishment scope**
+- User Agent hanya melihat replenishment order miliknya.
+- Receive/return dibatasi ke order yang memiliki `agent_id` sesuai Agent login.
+
 ### Partner Network Sprint Recommendation
 
 | Sprint | Epic | Fokus |
 |---|---|---|
 | Sprint 1 | `PN-00` + `PN-01` | Registration/application workflow + schema partner |
 | Sprint 2 | `PN-02` + `PN-03` | Ownership warehouse Agent + refactor replenishment |
-| Sprint 3 | `PN-04` | UI Agent/Reseller + approval workflow |
+| Sprint 3 | `PN-04` + `PN-06` | UI Agent/Reseller + Agent login access |
 | Sprint 4 | `PN-05` | Reporting, permission, dan hardening akses |
 
 ## 13. Tracking Summary (Current Inventory)
@@ -738,4 +773,4 @@
 | Reporting | 2 | 5 | Existing |
 | CRM & Membership | 3 | 9 | Planned |
 | **Warehouse & Multi-Location WMS** | **6** | **35** | **Migration Done / App Todo** |
-| **Partner Network: Agent & Reseller Warehouse** | **6** | **28** | **Planned** |
+| **Partner Network: Agent & Reseller Warehouse** | **7** | **33** | **Implemented** |

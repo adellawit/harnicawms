@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
             WarehouseMenuSeeder::class,
+            PartnerNetworkMenuSeeder::class,
 
             // Product reference data
             StockMutationTypeSeeder::class,

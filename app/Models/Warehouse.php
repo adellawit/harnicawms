@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,8 @@ class Warehouse extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
+        'owner_type',
+        'owner_id',
         'warehouse_type_code',
         'code',
         'name',
@@ -67,6 +70,12 @@ class Warehouse extends Model
     public function legacyBusinessUnit(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'legacy_business_unit_id', 'id');
+    }
+
+    public function agentOwner(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'owner_id', 'id')
+            ->where('owner_type', 'AGENT');
     }
 
     public function assignments(): HasMany
@@ -124,6 +133,12 @@ class Warehouse extends Model
         });
     }
 
+    public function scopeForOwner(Builder $query, string $ownerType, string $ownerId): Builder
+    {
+        return $query->where('owner_type', $ownerType)
+            ->where('owner_id', $ownerId);
+    }
+
     public static function defaultForBranch(string $branchId): ?self
     {
         return self::inventoryActive()
@@ -139,6 +154,18 @@ class Warehouse extends Model
                 ->first()
             ?? self::inventoryActive()
                 ->where('branch_id', $branchId)
+                ->orderBy('created_at')
+                ->first();
+    }
+
+    public static function defaultForAgent(string $agentId): ?self
+    {
+        return self::inventoryActive()
+            ->forOwner('AGENT', $agentId)
+            ->where('is_default', true)
+            ->first()
+            ?? self::inventoryActive()
+                ->forOwner('AGENT', $agentId)
                 ->orderBy('created_at')
                 ->first();
     }

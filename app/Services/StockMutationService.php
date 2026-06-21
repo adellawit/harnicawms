@@ -220,6 +220,6 @@ class StockMutationService
             return [null, $branchId];
         }
 
-        return [$warehouse->id, $warehouse->branch_id ?: $branchId];
+        return [$warehouse->id, $warehouse->branch_id ?: $warehouse->company_id ?: $branchId];
     }
 }
