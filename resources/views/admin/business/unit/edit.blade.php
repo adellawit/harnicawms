@@ -77,11 +77,9 @@
                                             @enderror
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label">Code <span class="text-danger">*</span></label>
-                                            <input type="text" name="code" class="form-control" placeholder="Enter code" value="{{ old('code', $businessUnit->code) }}" required>
-                                            @error('code')
-                                                <div class="text-danger small">{{ $message }}</div>
-                                            @enderror
+                                            <label class="form-label">Code</label>
+                                            <input type="text" class="form-control bg-light" value="{{ $businessUnit->code }}" readonly disabled>
+                                            <small class="text-muted">Code is system-generated and cannot be changed.</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Name <span class="text-danger">*</span></label>

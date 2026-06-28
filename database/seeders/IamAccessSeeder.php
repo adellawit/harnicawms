@@ -20,6 +20,11 @@ class IamAccessSeeder extends Seeder
                 'role_id' => '147c8a8e-52dc-4a79-a8ce-acb612b6e484',
                 'is_notification' => false,
             ],
+            [
+                'id' => '2ac6f6a1-7b8c-4d9e-9f10-111213141517',
+                'role_id' => '2ac6f6a1-7b8c-4d9e-9f10-111213141516',
+                'is_notification' => false,
+            ],
         ];
 
         foreach ($accesses as $access) {

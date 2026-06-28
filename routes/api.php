@@ -19,6 +19,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('/generate-token', [ApiTokenController::class, 'generateToken']);
 
 // Client Subscribe Status API (Protected - requires token)
-Route::middleware('api.token')->group(function () {
-    Route::post('/client/subscribe-status', [ClientSubscribeController::class, 'checkStatus']);
-});
+// Route::middleware('api.token')->group(function () {
+//     Route::post('/client/subscribe-status', [ClientSubscribeController::class, 'checkStatus']);
+// });

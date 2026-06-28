@@ -1,5 +1,11 @@
 <?php
 
+use Yajra\DataTables\ApiResourceDataTable;
+use Yajra\DataTables\CollectionDataTable;
+use Yajra\DataTables\EloquentDataTable;
+use Yajra\DataTables\PaginatorDataTable;
+use Yajra\DataTables\QueryDataTable;
+
 return [
     /*
      * DataTables search options.
@@ -45,10 +51,11 @@ return [
      * This is where you can register your custom DataTables builder.
      */
     'engines' => [
-        'eloquent' => Yajra\DataTables\EloquentDataTable::class,
-        'query' => Yajra\DataTables\QueryDataTable::class,
-        'collection' => Yajra\DataTables\CollectionDataTable::class,
-        'resource' => Yajra\DataTables\ApiResourceDataTable::class,
+        'eloquent' => EloquentDataTable::class,
+        'query' => QueryDataTable::class,
+        'collection' => CollectionDataTable::class,
+        'paginator' => PaginatorDataTable::class,
+        'resource' => ApiResourceDataTable::class,
     ],
 
     /*
@@ -61,6 +68,7 @@ return [
         // Illuminate\Database\Eloquent\Builder::class            => 'eloquent',
         // Illuminate\Database\Query\Builder::class               => 'query',
         // Illuminate\Support\Collection::class                   => 'collection',
+        // Illuminate\Pagination\LengthAwarePaginator::class      => 'paginator',
     ],
 
     /*

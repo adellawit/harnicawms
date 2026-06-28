@@ -38,7 +38,7 @@ abstract class HttpApi
     /**
      * @var Hydrator|null
      */
-    protected ?Hydrator $hydrator;
+    protected ?Hydrator $hydrator = null;
 
     /**
      * @var RequestBuilder
@@ -187,6 +187,27 @@ abstract class HttpApi
         try {
             $response = $this->httpClient->sendRequest(
                 $this->requestBuilder->create('PUT', $path, $requestHeaders, $this->createRequestBody($parameters))
+            );
+        } catch (Psr18\NetworkExceptionInterface $e) {
+            throw HttpServerException::networkError($e);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Send a PATCH request.
+     *
+     * @param  string                   $path           Request path
+     * @param  array                    $parameters     PATCH parameters
+     * @param  array                    $requestHeaders Request headers
+     * @throws ClientExceptionInterface|\JsonException
+     */
+    protected function httpPatch(string $path, array $parameters = [], array $requestHeaders = []): ResponseInterface
+    {
+        try {
+            $response = $this->httpClient->sendRequest(
+                $this->requestBuilder->create('PATCH', $path, $requestHeaders, $this->createRequestBody($parameters))
             );
         } catch (Psr18\NetworkExceptionInterface $e) {
             throw HttpServerException::networkError($e);

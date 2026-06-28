@@ -39,7 +39,7 @@ class IseedCommand extends Command
      */
     public function handle()
     {
-        return $this->fire();
+        $this->fire();
     }
 
     /**
@@ -47,21 +47,21 @@ class IseedCommand extends Command
      *
      * @return void
      */
-    
+
      public function fire()
      {
          // Retrieve the tables argument. Since we want to allow a default of "all tables",
          // make sure the tables argument is optional in getArguments() (see below).
          $tablesArg = $this->argument('tables');
-     
+
          if (empty($tablesArg)) {
              // Get all table names from the database
-             $tables = app('iseed')->getAllTableNames();
+             $tables = app('iseed')->getAllTableNames($this->option('database'));
          } else {
              // Otherwise, split the provided comma-separated table names
              $tables = explode(',', $tablesArg);
          }
-     
+
          // Convert other options as needed
          $max = intval($this->option('max'));
          $chunkSize = intval($this->option('chunksize'));
@@ -70,29 +70,36 @@ class IseedCommand extends Command
          $postrunEvents = explode(",", $this->option('postrun'));
          $dumpAuto = intval($this->option('dumpauto'));
          $indexed = !$this->option('noindex');
+         $register = !$this->option('noregister');
+         $skipFkChecks = $this->option('skip-fk-checks');
+         $resetSequences = $this->option('reset-sequences');
+         $skip = intval($this->option('skip'));
          $orderBy = $this->option('orderby');
-         $direction = $this->option('direction');
+         $direction = $this->option('direction') ?: 'ASC';
          $prefix = $this->option('classnameprefix');
          $suffix = $this->option('classnamesuffix');
          $whereClause = $this->option('where');
-     
+
          if ($max < 1) {
              $max = null;
          }
          if ($chunkSize < 1) {
              $chunkSize = null;
          }
-     
+         if ($skip < 1) {
+             $skip = null;
+         }
+
          $tableIncrement = 0;
          foreach ($tables as $table) {
              $table = trim($table);
              $prerunEvent = isset($prerunEvents[$tableIncrement]) ? trim($prerunEvents[$tableIncrement]) : null;
              $postrunEvent = isset($postrunEvents[$tableIncrement]) ? trim($postrunEvents[$tableIncrement]) : null;
              $tableIncrement++;
-     
+
              // generate file and class name based on name of the table
              list($fileName, $className) = $this->generateFileName($table, $prefix, $suffix);
-     
+
              // if file does not exist or force option is turned on, generate seeder
              if (!\File::exists($fileName) || $this->option('force')) {
                  $this->printResult(
@@ -110,13 +117,17 @@ class IseedCommand extends Command
                          $indexed,
                          $orderBy,
                          $direction,
-                         $whereClause
+                         $whereClause,
+                        $register,
+                        $skipFkChecks,
+                        $skip,
+                        $resetSequences
                      ),
                      $table
                  );
                  continue;
              }
-     
+
              if ($this->confirm('File ' . $className . ' already exists. Do you wish to override it? [yes|no]')) {
                  // Overwrite old seeder if confirmed
                  $this->printResult(
@@ -134,14 +145,18 @@ class IseedCommand extends Command
                          $indexed,
                          $orderBy,
                          $direction,
-                         $whereClause
+                         $whereClause,
+                        $register,
+                        $skipFkChecks,
+                        $skip,
+                        $resetSequences
                      ),
                      $table
                  );
              }
          }
      }
-     
+
 
     /**
      * Get the console command arguments.
@@ -165,7 +180,7 @@ class IseedCommand extends Command
         return array(
             array('clean', null, InputOption::VALUE_NONE, 'clean iseed section', null),
             array('force', null, InputOption::VALUE_NONE, 'force overwrite of all existing seed classes', null),
-            array('database', null, InputOption::VALUE_OPTIONAL, 'database connection', \Config::get('database.default')),
+            array('database', null, InputOption::VALUE_OPTIONAL, 'database connection', config('database.default')),
             array('max', null, InputOption::VALUE_OPTIONAL, 'max number of rows', null),
             array('chunksize', null, InputOption::VALUE_OPTIONAL, 'size of data chunks for each insert query', null),
             array('exclude', null, InputOption::VALUE_OPTIONAL, 'exclude columns', null),
@@ -173,11 +188,15 @@ class IseedCommand extends Command
             array('postrun', null, InputOption::VALUE_OPTIONAL, 'postrun event name', null),
             array('dumpauto', null, InputOption::VALUE_OPTIONAL, 'run composer dump-autoload', true),
             array('noindex', null, InputOption::VALUE_NONE, 'no indexing in the seed', null),
+            array('noregister', null, InputOption::VALUE_NONE, 'do not register in DatabaseSeeder.php', null),
             array('orderby', null, InputOption::VALUE_OPTIONAL, 'orderby desc by column', null),
             array('direction', null, InputOption::VALUE_OPTIONAL, 'orderby direction', null),
             array('classnameprefix', null, InputOption::VALUE_OPTIONAL, 'prefix for class and file name', null),
             array('classnamesuffix', null, InputOption::VALUE_OPTIONAL, 'suffix for class and file name', null),
             array('where', null, InputOption::VALUE_OPTIONAL, 'where clause to filter records', null),
+            array('skip-fk-checks', null, InputOption::VALUE_NONE, 'disable foreign key checks during seeding', null),
+            array('skip', null, InputOption::VALUE_OPTIONAL, 'number of rows to skip', null),
+            array('reset-sequences', null, InputOption::VALUE_NONE, 'reset PostgreSQL sequences after seeding', null),
         );
     }
 
@@ -199,10 +218,10 @@ class IseedCommand extends Command
     }
 
     /**
-     * Generate file name, to be used in test wether seed file already exist
+     * Generate file name, to be used in test whether seed file already exist
      *
      * @param  string $table
-     * @return string
+     * @return array
      */
     protected function generateFileName($table, $prefix=null, $suffix=null)
     {

@@ -114,7 +114,62 @@
 | `PUR-01-T02` | Purchase order CRUD | Backend+Frontend | P0 | Existing |
 | `PUR-01-T03` | Purchase order receiving flow | Backend+Frontend | P0 | Existing |
 
-## 8. POS & Transaction
+## 8. Bill of Materials (BOM)
+
+> Scope: resep produksi (`manufacturing.bill_of_materials` + `bom_items`) untuk produk jadi (FINISHED_GOOD).
+> Satu varian produk jadi hanya boleh punya satu BOM aktif.
+
+### Epic BOM-01: BOM Master & Recipe
+
+| Task ID | Task (Existing Capability) | Type | Priority | Status |
+|---|---|---|---|---|
+| `BOM-01-T01` | Migration schema `manufacturing` + tabel `bill_of_materials` & `bom_items` | Backend | P0 | Existing |
+| `BOM-01-T02` | BOM index — daftar produk jadi & status resep per varian | Backend+Frontend | P0 | Existing |
+| `BOM-01-T03` | BOM create — input komponen bahan baku + satuan per item | Backend+Frontend | P0 | Existing |
+| `BOM-01-T04` | BOM show — detail resep + estimasi biaya HPP per komponen (FIFO/FEFO dari gudang WIP) | Backend+Frontend | P1 | Existing |
+| `BOM-01-T05` | BOM delete (soft delete) | Backend+Frontend | P1 | Existing |
+| `BOM-01-T06` | Seeder menu & permission Bill of Materials | Backend | P1 | Existing |
+
+### Epic BOM-02: BOM Enhancement (Planned)
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `BOM-02-T01` | BOM edit — ubah komponen tanpa hapus & buat ulang | Backend+Frontend | P2 | Planned |
+| `BOM-02-T02` | BOM versioning — simpan histori versi resep | Backend+Frontend | P2 | Planned |
+| `BOM-02-T03` | BOM copy — duplikasi resep ke varian produk jadi lain | Backend+Frontend | P2 | Planned |
+
+## 9. Production Order
+
+> Scope: eksekusi produksi berdasarkan BOM — konsumsi bahan baku (WIP) → output produk jadi (FG) dengan perhitungan HPP FIFO.
+
+### Epic PRD-01: Production Order Lifecycle
+
+| Task ID | Task (Existing Capability) | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-01-T01` | Migration `production_orders`, `production_order_materials`, `production_order_outputs` | Backend | P0 | Existing |
+| `PRD-01-T02` | Production order list | Backend+Frontend | P0 | Existing |
+| `PRD-01-T03` | Production order create — pilih BOM, qty, overhead, preview kebutuhan bahan | Backend+Frontend | P0 | Existing |
+| `PRD-01-T04` | Production order complete — konsumsi FIFO bahan + inbound FG + hitung HPP | Backend | P0 | Existing |
+| `PRD-01-T05` | Production order show — detail bahan terkonsumsi & output | Backend+Frontend | P1 | Existing |
+| `PRD-01-T06` | `ProductionService::generateNumber()` — format PRD-YYYYMM-XXXX | Backend | P1 | Existing |
+| `PRD-01-T07` | Seeder menu & permission Production Order | Backend | P1 | Existing |
+
+### Epic PRD-02: Production Warehouse Integration
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-02-T01` | Migration refactor `output_warehouse_id` + `source_warehouse_id` terpisah dari `branch_id` | Backend | P0 | Done |
+| `PRD-02-T02` | Form create — pilih gudang bahan baku (source) & gudang output (FG) eksplisit | Backend+Frontend | P0 | Todo |
+| `PRD-02-T03` | `ProductionService` — konsumsi/inbound scoped per `warehouse_id` | Backend | P0 | Todo |
+
+### Epic PRD-03: Production Reporting (Planned)
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-03-T01` | Laporan produksi — qty, biaya bahan, overhead, HPP per order | Backend+Frontend | P2 | Planned |
+| `PRD-03-T02` | Laporan efisiensi bahan baku vs BOM standar | Backend+Frontend | P2 | Planned |
+
+## 10. POS & Transaction
 
 ### Epic POS-01: Point of Sales
 
@@ -132,7 +187,7 @@
 | `TRX-01-T02` | Transaction detail page | Backend+Frontend | P1 | Existing |
 | `TRX-01-T03` | Method payment CRUD | Backend+Frontend | P1 | Existing |
 
-## 9. Reporting
+## 11. Reporting
 
 ### Epic RPT-01: Sales & Transaction Reporting
 
@@ -149,7 +204,7 @@
 | `RPT-02-T02` | Stock movement / stock card report | Backend+Frontend | P1 | Existing |
 | `RPT-02-T03` | Stock history report | Backend+Frontend | P1 | Existing |
 
-## 10. CRM & Membership (Planned)
+## 12. CRM & Membership (Planned)
 
 ### Epic CRM-01: Membership Configuration & Points
 
@@ -175,7 +230,7 @@
 | `CRM-03-T02` | Simpan riwayat poin per transaksi pada schema `crm` | Backend | P1 | Planned |
 | `CRM-03-T03` | Tampilan riwayat poin pada halaman customer / membership | Frontend | P2 | Planned |
 
-## 11. Warehouse & Multi-Location WMS (New)
+## 13. Warehouse & Multi-Location WMS (New)
 
 > Modul terpisah dari Business & Master Data existing.
 > Scope: pemisahan master gudang (`master_data.warehouses`), stok per lokasi fisik, dan integrasi ke modul operasional.
@@ -485,7 +540,7 @@
 | Sprint 3 | `WH-05` (T05–T10) | Inbound, POS, distribusi, seeder, command |
 | Sprint 4 | `WH-06` | Cleanup legacy + reporting |
 
-## 12. Partner Network: Agent & Reseller Warehouse (New)
+## 14. Partner Network: Agent & Reseller Warehouse (New)
 
 > Scope: memisahkan partner eksternal dari struktur internal `business_units`.
 > `business_units` tetap untuk HOLDING / COMPANY / BRANCH internal.
@@ -758,7 +813,7 @@
 | Sprint 3 | `PN-04` + `PN-06` | UI Agent/Reseller + Agent login access |
 | Sprint 4 | `PN-05` | Reporting, permission, dan hardening akses |
 
-## 13. Tracking Summary (Current Inventory)
+## 15. Tracking Summary (Current Inventory)
 
 | Module | Epic Count | Task Count | Status |
 |---|---:|---:|---|
@@ -769,6 +824,8 @@
 | Customer | 1 | 3 | Existing |
 | Product Master | 2 | 9 | Existing |
 | Inventory & Purchasing | 2 | 7 | Existing |
+| Bill of Materials (BOM) | 2 | 9 | Existing + Planned |
+| Production Order | 3 | 12 | Existing + Todo |
 | POS & Transaction | 2 | 6 | Existing |
 | Reporting | 2 | 5 | Existing |
 | CRM & Membership | 3 | 9 | Planned |

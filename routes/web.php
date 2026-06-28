@@ -92,7 +92,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::redirect('/warehouse', '/business/warehouse');
 
     /// COMPONENT SHOWCASE
-    Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
+    // Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
 
     /// AI CHAT (WMS AI Assistant widget API)
     Route::group([
@@ -446,6 +446,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/conversion/update-temp', [ProductController::class, 'updateTempConversion'])->name('product.conversion.update-temp');
             Route::get('/edit/{id}', [ProductController::class, 'editView'])->name('product.edit.view')->middleware('permission:Product,is_update');
             Route::get('/{id}/print-barcode', [ProductController::class, 'printBarcodeView'])->name('product.print-barcode.view')->middleware('permission:Product,is_read');
+            Route::post('/{id}/print-barcode/preview', [ProductController::class, 'printBarcodePreview'])->name('product.print-barcode.preview')->middleware('permission:Product,is_read');
+            Route::post('/{id}/print-barcode/pdf', [ProductController::class, 'printBarcodePdf'])->name('product.print-barcode.pdf')->middleware('permission:Product,is_read');
             Route::get('/variants/{product_id}', [ProductController::class, 'variantsView'])->name('product.variants.view')->middleware('permission:Product,is_read');
             // Variant CRUD Routes
             Route::post('/variants/{product_id}/store', [ProductController::class, 'storeVariant'])->name('product.variant.store')->middleware('permission:Product,is_create');

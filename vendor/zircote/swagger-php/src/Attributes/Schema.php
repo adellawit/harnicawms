@@ -6,8 +6,8 @@
 
 namespace OpenApi\Attributes;
 
-use OpenApi\Generator;
 use OpenApi\Annotations as OA;
+use OpenApi\Generator;
 
 #[\Attribute(\Attribute::TARGET_CLASS | \Attribute::TARGET_METHOD | \Attribute::TARGET_PROPERTY | \Attribute::IS_REPEATABLE)]
 class Schema extends OA\Schema
@@ -67,6 +67,7 @@ class Schema extends OA\Schema
         ?array $oneOf = null,
         AdditionalProperties|bool|null $additionalProperties = null,
         ?array $patternProperties = null,
+        ?array $unevaluatedProperties = null,
         mixed $const = Generator::UNDEFINED,
         ?string $contentEncoding = null,
         ?string $contentMediaType = null,
@@ -109,6 +110,7 @@ class Schema extends OA\Schema
             'oneOf' => $oneOf ?? Generator::UNDEFINED,
             'additionalProperties' => $additionalProperties ?? Generator::UNDEFINED,
             'patternProperties' => $patternProperties ?? Generator::UNDEFINED,
+            'unevaluatedProperties' => $unevaluatedProperties ?? Generator::UNDEFINED,
             'const' => $const,
             'contentEncoding' => $contentEncoding ?? Generator::UNDEFINED,
             'contentMediaType' => $contentMediaType ?? Generator::UNDEFINED,

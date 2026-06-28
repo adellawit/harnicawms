@@ -7,12 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 You can find and compare releases at the [GitHub release page](https://github.com/PHP-Open-Source-Saver/jwt-auth/releases).
 
 ## [Unreleased]
-### Fixed
- - Fixed the return type of getMinutesUntilExpired in BlackList, which returned a float instead of an int when using Carbon v2.
- - Fixed PHPStan issue in JWTGenerateSecretCommand by ensuring displayKey($key); is called before returning, avoiding returning a void method.  
- - Fixed missing return true; statements in validatePayload() and validateRefresh() methods of Expiration.php, IssuedAt.php, and NotBefore.php to resolve PHPStan errors.  
- - Fixed PHPStan error related to new static() by refactoring hasAllClaims method in Collection class.
 
+### Added
+- Trigger Authenticated event when loading user from token
+
+## [2.9.0] 2026-03-06
+Please see (https://github.com/PHP-Open-Source-Saver/jwt-auth/releases/tag/2.9.0)
+
+### Added
+- Updating composer and CI for Laravel 13
+
+## [2.8.3] 2025-10-15
+Please see (https://github.com/PHP-Open-Source-Saver/jwt-auth/releases/tag/2.8.3)
+
+### Fixed
+- Implement config variable to allow iat to remain unchanged claim when refreshing a token
+
+## [2.8.2] 2025-03-19
+Please see (https://github.com/PHP-Open-Source-Saver/jwt-auth/releases/tag/2.8.2)
+
+### Fixed
+- Fix PHPStan Issues  
+
+## [2.8.1] 2025-02-28
+Please see (https://github.com/PHP-Open-Source-Saver/jwt-auth/releases/tag/2.8.1)
+
+### Fixed
+- Fixed the return type of getMinutesUntilExpired in BlackList, which returned a float instead of an int when using Carbon v2.
 
 ## [2.8.0] 2025-02-11
 Please see (https://github.com/PHP-Open-Source-Saver/jwt-auth/releases/tag/2.8.0)
