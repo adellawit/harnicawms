@@ -16,6 +16,7 @@ use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\StockMutationType;
 use App\Models\Supplier;
+use App\Models\Warehouse;
 use App\Services\InventoryCostService;
 use App\Services\StockMutationService;
 use App\Support\WmsContext;
@@ -633,6 +634,7 @@ class PurchaseOrderController extends Controller
         try {
             $receive = ProductPurchaseOrderReceive::create([
                 'purchase_order_id' => $purchase->id,
+                'warehouse_id' => $request->warehouse_id,
                 'receive_number' => $this->generateReceiveNumber($purchase->purchase_number),
                 'receive_date' => $request->receive_date,
                 'notes' => $request->notes,
@@ -664,9 +666,10 @@ class PurchaseOrderController extends Controller
                 InventoryCostService::updateAverageCostForPurchaseReceive(
                     $poItem,
                     $qtyReceived,
-                    $warehouseId,
+                    $purchase->branch_id,
                     $companyId,
-                    $user->id
+                    $user->id,
+                    $warehouseId
                 );
 
                 // Juga update product_variant_stock + cost layer (FEFO) agar halaman stok akurat
@@ -679,7 +682,7 @@ class PurchaseOrderController extends Controller
                         productId: $poItem->product_id,
                         variantId: $variantId,
                         companyId: $companyId,
-                        branchId: $warehouseId,
+                        branchId: $purchase->branch_id,
                         unitId: $poItem->unit_id,
                         quantity: $qtyReceived,
                         unitCost: (float) $poItem->unit_price,
@@ -688,13 +691,15 @@ class PurchaseOrderController extends Controller
                         userId: $user->id,
                         notes: "Receive {$receive->receive_number} from PO {$purchase->purchase_number}",
                         date: $request->receive_date,
+                        warehouseId: $warehouseId,
                     );
                 }
 
                 $stock = ProductStock::firstOrCreate(
                     [
                         'product_id' => $poItem->product_id,
-                        'branch_id' => $warehouseId,
+                        'branch_id' => $purchase->branch_id,
+                        'warehouse_id' => $warehouseId,
                         'unit_id' => $poItem->unit_id,
                     ],
                     [
@@ -717,7 +722,8 @@ class PurchaseOrderController extends Controller
                     'product_stock_id' => $stock->id,
                     'product_id' => $poItem->product_id,
                     'company_id' => $companyId,
-                    'branch_id' => $warehouseId,
+                    'branch_id' => $purchase->branch_id,
+                    'warehouse_id' => $warehouseId,
                     'unit_id' => $poItem->unit_id,
                     'stock_mutation_type_id' => $mutationType?->id,
                     'type' => 'in',
@@ -770,18 +776,39 @@ class PurchaseOrderController extends Controller
         $options = [];
         $seen = [];
         $distId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
+        $operationalUnit = $purchase->branch_id ? BusinessUnit::find($purchase->branch_id) : null;
+        $contexts = $operationalUnit?->type_code === 'COMPANY'
+            ? [$distId]
+            : [$purchase->branch_id ?: $distId];
 
-        foreach (WmsContext::warehouses($distId) as $warehouse) {
-            $options[] = ['id' => $warehouse->id, 'label' => $warehouse->name];
-            $seen[$warehouse->id] = true;
+        foreach ($contexts as $contextId) {
+            if (! $contextId) {
+                continue;
+            }
+
+            foreach (WmsContext::warehouses($contextId) as $warehouse) {
+                if (isset($seen[$warehouse->id])) {
+                    continue;
+                }
+
+                $type = $warehouse->warehouse_type_code ? " ({$warehouse->warehouse_type_code})" : '';
+                $branch = $warehouse->branch?->name ? " - {$warehouse->branch->name}" : '';
+
+                $options[] = [
+                    'id' => $warehouse->id,
+                    'label' => trim("{$warehouse->code} - {$warehouse->name}{$type}{$branch}"),
+                ];
+                $seen[$warehouse->id] = true;
+            }
         }
 
-        if ($purchase->branch_id && ! isset($seen[$purchase->branch_id])) {
-            $branch = BusinessUnit::find($purchase->branch_id);
-            if ($branch) {
+        if ($purchase->warehouse_id && ! isset($seen[$purchase->warehouse_id])) {
+            $warehouse = Warehouse::query()->whereKey($purchase->warehouse_id)->first();
+            if ($warehouse) {
+                $type = $warehouse->warehouse_type_code ? " ({$warehouse->warehouse_type_code})" : '';
                 $options[] = [
-                    'id' => $branch->id,
-                    'label' => $branch->name.' (Cabang PO)',
+                    'id' => $warehouse->id,
+                    'label' => trim("{$warehouse->code} - {$warehouse->name}{$type}"),
                 ];
             }
         }
@@ -795,15 +822,23 @@ class PurchaseOrderController extends Controller
     private function defaultReceiveWarehouseId(ProductPurchaseOrder $purchase, array $warehouses): ?string
     {
         $distId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
-        $wipId = optional(WmsContext::wipWarehouse($distId))->id;
+        $operationalUnit = $purchase->branch_id ? BusinessUnit::find($purchase->branch_id) : null;
         $allowed = collect($warehouses)->pluck('id')->all();
 
-        if ($wipId && in_array($wipId, $allowed, true)) {
-            return $wipId;
+        if ($operationalUnit?->type_code === 'COMPANY') {
+            $wipId = optional(WmsContext::wipWarehouse($distId))->id;
+            if ($wipId && in_array($wipId, $allowed, true)) {
+                return $wipId;
+            }
         }
 
-        if ($purchase->branch_id && in_array($purchase->branch_id, $allowed, true)) {
-            return $purchase->branch_id;
+        if ($purchase->warehouse_id && in_array($purchase->warehouse_id, $allowed, true)) {
+            return $purchase->warehouse_id;
+        }
+
+        $defaultWarehouseId = optional(WmsContext::defaultWarehouse($purchase->branch_id))->id;
+        if ($defaultWarehouseId && in_array($defaultWarehouseId, $allowed, true)) {
+            return $defaultWarehouseId;
         }
 
         return $allowed[0] ?? null;

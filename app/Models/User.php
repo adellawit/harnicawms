@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -84,6 +85,11 @@ class User extends Authenticatable
     public function employee(): HasOne
     {
         return $this->hasOne(Employees::class, 'id', 'employee_id');
+    }
+
+    public function partnerAgent(): HasOne
+    {
+        return $this->hasOne(Agent::class, 'user_id', 'id');
     }
 
     /**

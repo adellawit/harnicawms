@@ -166,4 +166,240 @@ class Product extends Model
 
         return null;
     }
+
+    /**
+     * Satuan yang tersedia untuk cetak barcode (default + rantai konversi).
+     */
+    public function getBarcodeUnits(): \Illuminate\Support\Collection
+    {
+        $this->loadMissing(['defaultUnit', 'unitConversions.fromUnit', 'unitConversions.toUnit']);
+
+        $ordered = collect();
+
+        if ($this->defaultUnit) {
+            $ordered->push($this->defaultUnit);
+        }
+
+        $currentUnitId = $this->default_unit_id;
+        foreach ($this->unitConversions->sortBy('conversion_level') as $conv) {
+            if ($conv->from_unit_id === $currentUnitId && $conv->toUnit) {
+                $ordered->push($conv->toUnit);
+                $currentUnitId = $conv->to_unit_id;
+            }
+        }
+
+        foreach ($this->unitConversions as $conv) {
+            foreach ([$conv->fromUnit, $conv->toUnit] as $unit) {
+                if ($unit && ! $ordered->contains('id', $unit->id)) {
+                    $ordered->push($unit);
+                }
+            }
+        }
+
+        return $ordered->unique('id')->values();
+    }
+
+    public function hasBarcodeUnit(string $unitId): bool
+    {
+        return $this->getBarcodeUnits()->contains('id', $unitId);
+    }
+
+    /**
+     * Level satuan dalam rantai konversi (1 = terbesar/Dus, 2 = Box, 3 = Pcs, ...).
+     */
+    public function getBarcodeUnitLevel(string $unitId): int
+    {
+        $index = $this->getBarcodeUnits()->search(fn (ProductUnit $unit) => $unit->id === $unitId);
+
+        return $index !== false ? $index + 1 : 1;
+    }
+
+    /**
+     * Keterangan konversi untuk satuan terpilih, mis. "1 Dus = 300 Box".
+     */
+    public function getBarcodeUnitConversionHint(string $unitId): ?string
+    {
+        $this->loadMissing(['unitConversions.fromUnit', 'unitConversions.toUnit']);
+
+        $conv = $this->unitConversions->firstWhere('from_unit_id', $unitId);
+        if ($conv && $conv->toUnit) {
+            $from = $conv->fromUnit?->symbol ?: $conv->fromUnit?->name;
+            $to = $conv->toUnit?->symbol ?: $conv->toUnit?->name;
+            $factor = (float) $conv->conversion_factor;
+            $factorLabel = $factor == (int) $factor ? (string) (int) $factor : rtrim(rtrim(number_format($factor, 6, '.', ''), '0'), '.');
+
+            return "1 {$from} = {$factorLabel} {$to}";
+        }
+
+        $parentConv = $this->unitConversions->firstWhere('to_unit_id', $unitId);
+        if ($parentConv && $parentConv->fromUnit) {
+            $from = $parentConv->fromUnit?->symbol ?: $parentConv->fromUnit?->name;
+            $to = $parentConv->toUnit?->symbol ?: $parentConv->toUnit?->name;
+            $factor = (float) $parentConv->conversion_factor;
+            $factorLabel = $factor == (int) $factor ? (string) (int) $factor : rtrim(rtrim(number_format($factor, 6, '.', ''), '0'), '.');
+
+            return "1 {$from} = {$factorLabel} {$to}";
+        }
+
+        return null;
+    }
+
+    /**
+     * Estimasi jumlah label satuan anak per 1 satuan induk (untuk panduan qty).
+     */
+    public function getChildLabelsPerParent(string $unitId): ?int
+    {
+        $this->loadMissing('unitConversions');
+
+        $conv = $this->unitConversions->firstWhere('from_unit_id', $unitId);
+        if (! $conv) {
+            return null;
+        }
+
+        $total = (int) (float) $conv->conversion_factor;
+        $currentUnitId = $conv->to_unit_id;
+
+        while ($next = $this->unitConversions->firstWhere('from_unit_id', $currentUnitId)) {
+            $total *= (int) (float) $next->conversion_factor;
+            $currentUnitId = $next->to_unit_id;
+        }
+
+        return $total > 0 ? $total : null;
+    }
+
+    /**
+     * Rantai satuan berurutan beserta faktor konversi ke level berikutnya.
+     *
+     * @return \Illuminate\Support\Collection<int, array{unit: ProductUnit, level: int, factor_to_next: float|null}>
+     */
+    public function getBarcodeUnitChain(): \Illuminate\Support\Collection
+    {
+        $this->loadMissing(['unitConversions']);
+
+        return $this->getBarcodeUnits()->values()->map(function (ProductUnit $unit, int $index) {
+            $conv = $this->unitConversions->firstWhere('from_unit_id', $unit->id);
+
+            return [
+                'unit' => $unit,
+                'level' => $index + 1,
+                'factor_to_next' => $conv ? (float) $conv->conversion_factor : null,
+            ];
+        });
+    }
+
+    /**
+     * Hitung qty label per level dari qty satuan induk (mis. 1 Karton → 30 Pack, 300 Box).
+     *
+     * @return array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>
+     */
+    public function getBarcodeQuantityBreakdown(int $parentQty, ?string $parentUnitId = null): array
+    {
+        $chain = $this->getBarcodeUnitChain();
+        if ($chain->isEmpty() || $parentQty < 1) {
+            return [];
+        }
+
+        $startIndex = 0;
+        if ($parentUnitId) {
+            $found = $chain->search(fn (array $item) => $item['unit']->id === $parentUnitId);
+            if ($found !== false) {
+                $startIndex = $found;
+            }
+        }
+
+        $breakdown = [];
+        $qty = $parentQty;
+
+        for ($i = $startIndex; $i < $chain->count(); $i++) {
+            $item = $chain[$i];
+            $unit = $item['unit'];
+
+            $breakdown[] = [
+                'unit_id' => $unit->id,
+                'level' => $item['level'],
+                'qty' => $qty,
+                'label' => $unit->symbol ?: $unit->name,
+                'content_summary' => $this->getBarcodeUnitLabelContent($unit->id),
+            ];
+
+            if ($i + 1 < $chain->count() && $item['factor_to_next']) {
+                $qty = (int) round($qty * $item['factor_to_next']);
+            }
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Total label untuk mode hierarki (jumlah semua level).
+     */
+    public function getBarcodeHierarchyTotalLabels(int $parentQty, ?string $parentUnitId = null): int
+    {
+        return (int) collect($this->getBarcodeQuantityBreakdown($parentQty, $parentUnitId))->sum('qty');
+    }
+
+    /**
+     * Qty maksimum satuan induk agar total label hierarki tidak melebihi batas.
+     */
+    public function getMaxHierarchyParentQty(int $maxTotalLabels, ?string $parentUnitId = null): int
+    {
+        $perParent = $this->getBarcodeHierarchyTotalLabels(1, $parentUnitId);
+        if ($perParent < 1) {
+            return max(1, $maxTotalLabels);
+        }
+
+        return max(1, (int) floor($maxTotalLabels / $perParent));
+    }
+
+    /**
+     * Teks isi label sesuai level (mis. "ISI = 30 pack (300 pcs)" atau "1 Pack = 10 box").
+     */
+    public function getBarcodeUnitLabelContent(string $unitId): ?string
+    {
+        $units = $this->getBarcodeUnits();
+        $index = $units->search(fn (ProductUnit $unit) => $unit->id === $unitId);
+        if ($index === false) {
+            return null;
+        }
+
+        $level = $index + 1;
+        $unit = $units[$index];
+        $unitLabel = $unit->symbol ?: $unit->name;
+
+        if ($level === 1 && $units->count() > 1) {
+            $conv = $this->unitConversions->firstWhere('from_unit_id', $unitId);
+            if (! $conv?->toUnit) {
+                return null;
+            }
+
+            $middleLabel = strtolower($conv->toUnit->symbol ?: $conv->toUnit->name);
+            $middleFactor = $this->formatConversionFactor((float) $conv->conversion_factor);
+            $totalSmallest = $this->getChildLabelsPerParent($unitId);
+            $smallest = $units->last();
+            $smallestLabel = strtolower($smallest->symbol ?: $smallest->name);
+
+            return "ISI = {$middleFactor} {$middleLabel} ({$totalSmallest} {$smallestLabel})";
+        }
+
+        if ($level < $units->count()) {
+            $conv = $this->unitConversions->firstWhere('from_unit_id', $unitId);
+            if (! $conv?->toUnit) {
+                return null;
+            }
+
+            $childLabel = $conv->toUnit->symbol ?: $conv->toUnit->name;
+            $factor = $this->formatConversionFactor((float) $conv->conversion_factor);
+
+            return "1 {$unitLabel} = {$factor} {$childLabel}";
+        }
+
+        return null;
+    }
+
+    protected function formatConversionFactor(float $factor): string
+    {
+        return $factor == (int) $factor
+            ? (string) (int) $factor
+            : rtrim(rtrim(number_format($factor, 6, '.', ''), '0'), '.');
+    }
 }

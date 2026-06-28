@@ -114,7 +114,62 @@
 | `PUR-01-T02` | Purchase order CRUD | Backend+Frontend | P0 | Existing |
 | `PUR-01-T03` | Purchase order receiving flow | Backend+Frontend | P0 | Existing |
 
-## 8. POS & Transaction
+## 8. Bill of Materials (BOM)
+
+> Scope: resep produksi (`manufacturing.bill_of_materials` + `bom_items`) untuk produk jadi (FINISHED_GOOD).
+> Satu varian produk jadi hanya boleh punya satu BOM aktif.
+
+### Epic BOM-01: BOM Master & Recipe
+
+| Task ID | Task (Existing Capability) | Type | Priority | Status |
+|---|---|---|---|---|
+| `BOM-01-T01` | Migration schema `manufacturing` + tabel `bill_of_materials` & `bom_items` | Backend | P0 | Existing |
+| `BOM-01-T02` | BOM index — daftar produk jadi & status resep per varian | Backend+Frontend | P0 | Existing |
+| `BOM-01-T03` | BOM create — input komponen bahan baku + satuan per item | Backend+Frontend | P0 | Existing |
+| `BOM-01-T04` | BOM show — detail resep + estimasi biaya HPP per komponen (FIFO/FEFO dari gudang WIP) | Backend+Frontend | P1 | Existing |
+| `BOM-01-T05` | BOM delete (soft delete) | Backend+Frontend | P1 | Existing |
+| `BOM-01-T06` | Seeder menu & permission Bill of Materials | Backend | P1 | Existing |
+
+### Epic BOM-02: BOM Enhancement (Planned)
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `BOM-02-T01` | BOM edit — ubah komponen tanpa hapus & buat ulang | Backend+Frontend | P2 | Planned |
+| `BOM-02-T02` | BOM versioning — simpan histori versi resep | Backend+Frontend | P2 | Planned |
+| `BOM-02-T03` | BOM copy — duplikasi resep ke varian produk jadi lain | Backend+Frontend | P2 | Planned |
+
+## 9. Production Order
+
+> Scope: eksekusi produksi berdasarkan BOM — konsumsi bahan baku (WIP) → output produk jadi (FG) dengan perhitungan HPP FIFO.
+
+### Epic PRD-01: Production Order Lifecycle
+
+| Task ID | Task (Existing Capability) | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-01-T01` | Migration `production_orders`, `production_order_materials`, `production_order_outputs` | Backend | P0 | Existing |
+| `PRD-01-T02` | Production order list | Backend+Frontend | P0 | Existing |
+| `PRD-01-T03` | Production order create — pilih BOM, qty, overhead, preview kebutuhan bahan | Backend+Frontend | P0 | Existing |
+| `PRD-01-T04` | Production order complete — konsumsi FIFO bahan + inbound FG + hitung HPP | Backend | P0 | Existing |
+| `PRD-01-T05` | Production order show — detail bahan terkonsumsi & output | Backend+Frontend | P1 | Existing |
+| `PRD-01-T06` | `ProductionService::generateNumber()` — format PRD-YYYYMM-XXXX | Backend | P1 | Existing |
+| `PRD-01-T07` | Seeder menu & permission Production Order | Backend | P1 | Existing |
+
+### Epic PRD-02: Production Warehouse Integration
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-02-T01` | Migration refactor `output_warehouse_id` + `source_warehouse_id` terpisah dari `branch_id` | Backend | P0 | Done |
+| `PRD-02-T02` | Form create — pilih gudang bahan baku (source) & gudang output (FG) eksplisit | Backend+Frontend | P0 | Todo |
+| `PRD-02-T03` | `ProductionService` — konsumsi/inbound scoped per `warehouse_id` | Backend | P0 | Todo |
+
+### Epic PRD-03: Production Reporting (Planned)
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PRD-03-T01` | Laporan produksi — qty, biaya bahan, overhead, HPP per order | Backend+Frontend | P2 | Planned |
+| `PRD-03-T02` | Laporan efisiensi bahan baku vs BOM standar | Backend+Frontend | P2 | Planned |
+
+## 10. POS & Transaction
 
 ### Epic POS-01: Point of Sales
 
@@ -132,7 +187,7 @@
 | `TRX-01-T02` | Transaction detail page | Backend+Frontend | P1 | Existing |
 | `TRX-01-T03` | Method payment CRUD | Backend+Frontend | P1 | Existing |
 
-## 9. Reporting
+## 11. Reporting
 
 ### Epic RPT-01: Sales & Transaction Reporting
 
@@ -149,7 +204,7 @@
 | `RPT-02-T02` | Stock movement / stock card report | Backend+Frontend | P1 | Existing |
 | `RPT-02-T03` | Stock history report | Backend+Frontend | P1 | Existing |
 
-## 10. CRM & Membership (Planned)
+## 12. CRM & Membership (Planned)
 
 ### Epic CRM-01: Membership Configuration & Points
 
@@ -175,7 +230,7 @@
 | `CRM-03-T02` | Simpan riwayat poin per transaksi pada schema `crm` | Backend | P1 | Planned |
 | `CRM-03-T03` | Tampilan riwayat poin pada halaman customer / membership | Frontend | P2 | Planned |
 
-## 11. Warehouse & Multi-Location WMS (New)
+## 13. Warehouse & Multi-Location WMS (New)
 
 > Modul terpisah dari Business & Master Data existing.
 > Scope: pemisahan master gudang (`master_data.warehouses`), stok per lokasi fisik, dan integrasi ke modul operasional.
@@ -485,7 +540,280 @@
 | Sprint 3 | `WH-05` (T05–T10) | Inbound, POS, distribusi, seeder, command |
 | Sprint 4 | `WH-06` | Cleanup legacy + reporting |
 
-## 12. Tracking Summary (Current Inventory)
+## 14. Partner Network: Agent & Reseller Warehouse (New)
+
+> Scope: memisahkan partner eksternal dari struktur internal `business_units`.
+> `business_units` tetap untuk HOLDING / COMPANY / BRANCH internal.
+> Agent dan Reseller dikelola sebagai partner network, dengan integrasi gudang untuk Agent.
+
+**Aturan data:**
+- `company_id` = Distributor / principal company
+- `branch_id` = outlet/cabang operasional internal distributor
+- `agent_id` = partner Agent eksternal
+- `reseller_id` = partner Reseller eksternal
+- `warehouse_id` = lokasi fisik stok
+
+### Epic PN-00: Partner Registration & Application Workflow
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-00-T01` | Halaman pendaftaran partner publik/internal dengan pilihan Agent atau Reseller | Backend+Frontend | P0 | Done |
+| `PN-00-T02` | Migration `partner.partner_applications` untuk data pendaftar | Backend | P0 | Done |
+| `PN-00-T03` | Migration `partner.partner_application_documents` untuk upload syarat | Backend | P0 | Done |
+| `PN-00-T04` | Auto-create/link customer atau lead dari pendaftaran partner | Backend | P0 | Done |
+| `PN-00-T05` | Follow-up workflow manual untuk admin distributor dan Agent | Backend+Frontend | P0 | Done |
+| `PN-00-T06` | Convert calon Agent menjadi Agent + transaksi awal PO/Invoice | Backend+Frontend | P0 | Done |
+| `PN-00-T07` | Assign calon Reseller ke Agent dan convert oleh Agent | Backend+Frontend | P0 | Done |
+
+#### Detail Task PN-00
+
+**`PN-00-T01` — Partner registration page**
+- Form pendaftaran khusus partner dengan pilihan `AGENT` atau `RESELLER`.
+- Field awal: `name`, `email`, `phone`, `requested_purchase_quantity`, alamat, dan catatan kebutuhan.
+- Setelah submit, pendaftar belum langsung menjadi Agent/Reseller; status awal adalah application/lead.
+
+**`PN-00-T02` — partner_applications**
+- Tabel `partner.partner_applications`: `id`, `company_id`, `partner_type`, `name`, `email`, `phone`, `requested_purchase_quantity`, `status`.
+- Link proses: `customer_id`, `assigned_agent_id`, `converted_agent_id`, `converted_reseller_id`.
+- Timestamp proses: `submitted_at`, `reviewed_at`, `assigned_at`, `converted_at`, `rejected_at`.
+- Status: `submitted`, `in_review`, `assigned`, `qualified`, `rejected`, `converted`.
+
+**`PN-00-T03` — partner_application_documents**
+- Tabel dokumen syarat: `application_id`, `document_type`, `file_path`, `status`, `notes`.
+- Support multiple upload sesuai jenis partner.
+- Status dokumen: `submitted`, `approved`, `rejected`, `needs_revision`.
+
+**`PN-00-T04` — Customer / lead creation**
+- Setiap pendaftaran membuat atau menghubungkan data customer/lead.
+- Customer menjadi sumber follow-up manual sebelum conversion.
+- Hindari duplikasi customer berdasarkan email/phone dalam scope distributor.
+
+**`PN-00-T05` — Manual follow-up workflow**
+- Admin distributor follow up calon Agent dari data customer/application.
+- Untuk calon Reseller, admin distributor melakukan validasi awal lalu assign ke Agent.
+- Catat histori follow-up: PIC, channel, notes, next follow-up date, dan status.
+
+**`PN-00-T06` — Convert Agent**
+- Admin distributor dapat convert customer/application menjadi Agent jika syarat terpenuhi.
+- Conversion membuat record `partner.agents` dan menjalankan proses create/link warehouse Agent.
+- Jika pembelian awal terjadi, sistem membuat dokumen transaksi distributor seperti PO/Sales Order/Invoice sesuai flow yang dipakai agar tercatat.
+- Application ditutup dengan status `converted`.
+
+**`PN-00-T07` — Assign & convert Reseller**
+- Calon Reseller di-assign ke Agent untuk follow-up lanjutan.
+- Agent hanya bisa melihat dan mengelola application Reseller yang ditugaskan kepadanya.
+- Setelah pembayaran/syarat terpenuhi, Agent mengubah application menjadi `partner.resellers`.
+- Conversion membuat assignment aktif Reseller ke Agent.
+
+### Epic PN-01: Partner Master Schema
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-01-T01` | Migration schema `partner` | Backend | P0 | Done |
+| `PN-01-T02` | Migration `partner.agents` untuk master Agent | Backend | P0 | Done |
+| `PN-01-T03` | Migration `partner.resellers` untuk master Reseller | Backend | P0 | Done |
+| `PN-01-T04` | Migration `partner.agent_reseller_assignments` | Backend | P0 | Done |
+| `PN-01-T05` | Seeder status/lifecycle partner | Backend | P1 | Done |
+
+#### Detail Task PN-01
+
+**`PN-01-T01` — Schema partner**
+- Buat schema `partner` untuk data jaringan eksternal distributor.
+- Pisahkan dari `master_data.business_units` agar tree internal tetap bersih.
+- Siapkan migration guard `CREATE SCHEMA IF NOT EXISTS partner`.
+
+**`PN-01-T02` — agents**
+- Tabel `partner.agents`: `id`, `company_id`, `code`, `name`, `status`, `approval_status`.
+- Data kontak: `email`, `phone`, `address`, `city`, `province`, `postal_code`.
+- Link opsional: `default_warehouse_id`, `approved_at`, `approved_by`.
+- Agent bukan `business_units`; Agent adalah partner eksternal distributor.
+
+**`PN-01-T03` — resellers**
+- Tabel `partner.resellers`: `id`, `company_id`, `agent_id`, `code`, `name`, `status`.
+- Data kontak/customer profile untuk aktivitas penjualan reseller.
+- Reseller tidak punya warehouse default di fase awal.
+- Reseller dapat dipetakan ke customer/member bila diperlukan.
+
+**`PN-01-T04` — agent_reseller_assignments**
+- Assignment reseller ke agent dengan histori perpindahan.
+- Kolom: `agent_id`, `reseller_id`, `effective_from`, `effective_to`, `is_active`.
+- Satu reseller hanya boleh punya satu assignment aktif pada waktu yang sama.
+
+**`PN-01-T05` — Partner lifecycle seed**
+- Seeder status Agent: `draft`, `pending_approval`, `active`, `suspended`, `terminated`.
+- Seeder status Reseller: `active`, `inactive`, `suspended`.
+- Seeder approval status: `pending`, `approved`, `rejected`.
+
+### Epic PN-02: Agent Warehouse Integration
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-02-T01` | Ubah `master_data.warehouses` agar bisa dimiliki Agent | Backend | P0 | Done |
+| `PN-02-T02` | Auto create/link warehouse saat Agent approved | Backend | P0 | Done |
+| `PN-02-T03` | Default warehouse Agent untuk penerimaan replenishment | Backend | P0 | Done |
+| `PN-02-T04` | Validasi warehouse milik Agent saat receive/return | Backend | P0 | Done |
+
+#### Detail Task PN-02
+
+**`PN-02-T01` — Warehouse ownership**
+- Rekomendasi struktur jangka panjang: `owner_type` (`COMPANY`, `BRANCH`, `AGENT`) + `owner_id`.
+- Tetap simpan `company_id` untuk scope distributor.
+- `branch_id` hanya untuk cabang internal, bukan Agent.
+- Pastikan index lookup per `(owner_type, owner_id)` dan `(company_id, warehouse_type_code)`.
+
+**`PN-02-T02` — Approve Agent**
+- Saat Agent disetujui, sistem membuat atau menghubungkan warehouse Agent.
+- Warehouse default Agent dipakai untuk receipt dan return flow.
+- Code warehouse dapat digenerate dari kode Agent agar mudah dilacak.
+
+**`PN-02-T03` — Default warehouse Agent**
+- `Agent::defaultWarehouse()` mengarah ke warehouse default milik Agent.
+- Fallback hanya boleh ke warehouse aktif yang owner-nya Agent yang sama.
+- Tidak fallback ke gudang branch internal karena Agent bukan `business_units`.
+
+**`PN-02-T04` — Warehouse validation**
+- Receive replenishment harus masuk ke warehouse milik Agent terkait.
+- Return dari Agent harus keluar dari warehouse milik Agent terkait.
+- Tolak transaksi jika warehouse tidak aktif atau beda distributor.
+
+### Epic PN-03: Replenishment Refactor for Partner Agent
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-03-T01` | Refactor `replenishment_orders.agent_id` ke `partner.agents` | Backend | P0 | Done |
+| `PN-03-T02` | Shipment: distributor FG warehouse → agent warehouse | Backend | P0 | Done |
+| `PN-03-T03` | Receipt: masuk ke default warehouse Agent | Backend | P0 | Done |
+| `PN-03-T04` | Return: keluar dari warehouse Agent → FG distributor | Backend | P1 | Done |
+| `PN-03-T05` | UI replenishment pilih Agent partner, bukan branch | Backend+Frontend | P0 | Done |
+
+#### Detail Task PN-03
+
+**`PN-03-T01` — Repoint agent_id**
+- `distribution.replenishment_orders.agent_id` mengarah ke `partner.agents`.
+- `distributor_id` tetap mengarah ke `master_data.business_units` tipe COMPANY.
+- Backfill data lama dari `business_units` BRANCH jika ada demo/legacy Agent.
+
+**`PN-03-T02` — Shipment**
+- Kurangi stok dari `source_warehouse_id` gudang FG distributor.
+- Isi `destination_warehouse_id` dengan default warehouse Agent.
+- Audit movement mencatat `warehouse_id`, `company_id`, dan `agent_id`.
+
+**`PN-03-T03` — Receipt**
+- Tambah stok ke `warehouse_id` default Agent.
+- Harga transfer menjadi cost layer Agent.
+- Expiry/FEFO diteruskan dari shipment item.
+
+**`PN-03-T04` — Return**
+- Kurangi stok dari warehouse Agent.
+- Tambah stok kembali ke gudang FG distributor.
+- Simpan audit referensi `agent_id` dan `source_warehouse_id`.
+
+**`PN-03-T05` — UI replenishment**
+- Dropdown Agent membaca `partner.agents` aktif.
+- Tampilkan warehouse default Agent di form/detail.
+- Validasi UI mencegah order jika Agent belum punya warehouse aktif.
+
+### Epic PN-04: Agent & Reseller Management UI
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-04-T01` | CRUD Agent + approval workflow | Backend+Frontend | P0 | Done |
+| `PN-04-T02` | CRUD Reseller | Backend+Frontend | P0 | Done |
+| `PN-04-T03` | Assignment Reseller ke Agent | Backend+Frontend | P1 | Done |
+| `PN-04-T04` | Detail Agent tampilkan warehouse, stock summary, reseller list | Backend+Frontend | P1 | Done |
+
+#### Detail Task PN-04
+
+**`PN-04-T01` — Agent management**
+- Halaman list/create/edit/detail Agent.
+- Approval workflow: pending → approved/rejected.
+- Saat approved, panggil proses create/link warehouse Agent.
+
+**`PN-04-T02` — Reseller management**
+- Halaman list/create/edit/detail Reseller.
+- Reseller berada di bawah scope distributor dan dapat ditugaskan ke Agent.
+- Siapkan link opsional ke customer/member profile.
+
+**`PN-04-T03` — Assignment**
+- Form assignment Reseller ke Agent.
+- Support histori assignment dan satu assignment aktif.
+- Validasi Agent dan Reseller harus dalam `company_id` yang sama.
+
+**`PN-04-T04` — Agent detail dashboard**
+- Tampilkan warehouse default Agent.
+- Tampilkan summary stok per warehouse Agent.
+- Tampilkan daftar Reseller aktif di bawah Agent.
+
+### Epic PN-05: Reporting & Access
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-05-T01` | Filter laporan stok per Agent warehouse | Backend+Frontend | P1 | Done |
+| `PN-05-T02` | Sales/replenishment report per Agent dan Reseller | Backend+Frontend | P1 | Done |
+| `PN-05-T03` | Permission menu Partner Network | Backend | P1 | Done |
+
+#### Detail Task PN-05
+
+**`PN-05-T01` — Agent warehouse reporting**
+- Filter laporan stok berdasarkan Agent dan warehouse Agent.
+- Stock card tetap menggunakan `warehouse_id` sebagai sumber kebenaran stok.
+- Export laporan mencantumkan Agent, warehouse, dan distributor.
+
+**`PN-05-T02` — Agent & Reseller sales report**
+- Laporan replenishment per Agent.
+- Laporan penjualan/aktivitas per Reseller jika data transaksi reseller sudah tersedia.
+- KPI: order value, received qty, return qty, active reseller count.
+
+**`PN-05-T03` — Partner Network permissions**
+- Seeder menu Partner Network.
+- Permission CRUD Agent, approval Agent, CRUD Reseller, assignment Reseller.
+- Scope akses mengikuti distributor aktif user.
+
+### Epic PN-06: Agent Portal & Login Access
+
+| Task ID | Task | Type | Priority | Status |
+|---|---|---|---|---|
+| `PN-06-T01` | Tambah mapping `partner.agents.user_id` ke `auth.users` | Backend | P0 | Done |
+| `PN-06-T02` | Seeder role dan IAM access khusus `Agent` | Backend | P0 | Done |
+| `PN-06-T03` | Auto-create akun login Agent saat convert/approve Agent | Backend | P0 | Done |
+| `PN-06-T04` | Scope halaman Partner Network untuk user Agent | Backend+Frontend | P0 | Done |
+| `PN-06-T05` | Scope replenishment agar Agent hanya melihat order miliknya | Backend | P0 | Done |
+
+#### Detail Task PN-06
+
+**`PN-06-T01` — Agent user mapping**
+- Tambah `user_id` nullable pada `partner.agents`.
+- Relasi `Agent::user()` dan `User::partnerAgent()`.
+- Satu Agent hanya boleh terhubung ke satu user.
+
+**`PN-06-T02` — Role Agent**
+- Tambah role `Agent` pada `master_data.roles`.
+- Buat IAM access untuk role Agent.
+- Permission Agent dibatasi ke Partner Network dan action yang relevan.
+
+**`PN-06-T03` — Auto-create login Agent**
+- Saat application Agent dikonversi, sistem membuat akun `auth.users`.
+- Username memakai email Agent jika tersedia, fallback ke kode Agent.
+- Password awal: `agent12345`, dengan `need_update_password = true`.
+
+**`PN-06-T04` — Partner scope**
+- User Agent hanya melihat data Agent miliknya.
+- User Agent hanya melihat Reseller dan application yang assigned ke dirinya.
+
+**`PN-06-T05` — Replenishment scope**
+- User Agent hanya melihat replenishment order miliknya.
+- Receive/return dibatasi ke order yang memiliki `agent_id` sesuai Agent login.
+
+### Partner Network Sprint Recommendation
+
+| Sprint | Epic | Fokus |
+|---|---|---|
+| Sprint 1 | `PN-00` + `PN-01` | Registration/application workflow + schema partner |
+| Sprint 2 | `PN-02` + `PN-03` | Ownership warehouse Agent + refactor replenishment |
+| Sprint 3 | `PN-04` + `PN-06` | UI Agent/Reseller + Agent login access |
+| Sprint 4 | `PN-05` | Reporting, permission, dan hardening akses |
+
+## 15. Tracking Summary (Current Inventory)
 
 | Module | Epic Count | Task Count | Status |
 |---|---:|---:|---|
@@ -496,7 +824,10 @@
 | Customer | 1 | 3 | Existing |
 | Product Master | 2 | 9 | Existing |
 | Inventory & Purchasing | 2 | 7 | Existing |
+| Bill of Materials (BOM) | 2 | 9 | Existing + Planned |
+| Production Order | 3 | 12 | Existing + Todo |
 | POS & Transaction | 2 | 6 | Existing |
 | Reporting | 2 | 5 | Existing |
 | CRM & Membership | 3 | 9 | Planned |
 | **Warehouse & Multi-Location WMS** | **6** | **35** | **Migration Done / App Todo** |
+| **Partner Network: Agent & Reseller Warehouse** | **7** | **33** | **Implemented** |

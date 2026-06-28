@@ -17,6 +17,7 @@ class ProductPurchaseOrderReceive extends Model
 
     protected $fillable = [
         'purchase_order_id',
+        'warehouse_id',
         'receive_number',
         'receive_date',
         'notes',
@@ -32,6 +33,11 @@ class ProductPurchaseOrderReceive extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(ProductPurchaseOrder::class, 'purchase_order_id', 'id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 
     public function items(): HasMany

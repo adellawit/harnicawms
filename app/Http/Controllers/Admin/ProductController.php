@@ -16,14 +16,23 @@ use App\Models\ProductUnitConversion;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantAttribute;
 use App\Models\ProductVariantPrice;
+use App\Services\Product\ProductLabelSerialService;
+use App\Services\Product\ProductQrCodeService;
+use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\DataTables;
 
 class ProductController extends Controller
 {
+    private const BARCODE_SINGLE_MAX_LABELS = 500;
+
+    private const BARCODE_HIERARCHY_MAX_LABELS = 5000;
+
     protected function generateSku(): string
     {
         // Format: DDMMYYYY + 7-digit sequence
@@ -54,33 +63,86 @@ class ProductController extends Controller
         return $prefix.'-'.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
     }
 
+    protected function productParameterOptions(string $code)
+    {
+        return ParameterDetail::query()
+            ->whereHas('parameter', fn ($q) => $q->where('code', $code))
+            ->whereNull('deleted_at')
+            ->orderBy('value')
+            ->get(['id', 'key', 'value', 'description']);
+    }
+
+    protected function defaultProductParameterId(string $code, string $key): ?string
+    {
+        return ParameterDetail::query()
+            ->whereHas('parameter', fn ($q) => $q->where('code', $code))
+            ->where('key', $key)
+            ->whereNull('deleted_at')
+            ->value('id');
+    }
+
     public function indexView(Request $request)
     {
         $status = $request->filled('status') ? $request->status : '';
         $branchId = $request->get('branch_id', auth('web')->user()->current_business_unit_id);
-        $isFilter = $status !== '' || $request->filled('sku') || $request->filled('product') || $request->filled('nature_id') || $request->filled('category_id') || $branchId !== auth('web')->user()->current_business_unit_id;
+        $isFilter = $status !== ''
+            || $request->filled('sku')
+            || $request->filled('product')
+            || $request->filled('nature_id')
+            || $request->filled('category_id')
+            || $request->filled('item_type_id')
+            || $request->filled('product_nature_id')
+            || $request->filled('procurement_type_id')
+            || $request->filled('is_stock_item')
+            || $request->filled('is_sale_item')
+            || $request->filled('is_purchase_item')
+            || $branchId !== auth('web')->user()->current_business_unit_id;
         $natures = ProductNature::whereNull('deleted_at')
             ->orderBy('name')
             ->pluck('name', 'id');
         $categories = ProductCategory::whereNull('deleted_at')
             ->orderBy('name')
             ->pluck('name', 'id');
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE')->pluck('value', 'id');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE')->pluck('value', 'id');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE')->pluck('value', 'id');
 
-        return view('admin.product.master.index', compact('status', 'isFilter', 'natures', 'categories', 'branchId'));
+        return view('admin.product.master.index', compact(
+            'status',
+            'isFilter',
+            'natures',
+            'categories',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes',
+            'branchId'
+        ));
     }
 
     public function indexData(Request $request)
     {
-        $branchId = $request->get('branch_id', auth('web')->user()->current_business_unit_id);
+        try {
+            $user = auth('web')->user();
+            if (! $user) {
+                return response()->json(['error' => 'Unauthenticated'], 401);
+            }
 
-        $data = Product::select(
+            $branchId = $request->get('branch_id', $user->current_business_unit_id);
+
+            $data = Product::select(
             'products.id',
             'products.nature_id',
             'products.category_id',
+            'products.item_type_id',
+            'products.product_nature_id',
+            'products.procurement_type_id',
             'products.default_unit_id',
             'products.name',
             'products.code',
             'products.sku',
+            'products.is_stock_item',
+            'products.is_sale_item',
+            'products.is_purchase_item',
             'products.created_at',
             'products.deleted_at',
             'products.branch_id'
@@ -88,6 +150,9 @@ class ProductController extends Controller
             ->with([
                 'nature:id,name',
                 'category:id,name',
+                'itemType:id,value,key',
+                'productNature:id,value,key',
+                'procurementType:id,value,key',
                 'defaultUnit:id,name,symbol',
                 'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
                 'prices' => fn ($q) => $branchId ? $q->where('branch_id', $branchId) : $q,
@@ -119,6 +184,24 @@ class ProductController extends Controller
 
         if ($request->filled('category_id') && $request->category_id !== '') {
             $data = $data->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('item_type_id') && $request->item_type_id !== '') {
+            $data = $data->where('item_type_id', $request->item_type_id);
+        }
+
+        if ($request->filled('product_nature_id') && $request->product_nature_id !== '') {
+            $data = $data->where('product_nature_id', $request->product_nature_id);
+        }
+
+        if ($request->filled('procurement_type_id') && $request->procurement_type_id !== '') {
+            $data = $data->where('procurement_type_id', $request->procurement_type_id);
+        }
+
+        foreach (['is_stock_item', 'is_sale_item', 'is_purchase_item'] as $flag) {
+            if ($request->filled($flag) && $request->{$flag} !== '') {
+                $data = $data->where($flag, (bool) $request->{$flag});
+            }
         }
 
         if ($request->filled('status') && $request->status !== '') {
@@ -165,6 +248,23 @@ class ProductController extends Controller
             })
             ->addColumn('nature_name', fn ($row) => $row->nature?->name ?? '-')
             ->addColumn('category_name', fn ($row) => $row->category?->name ?? '-')
+            ->addColumn('item_type_name', fn ($row) => $row->itemType?->value ?? '-')
+            ->addColumn('product_nature_name', fn ($row) => $row->productNature?->value ?? '-')
+            ->addColumn('procurement_type_name', fn ($row) => $row->procurementType?->value ?? '-')
+            ->addColumn('lifecycle_flags', function ($row) {
+                $badges = [];
+                $badges[] = $row->is_stock_item
+                    ? '<span class="badge bg-label-primary me-1">Stock</span>'
+                    : '<span class="badge bg-label-secondary me-1">Non Stock</span>';
+                if ($row->is_sale_item) {
+                    $badges[] = '<span class="badge bg-label-success me-1">Sales</span>';
+                }
+                if ($row->is_purchase_item) {
+                    $badges[] = '<span class="badge bg-label-info me-1">Purchase</span>';
+                }
+
+                return implode('', $badges);
+            })
             ->addColumn('purchase_price', function ($row) {
                 $factor = $row->getFactorToSmallest();
                 $smallUnitId = $row->getSmallestUnitId();
@@ -178,7 +278,8 @@ class ProductController extends Controller
                 return format_number($bigPrice, 2, true).' <small class="text-muted">/ '.$unitLabel.'</small>';
             })
             ->filter(function ($query) use ($request) {
-                if ($search = $request->get('search')['value'] ?? null) {
+                $search = data_get($request->all(), 'search.value');
+                if ($search) {
                     $query->where(function ($q) use ($search) {
                         $q->where('name', 'LIKE', "%{$search}%")
                             ->orWhere('code', 'LIKE', "%{$search}%")
@@ -186,41 +287,486 @@ class ProductController extends Controller
                     });
                 }
             })
-            ->rawColumns(['variants_list', 'nature_name', 'unit_name', 'purchase_price'])
-            ->toJson();
+            ->rawColumns(['variants_list', 'nature_name', 'unit_name', 'purchase_price', 'lifecycle_flags'])
+            ->make(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => config('app.debug') ? $e->getMessage() : 'Gagal memuat data produk.',
+            ], 500);
+        }
     }
 
-    public function printBarcodeView(string $id)
+    public function printBarcodeView(string $id, ProductLabelSerialService $serialService)
     {
         $product = Product::with([
+            'defaultUnit',
+            'unitConversions.fromUnit',
+            'unitConversions.toUnit',
             'variants' => fn ($q) => $q->whereNull('deleted_at')
                 ->with(['variantAttributes.attributeValue:id,value'])
                 ->orderBy('sort_order')
                 ->orderBy('sku'),
         ])->findOrFail($id);
 
-        $labels = $product->variants->map(function (ProductVariant $variant) use ($product) {
+        $variants = $product->variants->map(function (ProductVariant $variant) use ($product) {
             $attrs = $variant->variantAttributes
                 ->pluck('attributeValue.value')
                 ->filter()
                 ->implode(' / ');
 
-            $barcode = $variant->barcode ?: $variant->sku ?: $product->sku ?: $product->code;
-
             return [
                 'id' => $variant->id,
-                'sku' => $variant->sku ?: $product->sku ?: '-',
-                'barcode' => (string) $barcode,
-                'variant_label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
-                'product_name' => $product->name,
-                'is_active' => (bool) $variant->is_active,
+                'label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
             ];
-        })->filter(fn (array $label) => filled($label['barcode']))->values();
+        })->values();
+
+        $units = $product->getBarcodeUnits()->values()->map(function (ProductUnit $unit, int $index) use ($product, $serialService) {
+            $level = $index + 1;
+
+            return [
+                'id' => $unit->id,
+                'label' => $unit->symbol ?: $unit->name,
+                'name' => $unit->name,
+                'level' => $level,
+                'format_example' => $serialService->formatExample($level),
+                'conversion_hint' => $product->getBarcodeUnitConversionHint($unit->id),
+                'content_summary' => $product->getBarcodeUnitLabelContent($unit->id),
+                'child_labels_hint' => $product->getChildLabelsPerParent($unit->id),
+            ];
+        })->values();
+
+        $unitChain = $product->getBarcodeUnitChain()->map(fn (array $item) => [
+            'unit_id' => $item['unit']->id,
+            'level' => $item['level'],
+            'label' => $item['unit']->symbol ?: $item['unit']->name,
+            'factor_to_next' => $item['factor_to_next'],
+        ])->values();
+
+        $distributor = WmsContext::distributor();
+        $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
+
+        $labelsPerParent = $product->getBarcodeHierarchyTotalLabels(1, $product->default_unit_id);
+        $maxHierarchyParentQty = $product->getMaxHierarchyParentQty(
+            self::BARCODE_HIERARCHY_MAX_LABELS,
+            $product->default_unit_id
+        );
 
         return view('admin.product.master.print-barcode', [
             'product' => $product,
+            'variants' => $variants,
+            'units' => $units,
+            'unitChain' => $unitChain,
+            'defaultUnitId' => $product->default_unit_id,
+            'distributorName' => $distributorName,
+            'hasUnitHierarchy' => $units->count() > 1,
+            'singlePrintMaxLabels' => self::BARCODE_SINGLE_MAX_LABELS,
+            'hierarchyPrintMaxLabels' => self::BARCODE_HIERARCHY_MAX_LABELS,
+            'labelsPerParent' => $labelsPerParent,
+            'maxHierarchyParentQty' => $maxHierarchyParentQty,
+        ]);
+    }
+
+    public function printBarcodePreview(Request $request, string $id, ProductLabelSerialService $serialService, ProductQrCodeService $qrCodeService)
+    {
+        $validated = $this->validatePrintBarcodeRequest($request, $id);
+
+        $product = $validated['product'];
+        $unit = $validated['unit'];
+        $unitLevel = $validated['unit_level'];
+        $printMode = $validated['print_mode'];
+        $quantity = (int) $request->quantity;
+        $variantId = $request->variant_id ?: null;
+        $previewLimit = 24;
+
+        if ($printMode === 'hierarchy') {
+            $breakdown = $product->getBarcodeQuantityBreakdown($quantity, $unit->id);
+            $labels = collect();
+            $breakdownMeta = [];
+            $totalLabels = 0;
+
+            foreach ($breakdown as $item) {
+                $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+                if (! $levelUnit) {
+                    continue;
+                }
+
+                $itemQty = (int) $item['qty'];
+                $totalLabels += $itemQty;
+                $serials = $serialService->peekNextSerials($itemQty, $product->id, $levelUnit->id, $item['level']);
+                $displaySerials = array_slice($serials, 0, min(3, $itemQty));
+
+                $breakdownMeta[] = [
+                    'unit_id' => $item['unit_id'],
+                    'level' => $item['level'],
+                    'label' => $item['label'],
+                    'qty' => $itemQty,
+                    'content_summary' => $item['content_summary'],
+                    'serial_from' => $serials[0] ?? null,
+                    'serial_to' => $serials[$itemQty - 1] ?? null,
+                ];
+
+                foreach ($displaySerials as $serial) {
+                    if ($labels->count() >= $previewLimit) {
+                        break 2;
+                    }
+
+                    $labels->push($this->mapBarcodeLabel(
+                        $serial,
+                        $product,
+                        $levelUnit,
+                        $qrCodeService,
+                        $item['level'],
+                        $item['content_summary']
+                    ));
+                }
+            }
+
+            $batchId = (string) Str::uuid();
+            session()->put("barcode_preview.{$batchId}", [
+                'print_mode' => 'hierarchy',
+                'product_id' => $product->id,
+                'variant_id' => $variantId,
+                'parent_unit_id' => $unit->id,
+                'parent_quantity' => $quantity,
+                'breakdown' => $breakdownMeta,
+                'total_labels' => $totalLabels,
+                'user_id' => auth('web')->id(),
+                'created_at' => now()->timestamp,
+            ]);
+
+            return response()->json([
+                'batch_id' => $batchId,
+                'print_mode' => 'hierarchy',
+                'total' => $totalLabels,
+                'displayed' => $labels->count(),
+                'parent_quantity' => $quantity,
+                'breakdown' => $breakdownMeta,
+                'distributor_name' => $validated['distributor_name'],
+                'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+                'unit_level' => $unitLevel,
+                'labels' => $labels->values(),
+            ]);
+        }
+
+        $serials = $serialService->peekNextSerials($quantity, $product->id, $unit->id, $unitLevel);
+        $displaySerials = array_slice($serials, 0, $previewLimit);
+        $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
+
+        $labels = collect($displaySerials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary) {
+            return $this->mapBarcodeLabel($serial, $product, $unit, $qrCodeService, $unitLevel, $contentSummary);
+        })->values();
+
+        $batchId = (string) Str::uuid();
+        session()->put("barcode_preview.{$batchId}", [
+            'print_mode' => 'single',
+            'product_id' => $product->id,
+            'variant_id' => $variantId,
+            'unit_id' => $unit->id,
+            'quantity' => $quantity,
+            'serial_from' => $serials[0] ?? null,
+            'serial_to' => $serials[$quantity - 1] ?? null,
+            'user_id' => auth('web')->id(),
+            'created_at' => now()->timestamp,
+        ]);
+
+        return response()->json([
+            'batch_id' => $batchId,
+            'print_mode' => 'single',
+            'total' => $quantity,
+            'displayed' => count($displaySerials),
+            'serial_from' => $serials[0] ?? null,
+            'serial_to' => $serials[$quantity - 1] ?? null,
+            'distributor_name' => $validated['distributor_name'],
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'content_summary' => $contentSummary,
+            'format_hint' => $serialService->formatExample($unitLevel),
             'labels' => $labels,
         ]);
+    }
+
+    public function printBarcodePdf(Request $request, string $id, ProductLabelSerialService $serialService, ProductQrCodeService $qrCodeService)
+    {
+        $request->validate([
+            'batch_id' => 'required|uuid',
+        ]);
+
+        $validated = $this->validatePrintBarcodeRequest($request, $id);
+
+        $product = $validated['product'];
+        $unit = $validated['unit'];
+        $variantId = $request->variant_id ?: null;
+        $unitId = $unit->id;
+        $batchId = $request->batch_id;
+        $batch = session("barcode_preview.{$batchId}");
+        $printMode = $validated['print_mode'];
+
+        if (! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity)) {
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Preview kedaluwarsa atau tidak valid. Silakan preview ulang sebelum generate PDF.');
+        }
+
+        try {
+            if ($printMode === 'hierarchy') {
+                $labels = $this->allocateHierarchyBarcodeLabels(
+                    $product,
+                    $unit,
+                    (int) $request->quantity,
+                    $batch['breakdown'] ?? [],
+                    $variantId,
+                    $serialService,
+                    $qrCodeService
+                );
+            } else {
+                $serials = $serialService->allocateSerials(
+                    (int) $request->quantity,
+                    $product->id,
+                    $unitId,
+                    $validated['unit_level'],
+                    $variantId,
+                    auth('web')->id()
+                );
+
+                if (($batch['serial_from'] ?? null) !== ($serials[0] ?? null)) {
+                    session()->forget("barcode_preview.{$batchId}");
+
+                    return redirect()
+                        ->route('product.print-barcode.view', $product->id)
+                        ->with('error', 'Nomor seri berubah karena ada cetak lain. Silakan preview ulang.');
+                }
+
+                $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
+                $labels = $this->buildBarcodeLabels(
+                    $serials,
+                    $product,
+                    $unit,
+                    $qrCodeService,
+                    $validated['unit_level'],
+                    $contentSummary
+                );
+            }
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            session()->forget("barcode_preview.{$batchId}");
+
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Nomor barcode bentrok dengan data lama. Silakan preview ulang.');
+        } catch (\RuntimeException) {
+            session()->forget("barcode_preview.{$batchId}");
+
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Nomor seri berubah karena ada cetak lain. Silakan preview ulang.');
+        }
+
+        session()->forget("barcode_preview.{$batchId}");
+
+        $filename = 'barcode-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $product->code).'-'.date('YmdHis').'.pdf';
+
+        return Pdf::loadView('admin.product.master.pdf-barcode', [
+            'labels' => $labels,
+            'distributorName' => $validated['distributor_name'],
+            'productName' => $product->name,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->download($filename);
+    }
+
+    protected function isBarcodePreviewBatchValid(
+        ?array $batch,
+        string $productId,
+        ?string $variantId,
+        string $printMode,
+        string $unitId,
+        int $quantity
+    ): bool {
+        if (! $batch
+            || ($batch['product_id'] ?? null) !== $productId
+            || ($batch['user_id'] ?? null) !== auth('web')->id()
+            || ($batch['print_mode'] ?? 'single') !== $printMode
+            || ($batch['variant_id'] ?? null) !== $variantId
+            || (now()->timestamp - ($batch['created_at'] ?? 0)) > 1800
+        ) {
+            return false;
+        }
+
+        if ($printMode === 'hierarchy') {
+            return ($batch['parent_unit_id'] ?? null) === $unitId
+                && (int) ($batch['parent_quantity'] ?? 0) === $quantity;
+        }
+
+        return ($batch['unit_id'] ?? null) === $unitId
+            && (int) ($batch['quantity'] ?? 0) === $quantity;
+    }
+
+    /**
+     * @param  array<int, array{unit_id: string, level: int, qty: int, serial_from?: string|null}>  $breakdownPreview
+     * @return array<int, array<string, mixed>>
+     */
+    protected function allocateHierarchyBarcodeLabels(
+        Product $product,
+        ProductUnit $parentUnit,
+        int $parentQuantity,
+        array $breakdownPreview,
+        ?string $variantId,
+        ProductLabelSerialService $serialService,
+        ProductQrCodeService $qrCodeService
+    ): array {
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id);
+        $labels = [];
+
+        foreach ($breakdown as $index => $item) {
+            $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+            if (! $levelUnit) {
+                continue;
+            }
+
+            $serials = $serialService->allocateSerials(
+                (int) $item['qty'],
+                $product->id,
+                $levelUnit->id,
+                $item['level'],
+                $variantId,
+                auth('web')->id()
+            );
+
+            $expectedFrom = $breakdownPreview[$index]['serial_from'] ?? null;
+            if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
+                throw new \RuntimeException('Serial mismatch during hierarchy print.');
+            }
+
+            $levelLabels = $this->buildBarcodeLabels(
+                $serials,
+                $product,
+                $levelUnit,
+                $qrCodeService,
+                $item['level'],
+                $item['content_summary']
+            );
+
+            $labels = array_merge($labels, $levelLabels);
+        }
+
+        return $labels;
+    }
+
+    protected function validatePrintBarcodeRequest(Request $request, string $id): array
+    {
+        $printMode = $request->input('print_mode', 'hierarchy');
+        $maxQty = $printMode === 'hierarchy'
+            ? self::BARCODE_HIERARCHY_MAX_LABELS
+            : self::BARCODE_SINGLE_MAX_LABELS;
+
+        $request->validate([
+            'quantity' => "required|integer|min:1|max:{$maxQty}",
+            'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
+            'unit_id' => 'required|uuid|exists:product.product_units,id',
+            'print_mode' => 'nullable|in:single,hierarchy',
+        ]);
+
+        $product = Product::with([
+            'defaultUnit',
+            'unitConversions.fromUnit',
+            'unitConversions.toUnit',
+            'variants' => fn ($q) => $q->whereNull('deleted_at'),
+        ])->findOrFail($id);
+
+        $variantId = $request->variant_id;
+        if ($variantId && ! $product->variants->contains('id', $variantId)) {
+            abort(422, 'Variant tidak valid untuk produk ini.');
+        }
+
+        if (! $product->hasBarcodeUnit($request->unit_id)) {
+            abort(422, 'Satuan tidak valid untuk produk ini.');
+        }
+
+        $unit = $product->getBarcodeUnits()->firstWhere('id', $request->unit_id);
+        if (! $unit) {
+            abort(422, 'Satuan tidak ditemukan.');
+        }
+
+        $defaultUnit = $product->getBarcodeUnits()->first();
+        if ($printMode === 'hierarchy') {
+            if ($product->getBarcodeUnits()->count() < 2) {
+                abort(422, 'Mode hierarki membutuhkan minimal 2 level satuan.');
+            }
+
+            if ($defaultUnit && $unit->id !== $defaultUnit->id) {
+                abort(422, 'Mode hierarki hanya boleh menggunakan satuan terbesar.');
+            }
+
+            $totalLabels = $product->getBarcodeHierarchyTotalLabels((int) $request->quantity, $unit->id);
+            $maxTotal = self::BARCODE_HIERARCHY_MAX_LABELS;
+            if ($totalLabels > $maxTotal) {
+                $maxParentQty = $product->getMaxHierarchyParentQty($maxTotal, $unit->id);
+                abort(422, "Total label ({$totalLabels}) melebihi batas {$maxTotal}. Maks. qty satuan terbesar: {$maxParentQty}.");
+            }
+        } elseif ((int) $request->quantity > self::BARCODE_SINGLE_MAX_LABELS) {
+            abort(422, 'Maksimal '.self::BARCODE_SINGLE_MAX_LABELS.' label per cetak (mode satuan tunggal).');
+        }
+
+        $distributor = WmsContext::distributor();
+        $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
+
+        return [
+            'product' => $product,
+            'unit' => $unit,
+            'unit_level' => $product->getBarcodeUnitLevel($unit->id),
+            'print_mode' => $printMode,
+            'distributor_name' => $distributorName,
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $serials
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildBarcodeLabels(
+        array $serials,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        ?string $contentSummary = null
+    ): array {
+        return collect($serials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary) {
+            return $this->mapBarcodeLabel($serial, $product, $unit, $qrCodeService, $unitLevel, $contentSummary);
+        })->all();
+    }
+
+    /**
+     * @return array{serial: string, product_name: string, unit_label: string, unit_level: int, label_type: string, content_summary: string|null, qr_data_uri: string}
+     */
+    protected function mapBarcodeLabel(
+        string $serial,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        ?string $contentSummary = null
+    ): array {
+        $labelType = match ($unitLevel) {
+            1 => 'karton',
+            2 => 'pack',
+            default => 'box',
+        };
+
+        return [
+            'serial' => $serial,
+            'product_name' => $product->name,
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'label_type' => $labelType,
+            'content_summary' => $contentSummary,
+            'qr_data_uri' => $qrCodeService->toPngDataUri($serial),
+        ];
     }
 
     // === STEP 1: Insert Product Basic Info ===
@@ -256,6 +802,12 @@ class ProductController extends Controller
             })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE');
+        $defaultItemTypeId = $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
+        $defaultProductNatureId = $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
+        $defaultProcurementTypeId = $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
 
         // Check for temp data from previous attempts
         $tempProduct = session()->get('temp_product', []);
@@ -263,7 +815,19 @@ class ProductController extends Controller
         // Generate auto code for new products
         $generatedCode = $this->generateCode();
 
-        return view('admin.product.master.insert-step1', compact('natures', 'categories', 'units', 'tempProduct', 'generatedCode'));
+        return view('admin.product.master.insert-step1', compact(
+            'natures',
+            'categories',
+            'units',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes',
+            'defaultItemTypeId',
+            'defaultProductNatureId',
+            'defaultProcurementTypeId',
+            'tempProduct',
+            'generatedCode'
+        ));
     }
 
     public function insertDataStep1(Request $request)
@@ -274,10 +838,14 @@ class ProductController extends Controller
         ]);
 
         $branchId = auth('web')->user()->current_business_unit_id;
+        $companyId = auth('web')->user()->getCompanyIdForProduct();
 
         $request->validate([
             'nature_id' => 'nullable|exists:product.product_natures,id',
             'category_id' => 'nullable|exists:product.product_categories,id',
+            'item_type_id' => 'nullable|exists:public.parameter_details,id',
+            'product_nature_id' => 'nullable|exists:public.parameter_details,id',
+            'procurement_type_id' => 'nullable|exists:public.parameter_details,id',
             'default_unit_id' => 'required|exists:product.product_units,id',
             'name' => [
                 'required', 'string', 'max:255',
@@ -291,12 +859,21 @@ class ProductController extends Controller
                     }
                 },
             ],
-            'code' => 'nullable|string|max:100|unique:product.products,code',
+            'code' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('product.products', 'code')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'description' => 'nullable|string',
             'min_stock' => 'nullable|numeric|min:0',
             'max_stock' => 'nullable|numeric|min:0',
             'has_variants' => 'nullable|boolean',
+            'is_stock_item' => 'nullable|boolean',
             'is_sale_item' => 'nullable|boolean',
+            'is_purchase_item' => 'nullable|boolean',
+            'cogs_account_code' => 'nullable|string|max:50',
+            'revenue_account_code' => 'nullable|string|max:50',
         ], [
             'code.unique' => 'Code already exists.',
         ]);
@@ -308,19 +885,26 @@ class ProductController extends Controller
         session()->put('temp_product', [
             'nature_id' => $request->nature_id ?: null,
             'category_id' => $request->category_id ?: null,
+            'item_type_id' => $request->item_type_id ?: null,
+            'product_nature_id' => $request->product_nature_id ?: null,
+            'procurement_type_id' => $request->procurement_type_id ?: null,
             'default_unit_id' => $request->default_unit_id,
             'name' => $request->name,
             'code' => $code,
             'description' => $request->description,
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
-            'has_variants' => $request->has('has_variants'),
+            'has_variants' => $request->boolean('has_variants'),
+            'is_stock_item' => $request->boolean('is_stock_item', true),
             'is_sale_item' => $request->boolean('is_sale_item'),
+            'is_purchase_item' => $request->boolean('is_purchase_item', true),
+            'cogs_account_code' => $request->cogs_account_code,
+            'revenue_account_code' => $request->revenue_account_code,
             'purchase_price' => normalize_number_input($request->purchase_price),
             'selling_price' => normalize_number_input($request->selling_price),
         ]);
 
-        if ($request->has('has_variants')) {
+        if ($request->boolean('has_variants')) {
             return redirect()->route('product.insert.view.step2');
         } else {
             return redirect()->route('product.insert.view.step3');
@@ -437,11 +1021,13 @@ class ProductController extends Controller
                 ->get(['id', 'name', 'symbol']);
 
             $conversions = session()->get('temp_conversions', []);
+            $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
 
             return view('admin.product.master.insert-step3-prices', compact(
                 'tempProduct',
                 'units',
                 'conversions',
+                'selectedUnit',
                 'branchId',
                 'companyId'
             ));
@@ -462,22 +1048,23 @@ class ProductController extends Controller
 
         $branchId = auth('web')->user()->current_business_unit_id;
         $companyId = auth('web')->user()->getCompanyIdForProduct();
+        $hasVariants = (bool) ($tempProduct['has_variants'] ?? false);
 
         // Get variants from request body or session
         $variants = [];
-        if ($request->has('variants')) {
+        if ($hasVariants && $request->has('variants')) {
             $variantsData = $request->input('variants');
             if (is_string($variantsData)) {
                 $variants = json_decode($variantsData, true) ?? [];
             } else {
                 $variants = $variantsData;
             }
-        } else {
+        } elseif ($hasVariants) {
             $variants = session()->get('temp_variants', []);
         }
 
-        // Validate at least one variant
-        if (empty($variants)) {
+        // Validate at least one variant only when this product uses variants.
+        if ($hasVariants && empty($variants)) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'Please add at least one variant.']);
             }
@@ -489,9 +1076,9 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             $user = auth('web')->user();
-            $itemTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'ITEM_TYPE'))->where('key', 'raw_material')->value('id');
-            $productNatureId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PRODUCT_NATURE'))->where('key', 'inventory')->value('id');
-            $procurementTypeId = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PROCUREMENT_TYPE'))->where('key', 'purchase')->value('id');
+            $itemTypeId = $tempProduct['item_type_id'] ?? $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
+            $productNatureId = $tempProduct['product_nature_id'] ?? $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
+            $procurementTypeId = $tempProduct['procurement_type_id'] ?? $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
 
             // Get the smallest unit for price calculation
             $smallestUnitId = null;
@@ -522,11 +1109,13 @@ class ProductController extends Controller
                 'code' => $tempProduct['code'] ?? null,
                 'description' => $tempProduct['description'],
                 'sku' => $this->generateSku(),
-                'is_stock_item' => true,
+                'is_stock_item' => (bool) ($tempProduct['is_stock_item'] ?? true),
                 'is_sale_item' => (bool) ($tempProduct['is_sale_item'] ?? false),
-                'is_purchase_item' => true,
+                'is_purchase_item' => (bool) ($tempProduct['is_purchase_item'] ?? true),
                 'min_stock' => $tempProduct['min_stock'] ?? 0,
                 'max_stock' => $tempProduct['max_stock'] ?? null,
+                'cogs_account_code' => $tempProduct['cogs_account_code'] ?? null,
+                'revenue_account_code' => $tempProduct['revenue_account_code'] ?? null,
                 'created_by' => $user->id,
                 'updated_by' => $user->id,
             ]);
@@ -549,8 +1138,6 @@ class ProductController extends Controller
             $factor = $product->getFactorToSmallest();
             $smallestUnitId = $product->getSmallestUnitId();
             $defaultUnitId = $product->default_unit_id;
-
-            $hasVariants = $tempProduct['has_variants'] ?? false;
 
             if ($hasVariants) {
                 // Create variants with prices
@@ -625,6 +1212,11 @@ class ProductController extends Controller
                 }
             } else {
                 // No variants - create default variant and prices
+                if ($request->filled('purchase_price') || $request->filled('selling_price')) {
+                    $tempProduct['purchase_price'] = normalize_number_input($request->purchase_price);
+                    $tempProduct['selling_price'] = normalize_number_input($request->selling_price);
+                }
+
                 $variant = ProductVariant::create([
                     'product_id' => $product->id,
                     'sku' => null,
@@ -724,8 +1316,19 @@ class ProductController extends Controller
             })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
+        $itemTypes = $this->productParameterOptions('ITEM_TYPE');
+        $productNatures = $this->productParameterOptions('PRODUCT_NATURE');
+        $procurementTypes = $this->productParameterOptions('PROCUREMENT_TYPE');
 
-        return view('admin.product.master.edit', compact('product', 'natures', 'categories', 'units'));
+        return view('admin.product.master.edit', compact(
+            'product',
+            'natures',
+            'categories',
+            'units',
+            'itemTypes',
+            'productNatures',
+            'procurementTypes'
+        ));
     }
 
     public function variantsView(Request $request, $productId)
@@ -1071,11 +1674,15 @@ class ProductController extends Controller
         ]);
 
         $branchId = auth('web')->user()->current_business_unit_id;
+        $companyId = auth('web')->user()->getCompanyIdForProduct();
 
         $request->validate([
             'id' => 'required|exists:product.products,id',
             'nature_id' => 'nullable|exists:product.product_natures,id',
             'category_id' => 'nullable|exists:product.product_categories,id',
+            'item_type_id' => 'nullable|exists:public.parameter_details,id',
+            'product_nature_id' => 'nullable|exists:public.parameter_details,id',
+            'procurement_type_id' => 'nullable|exists:public.parameter_details,id',
             'default_unit_id' => 'required|exists:product.product_units,id',
             'name' => [
                 'required', 'string', 'max:255',
@@ -1090,10 +1697,22 @@ class ProductController extends Controller
                     }
                 },
             ],
-            'code' => ['nullable', 'string', 'max:100', Rule::unique('product.products', 'code')->ignore($request->id)],
+            'code' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('product.products', 'code')
+                    ->where(fn ($query) => $query->where('company_id', $companyId))
+                    ->ignore($request->id),
+            ],
             'description' => 'nullable|string',
             'min_stock' => 'nullable|numeric|min:0',
             'max_stock' => 'nullable|numeric|min:0',
+            'is_stock_item' => 'nullable|boolean',
+            'is_sale_item' => 'nullable|boolean',
+            'is_purchase_item' => 'nullable|boolean',
+            'cogs_account_code' => 'nullable|string|max:50',
+            'revenue_account_code' => 'nullable|string|max:50',
         ], [
             'code.unique' => 'Code already exists.',
         ]);
@@ -1103,12 +1722,20 @@ class ProductController extends Controller
         $product->update([
             'nature_id' => $request->nature_id ?: null,
             'category_id' => $request->category_id ?: null,
+            'item_type_id' => $request->item_type_id ?: null,
+            'product_nature_id' => $request->product_nature_id ?: null,
+            'procurement_type_id' => $request->procurement_type_id ?: null,
             'default_unit_id' => $request->default_unit_id,
             'name' => $request->name,
             'code' => $request->code ?: null,
             'description' => $request->description,
+            'is_stock_item' => $request->boolean('is_stock_item'),
+            'is_sale_item' => $request->boolean('is_sale_item'),
+            'is_purchase_item' => $request->boolean('is_purchase_item'),
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
+            'cogs_account_code' => $request->cogs_account_code ?: null,
+            'revenue_account_code' => $request->revenue_account_code ?: null,
             'updated_by' => $user->id,
         ]);
 
@@ -1320,11 +1947,17 @@ class ProductController extends Controller
             'No', 'SKU', 'Kode', 'Product', 'Nature', 'Satuan Besar',
             'Konversi', 'Satuan Kecil', 'Jumlah (Satuan Besar)',
             'Harga Beli Satuan Besar', 'Jumlah Minimum (Satuan Besar)', 'Kategori',
+            'Item Type', 'Inventory Nature', 'Procurement Type',
+            'Stock Item', 'Sales Item', 'Purchase Item',
+            'COGS Account', 'Revenue Account',
         ];
 
         $example = [
-            1, '', 'AQ-001', 'Aqua', 'Dus',
+            1, '', 'AQ-001', 'Aqua', 'Finished Good', 'Dus',
             24, 'Botol', 10, 50000, 5, 'Minuman',
+            'Finished Good', 'Inventory Item', 'Purchase',
+            'Yes', 'Yes', 'Yes',
+            '5000', '4000',
         ];
 
         $callback = function () use ($headers, $example) {

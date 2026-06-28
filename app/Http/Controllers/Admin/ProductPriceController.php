@@ -82,7 +82,7 @@ class ProductPriceController extends Controller
         $allNatures = ProductNature::orderBy('name')->get(['id', 'name']);
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
-        $costBranchIds = $this->costBranchIds($companyId, $branchId);
+        $costLocations = $this->costLocations($companyId, $branchId);
 
         $variantPrices = collect();
         $baseVariantPrices = collect();
@@ -97,10 +97,11 @@ class ProductPriceController extends Controller
                 ->keyBy(fn ($p) => $p->variant_id . '_' . $p->unit_id);
         }
 
-        if ($costBranchIds->isNotEmpty()) {
+        $basePriceBranchIds = $costLocations->pluck('branch_id')->filter()->unique()->values();
+        if ($basePriceBranchIds->isNotEmpty()) {
             $baseVariantPrices = ProductVariantPrice::query()
                 ->whereNull('price_list_id')
-                ->whereIn('branch_id', $costBranchIds)
+                ->whereIn('branch_id', $basePriceBranchIds)
                 ->get()
                 ->groupBy(fn ($p) => $p->variant_id . '_' . $p->unit_id)
                 ->map(fn ($rows) => $rows->first(fn ($r) => (float) $r->purchase_price > 0) ?? $rows->first());
@@ -125,7 +126,7 @@ class ProductPriceController extends Controller
                     $hpp = $this->resolveVariantHpp(
                         $variant->id,
                         $unit?->id ?? $product->default_unit_id,
-                        $costBranchIds,
+                        $costLocations,
                         $baseVariantPrices,
                         $variant
                     );
@@ -167,7 +168,7 @@ class ProductPriceController extends Controller
                 $hpp = $this->resolveVariantHpp(
                     $defaultVariant->id,
                     $unit?->id ?? $product->default_unit_id,
-                    $costBranchIds,
+                    $costLocations,
                     $baseVariantPrices,
                     $defaultVariant
                 );
@@ -211,32 +212,44 @@ class ProductPriceController extends Controller
      *
      * @return \Illuminate\Support\Collection<int, string>
      */
-    protected function costBranchIds(?string $companyId, ?string $branchId)
+    protected function costLocations(?string $companyId, ?string $branchId)
     {
+        $fg = WmsContext::finishedGoodsWarehouse($companyId);
+        $wip = WmsContext::wipWarehouse($companyId);
+
         return collect([
-            optional(WmsContext::finishedGoodsWarehouse($companyId))->id,
-            optional(WmsContext::wipWarehouse($companyId))->id,
-            $branchId,
-        ])->filter()->unique()->values();
+            $fg ? ['branch_id' => $fg->branch_id ?: $branchId, 'warehouse_id' => $fg->id] : null,
+            $wip ? ['branch_id' => $wip->branch_id ?: $branchId, 'warehouse_id' => $wip->id] : null,
+            $branchId ? ['branch_id' => $branchId, 'warehouse_id' => null] : null,
+        ])->filter()->unique(fn ($item) => ($item['branch_id'] ?? '').'|'.($item['warehouse_id'] ?? ''))->values();
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, string>  $costBranchIds
+     * @param  \Illuminate\Support\Collection<int, array{branch_id:?string,warehouse_id:?string}>  $costLocations
      * @param  \Illuminate\Support\Collection<string, ProductVariantPrice>  $baseVariantPrices
      * @return array{fifo_cost: float, display: float}
      */
     protected function resolveVariantHpp(
         string $variantId,
         ?string $unitId,
-        $costBranchIds,
+        $costLocations,
         $baseVariantPrices,
         ProductVariant $variant
     ): array {
         $fifoCost = 0.0;
 
         if ($unitId) {
-            foreach ($costBranchIds as $costBranchId) {
-                $cost = FifoCostService::currentUnitCost($variantId, $costBranchId, $unitId);
+            foreach ($costLocations as $location) {
+                if (empty($location['branch_id'])) {
+                    continue;
+                }
+
+                $cost = FifoCostService::currentUnitCost(
+                    $variantId,
+                    $location['branch_id'],
+                    $unitId,
+                    $location['warehouse_id'] ?? null
+                );
                 if ($cost > 0) {
                     $fifoCost = $cost;
                     break;

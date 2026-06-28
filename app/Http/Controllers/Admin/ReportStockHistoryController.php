@@ -9,6 +9,7 @@ use App\Models\ProductNature;
 use App\Models\ProductStockMovement;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -96,8 +97,10 @@ class ReportStockHistoryController extends Controller
      */
     protected function buildCurrentStockData($paginator, string $branchId): array
     {
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+
         $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->get()
             ->keyBy('product_variant_id');
 

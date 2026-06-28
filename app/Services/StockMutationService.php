@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ProductStockMovement;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
+use App\Models\Warehouse;
 use App\Services\UnitConversionService;
 use Illuminate\Support\Facades\DB;
 
@@ -36,22 +37,25 @@ class StockMutationService
         ?string $userId = null,
         ?string $notes = null,
         ?string $date = null,
-        ?string $expiryDate = null
+        ?string $expiryDate = null,
+        ?string $warehouseId = null
     ): void {
         if ($quantity <= 0) {
             return;
         }
 
-        $stock = self::lockStock($variantId, $productId, $branchId, $unitId, $companyId, $userId);
+        [$warehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
+
+        $stock = self::lockStock($variantId, $productId, $operationalBranchId, $warehouseId, $unitId, $companyId, $userId);
         $before = (float) $stock->quantity;
         $after = $before + $quantity;
         $stock->quantity = $after;
         $stock->updated_by = $userId;
         $stock->save();
 
-        self::recordMovement($stock, $productId, $variantId, $companyId, $branchId, $unitId, 'in', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
+        self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'in', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
 
-        FifoCostService::addLayer($productId, $variantId, $companyId, $branchId, $unitId, $quantity, $unitCost, $referenceType, $referenceId, $userId, $date, $expiryDate);
+        FifoCostService::addLayer($productId, $variantId, $companyId, $operationalBranchId, $unitId, $quantity, $unitCost, $referenceType, $referenceId, $userId, $date, $expiryDate, $warehouseId);
     }
 
     /**
@@ -69,7 +73,8 @@ class StockMutationService
         string $referenceType,
         ?string $referenceId,
         ?string $userId = null,
-        ?string $notes = null
+        ?string $notes = null,
+        ?string $warehouseId = null
     ): array {
         if ($quantity <= 0) {
             return ['total_cost' => 0.0, 'unit_cost' => 0.0, 'earliest_expiry' => null];
@@ -77,7 +82,9 @@ class StockMutationService
 
         $product = ProductVariant::with(['product.unitConversions'])->find($variantId)?->product;
 
-        $stock = self::lockStock($variantId, $productId, $branchId, $unitId, $companyId, $userId);
+        [$warehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
+
+        $stock = self::lockStock($variantId, $productId, $operationalBranchId, $warehouseId, $unitId, $companyId, $userId);
         $before = (float) $stock->quantity;
 
         $deductInStockUnit = $quantity;
@@ -106,9 +113,9 @@ class StockMutationService
         $stock->updated_by = $userId;
         $stock->save();
 
-        self::recordMovement($stock, $productId, $variantId, $companyId, $branchId, $unitId, 'out', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
+        self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'out', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
 
-        $cogs = FifoCostService::consume($variantId, $branchId, $unitId, $quantity, $userId);
+        $cogs = FifoCostService::consume($variantId, $operationalBranchId, $unitId, $quantity, $userId, $warehouseId);
 
         return [
             'total_cost' => $cogs['total_cost'],
@@ -121,13 +128,14 @@ class StockMutationService
         ?string $variantId,
         string $productId,
         string $branchId,
+        ?string $warehouseId,
         string $unitId,
         ?string $companyId,
         ?string $userId
     ): ProductVariantStock {
         $stock = ProductVariantStock::query()
             ->where('product_variant_id', $variantId)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('deleted_at')
             ->lockForUpdate()
             ->first();
@@ -138,6 +146,7 @@ class StockMutationService
                 'product_id' => $productId,
                 'company_id' => $companyId,
                 'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId,
                 'unit_id' => $unitId,
                 'quantity' => 0,
                 'created_by' => $userId,
@@ -154,6 +163,7 @@ class StockMutationService
         ?string $variantId,
         ?string $companyId,
         string $branchId,
+        ?string $warehouseId,
         string $unitId,
         string $type,
         float $quantity,
@@ -170,6 +180,7 @@ class StockMutationService
             'product_id' => $productId,
             'company_id' => $companyId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'unit_id' => $unitId,
             'type' => $type,
             'quantity' => $quantity,
@@ -181,5 +192,34 @@ class StockMutationService
             'created_by' => $userId,
             'updated_by' => $userId,
         ]);
+    }
+
+    /**
+     * @return array{0: ?string, 1: string} [warehouse_id, operational_branch_id]
+     */
+    protected static function resolveWarehouseContext(string $branchId, ?string $warehouseId): array
+    {
+        $warehouse = null;
+
+        if ($warehouseId) {
+            $warehouse = Warehouse::query()->whereKey($warehouseId)->first();
+        }
+
+        if (! $warehouse) {
+            $warehouse = Warehouse::query()
+                ->where('id', $branchId)
+                ->orWhere('legacy_business_unit_id', $branchId)
+                ->first();
+        }
+
+        if (! $warehouse) {
+            $warehouse = Warehouse::defaultForBranch($branchId);
+        }
+
+        if (! $warehouse) {
+            return [null, $branchId];
+        }
+
+        return [$warehouse->id, $warehouse->branch_id ?: $warehouse->company_id ?: $branchId];
     }
 }

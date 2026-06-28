@@ -21,6 +21,7 @@ class ProductStockMovement extends Model
         'product_id',
         'company_id',
         'branch_id',
+        'warehouse_id',
         'unit_id',
         'stock_mutation_type_id',
         'type',
@@ -65,6 +66,16 @@ class ProductStockMovement extends Model
     public function stockMutationType(): BelongsTo
     {
         return $this->belongsTo(StockMutationType::class, 'stock_mutation_type_id', 'id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 
     /** @deprecated Use stockMutationType() - alias for view backward compatibility */

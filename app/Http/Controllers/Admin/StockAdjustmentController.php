@@ -10,6 +10,7 @@ use App\Models\ProductStockMovement;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
 use App\Models\StockMutationType;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 
 class StockAdjustmentController extends Controller
@@ -28,6 +29,7 @@ class StockAdjustmentController extends Controller
     {
         $defaultBranchId = $this->getBranchId();
         $branchId = $request->get('branch_id', $defaultBranchId);
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
         $perPage = $request->get('per_page', 20);
 
         $query = Product::with([
@@ -76,7 +78,7 @@ class StockAdjustmentController extends Controller
         $variantStocks = collect();
         if ($branchId) {
             $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->get()
                 ->keyBy('product_variant_id');
         }
@@ -170,6 +172,7 @@ class StockAdjustmentController extends Controller
         $userId = auth('web')->id();
         $notes = $request->notes ?: 'Stock adjustment';
         $adjusted = 0;
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
 
         $adjInType = StockMutationType::where('code', 'STOCK_ADJUSTMENT_IN')->first();
         $adjOutType = StockMutationType::where('code', 'STOCK_ADJUSTMENT_OUT')->first();
@@ -185,7 +188,7 @@ class StockAdjustmentController extends Controller
             $stock = ProductVariantStock::withTrashed()
                 ->where('product_variant_id', $variantId)
                 ->where('product_id', $productId)
-                ->where('branch_id', $branchId)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
                 ->first();
 
             $systemQty = $stock ? (float) $stock->quantity : 0;
@@ -202,6 +205,7 @@ class StockAdjustmentController extends Controller
                     'product_id' => $productId,
                     'company_id' => $companyId,
                     'branch_id' => $branchId,
+                    'warehouse_id' => $warehouseId,
                     'unit_id' => $unitId,
                     'quantity' => $physicalQty,
                     'created_by' => $userId,
@@ -216,6 +220,7 @@ class StockAdjustmentController extends Controller
                 'product_id' => $productId,
                 'company_id' => $companyId,
                 'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId,
                 'unit_id' => $unitId,
                 'stock_mutation_type_id' => ($isPositive ? $adjInType : $adjOutType)?->id,
                 'type' => $isPositive ? 'in' : 'out',

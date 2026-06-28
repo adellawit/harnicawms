@@ -35,7 +35,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * @see https://documentation.mailgun.com/en/latest/api-domains.html
+ * @see https://documentation.mailgun.com/docs/mailgun/api-reference/api-overview
  *
  * @author Sean Johnson <sean@mailgun.com>
  */
@@ -43,24 +43,36 @@ class Domain extends HttpApi
 {
     private const DKIM_SIZES = ['1024', '2048'];
 
-    /**
-     * Returns a list of domains on the account.
-     * @param  int                      $limit
-     * @param  int                      $skip
-     * @param  array                    $requestHeaders
-     * @return IndexResponse|array
-     * @throws ClientExceptionInterface
-     */
-    public function index(int $limit = 100, int $skip = 0, array $requestHeaders = [])
+    public function index(int $limit = 100, int $skip = 0, array $params = [], array $requestHeaders = [])
     {
-        Assert::range($limit, 1, 1000);
+        if ($limit) {
+            Assert::range($limit, 1, 1000, 'Limit must be between 1 and 1000');
+        }
 
-        $params = [
+        if ($skip) {
+            Assert::greaterThanEq($skip, 0, 'Skip must be non-negative');
+        }
+
+        if (isset($params['state'])) {
+            Assert::oneOf($params['state'], ['active', 'unverified', 'disabled'],
+                'State must be one of: active, unverified, disabled');
+        }
+
+        if (isset($params['sort'])) {
+            Assert::oneOf($params['sort'], ['name', 'name:asc', 'name:desc'],
+                'Sort must be one of: name, name:asc, name:desc');
+        }
+
+        $requestParams = array_merge([
             'limit' => $limit,
             'skip' => $skip,
-        ];
+        ], $params);
 
-        $response = $this->httpGet('/v3/domains', $params, $requestHeaders);
+        $requestParams = array_filter($requestParams, function ($value) {
+            return !is_null($value) && $value !== '';
+        });
+
+        $response = $this->httpGet('/v3/domains', $requestParams, $requestHeaders);
 
         return $this->hydrateResponse($response, IndexResponse::class);
     }

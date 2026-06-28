@@ -79,14 +79,16 @@ class ProductionOrderController extends Controller
         $wip = WmsContext::wipWarehouse($distId);
         $fg = WmsContext::finishedGoodsWarehouse($distId);
         $userId = Auth::id();
+        $branchId = $fg?->branch_id ?: auth('web')->user()?->getBranchIdForTransaction();
 
         $order = ProductionOrder::create([
             'order_number' => ProductionService::generateNumber(),
             'production_date' => $data['production_date'] ?? now()->toDateString(),
             'output_expiry_date' => $data['output_expiry_date'] ?? null,
             'company_id' => $distId,
-            'branch_id' => optional($fg)->id ?? $distId,          // output -> Gudang Barang Jadi
+            'branch_id' => $branchId,
             'source_warehouse_id' => optional($wip)->id ?? $distId, // bahan baku <- Gudang WIP
+            'output_warehouse_id' => optional($fg)->id,
             'bom_id' => $bom->id,
             'product_id' => $bom->product_id,
             'product_variant_id' => $bom->product_variant_id,

@@ -21,6 +21,7 @@ class ProductionOrder extends Model
         'company_id',
         'branch_id',
         'source_warehouse_id',
+        'output_warehouse_id',
         'output_expiry_date',
         'bom_id',
         'product_id',
@@ -66,6 +67,16 @@ class ProductionOrder extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function sourceWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'source_warehouse_id', 'id');
+    }
+
+    public function outputWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'output_warehouse_id', 'id');
     }
 
     public function materials(): HasMany

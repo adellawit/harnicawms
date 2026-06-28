@@ -20,8 +20,10 @@
                 <div class="row g-3">
                     <div class="col-md-3"><small class="text-muted">No. Order</small><div class="fw-medium">{{ $order->order_number }}</div></div>
                     <div class="col-md-3"><small class="text-muted">Distributor</small><div class="fw-medium">{{ $order->distributor?->name }}</div></div>
-                    <div class="col-md-3"><small class="text-muted">Agen</small><div class="fw-medium">{{ $order->agent?->name }}</div></div>
+                    <div class="col-md-3"><small class="text-muted">Agent</small><div class="fw-medium">{{ $order->agent?->code }} - {{ $order->agent?->name }}</div></div>
                     <div class="col-md-3"><small class="text-muted">Status</small><div><span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ ucfirst(str_replace('_',' ',$order->status)) }}</span></div></div>
+                    <div class="col-md-3"><small class="text-muted">Invoice</small><div class="fw-medium">{{ $order->invoice_number ?: '-' }}</div></div>
+                    <div class="col-md-3"><small class="text-muted">Pembayaran</small><div class="fw-medium">{{ ucfirst($order->payment_status ?? 'unpaid') }} @if($order->payment_reference) · {{ $order->payment_reference }} @endif</div></div>
                 </div>
             </div>
         </div>

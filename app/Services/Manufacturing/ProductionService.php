@@ -44,8 +44,9 @@ class ProductionService
             $order->materials()->delete();
             $order->outputs()->delete();
 
-            // Bahan baku dikonsumsi dari Gudang WIP (fallback ke branch output bila belum diset)
-            $materialWarehouse = $order->source_warehouse_id ?: $order->branch_id;
+            $branchId = $order->branch_id ?: $order->outputWarehouse?->branch_id ?: $order->sourceWarehouse?->branch_id;
+            $materialWarehouseId = $order->source_warehouse_id;
+            $outputWarehouseId = $order->output_warehouse_id ?: $order->branch_id;
 
             if ($bom) {
                 foreach ($bom->items as $item) {
@@ -60,10 +61,11 @@ class ProductionService
 
                     StockAvailabilityService::assertSufficient(
                         $item->component_variant_id,
-                        $materialWarehouse,
+                        $branchId ?: $materialWarehouseId,
                         $item->unit_id,
                         $qtyNeeded,
-                        $label
+                        $label,
+                        $materialWarehouseId
                     );
                 }
 
@@ -77,13 +79,14 @@ class ProductionService
                         $item->component_product_id,
                         $item->component_variant_id,
                         $order->company_id,
-                        $materialWarehouse,
+                        $branchId ?: $materialWarehouseId,
                         $item->unit_id,
                         $qtyNeeded,
                         'ProductionConsume',
                         $order->id,
                         $userId,
-                        'Konsumsi bahan baku produksi ' . $order->order_number
+                        'Konsumsi bahan baku produksi ' . $order->order_number,
+                        $materialWarehouseId
                     );
 
                     $cogs = $result['total_cost'];
@@ -106,12 +109,12 @@ class ProductionService
             $totalCost = $totalMaterialCost + $overhead;
             $outputUnitCost = $producedQty > 0 ? round($totalCost / $producedQty, 4) : 0.0;
 
-            // Produk jadi masuk ke Gudang Barang Jadi (branch_id) dengan HPP terhitung + expiry (FEFO)
+            // Produk jadi masuk ke gudang output dengan HPP terhitung + expiry (FEFO)
             StockMutationService::inbound(
                 $order->product_id,
                 $order->product_variant_id,
                 $order->company_id,
-                $order->branch_id,
+                $branchId ?: $outputWarehouseId,
                 $order->output_unit_id,
                 $producedQty,
                 $outputUnitCost,
@@ -120,7 +123,8 @@ class ProductionService
                 $userId,
                 'Hasil produksi ' . $order->order_number,
                 optional($order->production_date)->toDateString(),
-                optional($order->output_expiry_date)->toDateString()
+                optional($order->output_expiry_date)->toDateString(),
+                $outputWarehouseId
             );
 
             ProductionOrderOutput::create([

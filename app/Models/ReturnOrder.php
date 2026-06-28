@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,6 +46,6 @@ class ReturnOrder extends Model
 
     public function agent(): BelongsTo
     {
-        return $this->belongsTo(BusinessUnit::class, 'agent_id', 'id');
+        return $this->belongsTo(Agent::class, 'agent_id', 'id');
     }
 }

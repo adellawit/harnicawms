@@ -24,6 +24,7 @@ class ProductPurchaseOrder extends Model
         'supplier_address',
         'company_id',
         'branch_id',
+        'warehouse_id',
         'status',
         'expected_delivery_date',
         'notes',
@@ -48,6 +49,11 @@ class ProductPurchaseOrder extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 
     public function supplier(): BelongsTo

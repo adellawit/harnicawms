@@ -1,3 +1,33 @@
+## [12.7.2](https://github.com/yajra/laravel-datatables/compare/v12.7.1...v12.7.2) (2026-05-16)
+
+
+### Bug Fixes
+
+* replace fragile denylist with allowlist for column name validation ([facb02f](https://github.com/yajra/laravel-datatables/commit/facb02f00d4c11b070fddc2fe2eeb094c8b0d36b))
+
+## [12.7.1](https://github.com/yajra/laravel-datatables/compare/v12.7.0...v12.7.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* pint :robot: ([f6edab3](https://github.com/yajra/laravel-datatables/commit/f6edab3de693d20c5c9cce6d5283d3a1a7019614))
+
+# [12.7.0](https://github.com/yajra/laravel-datatables/compare/v12.6.3...v12.7.0) (2026-02-20)
+
+
+### Bug Fixes
+
+* address phpstan and fork phplint checkout ([7c416ef](https://github.com/yajra/laravel-datatables/commit/7c416ef38347d23bc52eca5439f0889c4e493440))
+* allow editing DT_RowIndex via editColumn ([fd161f0](https://github.com/yajra/laravel-datatables/commit/fd161f019f54fc13995bd4f2664f12e4f8aa3317))
+* cast index column config for static analysis ([468f44c](https://github.com/yajra/laravel-datatables/commit/468f44ce845a4a40734eaaca9d5753095ced013a))
+* **ci:** support fork PR checkout in pint workflow ([fe30c00](https://github.com/yajra/laravel-datatables/commit/fe30c005f15eccc5c1d5314199f35740a5ed2192))
+* **ci:** update memcached action to v8 ([c9e7f15](https://github.com/yajra/laravel-datatables/commit/c9e7f15ea3833311664c3c818e1f29c2c23918f9))
+
+
+### Features
+
+* support LengthAwarePaginator engine ([b8f9bb3](https://github.com/yajra/laravel-datatables/commit/b8f9bb33189d069d81901af59c73057aa8d84abd))
+
 ## [12.6.3](https://github.com/yajra/laravel-datatables/compare/v12.6.2...v12.6.3) (2025-12-09)
 
 

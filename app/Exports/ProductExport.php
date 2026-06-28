@@ -24,6 +24,9 @@ class ProductExport implements FromCollection, WithHeadings, WithMapping, WithSt
     {
         return Product::with([
             'nature:id,name',
+            'itemType:id,value',
+            'productNature:id,value',
+            'procurementType:id,value',
             'defaultUnit:id,name,symbol',
             'unitConversions' => fn ($q) => $q->where('conversion_level', 1)->with('toUnit:id,name,symbol'),
             'stocks' => fn ($q) => $q->where('branch_id', $this->branchId),
@@ -47,6 +50,14 @@ class ProductExport implements FromCollection, WithHeadings, WithMapping, WithSt
             'Harga Beli Satuan Besar',
             'Jumlah Minimum (Satuan Besar)',
             'Nature',
+            'Item Type',
+            'Inventory Nature',
+            'Procurement Type',
+            'Stock Item',
+            'Sales Item',
+            'Purchase Item',
+            'COGS Account',
+            'Revenue Account',
         ];
     }
 
@@ -90,6 +101,14 @@ class ProductExport implements FromCollection, WithHeadings, WithMapping, WithSt
             $purchasePrice ?: '',
             (float) ($product->min_stock ?? 0) ?: '',
             $product->nature?->name ?? '',
+            $product->itemType?->value ?? '',
+            $product->productNature?->value ?? '',
+            $product->procurementType?->value ?? '',
+            $product->is_stock_item ? 'Yes' : 'No',
+            $product->is_sale_item ? 'Yes' : 'No',
+            $product->is_purchase_item ? 'Yes' : 'No',
+            $product->cogs_account_code ?? '',
+            $product->revenue_account_code ?? '',
         ];
     }
 

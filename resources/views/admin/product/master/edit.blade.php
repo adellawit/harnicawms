@@ -50,6 +50,33 @@
                             </select>
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label" for="item_type_id">Item Type</label>
+                            <select id="item_type_id" name="item_type_id" class="select2 form-select" data-allow-clear="true">
+                                <option value="">-- Select --</option>
+                                @foreach($itemTypes as $itemType)
+                                    <option value="{{ $itemType->id }}" {{ old('item_type_id', $product->item_type_id) == $itemType->id ? 'selected' : '' }}>{{ $itemType->value }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="product_nature_id">Inventory Nature</label>
+                            <select id="product_nature_id" name="product_nature_id" class="select2 form-select" data-allow-clear="true">
+                                <option value="">-- Select --</option>
+                                @foreach($productNatures as $productNature)
+                                    <option value="{{ $productNature->id }}" {{ old('product_nature_id', $product->product_nature_id) == $productNature->id ? 'selected' : '' }}>{{ $productNature->value }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="procurement_type_id">Procurement Type</label>
+                            <select id="procurement_type_id" name="procurement_type_id" class="select2 form-select" data-allow-clear="true">
+                                <option value="">-- Select --</option>
+                                @foreach($procurementTypes as $procurementType)
+                                    <option value="{{ $procurementType->id }}" {{ old('procurement_type_id', $product->procurement_type_id) == $procurementType->id ? 'selected' : '' }}>{{ $procurementType->value }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label" for="default_unit_id">Default Unit<span style="color: red">*</span></label>
                             <select id="default_unit_id" name="default_unit_id" class="select2 form-select" data-allow-clear="true">
                                 <option value="">-- Select --</option>
@@ -70,6 +97,27 @@
                             <label class="form-label">SKU</label>
                             <input type="text" class="form-control bg-light" value="{{ $product->sku ?? 'Auto-generated' }}" readonly disabled />
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="is_stock_item">Stock Item</label>
+                            <select id="is_stock_item" name="is_stock_item" class="select2 form-select">
+                                <option value="1" {{ old('is_stock_item', $product->is_stock_item) ? 'selected' : '' }}>Yes — track stock & HPP</option>
+                                <option value="0" {{ ! old('is_stock_item', $product->is_stock_item) ? 'selected' : '' }}>No — non-stock/service</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="is_sale_item">Sales Item</label>
+                            <select id="is_sale_item" name="is_sale_item" class="select2 form-select">
+                                <option value="1" {{ old('is_sale_item', $product->is_sale_item) ? 'selected' : '' }}>Yes — bisa dijual</option>
+                                <option value="0" {{ ! old('is_sale_item', $product->is_sale_item) ? 'selected' : '' }}>No — tidak dijual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="is_purchase_item">Purchase Item</label>
+                            <select id="is_purchase_item" name="is_purchase_item" class="select2 form-select">
+                                <option value="1" {{ old('is_purchase_item', $product->is_purchase_item) ? 'selected' : '' }}>Yes — bisa dibeli/PO</option>
+                                <option value="0" {{ ! old('is_purchase_item', $product->is_purchase_item) ? 'selected' : '' }}>No — tidak dibeli</option>
+                            </select>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label" for="min_stock">Min Stock</label>
                             <input type="text" id="min_stock" name="min_stock" class="form-control number-format" value="{{ format_number(old('min_stock', $product->min_stock), 10, true) }}" />
@@ -77,6 +125,14 @@
                         <div class="col-md-6">
                             <label class="form-label" for="max_stock">Max Stock</label>
                             <input type="text" id="max_stock" name="max_stock" class="form-control number-format" value="{{ format_number(old('max_stock', $product->max_stock), 10, true) }}" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="cogs_account_code">COGS Account Code</label>
+                            <input type="text" id="cogs_account_code" name="cogs_account_code" class="form-control" value="{{ old('cogs_account_code', $product->cogs_account_code) }}" placeholder="Optional" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="revenue_account_code">Revenue Account Code</label>
+                            <input type="text" id="revenue_account_code" name="revenue_account_code" class="form-control" value="{{ old('revenue_account_code', $product->revenue_account_code) }}" placeholder="Optional" />
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="description">Description</label>

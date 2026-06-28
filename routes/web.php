@@ -49,6 +49,10 @@ use App\Http\Controllers\Ai\ChatController;
 use App\Http\Controllers\Ai\ConversationController;
 use App\Http\Controllers\Admin\AiConfigurationController;
 use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
+use App\Http\Controllers\Admin\Partner\AgentController as PartnerAgentController;
+use App\Http\Controllers\Admin\Partner\PartnerApplicationController;
+use App\Http\Controllers\Admin\Partner\PartnerReportController;
+use App\Http\Controllers\Admin\Partner\ResellerController as PartnerResellerController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -74,6 +78,10 @@ Route::post('/webhooks/xendit', [XenditWebhookController::class, 'handle'])
 Route::post('/webhooks/telegram', [TelegramWebhookController::class, 'handle'])
     ->name('webhooks.telegram');
 
+Route::get('/partner/register', [PartnerApplicationController::class, 'publicCreate'])->name('partner.register');
+Route::post('/partner/register', [PartnerApplicationController::class, 'publicStore'])->name('partner.register.store');
+Route::get('/partner/register/thank-you/{number}', [PartnerApplicationController::class, 'thankYou'])->name('partner.register.thank-you');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     /// DASHBOARD CONTROLLER
@@ -81,9 +89,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/task-list', [DashboardController::class, 'getTaskListData'])->name('dashboard.task.list');
     Route::post('/dashboard/client-list', [DashboardController::class, 'getClientListData'])->name('dashboard.client.list');
     Route::post('/dashboard/subscription-list', [DashboardController::class, 'getSubscriptionListData'])->name('dashboard.subscription.list');
+    Route::redirect('/warehouse', '/business/warehouse');
 
     /// COMPONENT SHOWCASE
-    Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
+    // Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
 
     /// AI CHAT (WMS AI Assistant widget API)
     Route::group([
@@ -108,6 +117,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/change-password', [ProfileController::class, 'changePasswordProfile'])->name('profile.change-password');
         Route::get('/change-branch', [ProfileController::class, 'switchBranchView'])->name('profile.change-branch-view');
         Route::post('/switch-branch', [ProfileController::class, 'switchBranch'])->name('profile.switch-branch');
+    });
+
+    Route::group(['prefix' => 'partner-network'], function () {
+        Route::get('/', [PartnerReportController::class, 'index'])->name('partner.reports.index')->middleware('permission:Partner Network,is_read');
+        Route::get('/applications', [PartnerApplicationController::class, 'index'])->name('partner.applications.index')->middleware('permission:Partner Application,is_read');
+        Route::get('/applications/create', [PartnerApplicationController::class, 'create'])->name('partner.applications.create')->middleware('permission:Partner Application,is_create');
+        Route::post('/applications', [PartnerApplicationController::class, 'store'])->name('partner.applications.store')->middleware('permission:Partner Application,is_create');
+        Route::get('/applications/{id}', [PartnerApplicationController::class, 'show'])->name('partner.applications.show')->middleware('permission:Partner Application,is_read');
+        Route::post('/applications/{id}/followup', [PartnerApplicationController::class, 'followup'])->name('partner.applications.followup')->middleware('permission:Partner Application,is_update');
+        Route::post('/applications/{id}/assign-agent', [PartnerApplicationController::class, 'assignAgent'])->name('partner.applications.assign-agent')->middleware('permission:Partner Application,is_update');
+        Route::post('/applications/{id}/convert-agent', [PartnerApplicationController::class, 'convertAgent'])->name('partner.applications.convert-agent')->middleware('permission:Partner Application,is_update');
+        Route::post('/applications/{id}/convert-reseller', [PartnerApplicationController::class, 'convertReseller'])->name('partner.applications.convert-reseller')->middleware('permission:Partner Application,is_update');
+        Route::get('/agents', [PartnerAgentController::class, 'index'])->name('partner.agents.index')->middleware('permission:Partner Agent,is_read');
+        Route::get('/agents/{id}', [PartnerAgentController::class, 'show'])->name('partner.agents.show')->middleware('permission:Partner Agent,is_read');
+        Route::get('/resellers', [PartnerResellerController::class, 'index'])->name('partner.resellers.index')->middleware('permission:Partner Reseller,is_read');
+        Route::get('/resellers/{id}', [PartnerResellerController::class, 'show'])->name('partner.resellers.show')->middleware('permission:Partner Reseller,is_read');
     });
 
     /*****************
@@ -421,6 +446,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/conversion/update-temp', [ProductController::class, 'updateTempConversion'])->name('product.conversion.update-temp');
             Route::get('/edit/{id}', [ProductController::class, 'editView'])->name('product.edit.view')->middleware('permission:Product,is_update');
             Route::get('/{id}/print-barcode', [ProductController::class, 'printBarcodeView'])->name('product.print-barcode.view')->middleware('permission:Product,is_read');
+            Route::post('/{id}/print-barcode/preview', [ProductController::class, 'printBarcodePreview'])->name('product.print-barcode.preview')->middleware('permission:Product,is_read');
+            Route::post('/{id}/print-barcode/pdf', [ProductController::class, 'printBarcodePdf'])->name('product.print-barcode.pdf')->middleware('permission:Product,is_read');
             Route::get('/variants/{product_id}', [ProductController::class, 'variantsView'])->name('product.variants.view')->middleware('permission:Product,is_read');
             // Variant CRUD Routes
             Route::post('/variants/{product_id}/store', [ProductController::class, 'storeVariant'])->name('product.variant.store')->middleware('permission:Product,is_create');

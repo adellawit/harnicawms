@@ -153,14 +153,17 @@ class BomController extends Controller
             ->findOrFail($id);
 
         // Ambil WIP warehouse untuk lookup harga bahan baku
-        $wipId = optional(WmsContext::wipWarehouse($bom->company_id))->id ?? $bom->company_id;
+        $wip = WmsContext::wipWarehouse($bom->company_id);
+        $wipId = optional($wip)->id ?? $bom->company_id;
+        $wipBranchId = optional($wip)->branch_id ?? $wipId;
 
         // Biaya per komponen: HPP layer FEFO dikonversi ke satuan BOM item
-        $itemCosts = $bom->items->mapWithKeys(function ($item) use ($wipId) {
+        $itemCosts = $bom->items->mapWithKeys(function ($item) use ($wipId, $wipBranchId) {
             $unitCost = FifoCostService::currentUnitCost(
                 $item->component_variant_id,
-                $wipId,
-                $item->unit_id
+                $wipBranchId,
+                $item->unit_id,
+                $wipId
             );
 
             return [

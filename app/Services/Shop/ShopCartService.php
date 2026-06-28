@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 
@@ -90,8 +91,10 @@ class ShopCartService
             throw new \InvalidArgumentException('Harga produk belum diatur.');
         }
 
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+
         $stockRow = ProductVariantStock::where('product_variant_id', $variant->id)
-            ->where('branch_id', $branchId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
             ->where('unit_id', $unitId)
             ->whereNull('deleted_at')
             ->first();
