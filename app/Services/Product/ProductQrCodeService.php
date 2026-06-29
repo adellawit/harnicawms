@@ -9,6 +9,17 @@ use chillerlan\QRCode\QROptions;
 
 class ProductQrCodeService
 {
+    public const LABEL_REDIRECT_URL = 'https://harnica.id/foredi';
+
+    public function contentForLabel(string $serial, int $unitLevel): string
+    {
+        if ($unitLevel >= 1 && $unitLevel <= 3) {
+            return self::LABEL_REDIRECT_URL;
+        }
+
+        return $serial;
+    }
+
     public function toPngDataUri(string $content): string
     {
         $options = new QROptions([

@@ -2,6 +2,7 @@
 
 namespace App\Services\Product;
 
+use App\Models\Product;
 use App\Models\ProductLabelSerial;
 use Illuminate\Support\Facades\DB;
 
@@ -76,6 +77,49 @@ class ProductLabelSerialService
     public function formatExample(int $unitLevel, int $sequence = 1): string
     {
         return $this->formatSerialNumber($unitLevel, $sequence);
+    }
+
+    /**
+     * Hapus riwayat nomor seri produk agar alokasi berikutnya mulai dari urutan 1 per level.
+     */
+    public function resetSerialsForProduct(string $productId, ?string $variantId = null): int
+    {
+        return DB::transaction(function () use ($productId, $variantId) {
+            $query = ProductLabelSerial::query()->where('product_id', $productId);
+
+            if ($variantId !== null && $variantId !== '') {
+                $query->where('product_variant_id', $variantId);
+            }
+
+            return (int) $query->delete();
+        });
+    }
+
+    /**
+     * @return array<int, array{level: int, unit_label: string, next_serial: string, allocated_count: int}>
+     */
+    public function serialStatusForProduct(Product $product): array
+    {
+        $status = [];
+
+        foreach ($product->getBarcodeUnits()->values() as $index => $unit) {
+            $level = $index + 1;
+            $allocatedCount = ProductLabelSerial::query()
+                ->where('product_id', $product->id)
+                ->where('unit_level', $level)
+                ->count();
+
+            $nextSerial = $this->peekNextSerials(1, $product->id, $unit->id, $level)[0] ?? $this->formatExample($level);
+
+            $status[] = [
+                'level' => $level,
+                'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+                'next_serial' => $nextSerial,
+                'allocated_count' => $allocatedCount,
+            ];
+        }
+
+        return $status;
     }
 
     protected function lastSequenceForUnit(string $productId, string $unitId, int $unitLevel): int

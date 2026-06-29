@@ -162,6 +162,45 @@
 
                             <input type="hidden" name="batch_id" id="batch_id" value="">
 
+                            @if (! empty($serialStatus))
+                                <div class="mb-4">
+                                    <label class="form-label">Status Nomor Barcode</label>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2" id="serialStatusTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Level</th>
+                                                    <th>Satuan</th>
+                                                    <th>Nomor Berikutnya</th>
+                                                    <th class="text-end">Tercatat</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($serialStatus as $row)
+                                                    <tr>
+                                                        <td>{{ $row['level'] }}</td>
+                                                        <td>{{ $row['unit_label'] }}</td>
+                                                        <td><code>{{ $row['next_serial'] }}</code></td>
+                                                        <td class="text-end">{{ number_format($row['allocated_count']) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    @php
+                                        $canResetBarcodeSerials = session('is_super_admin') || session('permissions.Product.is_update', false) == 1;
+                                    @endphp
+                                    @if ($canResetBarcodeSerials)
+                                        <button type="button" class="btn btn-outline-danger btn-sm" id="btnResetSerials">
+                                            <i class="ti ti-refresh me-1"></i> Reset Nomor Barcode
+                                        </button>
+                                    @endif
+                                    <small class="text-muted d-block mt-1">
+                                        Reset menghapus riwayat penomoran di sistem. Label yang sudah tercetak fisik tidak berubah.
+                                    </small>
+                                </div>
+                            @endif
+
                             <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="btn btn-info" id="btnPreview">
                                     <i class="ti ti-eye me-1"></i> Preview
@@ -268,20 +307,28 @@
                 position: relative;
             }
 
+            .preview-tree__node--level-1,
+            .preview-tree__node--level-2-group,
+            .preview-tree__node--level-3 {
+                border-radius: 8px;
+                padding: 10px;
+            }
+
             .preview-tree__node--level-1 {
                 border: 2px dashed #0d6efd;
-                border-radius: 10px;
-                padding: 16px;
+                background: #f0f6ff;
+                width: fit-content;
+                max-width: 100%;
+            }
+
+            .preview-tree__node--level-2-group {
+                border: 1.5px dashed #6ea8fe;
                 background: #f0f6ff;
             }
 
-            .preview-tree__node--level-2 {
-                border: 1.5px dashed #6ea8fe;
-                border-radius: 8px;
-                padding: 12px;
-                margin-top: 12px;
-                margin-left: 20px;
-                background: #fff;
+            .preview-tree__node--level-3 {
+                border: 1.5px dashed #28a745;
+                background: #f8fff9;
             }
 
             .preview-tree__cut-line {
@@ -289,31 +336,11 @@
                 color: #6c757d;
                 text-align: center;
                 border-bottom: 1px dashed #ccc;
-                margin: -16px -16px 12px -16px;
-                padding: 6px 10px;
+                margin: -10px -10px 8px;
+                padding: 5px 8px;
                 background: #e9ecef;
-                border-radius: 10px 10px 0 0;
-            }
-
-            .preview-tree__node--level-2 .preview-tree__cut-line {
-                margin: -12px -12px 10px -12px;
                 border-radius: 8px 8px 0 0;
-            }
-
-            .preview-tree__pack-row {
-                display: flex;
-                flex-direction: row;
-                align-items: flex-start;
-                gap: 2mm;
-            }
-
-            .preview-tree__pack-col {
-                flex-shrink: 0;
-            }
-
-            .preview-tree__box-col {
-                flex: 1;
-                min-width: 0;
+                line-height: 1.2;
             }
 
             .preview-tree__box-grid {
@@ -323,65 +350,80 @@
                 justify-content: start;
             }
 
-            .preview-tree__node--level-3,
-            .preview-tree__node--leaf {
-                margin-top: 10px;
-                margin-left: 20px;
-            }
-
-            .preview-tree__header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 8px;
+            .preview-tree__box-groups-page .preview-tree__node--level-3 {
                 margin-bottom: 10px;
             }
 
-            .preview-tree__title {
+            .preview-tree__box-groups-page .preview-tree__node--level-3:last-child {
+                margin-bottom: 0;
+            }
+
+            .preview-tree__page {
+                margin-bottom: 20px;
+            }
+
+            .preview-tree__page + .preview-tree__page {
+                border-top: 2px dashed #adb5bd;
+                padding-top: 16px;
+                margin-top: 8px;
+            }
+
+            .preview-tree__page-label {
+                font-size: 10px;
                 font-weight: 700;
-                font-size: 14px;
-            }
-
-            .preview-tree__title .ordinal {
-                color: #0d6efd;
-            }
-
-            .preview-tree__serial {
-                font-family: ui-monospace, monospace;
-                font-size: 11px;
                 color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                margin-bottom: 10px;
+            }
+
+            .preview-tree__page--level-1-2 {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .preview-tree__pack-grid {
+                display: grid;
+                grid-template-columns: repeat(6, 40mm);
+                gap: 1.5mm;
+                justify-content: start;
+            }
+
+            .preview-tree__pack-grid-item-title {
+                font-size: 10px;
+                font-weight: 700;
+                text-align: center;
+                color: #444;
+                margin-bottom: 3px;
+                line-height: 1;
             }
 
             .preview-tree__labels {
-                display: flex;
-                justify-content: flex-start;
-                flex-wrap: wrap;
-                gap: 1.5mm 2mm;
-                margin-bottom: 8px;
-            }
-
-            .preview-tree__children {
-                margin-top: 4px;
+                display: block;
             }
 
             .preview-tree__more {
-                margin: 8px 0 0 20px;
+                margin: 6px 0 0;
                 font-size: 12px;
                 color: #6c757d;
                 font-style: italic;
             }
 
             .label-item {
-                width: 50mm;
-                height: 12mm;
-                display: flex;
                 border: 1px solid #999;
                 overflow: hidden;
                 background: #fff;
             }
 
-            .label-item__qr {
+            .label-item--box {
+                width: 50mm;
+                height: 12mm;
+                display: flex;
+            }
+
+            .label-item--box .label-item__qr {
                 width: 12mm;
                 height: 12mm;
                 flex-shrink: 0;
@@ -390,13 +432,13 @@
                 justify-content: center;
             }
 
-            .label-item__qr img {
+            .label-item--box .label-item__qr img {
                 width: 10mm;
                 height: 10mm;
                 display: block;
             }
 
-            .label-item__content {
+            .label-item--box .label-item__content {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
@@ -430,66 +472,152 @@
             .label-item--karton {
                 width: 50mm;
                 height: 50mm;
+                padding: 0.8mm;
+                display: flex;
                 flex-direction: column;
                 align-items: center;
-                justify-content: space-between;
-                padding: 2mm;
+                text-align: center;
+            }
+
+            .label-item--karton .label-item__top {
+                width: 100%;
+                flex-shrink: 0;
+            }
+
+            .label-item--karton .label-item__bottom {
+                width: 100%;
+                margin-top: auto;
+                flex-shrink: 0;
                 text-align: center;
             }
 
             .label-item--pack {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                align-items: center;
+                text-align: center;
                 width: 40mm;
                 height: 40mm;
-                flex-direction: column;
-                align-items: center;
-                justify-content: space-between;
-                padding: 1.5mm;
-                text-align: center;
+                padding: 1.2mm;
             }
 
-            .label-item--karton .label-item__brand,
-            .label-item--pack .label-item__brand {
-                font-size: 6px;
-                font-weight: 700;
-                text-transform: uppercase;
-                line-height: 1.2;
+            .label-item--karton .label-item__logo {
+                line-height: 0;
+                margin-bottom: 0.3mm;
             }
 
-            .label-item--karton .label-item__product,
-            .label-item--pack .label-item__product {
+            .label-item--karton .label-item__qr {
+                width: auto;
+                height: auto;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .label-item--karton .label-item__logo img {
+                max-width: 46mm;
+                max-height: 8mm;
+                object-fit: contain;
+            }
+
+            .label-item--karton .label-item__brand {
                 font-size: 8px;
                 font-weight: 700;
                 text-transform: uppercase;
+                line-height: 1.15;
             }
 
-            .label-item--karton .label-item__unit-qty,
-            .label-item--pack .label-item__unit-qty {
-                font-size: 7px;
+            .label-item--karton .label-item__product {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--karton .label-item__unit-qty {
+                font-size: 9px;
                 font-weight: 600;
+                line-height: 1.15;
+                margin-top: 0.4mm;
             }
 
-            .label-item--karton .label-item__summary,
-            .label-item--pack .label-item__summary {
-                font-size: 6px;
-                line-height: 1.2;
+            .label-item--karton .label-item__summary {
+                font-size: 8px;
+                line-height: 1.15;
+                margin-top: 0.4mm;
             }
 
-            .label-item--karton .label-item__serial,
-            .label-item--pack .label-item__serial {
-                font-size: 6px;
+            .label-item--karton .label-item__qr img {
+                display: block;
+                margin: 0 auto;
+                width: 22mm;
+                height: 22mm;
+            }
+
+            .label-item--karton .label-item__serial {
+                font-size: 8px;
                 font-family: ui-monospace, monospace;
+                line-height: 1.1;
+                margin-top: 0.4mm;
             }
 
-            .label-item--karton .label-item__qr,
+            .label-item--pack .label-item__logo {
+                line-height: 0;
+                margin-bottom: 0.4mm;
+            }
+
+            .label-item--pack .label-item__bottom {
+                text-align: center;
+                width: 100%;
+                padding-top: 2mm;
+            }
+
             .label-item--pack .label-item__qr {
                 width: auto;
                 height: auto;
+                display: block;
+                margin: 0 auto;
             }
 
-            .label-item--karton .label-item__qr img,
+            .label-item--pack .label-item__logo img {
+                max-width: 36mm;
+                max-height: 7mm;
+                object-fit: contain;
+            }
+
+            .label-item--pack .label-item__brand {
+                font-size: 7px;
+                font-weight: 700;
+                text-transform: uppercase;
+                line-height: 1.15;
+            }
+
+            .label-item--pack .label-item__product {
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--pack .label-item__summary {
+                font-size: 7px;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+                margin-bottom: 2mm;
+            }
+
             .label-item--pack .label-item__qr img {
-                width: 22mm;
-                height: 22mm;
+                width: 16mm;
+                height: 16mm;
+            }
+
+            .label-item--pack .label-item__serial {
+                font-size: 7px;
+                font-family: ui-monospace, monospace;
+                line-height: 1.1;
+                margin-top: 0.4mm;
             }
         </style>
     @endpush
@@ -500,8 +628,10 @@
             $(function () {
                 var previewUrl = @json(route('product.print-barcode.preview', $product->id));
                 var pdfUrl = @json(route('product.print-barcode.pdf', $product->id));
+                var resetSerialsUrl = @json(route('product.print-barcode.reset-serials', $product->id));
                 var distributorName = @json($distributorName);
                 var productName = @json($product->name);
+                var harnicaLogoUrl = @json(asset('assets/img/harnica/logo.png'));
                 var unitChain = @json($unitChain);
                 var units = @json($units);
                 var defaultUnitId = @json($defaultUnitId);
@@ -683,28 +813,36 @@
 
                     if (type === 'karton') {
                         return '<div class="label-item label-item--karton">' +
+                            '<div class="label-item__top">' +
+                            '<div class="label-item__logo"><img src="' + harnicaLogoUrl + '" alt="Harnica"></div>' +
                             '<div class="label-item__brand">' + distHtml + '</div>' +
                             '<div class="label-item__product">' + productHtml + '</div>' +
                             '<div class="label-item__unit-qty">1 ' + label.unit_label + '</div>' +
                             (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
+                            '</div>' +
+                            '<div class="label-item__bottom">' +
                             '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="Barcode"></div>' +
                             '<div class="label-item__serial">' + label.serial + '</div>' +
-                            '</div>';
+                            '</div></div>';
                     }
 
                     if (type === 'pack') {
                         return '<div class="label-item label-item--pack">' +
+                            '<div class="label-item__top">' +
+                            '<div class="label-item__logo"><img src="' + harnicaLogoUrl + '" alt="Harnica"></div>' +
                             '<div class="label-item__brand">' + distHtml + '</div>' +
                             '<div class="label-item__product">' + productHtml + '</div>' +
                             (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
+                            '</div>' +
+                            '<div class="label-item__bottom">' +
                             '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="Barcode"></div>' +
                             '<div class="label-item__serial">' + label.serial + '</div>' +
-                            '</div>';
+                            '</div></div>';
                     }
 
                     var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
 
-                    return '<div class="label-item">' +
+                    return '<div class="label-item label-item--box">' +
                         '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="QR"></div>' +
                         '<div class="label-item__content">' +
                         '<div class="label-item__serial">' + label.serial + '</div>' +
@@ -713,9 +851,51 @@
                 }
 
                 function renderHierarchyTreePreview(tree) {
-                    function renderKartonNode(kartonNode) {
+                    function boxSerialRange(packNode) {
+                        var serials = (packNode.children || [])
+                            .map(function (child) {
+                                return child.serial || (child.label && child.label.serial) || null;
+                            })
+                            .filter(Boolean);
+                        if (!serials.length) {
+                            return '';
+                        }
+                        if (serials.length === 1) {
+                            return serials[0];
+                        }
+                        return serials[0] + '-' + serials[serials.length - 1];
+                    }
+
+                    function renderPackGroupSection(kartonNode) {
+                        var packs = kartonNode.children || [];
+                        if (!packs.length) {
+                            return '';
+                        }
+
+                        var unitLabel = $('<div>').text(packs[0].unit_label || 'Pack').html();
+                        var html = '<div class="preview-tree__node preview-tree__node--level-2-group">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + unitLabel.toUpperCase() + ' : 1-' + packs.length + '</div>';
+                        html += '<div class="preview-tree__pack-grid">';
+
+                        packs.forEach(function (packNode) {
+                            if (packNode.label) {
+                                html += '<div class="preview-tree__pack-grid-item">';
+                                html += '<div class="preview-tree__pack-grid-item-title">' + packNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
+                                html += renderPreviewLabel(packNode.label, distributorName);
+                                html += '</div>';
+                            }
+                        });
+
+                        html += '</div></div>';
+                        return html;
+                    }
+
+                    function renderLevel1And2Page(kartonNode) {
                         var unitLabel = $('<div>').text(kartonNode.unit_label || 'Karton').html();
-                        var html = '<div class="preview-tree__node preview-tree__node--level-1">';
+                        var html = '<div class="preview-tree__page preview-tree__page--level-1-2">';
+                        html += '<div class="preview-tree__page-label">Halaman Level 1 &amp; 2 — Karton &amp; Pack</div>';
+
+                        html += '<div class="preview-tree__node preview-tree__node--level-1">';
                         html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + kartonNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
 
                         if (kartonNode.label) {
@@ -724,44 +904,38 @@
                             html += '</div>';
                         }
 
-                        (kartonNode.children || []).forEach(function (packNode) {
-                            html += renderPackNode(packNode);
-                        });
-
                         if (kartonNode.hidden_children && kartonNode.hidden_children > 0) {
                             html += '<p class="preview-tree__more">... dan ' + kartonNode.hidden_children + ' label lainnya akan disertakan di PDF.</p>';
                         }
 
                         html += '</div>';
+
+                        html += renderPackGroupSection(kartonNode);
+                        html += '</div>';
                         return html;
                     }
 
-                    function renderPackNode(packNode) {
+                    function renderBoxGroupSection(packNode) {
                         var unitLabel = $('<div>').text(packNode.unit_label || 'Pack').html();
-                        var html = '<div class="preview-tree__node preview-tree__node--level-2">';
-                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + packNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
-
-                        html += '<div class="preview-tree__pack-row">';
-
-                        if (packNode.label) {
-                            html += '<div class="preview-tree__pack-col">';
-                            html += renderPreviewLabel(packNode.label, distributorName);
-                            html += '</div>';
-                        }
-
                         var boxLabels = (packNode.children || [])
                             .map(function (child) { return child.label; })
                             .filter(Boolean);
 
-                        if (boxLabels.length > 0) {
-                            html += '<div class="preview-tree__box-col">';
-                            html += '<div class="preview-tree__box-grid">';
-                            boxLabels.forEach(function (label) {
-                                html += renderPreviewLabel(label, distributorName);
-                            });
-                            html += '</div></div>';
+                        if (!boxLabels.length) {
+                            return '';
                         }
 
+                        var rangeLabel = boxSerialRange(packNode);
+                        var html = '<div class="preview-tree__node preview-tree__node--level-3">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + packNode.ordinal + ' ' + unitLabel.toUpperCase();
+                        if (rangeLabel) {
+                            html += ' : ' + rangeLabel;
+                        }
+                        html += '</div>';
+                        html += '<div class="preview-tree__box-grid">';
+                        boxLabels.forEach(function (label) {
+                            html += renderPreviewLabel(label, distributorName);
+                        });
                         html += '</div>';
 
                         if (packNode.hidden_children && packNode.hidden_children > 0) {
@@ -772,6 +946,26 @@
                         return html;
                     }
 
+                    function renderLevel3Page(kartonNode) {
+                        var packs = kartonNode.children || [];
+                        var sections = packs.map(renderBoxGroupSection).filter(Boolean);
+
+                        if (!sections.length) {
+                            return '';
+                        }
+
+                        var html = '<div class="preview-tree__page preview-tree__page--level-3">';
+                        html += '<div class="preview-tree__page-label">Halaman Level 3 — Box</div>';
+                        html += '<div class="preview-tree__box-groups-page">';
+                        html += sections.join('');
+                        html += '</div></div>';
+                        return html;
+                    }
+
+                    function renderKartonNode(kartonNode) {
+                        return renderLevel1And2Page(kartonNode) + renderLevel3Page(kartonNode);
+                    }
+
                     var html = '<div class="preview-tree">';
                     tree.forEach(function (rootNode) {
                         html += renderKartonNode(rootNode);
@@ -780,6 +974,55 @@
 
                     $('#previewGrid').html(html);
                 }
+
+                function updateSerialStatusTable(rows) {
+                    if (!rows || !rows.length) {
+                        return;
+                    }
+
+                    var html = '';
+                    rows.forEach(function (row) {
+                        html += '<tr>' +
+                            '<td>' + row.level + '</td>' +
+                            '<td>' + $('<div>').text(row.unit_label).html() + '</td>' +
+                            '<td><code>' + $('<div>').text(row.next_serial).html() + '</code></td>' +
+                            '<td class="text-end">' + Number(row.allocated_count || 0).toLocaleString('id-ID') + '</td>' +
+                            '</tr>';
+                    });
+                    $('#serialStatusTable tbody').html(html);
+                }
+
+                $('#btnResetSerials').on('click', function () {
+                    if (!confirm('Reset nomor barcode produk ini? Riwayat penomoran di sistem akan dihapus dan cetak berikutnya mulai dari urutan 1 per level.')) {
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    $btn.prop('disabled', true);
+
+                    $.ajax({
+                        url: resetSerialsUrl,
+                        method: 'POST',
+                        data: {
+                            _token: $('input[name="_token"]').val(),
+                            variant_id: $('#variant_id').val() || ''
+                        },
+                        success: function (res) {
+                            alert(res.message || 'Reset berhasil.');
+                            updateSerialStatusTable(res.serial_status || []);
+                            resetPreviewState();
+                        },
+                        error: function (xhr) {
+                            var message = (xhr.responseJSON && xhr.responseJSON.message)
+                                ? xhr.responseJSON.message
+                                : 'Gagal reset nomor barcode.';
+                            alert(message);
+                        },
+                        complete: function () {
+                            $btn.prop('disabled', false);
+                        }
+                    });
+                });
 
                 $('#btnPreview').on('click', function () {
                     var $btn = $(this);
