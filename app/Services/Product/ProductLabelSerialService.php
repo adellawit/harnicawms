@@ -85,9 +85,14 @@ class ProductLabelSerialService
         $serialPrefix = $yearPrefix.$level;
         $expectedLength = strlen($serialPrefix) + 9;
 
-        $lockKey = crc32("product_label_serial_{$yearPrefix}_{$productId}_{$level}");
+        $lockKey = (int) crc32("product_label_serial_{$yearPrefix}_{$productId}_{$level}");
+        if ($lockKey < 0) {
+            $lockKey += 4294967296;
+        }
         DB::select('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
 
+        // Sumber utama: parse nomor seri existing (YY + level + urutan).
+        // Tidak filter unit_id karena data lama bisa punya unit_id yang tidak sesuai level.
         $maxFromSerial = ProductLabelSerial::query()
             ->where('product_id', $productId)
             ->where('serial_number', 'like', $serialPrefix.'%')
@@ -100,19 +105,13 @@ class ProductLabelSerialService
             })
             ->max();
 
-        if ($maxFromSerial) {
-            return (int) $maxFromSerial;
-        }
-
-        $lastRecord = ProductLabelSerial::query()
+        $lastFromSequence = ProductLabelSerial::query()
             ->where('product_id', $productId)
-            ->where('unit_id', $unitId)
             ->where('year_prefix', $yearPrefix)
             ->where('unit_level', $level)
-            ->orderByDesc('sequence')
-            ->first();
+            ->max('sequence');
 
-        return $lastRecord?->sequence ?? 0;
+        return max((int) ($maxFromSerial ?? 0), (int) ($lastFromSequence ?? 0));
     }
 
     protected function formatSerialNumber(int $unitLevel, int $sequence): string

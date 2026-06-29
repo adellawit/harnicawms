@@ -24,11 +24,33 @@ class ProductQrCodeService
         return 'data:image/png;base64,'.base64_encode($this->invertPng($png));
     }
 
-    /**
-     * Invert the colours of a PNG (dark <-> light) so the QR renders with a
-     * black background and light modules. Falls back to the original image if
-     * GD inversion is not possible.
-     */
+    public function toPngTempFile(string $content, string $tempDir): string
+    {
+        $options = new QROptions([
+            'outputInterface' => QRGdImagePNG::class,
+            'outputBase64' => false,
+            'scale' => 4,
+            'quietzoneSize' => 1,
+            'eccLevel' => EccLevel::M,
+        ]);
+
+        $png = (new QRCode($options))->render($content);
+        $png = $this->invertPng($png);
+
+        if (! is_dir($tempDir) && ! mkdir($tempDir, 0755, true) && ! is_dir($tempDir)) {
+            throw new \RuntimeException('Unable to create QR temp directory: '.$tempDir);
+        }
+
+        $filename = uniqid('qr_', true).'.png';
+        $path = rtrim($tempDir, '/\\').DIRECTORY_SEPARATOR.$filename;
+
+        if (file_put_contents($path, $png) === false) {
+            throw new \RuntimeException('Unable to write QR temp file: '.$path);
+        }
+
+        return $filename;
+    }
+
     protected function invertPng(string $png): string
     {
         $image = @imagecreatefromstring($png);
