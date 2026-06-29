@@ -37,7 +37,7 @@
                                         <li>Level 2 (Box): <code>{{ date('y') }}2000000001</code>, <code>{{ date('y') }}2000000002</code>, ...</li>
                                         <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ...</li>
                                     </ul>
-                                    <span class="small">Setiap level punya penomoran sendiri mulai dari 1. Preview dulu, lalu simpan ke PDF.</span>
+                                    <span class="small">Setiap level punya penomoran sendiri mulai dari 1. Preview dan PDF diurutkan hierarki: Karton → Pack → Box sesuai nomor seri per level.</span>
                                 </div>
                             </div>
                         </div>
@@ -167,7 +167,7 @@
                                     <i class="ti ti-eye me-1"></i> Preview
                                 </button>
                                 <button type="submit" class="btn btn-primary" id="btnPdf" disabled>
-                                    <i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A4)
+                                    <i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A3)
                                 </button>
                                 <a href="{{ route('product.index.view') }}" class="btn btn-label-secondary">Kembali</a>
                             </div>
@@ -200,13 +200,231 @@
                 gap: 1.5mm 2mm;
             }
 
+            .preview-group {
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 16px;
+                background: #f8f9fa;
+            }
+
+            .preview-group__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #dee2e6;
+            }
+
+            .preview-group__title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 16px;
+            }
+
+            .preview-group__badge {
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .preview-group__info {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+                font-size: 13px;
+            }
+
+            .preview-group__qty {
+                font-weight: 600;
+                color: #0d6efd;
+            }
+
+            .preview-group__serial {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: #6c757d;
+            }
+
+            .preview-group__labels {
+                background: #fff;
+                padding: 12px;
+                border-radius: 6px;
+            }
+
+            .preview-tree {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .preview-tree__node {
+                position: relative;
+            }
+
+            .preview-tree__node--level-1 {
+                border: 2px dashed #0d6efd;
+                border-radius: 10px;
+                padding: 16px;
+                background: #f0f6ff;
+            }
+
+            .preview-tree__node--level-2 {
+                border: 1.5px dashed #6ea8fe;
+                border-radius: 8px;
+                padding: 12px;
+                margin-top: 12px;
+                margin-left: 20px;
+                background: #fff;
+            }
+
+            .preview-tree__cut-line {
+                font-size: 11px;
+                color: #6c757d;
+                text-align: center;
+                border-bottom: 1px dashed #ccc;
+                margin: -16px -16px 12px -16px;
+                padding: 6px 10px;
+                background: #e9ecef;
+                border-radius: 10px 10px 0 0;
+            }
+
+            .preview-tree__node--level-2 .preview-tree__cut-line {
+                margin: -12px -12px 10px -12px;
+                border-radius: 8px 8px 0 0;
+            }
+
+            .preview-tree__pack-row {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 2mm;
+            }
+
+            .preview-tree__pack-col {
+                flex-shrink: 0;
+            }
+
+            .preview-tree__box-col {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .preview-tree__box-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 50mm);
+                gap: 1.5mm 2mm;
+                justify-content: start;
+            }
+
+            .preview-tree__node--level-3,
+            .preview-tree__node--leaf {
+                margin-top: 10px;
+                margin-left: 20px;
+            }
+
+            .preview-tree__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .preview-tree__title {
+                font-weight: 700;
+                font-size: 14px;
+            }
+
+            .preview-tree__title .ordinal {
+                color: #0d6efd;
+            }
+
+            .preview-tree__serial {
+                font-family: ui-monospace, monospace;
+                font-size: 11px;
+                color: #6c757d;
+            }
+
+            .preview-tree__labels {
+                display: flex;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+                gap: 1.5mm 2mm;
+                margin-bottom: 8px;
+            }
+
+            .preview-tree__children {
+                margin-top: 4px;
+            }
+
+            .preview-tree__more {
+                margin: 8px 0 0 20px;
+                font-size: 12px;
+                color: #6c757d;
+                font-style: italic;
+            }
+
             .label-item {
                 width: 50mm;
-                height: 15mm;
+                height: 12mm;
                 display: flex;
                 border: 1px solid #999;
                 overflow: hidden;
                 background: #fff;
+            }
+
+            .label-item__qr {
+                width: 12mm;
+                height: 12mm;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .label-item__qr img {
+                width: 10mm;
+                height: 10mm;
+                display: block;
+            }
+
+            .label-item__content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                padding: 0 1.5mm 1mm 1mm;
+                min-width: 0;
+            }
+
+            .label-item__distributor-name {
+                font-size: 6.5px;
+                font-weight: 700;
+                color: #000;
+                line-height: 1.2;
+                text-transform: uppercase;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .label-item__serial {
+                font-size: 6.5px;
+                font-weight: 700;
+                color: #000;
+                font-family: ui-monospace, monospace;
+                letter-spacing: 0.02em;
+                line-height: 1.2;
+                white-space: nowrap;
+                margin-bottom: 0.4mm;
             }
 
             .label-item--karton {
@@ -221,7 +439,7 @@
 
             .label-item--pack {
                 width: 40mm;
-                height: 20mm;
+                height: 40mm;
                 flex-direction: column;
                 align-items: center;
                 justify-content: space-between;
@@ -270,78 +488,8 @@
 
             .label-item--karton .label-item__qr img,
             .label-item--pack .label-item__qr img {
-                width: 28mm;
-                height: 8mm;
-            }
-
-            .label-item__qr {
-                width: 14mm;
-                height: 15mm;
-                flex-shrink: 0;
-                background: transparent;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .label-item__qr img {
-                width: 12mm;
-                height: 12mm;
-                display: block;
-            }
-
-            .label-item__content {
-                width: 36mm;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-                padding: 0.8mm 1.2mm 1.4mm 1.2mm;
-                min-width: 0;
-            }
-
-            .label-item__distributor-label {
-                font-size: 5.5px;
-                color: #666;
-                line-height: 1.2;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            .label-item__distributor-name {
-                font-size: 7.5px;
-                font-weight: 700;
-                color: #000;
-                line-height: 1.25;
-                text-transform: uppercase;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            .label-item__product {
-                font-size: 5.5px;
-                font-weight: 700;
-                color: #000;
-                line-height: 1.2;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                text-transform: uppercase;
-            }
-
-            .label-item__distributor {
-                display: none;
-            }
-
-            .label-item__serial {
-                font-size: 6.8px;
-                font-weight: 700;
-                color: #000;
-                font-family: ui-monospace, monospace;
-                letter-spacing: 0.02em;
-                line-height: 1.2;
-                white-space: nowrap;
+                width: 22mm;
+                height: 22mm;
             }
         </style>
     @endpush
@@ -519,6 +667,14 @@
                     $('#previewMeta, #previewRange, #previewMore').text('');
                 }
 
+                function formatBoxBrandLabel(distName) {
+                    var name = (distName || '').trim();
+                    if (name.toUpperCase().indexOf('HARNICA ') === 0) {
+                        return name;
+                    }
+                    return 'HARNICA ' + name;
+                }
+
                 function renderPreviewLabel(label, distName) {
                     var type = label.label_type || 'box';
                     var distHtml = $('<div>').text(distName).html();
@@ -546,13 +702,83 @@
                             '</div>';
                     }
 
+                    var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
+
                     return '<div class="label-item">' +
                         '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="QR"></div>' +
                         '<div class="label-item__content">' +
-                        '<div class="label-item__distributor-label">distributed by:</div>' +
-                        '<div class="label-item__distributor-name">' + distHtml + '</div>' +
                         '<div class="label-item__serial">' + label.serial + '</div>' +
+                        '<div class="label-item__distributor-name">' + boxBrandHtml + '</div>' +
                         '</div></div>';
+                }
+
+                function renderHierarchyTreePreview(tree) {
+                    function renderKartonNode(kartonNode) {
+                        var unitLabel = $('<div>').text(kartonNode.unit_label || 'Karton').html();
+                        var html = '<div class="preview-tree__node preview-tree__node--level-1">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + kartonNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
+
+                        if (kartonNode.label) {
+                            html += '<div class="preview-tree__labels">';
+                            html += renderPreviewLabel(kartonNode.label, distributorName);
+                            html += '</div>';
+                        }
+
+                        (kartonNode.children || []).forEach(function (packNode) {
+                            html += renderPackNode(packNode);
+                        });
+
+                        if (kartonNode.hidden_children && kartonNode.hidden_children > 0) {
+                            html += '<p class="preview-tree__more">... dan ' + kartonNode.hidden_children + ' label lainnya akan disertakan di PDF.</p>';
+                        }
+
+                        html += '</div>';
+                        return html;
+                    }
+
+                    function renderPackNode(packNode) {
+                        var unitLabel = $('<div>').text(packNode.unit_label || 'Pack').html();
+                        var html = '<div class="preview-tree__node preview-tree__node--level-2">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + packNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
+
+                        html += '<div class="preview-tree__pack-row">';
+
+                        if (packNode.label) {
+                            html += '<div class="preview-tree__pack-col">';
+                            html += renderPreviewLabel(packNode.label, distributorName);
+                            html += '</div>';
+                        }
+
+                        var boxLabels = (packNode.children || [])
+                            .map(function (child) { return child.label; })
+                            .filter(Boolean);
+
+                        if (boxLabels.length > 0) {
+                            html += '<div class="preview-tree__box-col">';
+                            html += '<div class="preview-tree__box-grid">';
+                            boxLabels.forEach(function (label) {
+                                html += renderPreviewLabel(label, distributorName);
+                            });
+                            html += '</div></div>';
+                        }
+
+                        html += '</div>';
+
+                        if (packNode.hidden_children && packNode.hidden_children > 0) {
+                            html += '<p class="preview-tree__more">... dan ' + packNode.hidden_children + ' box lainnya akan disertakan di PDF.</p>';
+                        }
+
+                        html += '</div>';
+                        return html;
+                    }
+
+                    var html = '<div class="preview-tree">';
+                    tree.forEach(function (rootNode) {
+                        html += renderKartonNode(rootNode);
+                    });
+                    html += '</div>';
+
+                    $('#previewGrid').html(html);
                 }
 
                 $('#btnPreview').on('click', function () {
@@ -599,7 +825,8 @@
                             $('#btnPdf').prop('disabled', false);
 
                             if (res.print_mode === 'hierarchy') {
-                                var breakdownText = (res.breakdown || []).map(function (row) {
+                                var breakdownArr = Object.values(res.breakdown || {});
+                                var breakdownText = breakdownArr.map(function (row) {
                                     return row.label + ': ' + row.qty;
                                 }).join(' · ');
 
@@ -609,27 +836,29 @@
                                     ' | Menampilkan ' + res.displayed + ' dari ' + res.total + ' label'
                                 );
                                 $('#previewRange').text('Total ' + res.total + ' label');
+
+                                renderHierarchyTreePreview(res.tree || []);
+
+                                if (res.hidden && res.hidden > 0) {
+                                    $('#previewMore').removeClass('d-none').text(
+                                        '... dan ' + res.hidden + ' label lainnya akan disertakan di PDF (urutan Karton → Pack → Box sesuai nomor seri).'
+                                    );
+                                } else {
+                                    $('#previewMore').addClass('d-none').text('');
+                                }
                             } else {
                                 $('#previewMeta').text(
                                     'Level ' + (res.unit_level || '-') + ' · ' + (res.unit_label || '-') +
                                     ' | Menampilkan ' + res.displayed + ' dari ' + res.total + ' label'
                                 );
                                 $('#previewRange').text((res.serial_from || '-') + ' — ' + (res.serial_to || '-'));
-                            }
 
-                            var html = '';
-                            var distName = res.distributor_name || distributorName;
-                            res.labels.forEach(function (label) {
-                                html += renderPreviewLabel(label, distName);
-                            });
-                            $('#previewGrid').html(html);
-
-                            if (res.total > res.displayed) {
-                                $('#previewMore')
-                                    .removeClass('d-none')
-                                    .text('... dan ' + (res.total - res.displayed) + ' label lainnya akan disertakan di PDF.');
-                            } else {
-                                $('#previewMore').addClass('d-none');
+                                var html = '';
+                                var distName = res.distributor_name || distributorName;
+                                res.labels.forEach(function (label) {
+                                    html += renderPreviewLabel(label, distName);
+                                });
+                                $('#previewGrid').html(html);
                             }
 
                             $('#previewCard').removeClass('d-none')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -677,7 +906,7 @@
                     form.remove();
 
                     setTimeout(function () {
-                        $btn.prop('disabled', false).html('<i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A4)');
+                        $btn.prop('disabled', false).html('<i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A3)');
                     }, 3000);
                 });
             });

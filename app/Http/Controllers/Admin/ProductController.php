@@ -386,8 +386,8 @@ class ProductController extends Controller
 
         if ($printMode === 'hierarchy') {
             $breakdown = $product->getBarcodeQuantityBreakdown($quantity, $unit->id);
-            $labels = collect();
             $breakdownMeta = [];
+            $serialsByUnitId = [];
             $totalLabels = 0;
 
             foreach ($breakdown as $item) {
@@ -399,9 +399,9 @@ class ProductController extends Controller
                 $itemQty = (int) $item['qty'];
                 $totalLabels += $itemQty;
                 $serials = $serialService->peekNextSerials($itemQty, $product->id, $levelUnit->id, $item['level']);
-                $displaySerials = array_slice($serials, 0, min(3, $itemQty));
+                $serialsByUnitId[$item['unit_id']] = $serials;
 
-                $breakdownMeta[] = [
+                $breakdownMeta[$item['unit_id']] = [
                     'unit_id' => $item['unit_id'],
                     'level' => $item['level'],
                     'label' => $item['label'],
@@ -410,22 +410,27 @@ class ProductController extends Controller
                     'serial_from' => $serials[0] ?? null,
                     'serial_to' => $serials[$itemQty - 1] ?? null,
                 ];
+            }
 
-                foreach ($displaySerials as $serial) {
-                    if ($labels->count() >= $previewLimit) {
-                        break 2;
-                    }
+            $treeResult = $this->buildBarcodeHierarchyTree(
+                $product,
+                $breakdown,
+                $serialsByUnitId,
+                function (string $serial, array $item) use ($product, $qrCodeService) {
+                    $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
 
-                    $labels->push($this->mapBarcodeLabel(
+                    return $this->mapBarcodeLabel(
                         $serial,
                         $product,
                         $levelUnit,
                         $qrCodeService,
                         $item['level'],
                         $item['content_summary']
-                    ));
-                }
-            }
+                    );
+                },
+                $previewLimit
+            );
+            $treeResult['hidden'] = max(0, $totalLabels - $treeResult['displayed']);
 
             $batchId = (string) Str::uuid();
             session()->put("barcode_preview.{$batchId}", [
@@ -444,13 +449,14 @@ class ProductController extends Controller
                 'batch_id' => $batchId,
                 'print_mode' => 'hierarchy',
                 'total' => $totalLabels,
-                'displayed' => $labels->count(),
+                'displayed' => $treeResult['displayed'],
+                'hidden' => $treeResult['hidden'],
                 'parent_quantity' => $quantity,
                 'breakdown' => $breakdownMeta,
+                'tree' => $treeResult['tree'],
                 'distributor_name' => $validated['distributor_name'],
                 'unit_label' => strtoupper($unit->symbol ?: $unit->name),
                 'unit_level' => $unitLevel,
-                'labels' => $labels->values(),
             ]);
         }
 
@@ -513,17 +519,32 @@ class ProductController extends Controller
                 ->with('error', 'Preview kedaluwarsa atau tidak valid. Silakan preview ulang sebelum generate PDF.');
         }
 
+        $tempDir = storage_path('app/temp/barcode_qr');
+        if (! is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $this->cleanupOldBarcodeTempFiles($tempDir);
+
+        ini_set('memory_limit', '512M');
+
+        $labels = [];
+        $labelTree = null;
+        $tempFiles = [];
+
         try {
             if ($printMode === 'hierarchy') {
-                $labels = $this->allocateHierarchyBarcodeLabels(
+                $labelTree = $this->allocateHierarchyBarcodeLabelsForPdf(
                     $product,
                     $unit,
                     (int) $request->quantity,
                     $batch['breakdown'] ?? [],
                     $variantId,
                     $serialService,
-                    $qrCodeService
+                    $qrCodeService,
+                    $tempDir
                 );
+                $labels = $this->flattenBarcodeHierarchyTree($labelTree);
             } else {
                 $serials = $serialService->allocateSerials(
                     (int) $request->quantity,
@@ -543,15 +564,18 @@ class ProductController extends Controller
                 }
 
                 $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
-                $labels = $this->buildBarcodeLabels(
+                $labels = $this->buildBarcodeLabelsForPdf(
                     $serials,
                     $product,
                     $unit,
                     $qrCodeService,
                     $validated['unit_level'],
+                    $tempDir,
                     $contentSummary
                 );
             }
+
+            $tempFiles = array_column($labels, 'qr_file');
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             session()->forget("barcode_preview.{$batchId}");
 
@@ -569,14 +593,85 @@ class ProductController extends Controller
         session()->forget("barcode_preview.{$batchId}");
 
         $filename = 'barcode-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $product->code).'-'.date('YmdHis').'.pdf';
+        $qrBaseUrl = 'file://'.str_replace('\\', '/', $tempDir).'/';
 
-        return Pdf::loadView('admin.product.master.pdf-barcode', [
-            'labels' => $labels,
-            'distributorName' => $validated['distributor_name'],
-            'productName' => $product->name,
-        ])
-            ->setPaper('a4', 'portrait')
-            ->download($filename);
+        try {
+            return Pdf::loadView('admin.product.master.pdf-barcode', [
+                'labels' => $labels,
+                'labelTree' => $labelTree,
+                'printMode' => $printMode,
+                'distributorName' => $validated['distributor_name'],
+                'productName' => $product->name,
+                'qrBaseUrl' => $qrBaseUrl,
+            ])
+                ->setPaper('a3', 'portrait')
+                ->download($filename);
+        } finally {
+            foreach ($tempFiles as $file) {
+                @unlink($tempDir.DIRECTORY_SEPARATOR.$file);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function allocateHierarchyBarcodeLabelsForPdf(
+        Product $product,
+        ProductUnit $parentUnit,
+        int $parentQuantity,
+        array $breakdownPreview,
+        ?string $variantId,
+        ProductLabelSerialService $serialService,
+        ProductQrCodeService $qrCodeService,
+        string $tempDir
+    ): array {
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id);
+        $serialsByUnitId = [];
+
+        foreach ($breakdown as $item) {
+            $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+            if (! $levelUnit) {
+                continue;
+            }
+
+            $serials = $serialService->allocateSerials(
+                (int) $item['qty'],
+                $product->id,
+                $levelUnit->id,
+                $item['level'],
+                $variantId,
+                auth('web')->id()
+            );
+
+            $expectedFrom = $breakdownPreview[$item['unit_id']]['serial_from'] ?? null;
+            if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
+                throw new \RuntimeException('Serial mismatch during hierarchy print.');
+            }
+
+            $serialsByUnitId[$item['unit_id']] = $serials;
+        }
+
+        $treeResult = $this->buildBarcodeHierarchyTree(
+            $product,
+            $breakdown,
+            $serialsByUnitId,
+            function (string $serial, array $item) use ($product, $qrCodeService, $tempDir) {
+                $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+
+                return $this->mapBarcodeLabelForPdf(
+                    $serial,
+                    $product,
+                    $levelUnit,
+                    $qrCodeService,
+                    $item['level'],
+                    $tempDir,
+                    $item['content_summary']
+                );
+            }
+        );
+
+        return $treeResult['tree'];
     }
 
     protected function isBarcodePreviewBatchValid(
@@ -604,6 +699,27 @@ class ProductController extends Controller
 
         return ($batch['unit_id'] ?? null) === $unitId
             && (int) ($batch['quantity'] ?? 0) === $quantity;
+    }
+
+    protected function cleanupOldBarcodeTempFiles(string $tempDir): void
+    {
+        if (! is_dir($tempDir)) {
+            return;
+        }
+
+        $maxAge = 3600;
+        $now = time();
+
+        $files = glob($tempDir.DIRECTORY_SEPARATOR.'qr_*.png');
+        if ($files === false) {
+            return;
+        }
+
+        foreach ($files as $path) {
+            if (is_file($path) && ($now - filemtime($path)) > $maxAge) {
+                @unlink($path);
+            }
+        }
     }
 
     /**
@@ -637,7 +753,7 @@ class ProductController extends Controller
                 auth('web')->id()
             );
 
-            $expectedFrom = $breakdownPreview[$index]['serial_from'] ?? null;
+            $expectedFrom = $breakdownPreview[$item['unit_id']]['serial_from'] ?? null;
             if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
                 throw new \RuntimeException('Serial mismatch during hierarchy print.');
             }
@@ -655,6 +771,48 @@ class ProductController extends Controller
         }
 
         return $labels;
+    }
+
+    protected function buildBarcodeLabelsForPdf(
+        array $serials,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        string $tempDir,
+        ?string $contentSummary = null
+    ): array {
+        return collect($serials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary, $tempDir) {
+            return $this->mapBarcodeLabelForPdf($serial, $product, $unit, $qrCodeService, $unitLevel, $tempDir, $contentSummary);
+        })->all();
+    }
+
+    protected function mapBarcodeLabelForPdf(
+        string $serial,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        string $tempDir,
+        ?string $contentSummary = null
+    ): array {
+        $labelType = match ($unitLevel) {
+            1 => 'karton',
+            2 => 'pack',
+            default => 'box',
+        };
+
+        $qrFile = $qrCodeService->toPngTempFile($serial, $tempDir);
+
+        return [
+            'serial' => $serial,
+            'product_name' => $product->name,
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'label_type' => $labelType,
+            'content_summary' => $contentSummary,
+            'qr_file' => $qrFile,
+        ];
     }
 
     protected function validatePrintBarcodeRequest(Request $request, string $id): array
@@ -739,6 +897,174 @@ class ProductController extends Controller
         return collect($serials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary) {
             return $this->mapBarcodeLabel($serial, $product, $unit, $qrCodeService, $unitLevel, $contentSummary);
         })->all();
+    }
+
+    /**
+     * Bangun pohon hierarki label (Karton → Pack → Box) sesuai urutan nomor seri per level.
+     *
+     * @param  array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>  $breakdown
+     * @param  array<string, array<int, string>>  $serialsByUnitId
+     * @param  callable(string, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}): array  $mapLabel
+     * @return array{tree: array<int, array<string, mixed>>, displayed: int, hidden: int}
+     */
+    protected function buildBarcodeHierarchyTree(
+        Product $product,
+        array $breakdown,
+        array $serialsByUnitId,
+        callable $mapLabel,
+        ?int $previewLimit = null
+    ): array {
+        if ($breakdown === []) {
+            return ['tree' => [], 'displayed' => 0, 'hidden' => 0];
+        }
+
+        $childFactors = $this->getHierarchyChildFactors($breakdown);
+        $serialIndexes = array_fill_keys(array_column($breakdown, 'unit_id'), 0);
+        $displayed = 0;
+        $limitReached = false;
+
+        $buildNodes = function (int $levelIndex, int $ordinal) use (
+            &$buildNodes,
+            &$displayed,
+            &$limitReached,
+            $breakdown,
+            $childFactors,
+            &$serialIndexes,
+            $serialsByUnitId,
+            $mapLabel,
+            $previewLimit
+        ): array {
+            $item = $breakdown[$levelIndex];
+            $unitId = $item['unit_id'];
+            $serialIndex = $serialIndexes[$unitId];
+            $serial = $serialsByUnitId[$unitId][$serialIndex] ?? null;
+
+            if ($serial === null) {
+                return [];
+            }
+
+            $serialIndexes[$unitId] = $serialIndex + 1;
+
+            $includeLabel = ! $limitReached;
+            if ($previewLimit !== null && $displayed >= $previewLimit) {
+                $limitReached = true;
+                $includeLabel = false;
+            }
+
+            if ($includeLabel) {
+                $displayed++;
+            }
+
+            $node = [
+                'ordinal' => $ordinal,
+                'level' => $item['level'],
+                'unit_label' => $item['label'],
+                'content_summary' => $item['content_summary'],
+                'label' => $includeLabel ? $mapLabel($serial, $item) : null,
+                'serial' => $serial,
+                'children' => [],
+                'hidden_children' => 0,
+            ];
+
+            if ($levelIndex < count($breakdown) - 1) {
+                $childrenPerNode = $childFactors[$levelIndex] ?? 0;
+
+                for ($childOrdinal = 1; $childOrdinal <= $childrenPerNode; $childOrdinal++) {
+                    if ($limitReached && $previewLimit !== null) {
+                        $node['hidden_children'] += $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+                        break;
+                    }
+
+                    $childNode = $buildNodes($levelIndex + 1, $childOrdinal);
+                    if ($childNode !== []) {
+                        $node['children'][] = $childNode;
+                    }
+                }
+
+                if ($limitReached && $previewLimit !== null && $childrenPerNode > count($node['children'])) {
+                    $remainingChildren = $childrenPerNode - count($node['children']);
+                    for ($i = 0; $i < $remainingChildren; $i++) {
+                        $node['hidden_children'] += $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+                    }
+                }
+            }
+
+            return $node;
+        };
+
+        $tree = [];
+        $rootQty = (int) $breakdown[0]['qty'];
+
+        for ($ordinal = 1; $ordinal <= $rootQty; $ordinal++) {
+            if ($limitReached && $previewLimit !== null) {
+                break;
+            }
+
+            $node = $buildNodes(0, $ordinal);
+            if ($node !== []) {
+                $tree[] = $node;
+            }
+        }
+
+        return [
+            'tree' => $tree,
+            'displayed' => $displayed,
+            'hidden' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>  $breakdown
+     * @return array<int, int>
+     */
+    protected function getHierarchyChildFactors(array $breakdown): array
+    {
+        $factors = [];
+
+        for ($i = 0; $i < count($breakdown) - 1; $i++) {
+            $parentQty = (int) $breakdown[$i]['qty'];
+            $childQty = (int) $breakdown[$i + 1]['qty'];
+            $factors[$i] = $parentQty > 0 ? (int) round($childQty / $parentQty) : 0;
+        }
+
+        return $factors;
+    }
+
+    /**
+     * @param  array<int, int>  $childFactors
+     */
+    protected function countHierarchySubtreeLabels(array $breakdown, array $childFactors, int $levelIndex): int
+    {
+        $count = 1;
+
+        if ($levelIndex < count($breakdown) - 1) {
+            $childrenPerNode = $childFactors[$levelIndex] ?? 0;
+            $childSubtree = $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+            $count += $childrenPerNode * $childSubtree;
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $tree
+     * @return array<int, array<string, mixed>>
+     */
+    protected function flattenBarcodeHierarchyTree(array $tree): array
+    {
+        $flat = [];
+
+        foreach ($tree as $node) {
+            if (! empty($node['label'])) {
+                $flat[] = $node['label'];
+            }
+
+            if (! empty($node['children'])) {
+                $flat = array_merge($flat, $this->flattenBarcodeHierarchyTree($node['children']));
+            }
+        }
+
+        return $flat;
     }
 
     /**
