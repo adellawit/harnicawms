@@ -357,6 +357,8 @@ class ProductController extends Controller
             $product->default_unit_id
         );
 
+        $serialStatus = $serialService->serialStatusForProduct($product);
+
         return view('admin.product.master.print-barcode', [
             'product' => $product,
             'variants' => $variants,
@@ -369,6 +371,31 @@ class ProductController extends Controller
             'hierarchyPrintMaxLabels' => self::BARCODE_HIERARCHY_MAX_LABELS,
             'labelsPerParent' => $labelsPerParent,
             'maxHierarchyParentQty' => $maxHierarchyParentQty,
+            'serialStatus' => $serialStatus,
+        ]);
+    }
+
+    public function printBarcodeResetSerials(Request $request, string $id, ProductLabelSerialService $serialService)
+    {
+        $product = Product::findOrFail($id);
+
+        $request->validate([
+            'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
+        ]);
+
+        $variantId = $request->variant_id ?: null;
+        if ($variantId && ! $product->variants()->where('id', $variantId)->exists()) {
+            abort(422, 'Variant tidak valid untuk produk ini.');
+        }
+
+        $deleted = $serialService->resetSerialsForProduct($product->id, $variantId);
+
+        return response()->json([
+            'message' => $deleted > 0
+                ? "Berhasil reset {$deleted} nomor barcode. Cetak berikutnya akan mulai dari urutan 1 per level."
+                : 'Tidak ada nomor barcode yang perlu direset untuk produk ini.',
+            'deleted' => $deleted,
+            'serial_status' => $serialService->serialStatusForProduct($product),
         ]);
     }
 
@@ -802,7 +829,10 @@ class ProductController extends Controller
             default => 'box',
         };
 
-        $qrFile = $qrCodeService->toPngTempFile($serial, $tempDir);
+        $qrFile = $qrCodeService->toPngTempFile(
+            $qrCodeService->contentForLabel($serial, $unitLevel),
+            $tempDir
+        );
 
         return [
             'serial' => $serial,
@@ -1091,7 +1121,9 @@ class ProductController extends Controller
             'unit_level' => $unitLevel,
             'label_type' => $labelType,
             'content_summary' => $contentSummary,
-            'qr_data_uri' => $qrCodeService->toPngDataUri($serial),
+            'qr_data_uri' => $qrCodeService->toPngDataUri(
+                $qrCodeService->contentForLabel($serial, $unitLevel)
+            ),
         ];
     }
 

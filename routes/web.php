@@ -447,6 +447,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/edit/{id}', [ProductController::class, 'editView'])->name('product.edit.view')->middleware('permission:Product,is_update');
             Route::get('/{id}/print-barcode', [ProductController::class, 'printBarcodeView'])->name('product.print-barcode.view')->middleware('permission:Product,is_read');
             Route::post('/{id}/print-barcode/preview', [ProductController::class, 'printBarcodePreview'])->name('product.print-barcode.preview')->middleware('permission:Product,is_read');
+            Route::post('/{id}/print-barcode/reset-serials', [ProductController::class, 'printBarcodeResetSerials'])->name('product.print-barcode.reset-serials')->middleware('permission:Product,is_update');
             Route::post('/{id}/print-barcode/pdf', [ProductController::class, 'printBarcodePdf'])->name('product.print-barcode.pdf')->middleware('permission:Product,is_read');
             Route::get('/variants/{product_id}', [ProductController::class, 'variantsView'])->name('product.variants.view')->middleware('permission:Product,is_read');
             // Variant CRUD Routes
