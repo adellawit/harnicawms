@@ -470,9 +470,9 @@
             }
 
             .label-item--karton {
-                width: 50mm;
-                height: 50mm;
-                padding: 0.8mm;
+                width: 100mm;
+                height: 80mm;
+                padding: 1mm;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -498,8 +498,23 @@
                 align-items: center;
                 text-align: center;
                 width: 40mm;
-                height: 40mm;
-                padding: 1.2mm;
+                height: 30mm;
+                padding: 9% 1mm 10%;
+                box-sizing: border-box;
+            }
+
+            .label-item--pack .label-item__top {
+                width: 100%;
+                flex-shrink: 0;
+                line-height: 1.15;
+            }
+
+            .label-item--pack .label-item__bottom {
+                text-align: center;
+                width: 100%;
+                flex-shrink: 0;
+                line-height: 1.15;
+                padding-top: 0;
             }
 
             .label-item--karton .label-item__logo {
@@ -515,20 +530,13 @@
             }
 
             .label-item--karton .label-item__logo img {
-                max-width: 46mm;
-                max-height: 8mm;
+                max-width: 96mm;
+                max-height: 15mm;
                 object-fit: contain;
             }
 
-            .label-item--karton .label-item__brand {
-                font-size: 8px;
-                font-weight: 700;
-                text-transform: uppercase;
-                line-height: 1.15;
-            }
-
             .label-item--karton .label-item__product {
-                font-size: 11px;
+                font-size: 17px;
                 font-weight: 700;
                 text-transform: uppercase;
                 line-height: 1.15;
@@ -536,14 +544,14 @@
             }
 
             .label-item--karton .label-item__unit-qty {
-                font-size: 9px;
-                font-weight: 600;
+                font-size: 11px;
+                font-weight: 700;
                 line-height: 1.15;
                 margin-top: 0.4mm;
             }
 
             .label-item--karton .label-item__summary {
-                font-size: 8px;
+                font-size: 9px;
                 line-height: 1.15;
                 margin-top: 0.4mm;
             }
@@ -551,26 +559,16 @@
             .label-item--karton .label-item__qr img {
                 display: block;
                 margin: 0 auto;
-                width: 22mm;
-                height: 22mm;
+                width: 35mm;
+                height: 35mm;
             }
 
             .label-item--karton .label-item__serial {
-                font-size: 8px;
+                font-size: 10px;
+                font-weight: 700;
                 font-family: ui-monospace, monospace;
-                line-height: 1.1;
+                line-height: 1.15;
                 margin-top: 0.4mm;
-            }
-
-            .label-item--pack .label-item__logo {
-                line-height: 0;
-                margin-bottom: 0.4mm;
-            }
-
-            .label-item--pack .label-item__bottom {
-                text-align: center;
-                width: 100%;
-                padding-top: 2mm;
             }
 
             .label-item--pack .label-item__qr {
@@ -578,39 +576,27 @@
                 height: auto;
                 display: block;
                 margin: 0 auto;
-            }
-
-            .label-item--pack .label-item__logo img {
-                max-width: 36mm;
-                max-height: 7mm;
-                object-fit: contain;
-            }
-
-            .label-item--pack .label-item__brand {
-                font-size: 7px;
-                font-weight: 700;
-                text-transform: uppercase;
-                line-height: 1.15;
+                line-height: 0;
             }
 
             .label-item--pack .label-item__product {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 700;
                 text-transform: uppercase;
                 line-height: 1.15;
-                margin-top: 0.4mm;
+                margin-top: 0;
             }
 
             .label-item--pack .label-item__summary {
                 font-size: 7px;
                 line-height: 1.15;
-                margin-top: 0.4mm;
-                margin-bottom: 2mm;
+                margin-top: 0.3mm;
+                margin-bottom: 0;
             }
 
             .label-item--pack .label-item__qr img {
-                width: 16mm;
-                height: 16mm;
+                width: 14mm;
+                height: 14mm;
             }
 
             .label-item--pack .label-item__serial {
@@ -815,7 +801,6 @@
                         return '<div class="label-item label-item--karton">' +
                             '<div class="label-item__top">' +
                             '<div class="label-item__logo"><img src="' + harnicaLogoUrl + '" alt="Harnica"></div>' +
-                            '<div class="label-item__brand">' + distHtml + '</div>' +
                             '<div class="label-item__product">' + productHtml + '</div>' +
                             '<div class="label-item__unit-qty">1 ' + label.unit_label + '</div>' +
                             (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
@@ -829,8 +814,6 @@
                     if (type === 'pack') {
                         return '<div class="label-item label-item--pack">' +
                             '<div class="label-item__top">' +
-                            '<div class="label-item__logo"><img src="' + harnicaLogoUrl + '" alt="Harnica"></div>' +
-                            '<div class="label-item__brand">' + distHtml + '</div>' +
                             '<div class="label-item__product">' + productHtml + '</div>' +
                             (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
                             '</div>' +
