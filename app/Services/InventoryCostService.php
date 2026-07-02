@@ -104,8 +104,7 @@ class InventoryCostService
     ): void {
         // Ambil stok existing untuk variant/unit/branch
         $stockQty = (float) ProductVariantStock::where('product_variant_id', $variantId)
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-            ->where('unit_id', $unitId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId)->where('unit_id', $unitId))
             ->whereNull('deleted_at')
             ->sum('quantity');
 
@@ -161,8 +160,7 @@ class InventoryCostService
     ): void {
         // Stok existing di level product/unit/branch dari variant stock
         $stockQty = (float) ProductVariantStock::where('product_id', $productId)
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-            ->where('unit_id', $unitId)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId)->where('unit_id', $unitId))
             ->whereNull('deleted_at')
             ->sum('quantity');
 

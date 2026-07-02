@@ -535,6 +535,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [PurchaseOrderController::class, 'indexView'])->name('product.purchase-order.index.view')->middleware('permission:Purchase Order,is_read');
             Route::get('/suppliers-by-type', [PurchaseOrderController::class, 'suppliersByType'])->name('product.purchase-order.suppliers-by-type');
             Route::post('/data', [PurchaseOrderController::class, 'indexData'])->name('product.purchase-order.index.data');
+            Route::get('/masters-for-sub', [PurchaseOrderController::class, 'mastersForSub'])->name('product.purchase-order.masters-for-sub');
+            Route::get('/master-items/{id}', [PurchaseOrderController::class, 'masterItems'])->name('product.purchase-order.master-items');
             Route::get('/insert', [PurchaseOrderController::class, 'insertView'])->name('product.purchase-order.insert.view')->middleware('permission:Purchase Order,is_create');
             Route::post('/insert/data', [PurchaseOrderController::class, 'insertData'])->name('product.purchase-order.insert.data')->middleware('permission:Purchase Order,is_create');
             Route::get('/edit/{id}', [PurchaseOrderController::class, 'editView'])->name('product.purchase-order.edit.view')->middleware('permission:Purchase Order,is_update');

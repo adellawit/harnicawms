@@ -51,6 +51,8 @@
                             <th>Purchase Number</th>
                             <th>Date</th>
                             <th>Supplier</th>
+                            <th>Type</th>
+                            <th>Parent PO</th>
                             <th>Status</th>
                             <th>Total</th>
                             @if($hasAnyActionPermission)<th>Actions</th>@endif
@@ -126,12 +128,14 @@
                         { data: 'purchase_number', orderable: true, searchable: true },
                         { data: 'purchase_date', render: function(d) { return d ? moment(d).format("DD MMM YYYY") : '-'; } },
                         { data: 'supplier_name', orderable: false, searchable: true },
+                        { data: 'po_kind_badge', orderable: false, searchable: false },
+                        { data: 'parent_number', orderable: false, searchable: true },
                         { data: 'status_badge', orderable: false, searchable: false },
                         { data: 'total_fmt', orderable: false, searchable: false },
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, render: function(d,t,r) {
                             var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
                             html += '<li><a class="dropdown-item" href="{{ url("product/purchase-order/detail") }}/'+r.id+'"><i class="ti ti-eye me-2 text-info"></i>Detail</a></li>';
-                            if (!r.deleted_at && ((r.status_key || r.status) === 'draft')) {
+                            if (!r.deleted_at && ((r.status_key || r.status) === 'draft') && (r.po_kind || 'standalone') !== 'master') {
                                 html += '<li><a class="dropdown-item" href="{{ url("product/purchase-order/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                                 html += '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';
                             }

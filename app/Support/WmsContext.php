@@ -6,7 +6,10 @@ use App\Models\BusinessUnit;
 use App\Models\Partner\Agent;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\User;
 use App\Models\Warehouse;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -77,6 +80,74 @@ class WmsContext
         return $query
             ->orderBy('code')
             ->get();
+    }
+
+    /**
+     * Gudang yang boleh dilihat user (cabang + gudang company WIP/FG + assignment).
+     *
+     * @return Collection<int, Warehouse>
+     */
+    public static function accessibleWarehouses(?User $user = null): Collection
+    {
+        $user ??= Auth::user();
+        if (! $user) {
+            return collect();
+        }
+
+        $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
+        $companyIds = self::companyIdsForUser($user);
+
+        return Warehouse::query()
+            ->with('branch:id,name')
+            ->inventoryActive()
+            ->when(empty($accessibleIds) && empty($companyIds), fn (Builder $q) => $q->whereRaw('1 = 0'))
+            ->when(! empty($accessibleIds) || ! empty($companyIds), function (Builder $q) use ($accessibleIds, $companyIds) {
+                $q->where(function (Builder $inner) use ($accessibleIds, $companyIds) {
+                    if (! empty($accessibleIds)) {
+                        $inner->whereIn('branch_id', $accessibleIds)
+                            ->orWhereHas(
+                                'assignedBranches',
+                                fn (Builder $assigned) => $assigned->whereIn('master_data.business_units.id', $accessibleIds)
+                            );
+                    }
+
+                    if (! empty($companyIds)) {
+                        $inner->orWhereIn('company_id', $companyIds);
+                    }
+                });
+            })
+            ->orderBy('code')
+            ->get();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function accessibleWarehouseIds(?User $user = null): array
+    {
+        return self::accessibleWarehouses($user)->pluck('id')->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected static function companyIdsForUser(User $user): array
+    {
+        $businessUnit = $user->businessUnit;
+        if (! $businessUnit) {
+            return [];
+        }
+
+        return match ($businessUnit->type_code) {
+            'HOLDING' => BusinessUnit::query()
+                ->where('type_code', 'COMPANY')
+                ->whereNull('deleted_at')
+                ->pluck('id')
+                ->all(),
+            'COMPANY' => [$businessUnit->id],
+            'BRANCH' => $businessUnit->parent_id ? [$businessUnit->parent_id] : [],
+            default => [],
+        };
     }
 
     public static function defaultWarehouse(?string $branchId = null): ?Warehouse

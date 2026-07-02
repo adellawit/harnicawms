@@ -149,19 +149,60 @@ class Product extends Model
         if ($fromUnitId === $toUnitId) {
             return $quantity;
         }
-        $conv = $this->unitConversions()
-            ->where('from_unit_id', $fromUnitId)
-            ->where('to_unit_id', $toUnitId)
-            ->first();
+
+        $this->loadMissing('unitConversions');
+        $conversions = $this->unitConversions;
+
+        $conv = $conversions->first(
+            fn ($row) => $row->from_unit_id === $fromUnitId && $row->to_unit_id === $toUnitId
+        );
         if ($conv) {
             return round($quantity * (float) $conv->conversion_factor, 6);
         }
-        $convReverse = $this->unitConversions()
-            ->where('from_unit_id', $toUnitId)
-            ->where('to_unit_id', $fromUnitId)
-            ->first();
+
+        $convReverse = $conversions->first(
+            fn ($row) => $row->from_unit_id === $toUnitId && $row->to_unit_id === $fromUnitId
+        );
         if ($convReverse) {
             return round($quantity / (float) $convReverse->conversion_factor, 6);
+        }
+
+        return $this->convertQuantityMultiHop($quantity, $fromUnitId, $toUnitId);
+    }
+
+    /**
+     * Konversi multi-hop melalui rantai product_unit_conversions (BFS).
+     */
+    protected function convertQuantityMultiHop(float $quantity, string $fromUnitId, string $toUnitId): ?float
+    {
+        $visited = [];
+        $queue = [[$fromUnitId, $quantity]];
+
+        while (! empty($queue)) {
+            [$unitId, $qty] = array_shift($queue);
+
+            if ($unitId === $toUnitId) {
+                return round($qty, 6);
+            }
+
+            if (isset($visited[$unitId])) {
+                continue;
+            }
+            $visited[$unitId] = true;
+
+            foreach ($this->unitConversions as $conv) {
+                $factor = (float) $conv->conversion_factor;
+                if ($factor <= 0) {
+                    continue;
+                }
+
+                if ($conv->from_unit_id === $unitId) {
+                    $queue[] = [$conv->to_unit_id, $qty * $factor];
+                }
+                if ($conv->to_unit_id === $unitId) {
+                    $queue[] = [$conv->from_unit_id, $qty / $factor];
+                }
+            }
         }
 
         return null;

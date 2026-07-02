@@ -87,10 +87,11 @@
                 }
 
                 const rows = stocksByVariant[variantId] || [];
-                const row = rows.find(r => r.branch_id === fromBranchId);
+                const row = rows.find(r => r.warehouse_id === fromBranchId);
                 const available = row ? row.quantity : 0;
+                const unitLabel = row?.unit_label ? ' ' + row.unit_label : '';
                 hint.textContent = available > 0
-                    ? 'Stok tersedia di gudang asal: ' + available
+                    ? 'Stok tersedia di gudang asal: ' + available + unitLabel
                     : 'Tidak ada stok di gudang asal.';
                 qtyInput.max = available > 0 ? available : '';
             }

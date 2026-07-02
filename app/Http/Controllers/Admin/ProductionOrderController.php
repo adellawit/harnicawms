@@ -5,17 +5,20 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\ProductionOrder;
+use App\Models\Warehouse;
 use App\Services\StockAvailabilityService;
 use App\Services\Manufacturing\ProductionService;
+use App\Support\InventoryWarehouseContext;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ProductionOrderController extends Controller
 {
     public function index()
     {
-        $orders = ProductionOrder::with(['product', 'variant', 'branch'])
+        $orders = ProductionOrder::with(['product', 'variant', 'branch', 'sourceWarehouse', 'outputWarehouse'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -31,41 +34,60 @@ class ProductionOrderController extends Controller
         $distributor = WmsContext::distributor();
         $wip = WmsContext::wipWarehouse(optional($distributor)->id);
         $fg = WmsContext::finishedGoodsWarehouse(optional($distributor)->id);
+        $warehouses = WmsContext::accessibleWarehouses();
 
-        // Data ringkas untuk preview kebutuhan bahan (dipakai JS)
-        $bomData = $boms->map(function (BillOfMaterial $b) use ($wip) {
-            $wipId = optional($wip)->id;
+        return view('admin.production.create', compact('boms', 'distributor', 'wip', 'fg', 'warehouses'));
+    }
+
+    public function bomPreview(Request $request)
+    {
+        $data = $request->validate([
+            'bom_id' => ['required', 'string'],
+            'source_warehouse_id' => ['required', 'uuid'],
+            'planned_qty' => ['required', 'numeric', 'min:0.000001'],
+        ]);
+
+        $bom = BillOfMaterial::with(['items.componentVariant.product', 'items.unit'])
+            ->findOrFail($data['bom_id']);
+
+        $warehouse = InventoryWarehouseContext::assertAccessible($data['source_warehouse_id']);
+        $branchId = $warehouse->branch_id ?: $warehouse->company_id ?: auth('web')->user()?->getBranchIdForTransaction();
+
+        $scale = (float) $bom->output_quantity > 0
+            ? ((float) $data['planned_qty'] / (float) $bom->output_quantity)
+            : (float) $data['planned_qty'];
+
+        $items = $bom->items->map(function ($item) use ($warehouse, $branchId, $scale) {
+            $available = StockAvailabilityService::availableQuantity(
+                $item->component_variant_id,
+                $branchId,
+                $item->unit_id,
+                $warehouse->id
+            );
 
             return [
-                'id' => $b->id,
-                'output_quantity' => (float) $b->output_quantity,
-                'items' => $b->items->map(function ($i) use ($wipId) {
-                    $available = $wipId
-                        ? StockAvailabilityService::availableQuantity(
-                            $i->component_variant_id,
-                            $wipId,
-                            $i->unit_id
-                        )
-                        : 0.0;
-
-                    return [
-                        'label' => $i->componentVariant?->display_name ?? $i->componentProduct?->name,
-                        'qty' => (float) $i->quantity,
-                        'unit' => $i->unit?->symbol ?? $i->unit?->name ?? '',
-                        'available' => $available,
-                    ];
-                })->values(),
+                'label' => $item->componentVariant?->display_name ?? $item->componentProduct?->name,
+                'qty' => (float) $item->quantity * $scale,
+                'unit' => $item->unit?->symbol ?? $item->unit?->name ?? '',
+                'available' => $available,
             ];
         })->values();
 
-        return view('admin.production.create', compact('boms', 'distributor', 'bomData', 'wip', 'fg'));
+        return response()->json([
+            'warehouse_name' => $warehouse->name,
+            'items' => $items,
+        ]);
     }
 
     public function store(Request $request)
     {
+        $accessibleWarehouseIds = WmsContext::accessibleWarehouseIds();
+
         $data = $request->validate([
             'bom_id' => ['required', 'string'],
             'planned_qty' => ['required', 'numeric', 'min:0.000001'],
+            'source_warehouse_id' => ['required', 'uuid', Rule::in($accessibleWarehouseIds)],
+            'output_warehouse_id' => ['required', 'uuid', Rule::in($accessibleWarehouseIds)],
             'overhead_cost' => ['nullable', 'numeric', 'min:0'],
             'production_date' => ['nullable', 'date'],
             'output_expiry_date' => ['nullable', 'date'],
@@ -76,10 +98,12 @@ class ProductionOrderController extends Controller
         $bom = BillOfMaterial::with('product')->findOrFail($data['bom_id']);
         $distributor = WmsContext::distributor();
         $distId = optional($distributor)->id;
-        $wip = WmsContext::wipWarehouse($distId);
-        $fg = WmsContext::finishedGoodsWarehouse($distId);
+        $sourceWarehouse = Warehouse::findOrFail($data['source_warehouse_id']);
+        $outputWarehouse = Warehouse::findOrFail($data['output_warehouse_id']);
         $userId = Auth::id();
-        $branchId = $fg?->branch_id ?: auth('web')->user()?->getBranchIdForTransaction();
+        $branchId = $outputWarehouse->branch_id
+            ?: $sourceWarehouse->branch_id
+            ?: auth('web')->user()?->getBranchIdForTransaction();
 
         $order = ProductionOrder::create([
             'order_number' => ProductionService::generateNumber(),
@@ -87,8 +111,8 @@ class ProductionOrderController extends Controller
             'output_expiry_date' => $data['output_expiry_date'] ?? null,
             'company_id' => $distId,
             'branch_id' => $branchId,
-            'source_warehouse_id' => optional($wip)->id ?? $distId, // bahan baku <- Gudang WIP
-            'output_warehouse_id' => optional($fg)->id,
+            'source_warehouse_id' => $sourceWarehouse->id,
+            'output_warehouse_id' => $outputWarehouse->id,
             'bom_id' => $bom->id,
             'product_id' => $bom->product_id,
             'product_variant_id' => $bom->product_variant_id,
@@ -120,6 +144,7 @@ class ProductionOrderController extends Controller
     {
         $order = ProductionOrder::with([
             'product', 'variant', 'branch',
+            'sourceWarehouse', 'outputWarehouse',
             'bom.items.componentVariant.product',
             'materials.componentVariant.product',
             'outputs.variant.product',
