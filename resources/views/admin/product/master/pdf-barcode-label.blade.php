@@ -12,7 +12,6 @@
                     <div class="label-logo">
                         <img src="{{ $harnicaLogoSrc }}" alt="Harnica">
                     </div>
-                    <div class="brand">{{ $distributorName }}</div>
                     <div class="product-name">{{ $label['product_name'] ?? $productName }}</div>
                     <div class="unit-qty">1 {{ $label['unit_label'] ?? '' }}</div>
                     @if (! empty($label['content_summary']))
@@ -34,11 +33,7 @@
     <div class="label-pack">
         <table class="label-table label-table--pack" cellpadding="0" cellspacing="0">
             <tr>
-                <td class="label-table__content">
-                    <div class="label-logo">
-                        <img src="{{ $harnicaLogoSrc }}" alt="Harnica">
-                    </div>
-                    <div class="brand">{{ $distributorName }}</div>
+                <td class="label-pack__meta-cell">
                     <div class="product-name">{{ $label['product_name'] ?? $productName }}</div>
                     @if (! empty($label['content_summary']))
                         <div class="content-summary">{{ $label['content_summary'] }}</div>
@@ -46,7 +41,7 @@
                 </td>
             </tr>
             <tr>
-                <td class="label-table__footer label-table__footer--pack">
+                <td class="label-pack__value-cell">
                     <div class="barcode-img">
                         <img src="{{ $qrSrc }}" alt="Barcode">
                     </div>

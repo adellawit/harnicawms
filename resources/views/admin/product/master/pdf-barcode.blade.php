@@ -71,7 +71,7 @@
             overflow: hidden;
         }
 
-        /* ── Karton 50×50mm & Pack 40×40mm ── */
+        /* ── Karton 100×80mm & Pack 40×30mm ── */
         .label-karton,
         .label-pack {
             border: 0.1mm solid #999;
@@ -83,14 +83,14 @@
         }
 
         .label-karton {
-            width: 50mm;
-            height: 50mm;
-            padding: 0.8mm;
+            width: 100mm;
+            height: 80mm;
+            padding: 1mm;
         }
 
         .label-table--karton {
             width: 100%;
-            height: 48.4mm;
+            height: 78mm;
             border-collapse: collapse;
         }
 
@@ -103,76 +103,84 @@
         .label-table--karton .label-table__footer--karton {
             vertical-align: bottom;
             text-align: center;
-            height: 26mm;
+            height: 40mm;
             padding: 0;
         }
 
         .label-karton .label-logo {
-            margin-bottom: 0.3mm;
+            margin-bottom: 0.5mm;
         }
 
         .label-karton .label-logo img {
-            max-width: 46mm;
-            max-height: 8mm;
-        }
-
-        .label-karton .brand {
-            font-size: 7px;
+            max-width: 96mm;
+            max-height: 15mm;
         }
 
         .label-karton .product-name {
-            font-size: 10px;
-            margin-top: 0.4mm;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 0.6mm;
+            line-height: 1.15;
         }
 
         .label-karton .unit-qty {
-            font-size: 8px;
-            margin-top: 0.4mm;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 0.5mm;
+            line-height: 1.15;
         }
 
         .label-karton .content-summary {
-            font-size: 7px;
-            margin-top: 0.4mm;
+            font-size: 10px;
+            margin-top: 0.5mm;
+            line-height: 1.15;
         }
 
         .label-karton .barcode-img img {
-            width: 22mm;
-            height: 22mm;
+            width: 35mm;
+            height: 35mm;
         }
 
         .label-karton .serial {
-            font-size: 7.5px;
-            margin-top: 0.4mm;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: DejaVu Sans Mono, monospace;
+            line-height: 1.15;
+            margin-top: 0.5mm;
         }
 
         .label-pack {
             width: 40mm;
-            height: 40mm;
-            padding: 1.2mm;
+            height: 30mm;
+            padding: 2.7mm 1mm 3mm;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .label-table--pack {
             width: 100%;
-            height: 37.6mm;
+            height: 24.3mm;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
-        .label-table--pack .label-table__content {
+        .label-table--pack .label-pack__meta-cell {
             vertical-align: top;
             text-align: center;
+            height: 8mm;
             padding: 0;
         }
 
-        .label-table--pack .label-table__footer--pack {
+        .label-table--pack .label-pack__value-cell {
             vertical-align: bottom;
             text-align: center;
-            height: 20mm;
-            padding: 2mm 0 0;
+            height: 16.3mm;
+            padding: 0;
         }
 
         .label-table {
             width: 100%;
-            height: 100%;
             border-collapse: collapse;
         }
 
@@ -193,38 +201,36 @@
             margin-bottom: 0.5mm;
         }
 
-        .label-pack .label-logo img {
-            max-width: 36mm;
-            max-height: 7mm;
-        }
-
-        .label-pack .brand {
-            font-size: 6.5px;
-        }
-
         .label-pack .product-name {
-            font-size: 9px;
-            margin-top: 0.4mm;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+            line-height: 1.15;
         }
 
         .label-pack .content-summary {
-            font-size: 7px;
-            margin-top: 0.4mm;
-            margin-bottom: 0;
+            font-size: 6px;
+            margin: 0.3mm 0 0;
+            line-height: 1.15;
         }
 
         .label-pack .barcode-img {
-            margin-top: 0;
+            margin: 0;
+            line-height: 0;
         }
 
         .label-pack .barcode-img img {
-            width: 16mm;
-            height: 16mm;
+            width: 14mm;
+            height: 14mm;
         }
 
         .label-pack .serial {
-            font-size: 7px;
-            margin-top: 0.4mm;
+            font-size: 6.5px;
+            font-weight: bold;
+            font-family: DejaVu Sans Mono, monospace;
+            line-height: 1.15;
+            margin: 0.3mm 0 0;
         }
 
         .brand {
@@ -273,7 +279,7 @@
         }
 
         .label-wrap--karton {
-            width: 50mm;
+            width: 100mm;
         }
 
         .label-wrap--pack {
