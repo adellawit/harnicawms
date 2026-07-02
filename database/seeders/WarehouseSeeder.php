@@ -8,7 +8,7 @@ use App\Services\MasterData\WarehouseBootstrapService;
 use Illuminate\Database\Seeder;
 
 /**
- * Ensures every branch has at least one warehouse in master_data.warehouses
+ * Ensures every branch has warehouses in master_data.warehouses
  * and syncs legacy business_units (type_code = WAREHOUSE) into the new table.
  */
 class WarehouseSeeder extends Seeder
@@ -16,56 +16,75 @@ class WarehouseSeeder extends Seeder
     public function run(): void
     {
         app(WarehouseBootstrapService::class)->syncForSeeding();
-        $this->ensureCompanyWarehouses();
+        $this->ensureBandungWarehouses();
 
         $this->command?->info('Warehouses seeded/synced successfully.');
     }
 
-    private function ensureCompanyWarehouses(): void
+    private function ensureBandungWarehouses(): void
     {
-        $companies = BusinessUnit::query()
-            ->where('type_code', 'COMPANY')
+        $branch = BusinessUnit::query()
+            ->where('type_code', 'BRANCH')
+            ->where('code', 'SUHARA-BDG-001')
             ->whereNull('deleted_at')
-            ->get(['id', 'code', 'name']);
+            ->first(['id', 'parent_id']);
 
-        foreach ($companies as $company) {
-            foreach ($this->companyWarehouseDefaults($company) as $warehouse) {
-                Warehouse::updateOrCreate(
-                    [
-                        'company_id' => $company->id,
-                        'code' => $warehouse['code'],
-                    ],
-                    [
-                        'branch_id' => null,
-                        'warehouse_type_code' => $warehouse['type'],
-                        'name' => $warehouse['name'],
-                        'short_name' => $warehouse['short_name'],
-                        'is_default' => false,
-                        'is_inventory_active' => true,
-                        'is_active' => true,
-                    ]
-                );
-            }
+        if (! $branch) {
+            $this->command?->warn('Branch Bandung tidak ditemukan. Jalankan BusinessUnitSeeder terlebih dahulu.');
+
+            return;
         }
-    }
 
-    private function companyWarehouseDefaults(BusinessUnit $company): array
-    {
-        $prefix = $company->code ?: 'COMPANY';
-
-        return [
+        $warehouses = [
             [
-                'code' => "{$prefix}-WH-WIP",
-                'type' => 'WIP',
-                'name' => 'Gudang WIP (Bahan Baku & Proses)',
-                'short_name' => 'WIP',
+                'code' => 'SUHARA-BDG-WH-RM',
+                'type' => 'RAW_MATERIAL',
+                'name' => 'Gudang Raw Material',
+                'short_name' => 'RM',
+                'is_default' => true,
             ],
             [
-                'code' => "{$prefix}-WH-FG",
+                'code' => 'SUHARA-BDG-WH-PRD',
                 'type' => 'FG',
-                'name' => 'Gudang Barang Jadi',
-                'short_name' => 'FG',
+                'name' => 'Gudang Product',
+                'short_name' => 'PRD',
+                'is_default' => false,
+            ],
+            [
+                'code' => 'SUHARA-BDG-WH-DEF',
+                'type' => 'QUARANTINE',
+                'name' => 'Gudang Defect',
+                'short_name' => 'DEF',
+                'is_default' => false,
             ],
         ];
+
+        foreach ($warehouses as $warehouse) {
+            Warehouse::updateOrCreate(
+                [
+                    'company_id' => $branch->parent_id,
+                    'code' => $warehouse['code'],
+                ],
+                [
+                    'branch_id' => $branch->id,
+                    'warehouse_type_code' => $warehouse['type'],
+                    'name' => $warehouse['name'],
+                    'short_name' => $warehouse['short_name'],
+                    'is_default' => $warehouse['is_default'],
+                    'is_inventory_active' => true,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        Warehouse::query()
+            ->where('branch_id', $branch->id)
+            ->where('code', '!=', 'SUHARA-BDG-WH-RM')
+            ->update(['is_default' => false]);
+
+        Warehouse::query()
+            ->where('branch_id', $branch->id)
+            ->where('code', 'SUHARA-BDG-WH-RM')
+            ->update(['is_default' => true]);
     }
 }

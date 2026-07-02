@@ -88,9 +88,9 @@
     // ==========================================================================
 
     const chartColors = {
-        primary: '#0077b6',
-        primaryLight: '#00b4d8',
-        accent: '#90e0ef',
+        primary: '#5C9E84',
+        primaryLight: '#7BB5A0',
+        accent: '#9ECAB8',
         success: '#28c76f',
         warning: '#ff9f43',
         danger: '#ea5455',

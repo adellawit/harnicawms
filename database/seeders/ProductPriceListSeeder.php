@@ -21,12 +21,12 @@ class ProductPriceListSeeder extends Seeder
     public function run(): void
     {
         $company = DB::table('master_data.business_units')
-            ->where('code', 'WWW-001')
+            ->where('code', 'SUHARA-001')
             ->where('type_code', 'COMPANY')
             ->first();
 
         if (! $company) {
-            $this->command?->error('Company WWW tidak ditemukan. Jalankan BusinessUnitSeeder terlebih dahulu.');
+            $this->command?->error('Company Suhara Botanica tidak ditemukan. Jalankan BusinessUnitSeeder terlebih dahulu.');
 
             return;
         }
