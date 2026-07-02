@@ -10,7 +10,7 @@ use App\Models\ProductStockMovement;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
 use App\Models\StockMutationType;
-use App\Support\WmsContext;
+use App\Support\InventoryWarehouseContext;
 use Illuminate\Http\Request;
 
 class StockAdjustmentController extends Controller
@@ -27,9 +27,11 @@ class StockAdjustmentController extends Controller
 
     public function indexView(Request $request)
     {
-        $defaultBranchId = $this->getBranchId();
-        $branchId = $request->get('branch_id', $defaultBranchId);
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $ctx = InventoryWarehouseContext::resolve($request);
+        $branchId = $ctx['filter_branch_id'];
+        $warehouseId = $ctx['warehouse_id'];
+        $selectedWarehouse = $ctx['warehouse'];
+        $warehouses = $ctx['warehouses'];
         $perPage = $request->get('per_page', 20);
 
         $query = Product::with([
@@ -76,9 +78,14 @@ class StockAdjustmentController extends Controller
         $allCategories = ProductCategory::orderBy('name')->get(['id', 'name']);
 
         $variantStocks = collect();
-        if ($branchId) {
+        if ($warehouseId) {
             $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
-                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
+                ->where('warehouse_id', $warehouseId)
+                ->get()
+                ->keyBy('product_variant_id');
+        } elseif ($branchId) {
+            $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
+                ->where('branch_id', $branchId)
                 ->get()
                 ->keyBy('product_variant_id');
         }
@@ -149,18 +156,17 @@ class StockAdjustmentController extends Controller
             'allProducts' => $allProducts,
             'allNatures' => $allNatures,
             'allCategories' => $allCategories,
+            'warehouses' => $warehouses,
+            'selectedWarehouse' => $selectedWarehouse,
+            'filterWarehouseId' => $warehouseId,
+            'filterBranchId' => $branchId,
         ]);
     }
 
     public function saveData(Request $request)
     {
-        $branchId = $this->getBranchId();
-        $companyId = $this->getCompanyId();
-        if (!$branchId) {
-            return response()->json(['success' => false, 'message' => 'No branch assigned.'], 422);
-        }
-
         $request->validate([
+            'warehouse_id' => 'required|uuid',
             'items' => 'required|array|min:1',
             'items.*.variant_id' => 'required|exists:product.product_variants,id',
             'items.*.product_id' => 'required|exists:product.products,id',
@@ -169,10 +175,17 @@ class StockAdjustmentController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $warehouse = InventoryWarehouseContext::assertAccessible($request->warehouse_id);
+        $branchId = $warehouse->branch_id ?: $warehouse->company_id ?: $this->getBranchId();
+        $companyId = $this->getCompanyId();
+        if (! $branchId) {
+            return response()->json(['success' => false, 'message' => 'No branch assigned.'], 422);
+        }
+
         $userId = auth('web')->id();
         $notes = $request->notes ?: 'Stock adjustment';
         $adjusted = 0;
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = $warehouse->id;
 
         $adjInType = StockMutationType::where('code', 'STOCK_ADJUSTMENT_IN')->first();
         $adjOutType = StockMutationType::where('code', 'STOCK_ADJUSTMENT_OUT')->first();
@@ -188,7 +201,7 @@ class StockAdjustmentController extends Controller
             $stock = ProductVariantStock::withTrashed()
                 ->where('product_variant_id', $variantId)
                 ->where('product_id', $productId)
-                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
+                ->where('warehouse_id', $warehouseId)
                 ->first();
 
             $systemQty = $stock ? (float) $stock->quantity : 0;

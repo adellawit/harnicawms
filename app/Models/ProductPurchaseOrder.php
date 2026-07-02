@@ -25,6 +25,10 @@ class ProductPurchaseOrder extends Model
         'company_id',
         'branch_id',
         'warehouse_id',
+        'parent_id',
+        'po_kind',
+        'release_sequence',
+        'release_status',
         'status',
         'expected_delivery_date',
         'notes',
@@ -82,6 +86,50 @@ class ProductPurchaseOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ProductPurchaseOrderItem::class, 'purchase_order_id', 'id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id', 'id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id', 'id');
+    }
+
+    public function isMaster(): bool
+    {
+        return ($this->po_kind ?? 'standalone') === 'master';
+    }
+
+    public function isSub(): bool
+    {
+        return ($this->po_kind ?? 'standalone') === 'sub';
+    }
+
+    public function isStandalone(): bool
+    {
+        return ($this->po_kind ?? 'standalone') === 'standalone';
+    }
+
+    public function getPoKindLabelAttribute(): string
+    {
+        return match ($this->po_kind ?? 'standalone') {
+            'master' => 'PO Utama',
+            'sub' => 'Sub-PO',
+            default => 'Standalone',
+        };
+    }
+
+    public function getReleaseStatusLabelAttribute(): ?string
+    {
+        return match ($this->release_status) {
+            'open' => 'Belum Release',
+            'partial' => 'Partial Release',
+            'closed' => 'Fully Released',
+            default => null,
+        };
     }
 
     public function receives(): HasMany

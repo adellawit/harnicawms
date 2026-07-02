@@ -36,6 +36,32 @@
                 @csrf
                 <hr style="margin: 0.5rem 0;" />
                 <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Tipe PO <span class="text-danger">*</span></label>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="po_kind" id="po_kind_standalone" value="standalone" @checked(old('po_kind', 'standalone') === 'standalone')>
+                                    <label class="form-check-label" for="po_kind_standalone">PO Baru (Standalone)</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="po_kind" id="po_kind_master" value="master" @checked(old('po_kind') === 'master')>
+                                    <label class="form-check-label" for="po_kind_master">PO Utama (Batch / Master)</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="po_kind" id="po_kind_sub" value="sub" @checked(old('po_kind') === 'sub')>
+                                    <label class="form-check-label" for="po_kind_sub">Sub-PO (Inherit dari PO Utama)</label>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1" id="po-kind-hint">PO standalone dapat diedit selama status draft.</small>
+                        </div>
+                        <div class="col-md-6" id="parent-po-wrap" style="display:none;">
+                            <label class="form-label" for="parent_id">PO Utama <span class="text-danger">*</span></label>
+                            <select id="parent_id" name="parent_id" class="form-select">
+                                <option value="">-- Pilih PO Utama --</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label" for="purchase_date">Purchase Date <span class="text-danger">*</span></label>
@@ -120,6 +146,13 @@
             var products = @json($products);
             var units = @json($units);
             var suppliersByTypeUrl = "{{ route('product.purchase-order.suppliers-by-type') }}";
+            var mastersForSubUrl = "{{ route('product.purchase-order.masters-for-sub') }}";
+            var masterItemsUrlBase = "{{ url('product/purchase-order/master-items') }}";
+            var currentPoKind = @json(old('po_kind', $defaultPoKind ?? 'standalone'));
+            var oldParentId = @json(old('parent_id', $defaultParentId ?? null));
+            var isSubMode = false;
+            var isMasterMode = false;
+            var masterItemsCache = [];
             var currentSuppliers = [];
             var itemCounter = 0;
             var oldItems = @json(old('items', []));
@@ -226,26 +259,36 @@
                 }).join('');
             }
 
-            function addItemRow(itemData = null) {
+            function addItemRow(itemData = null, options = {}) {
+                var locked = !!options.locked;
                 itemCounter++;
                 var unitOpts = '<option value="">-- Select Product first --</option>';
                 var productOpts = '<option value="">-- Select Product --</option>' + products.map(function(r) {
                     return '<option value="'+r.id+'">'+r.name+(r.code ? ' ('+r.code+')' : '')+'</option>';
                 }).join('');
                 var row = '<div class="detail-row" data-index="'+itemCounter+'">' +
+                    (itemData && itemData.parent_item_id ? '<input type="hidden" name="items['+itemCounter+'][parent_item_id]" value="'+itemData.parent_item_id+'" />' : '') +
                     '<div class="detail-row-header">' +
                     '<span class="detail-row-number">Item #'+itemCounter+'</span>' +
-                    '<button type="button" class="btn btn-sm btn-danger btnRemoveItem"><i class="ti ti-trash me-1"></i>Remove</button>' +
+                    (locked ? '' : '<button type="button" class="btn btn-sm btn-danger btnRemoveItem"><i class="ti ti-trash me-1"></i>Remove</button>') +
                     '</div>' +
                     '<div class="row g-3">' +
                     '<div class="col-md-4"><label class="form-label">Product <span class="text-danger">*</span></label>' +
-                    '<select name="items['+itemCounter+'][product_id]" class="form-select select2-product" data-index="'+itemCounter+'" required>'+productOpts+'</select></div>' +
+                    '<select name="items['+itemCounter+'][product_id]" class="form-select select2-product" data-index="'+itemCounter+'" required '+(locked ? 'disabled' : '')+'>'+productOpts+'</select>' +
+                    (locked && itemData && itemData.product_id ? '<input type="hidden" name="items['+itemCounter+'][product_id]" value="'+itemData.product_id+'" />' : '') +
+                    '</div>' +
                     '<div class="col-md-4 variant-col" style="display:none;"><label class="form-label">Variant</label>' +
-                    '<select name="items['+itemCounter+'][variant_id]" class="form-select select2-variant"></select></div>' +
+                    '<select name="items['+itemCounter+'][variant_id]" class="form-select select2-variant" '+(locked ? 'disabled' : '')+'></select>' +
+                    (locked && itemData && itemData.variant_id ? '<input type="hidden" name="items['+itemCounter+'][variant_id]" value="'+itemData.variant_id+'" />' : '') +
+                    '</div>' +
                     '<div class="col-md-2"><label class="form-label">Unit <span class="text-danger">*</span></label>' +
-                    '<select name="items['+itemCounter+'][unit_id]" class="form-select select2-unit">'+unitOpts+'</select></div>' +
+                    '<select name="items['+itemCounter+'][unit_id]" class="form-select select2-unit" '+(locked ? 'disabled' : '')+'>'+unitOpts+'</select>' +
+                    (locked && itemData && itemData.unit_id ? '<input type="hidden" name="items['+itemCounter+'][unit_id]" value="'+itemData.unit_id+'" />' : '') +
+                    '</div>' +
                     '<div class="col-md-2"><label class="form-label">Qty <span class="text-danger">*</span></label>' +
-                    '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" data-index="'+itemCounter+'" required /></div>' +
+                    '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" data-index="'+itemCounter+'" data-max="'+(itemData && itemData.remaining_qty ? itemData.remaining_qty : '')+'" required />' +
+                    (itemData && itemData.remaining_qty ? '<small class="text-muted">Sisa release: '+itemData.remaining_qty+'</small>' : '') +
+                    '</div>' +
                     '<div class="col-md-2"><label class="form-label">Unit Price <span class="text-danger">*</span></label>' +
                     '<input type="text" name="items['+itemCounter+'][unit_price]" class="form-control item-price number-format" data-index="'+itemCounter+'" required /></div>' +
                     '<div class="col-md-2"><label class="form-label">Discount</label>' +
@@ -357,29 +400,94 @@
                 });
             }
 
+            function setPoKind(kind, options) {
+                options = options || {};
+                currentPoKind = kind;
+                isSubMode = kind === 'sub';
+                isMasterMode = kind === 'master';
+
+                $('#parent-po-wrap').toggle(isSubMode);
+                $('#btnAddItem').toggle(!isSubMode);
+                $('#supplier_id').prop('disabled', isSubMode);
+
+                if (isSubMode) {
+                    $('#po-kind-hint').text('Sub-PO mengambil produk dari PO Utama. Qty tidak boleh melebihi sisa release.');
+                    $('#itemsContainer').empty();
+                    loadMastersForSub();
+                } else if (options.restoreOldItems && oldItems && oldItems.length) {
+                    $('#po-kind-hint').text('PO standalone dapat diedit selama status draft.');
+                    $('#supplier_id').prop('disabled', false);
+                    $('#itemsContainer').empty();
+                    oldItems.forEach(function (it) { addItemRow(it); });
+                    updateTotals();
+                } else if (isMasterMode) {
+                    $('#po-kind-hint').text('PO Utama tidak dapat diedit setelah disimpan. Gunakan Sub-PO untuk release parsial.');
+                    $('#itemsContainer').empty();
+                    addItemRow();
+                } else {
+                    $('#po-kind-hint').text('PO standalone dapat diedit selama status draft.');
+                    $('#supplier_id').prop('disabled', false);
+                    $('#itemsContainer').empty();
+                    addItemRow();
+                }
+            }
+
+            function loadMastersForSub() {
+                $.get(mastersForSubUrl, function(masters) {
+                    var $sel = $('#parent_id');
+                    $sel.empty().append('<option value="">-- Pilih PO Utama --</option>');
+                    masters.forEach(function(m) {
+                        $sel.append('<option value="'+m.id+'">'+m.purchase_number+' - '+m.supplier_name+' (Sisa release)</option>');
+                    });
+                    if (oldParentId) {
+                        $sel.val(oldParentId).trigger('change');
+                    }
+                });
+            }
+
+            function loadMasterItems(parentId) {
+                if (!parentId) return;
+                $.get(masterItemsUrlBase + '/' + parentId, function(res) {
+                    masterItemsCache = res.items || [];
+                    $('#supplier_id').empty().append('<option value="'+res.master.supplier_id+'" selected>'+res.master.supplier_name+'</option>').trigger('change.select2');
+                    updateSupplierInfo({
+                        name: res.master.supplier_name,
+                        contact: res.master.supplier_contact,
+                        address: res.master.supplier_address,
+                    });
+
+                    $('#itemsContainer').empty();
+                    masterItemsCache.forEach(function(item) {
+                        if (item.remaining_qty <= 0) return;
+                        addItemRow({
+                            parent_item_id: item.parent_item_id,
+                            product_id: item.product_id,
+                            variant_id: item.variant_id,
+                            unit_id: item.unit_id,
+                            unit_price: item.unit_price,
+                            discount_amount: item.discount_amount,
+                            remaining_qty: item.remaining_qty,
+                        }, { locked: true });
+                    });
+                    updateTotals();
+                });
+            }
+
             $(document).ready(function() {
                 $('.flatpickr-date').flatpickr({ dateFormat: 'd/m/Y' });
                 initNumberInputs();
                 bindItemCalculations();
                 $('#tax_amount, #discount_amount').on('input change', updateTotals);
-                // Jika ada old items (validasi gagal), render ulang semua item tersebut
-                if (oldItems && oldItems.length) {
-                    oldItems.forEach(function (it) { addItemRow(it); });
-                    updateTotals();
-                } else {
-                // Jika ada old items (validasi gagal), render ulang semua item tersebut
-                if (oldItems && oldItems.length) {
-                    oldItems.forEach(function (it) { addItemRow(it); });
-                    updateTotals();
-                } else {
-                    addItemRow();
-                }
-                }
+
+                $('input[name="po_kind"]').on('change', function() { setPoKind($(this).val()); });
+                $('#parent_id').on('change', function() { loadMasterItems($(this).val()); });
+                setPoKind(currentPoKind, { restoreOldItems: true });
                 $('#supplier_id').select2({ placeholder: '-- Pilih Supplier --', allowClear: true });
                 loadSuppliers();
 
-                $('#btnAddItem').click(function () { addItemRow(); });
+                $('#btnAddItem').click(function () { if (!isSubMode) addItemRow(); });
                 $(document).on('click', '.btnRemoveItem', function() {
+                    if (isSubMode) return;
                     if ($('.detail-row').length <= 1) { alert('Minimal 1 item diperlukan'); return; }
                     $(this).closest('.detail-row').remove();
                     updateItemNumbers();
@@ -401,6 +509,18 @@
 
                 $('#btn-submit').click(function() {
                     if ($('.detail-row').length === 0) { alert('Minimal 1 item diperlukan'); return; }
+                    if (isSubMode && !$('#parent_id').val()) { alert('Pilih PO Utama untuk Sub-PO'); return; }
+                    var qtyError = null;
+                    $('.detail-row').each(function() {
+                        var $row = $(this);
+                        var max = parseFloat($row.find('.item-qty').data('max'));
+                        var qty = parseNum($row.find('.item-qty').val());
+                        if (!isNaN(max) && max >= 0 && qty > max + 1e-6) {
+                            qtyError = 'Qty melebihi sisa release PO utama (maks: ' + max + ').';
+                            return false;
+                        }
+                    });
+                    if (qtyError) { alert(qtyError); return; }
                     $('.number-format').each(function() {
                         var $el = $(this);
                         var c = $el.data('cleave');

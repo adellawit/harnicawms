@@ -14,10 +14,10 @@
             $filterPerPage = request('per_page', 20);
 
             $branches = $locations ?? collect();
-            $defaultBranch = request('branch_id') ?: ($fgWarehouseId ?? auth('web')->user()->current_business_unit_id);
-            $filterBranchId = request('branch_id', '');
+            $filterWarehouseId = $filterWarehouseId ?? request('warehouse_id', request('branch_id', ''));
+            $selectedWarehouseName = $selectedWarehouse?->name ?? null;
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== '';
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterWarehouseId !== '';
         @endphp
 
         <x-page-header
@@ -31,7 +31,14 @@
 
         <div class="card">
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Product Stock</h5>
+                <div>
+                    <h5 class="card-title mb-0">Product Stock</h5>
+                    @if($selectedWarehouseName)
+                        <small class="text-muted">Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong></small>
+                    @else
+                        <small class="text-muted">Menampilkan stok agregat semua gudang yang dapat diakses</small>
+                    @endif
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button" class="btn btn-{{ $isFilter ? 'warning' : 'primary' }} btn-sm" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="ti ti-filter me-1"></i> Filter
@@ -162,16 +169,16 @@
 
     <x-modal id="filterModal" title="Filter">
         <div class="mb-3">
-            <label class="form-label">Lokasi (Gudang / Cabang)</label>
-            <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
-                <option value="">Semua Lokasi</option>
+            <label class="form-label">Gudang <span class="text-danger">*</span></label>
+            <select id="selectWarehouse" class="select2-modal form-select" data-allow-clear="true">
+                <option value="">Semua Gudang (Agregat)</option>
                 @foreach($branches as $b)
-                    <option value="{{ $b->id }}" @if($filterBranchId === $b->id) selected @endif>
-                        {{ $b->name }}{{ $b->type_code === 'WAREHOUSE' ? ' (Gudang)' : '' }}
+                    <option value="{{ $b->id }}" @if($filterWarehouseId === $b->id) selected @endif>
+                        {{ $b->name }}
                     </option>
                 @endforeach
             </select>
-            <small class="text-muted">Tip: pilih <strong>Gudang Barang Jadi</strong> untuk lihat stok hasil produksi + HPP.</small>
+            <small class="text-muted">Pilih gudang spesifik untuk melihat stok per lokasi.</small>
         </div>
         <div class="mb-3">
             <label class="form-label">Variant</label>
@@ -264,7 +271,7 @@
 
                 $('#btnFilter').on('click', function() {
                     var params = [];
-                    var branchId = $('#selectBranch').val();
+                    var warehouseId = $('#selectWarehouse').val();
                     var sku = $('#selectSku').val();
                     var productId = $('#selectProduct').val();
                     var natureId = $('#selectNature').val();
@@ -272,7 +279,7 @@
                     var variantSearch = $('#variantSearch').val();
                     var perPage = $('#selectPerPage').val();
 
-                    if (branchId) params.push('branch_id=' + encodeURIComponent(branchId));
+                    if (warehouseId) params.push('warehouse_id=' + encodeURIComponent(warehouseId));
                     if (sku) params.push('sku=' + encodeURIComponent(sku));
                     if (productId) params.push('product_id=' + encodeURIComponent(productId));
                     if (natureId) params.push('nature_id=' + encodeURIComponent(natureId));

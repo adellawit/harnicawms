@@ -11,6 +11,7 @@ use App\Models\ProductVariantStock;
 use App\Models\ProductVariantPrice;
 use App\Models\Warehouse;
 use App\Services\FifoCostService;
+use App\Support\InventoryWarehouseContext;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 
@@ -28,32 +29,24 @@ class ProductStockController extends Controller
         // Semua BU yang dapat diakses user (untuk filter produk & stok)
         $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
 
-        // Lokasi spesifik jika dipilih lewat filter. Parameter lama tetap bernama branch_id.
-        $locationId = $request->get('branch_id');
+        $ctx = InventoryWarehouseContext::resolve($request, $user, autoSelectDefault: false);
+        $warehouseId = $ctx['warehouse_id'];
+        $selectedWarehouse = $ctx['warehouse'];
+        $selectedBranchId = $selectedWarehouse?->branch_id ?: $ctx['filter_branch_id'];
+        $accessibleWarehouses = $ctx['warehouses'];
+        $accessibleWarehouseIds = $accessibleWarehouses->pluck('id')->all();
 
         // Pagination
         $perPage = $request->get('per_page', 20);
 
         $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse())->id;
-        $selectedWarehouse = $locationId ? Warehouse::with('branch')->find($locationId) : null;
-        $warehouseId = $selectedWarehouse?->id;
-        $selectedBranchId = $selectedWarehouse?->branch_id ?: $locationId;
 
-        $warehouseQuery = Warehouse::query()
-            ->with('branch:id,name')
-            ->inventoryActive()
-            ->when(! empty($accessibleIds), function ($q) use ($accessibleIds) {
-                $q->where(function ($inner) use ($accessibleIds) {
-                    $inner->whereIn('branch_id', $accessibleIds)
-                        ->orWhereHas('assignedBranches', fn ($assigned) => $assigned->whereIn('master_data.business_units.id', $accessibleIds));
-                });
-            })
-            ->orderBy('code');
-
-        $locations = $warehouseQuery->get(['id', 'name', 'code', 'branch_id', 'warehouse_type_code'])
+        $locations = $accessibleWarehouses
             ->map(function (Warehouse $warehouse) {
                 $warehouse->type_code = 'WAREHOUSE';
-                $warehouse->name = $warehouse->name . ($warehouse->branch ? ' - ' . $warehouse->branch->name : '');
+                $type = $warehouse->warehouse_type_code ? " [{$warehouse->warehouse_type_code}]" : '';
+                $warehouse->name = $warehouse->code . ' - ' . $warehouse->name . $type . ($warehouse->branch ? ' - ' . $warehouse->branch->name : '');
+
                 return $warehouse;
             });
 
@@ -113,17 +106,14 @@ class ProductStockController extends Controller
         $variantPrices = collect();
 
         $stockQuery = ProductVariantStock::with('unit:id,name,symbol')
+            ->whereNull('deleted_at')
             ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))
-            ->when(! $warehouseId && ! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds));
+            ->when(
+                ! $warehouseId && ! empty($accessibleWarehouseIds),
+                fn ($q) => $q->whereIn('warehouse_id', $accessibleWarehouseIds)
+            );
 
-        // Aggregate quantity per variant (sum across branches if no specific branch selected)
-        $variantStocks = $stockQuery->get()
-            ->groupBy('product_variant_id')
-            ->map(function ($rows) {
-                $first = $rows->first();
-                $first->quantity = $rows->sum('quantity');
-                return $first;
-            });
+        $variantStocks = $this->aggregateVariantStocks($stockQuery->get());
 
         // Prices: dari branch transaksi utama
         $pricesBranchId = $selectedBranchId ?: $this->getBranchId() ?: ($accessibleIds[0] ?? null);
@@ -178,19 +168,14 @@ class ProductStockController extends Controller
                 }
             } else {
                 // Product without variants - show as single row
-                // Find or create default variant
-                $defaultVariant = $variants->first() ?? $product->variants()->first();
-                if (!$defaultVariant) {
-                    // Create a default variant for products without one
-                    $defaultVariant = ProductVariant::create([
-                        'product_id' => $product->id,
-                        'sku' => $product->sku ?? 'PROD-' . substr($product->id, 0, 8),
-                        'barcode' => $product->barcode ?? substr($product->id, 0, 13),
-                        'purchase_price' => 0,
-                        'selling_price' => 0,
-                        'is_active' => true,
-                        'created_by' => auth('web')->id(),
-                    ]);
+                $defaultVariant = ProductVariant::resolveForStock(
+                    $product->id,
+                    null,
+                    auth('web')->id()
+                );
+
+                if (! $defaultVariant) {
+                    continue;
                 }
 
                 $stock = $variantStocks->get($defaultVariant->id);
@@ -232,6 +217,35 @@ class ProductStockController extends Controller
             'allCategories' => $allCategories,
             'locations' => $locations,
             'fgWarehouseId' => $fgWarehouseId,
+            'selectedWarehouse' => $selectedWarehouse,
+            'filterWarehouseId' => $warehouseId,
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ProductVariantStock>  $rows
+     * @return \Illuminate\Support\Collection<string, ProductVariantStock>
+     */
+    private function aggregateVariantStocks($rows)
+    {
+        return $rows->groupBy('product_variant_id')->map(function ($variantRows) {
+            if ($variantRows->isEmpty()) {
+                return null;
+            }
+
+            $totalsByUnit = $variantRows
+                ->groupBy('unit_id')
+                ->map(fn ($unitRows) => [
+                    'quantity' => $unitRows->sum(fn (ProductVariantStock $row) => (float) $row->quantity),
+                    'row' => $unitRows->first(),
+                ])
+                ->sortByDesc('quantity');
+
+            $best = $totalsByUnit->first();
+            $stock = $best['row'];
+            $stock->quantity = $best['quantity'];
+
+            return $stock;
+        })->filter();
     }
 }

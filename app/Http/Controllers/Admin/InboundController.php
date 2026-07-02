@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\BusinessUnit;
 use App\Models\ProductCostLayer;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
+use App\Models\Warehouse;
 use App\Services\StockMutationService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -81,13 +81,15 @@ class InboundController extends Controller
         $variants = WmsContext::variantOptions();
         $branches = $this->branchOptions();
         $stocksByVariant = ProductVariantStock::query()
+            ->with('unit:id,symbol,name')
             ->whereNull('deleted_at')
             ->where('quantity', '>', 0)
             ->get()
             ->groupBy('product_variant_id')
             ->map(fn ($rows) => $rows->map(fn ($row) => [
-                'branch_id' => $row->warehouse_id ?: $row->branch_id,
+                'warehouse_id' => $row->warehouse_id ?: $row->branch_id,
                 'quantity' => (float) $row->quantity,
+                'unit_label' => $row->unit?->symbol ?: $row->unit?->name,
             ])->values());
 
         return view('admin.inbound.transfer', [
@@ -110,29 +112,42 @@ class InboundController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $allowedBranchIds = collect($this->branchOptions())->pluck('id')->all();
-        if (! in_array($data['from_branch_id'], $allowedBranchIds, true)
-            || ! in_array($data['to_branch_id'], $allowedBranchIds, true)) {
+        $allowedWarehouseIds = collect($this->branchOptions())->pluck('id')->all();
+        if (! in_array($data['from_branch_id'], $allowedWarehouseIds, true)
+            || ! in_array($data['to_branch_id'], $allowedWarehouseIds, true)) {
             return back()->withInput()->with('error', 'Gudang asal atau tujuan tidak valid.');
         }
 
+        $fromWarehouse = Warehouse::query()->findOrFail($data['from_branch_id']);
+        $toWarehouse = Warehouse::query()->findOrFail($data['to_branch_id']);
+
         $variant = ProductVariant::with('product')->findOrFail($data['product_variant_id']);
         $product = $variant->product;
-        $unitId = $product->default_unit_id;
         $companyId = optional(WmsContext::distributor())->id;
         $userId = Auth::id();
         $quantity = (float) $data['quantity'];
 
+        $sourceStock = ProductVariantStock::query()
+            ->where('product_variant_id', $variant->id)
+            ->where('warehouse_id', $fromWarehouse->id)
+            ->where('quantity', '>', 0)
+            ->whereNull('deleted_at')
+            ->orderByDesc('quantity')
+            ->first();
+
+        if (! $sourceStock) {
+            return back()->withInput()->with('error', 'Tidak ada stok di gudang asal.');
+        }
+
+        $unitId = $sourceStock->unit_id;
         if (! $unitId) {
-            return back()->withInput()->with('error', 'Produk belum punya satuan default.');
+            return back()->withInput()->with('error', 'Baris stok asal belum memiliki satuan.');
         }
 
         $available = (float) ProductVariantStock::query()
             ->where('product_variant_id', $variant->id)
-            ->where(function ($query) use ($data) {
-                $query->where('warehouse_id', $data['from_branch_id'])
-                    ->orWhere('branch_id', $data['from_branch_id']);
-            })
+            ->where('warehouse_id', $fromWarehouse->id)
+            ->where('unit_id', $unitId)
             ->whereNull('deleted_at')
             ->value('quantity');
 
@@ -140,27 +155,47 @@ class InboundController extends Controller
             return back()->withInput()->with('error', "Stok tidak cukup di gudang asal. Tersedia: {$available}.");
         }
 
-        DB::transaction(function () use ($product, $variant, $companyId, $data, $unitId, $userId, $quantity) {
+        $fromOperationalBranchId = $fromWarehouse->branch_id ?: $fromWarehouse->company_id;
+        $toOperationalBranchId = $toWarehouse->branch_id ?: $toWarehouse->company_id;
+
+        if (! $fromOperationalBranchId || ! $toOperationalBranchId) {
+            return back()->withInput()->with('error', 'Gudang asal atau tujuan belum memiliki konteks cabang/company.');
+        }
+
+        DB::transaction(function () use (
+            $product,
+            $variant,
+            $companyId,
+            $data,
+            $unitId,
+            $userId,
+            $quantity,
+            $fromOperationalBranchId,
+            $toOperationalBranchId,
+            $fromWarehouse,
+            $toWarehouse
+        ) {
             $notes = $data['notes'] ?? 'Pindah gudang (transfer stok)';
 
             $result = StockMutationService::outbound(
                 $product->id,
                 $variant->id,
                 $companyId,
-                $data['from_branch_id'],
+                $fromOperationalBranchId,
                 $unitId,
                 $quantity,
                 'TransferOut',
                 null,
                 $userId,
-                $notes
+                $notes,
+                $fromWarehouse->id
             );
 
             StockMutationService::inbound(
                 $product->id,
                 $variant->id,
                 $companyId,
-                $data['to_branch_id'],
+                $toOperationalBranchId,
                 $unitId,
                 $quantity,
                 $result['unit_cost'],
@@ -169,7 +204,8 @@ class InboundController extends Controller
                 $userId,
                 $notes,
                 null,
-                $result['earliest_expiry']
+                $result['earliest_expiry'],
+                $toWarehouse->id
             );
         });
 
@@ -182,11 +218,18 @@ class InboundController extends Controller
         $distId = optional($distributor)->id;
         $options = [];
 
-        // Gudang distributor (WIP & Barang Jadi) - utama untuk penerimaan bahan baku
-        foreach (WmsContext::warehouses($distId) as $wh) {
-            $options[] = ['id' => $wh->id, 'label' => $wh->name];
+        foreach (WmsContext::accessibleWarehouses() as $wh) {
+            $label = $wh->name;
+            if ($wh->warehouse_type_code) {
+                $label .= ' (' . $wh->warehouse_type_code . ')';
+            }
+            if ($wh->branch?->name) {
+                $label .= ' - ' . $wh->branch->name;
+            }
+
+            $options[] = ['id' => $wh->id, 'label' => $label];
         }
-        // Agent partner: gunakan gudang default Agent sebagai lokasi fisik.
+
         foreach (WmsContext::agents($distId) as $agent) {
             $warehouseId = $agent->default_warehouse_id ?: optional(WmsContext::defaultAgentWarehouse($agent->id))->id;
             if ($warehouseId) {

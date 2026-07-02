@@ -47,15 +47,62 @@ class StockMutationService
         [$warehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
 
         $stock = self::lockStock($variantId, $productId, $operationalBranchId, $warehouseId, $unitId, $companyId, $userId);
+        $product = ProductVariant::with('product.unitConversions')->find($variantId)?->product;
+        $addQty = self::resolveInboundQuantity($stock, $product, $unitId, $quantity);
+
         $before = (float) $stock->quantity;
-        $after = $before + $quantity;
+        $after = $before + $addQty;
         $stock->quantity = $after;
         $stock->updated_by = $userId;
         $stock->save();
 
-        self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'in', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
+        self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'in', $addQty, $before, $after, $referenceType, $referenceId, $userId, $notes);
 
-        FifoCostService::addLayer($productId, $variantId, $companyId, $operationalBranchId, $unitId, $quantity, $unitCost, $referenceType, $referenceId, $userId, $date, $expiryDate, $warehouseId);
+        FifoCostService::addLayer($productId, $variantId, $companyId, $operationalBranchId, $unitId, $addQty, $unitCost, $referenceType, $referenceId, $userId, $date, $expiryDate, $warehouseId);
+    }
+
+    /**
+     * Selaraskan satuan stok gudang dengan satuan transaksi masuk.
+     */
+    protected static function resolveInboundQuantity(
+        ProductVariantStock $stock,
+        ?\App\Models\Product $product,
+        string $inboundUnitId,
+        float $inboundQty
+    ): float {
+        if ($stock->unit_id === $inboundUnitId || ! $product) {
+            return $inboundQty;
+        }
+
+        if ((float) $stock->quantity <= 0) {
+            $stock->unit_id = $inboundUnitId;
+
+            return $inboundQty;
+        }
+
+        $convertedInbound = UnitConversionService::convertQuantity($product, $inboundQty, $inboundUnitId, $stock->unit_id);
+        if ($convertedInbound !== null) {
+            return $convertedInbound;
+        }
+
+        $existingAsInbound = UnitConversionService::convertQuantity(
+            $product,
+            (float) $stock->quantity,
+            $stock->unit_id,
+            $inboundUnitId
+        );
+
+        if ($existingAsInbound !== null) {
+            $stock->quantity = $existingAsInbound;
+            $stock->unit_id = $inboundUnitId;
+
+            return $inboundQty;
+        }
+
+        // Stok terakumulasi dalam satuan transaksi tetapi label satuan salah (mis. receive KRT, row = box)
+        $stock->unit_id = $inboundUnitId;
+
+        return $inboundQty;
     }
 
     /**
@@ -133,20 +180,28 @@ class StockMutationService
         ?string $companyId,
         ?string $userId
     ): ProductVariantStock {
-        $stock = ProductVariantStock::query()
+        [$resolvedWarehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
+
+        $query = ProductVariantStock::query()
             ->where('product_variant_id', $variantId)
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-            ->whereNull('deleted_at')
-            ->lockForUpdate()
-            ->first();
+            ->whereNull('deleted_at');
+
+        if ($resolvedWarehouseId) {
+            // Unique index is (product_variant_id, warehouse_id) — do not filter by unit_id.
+            $query->where('warehouse_id', $resolvedWarehouseId);
+        } else {
+            $query->where('branch_id', $operationalBranchId)->where('unit_id', $unitId);
+        }
+
+        $stock = $query->lockForUpdate()->first();
 
         if (! $stock) {
             $stock = ProductVariantStock::create([
                 'product_variant_id' => $variantId,
                 'product_id' => $productId,
                 'company_id' => $companyId,
-                'branch_id' => $branchId,
-                'warehouse_id' => $warehouseId,
+                'branch_id' => $operationalBranchId,
+                'warehouse_id' => $resolvedWarehouseId,
                 'unit_id' => $unitId,
                 'quantity' => 0,
                 'created_by' => $userId,

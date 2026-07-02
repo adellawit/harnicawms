@@ -53,7 +53,34 @@ class StockAvailabilityService
             return 0.0;
         }
 
-        return UnitConversionService::convertQuantity($product, $stockQty, $stock->unit_id, $unitId) ?? 0.0;
+        $converted = UnitConversionService::convertQuantity($product, $stockQty, $stock->unit_id, $unitId);
+
+        if ($converted !== null) {
+            return $converted;
+        }
+
+        // Stok mungkin terlabel satuan salah — coba satuan dominan dari riwayat receive
+        $dominantReceiveUnitId = self::dominantReceiveUnitForVariant($variantId, $warehouseId);
+        if ($dominantReceiveUnitId && $dominantReceiveUnitId === $unitId && $stock->unit_id !== $unitId) {
+            $stock->unit_id = $unitId;
+            $stock->updated_by = auth('web')->id();
+            $stock->save();
+
+            return $stockQty;
+        }
+
+        return 0.0;
+    }
+
+    protected static function dominantReceiveUnitForVariant(string $variantId, ?string $warehouseId): ?string
+    {
+        return \App\Models\ProductPurchaseOrderReceiveItem::query()
+            ->where('variant_id', $variantId)
+            ->when($warehouseId, fn ($q) => $q->whereHas('receive', fn ($r) => $r->where('warehouse_id', $warehouseId)))
+            ->selectRaw('unit_id, SUM(quantity_received) as total')
+            ->groupBy('unit_id')
+            ->orderByDesc('total')
+            ->value('unit_id');
     }
 
     /**

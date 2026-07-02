@@ -19,9 +19,12 @@
                 ->orderBy('name')
                 ->get(['id', 'name']);
             $defaultBranch = auth('web')->user()->current_business_unit_id;
-            $filterBranchId = request('branch_id', $defaultBranch);
+            $filterBranchId = request('branch_id', $filterBranchId ?? $defaultBranch);
+            $filterWarehouseId = request('warehouse_id', $filterWarehouseId ?? '');
+            $selectedWarehouseName = $selectedWarehouse?->name ?? null;
+            $warehouseOptions = $warehouses ?? collect();
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch;
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch || $filterWarehouseId !== '';
         @endphp
 
         <x-page-header
@@ -37,7 +40,14 @@
 
         <div class="card">
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Stock Opname</h5>
+                <div>
+                    <h5 class="card-title mb-0">Stock Opname</h5>
+                    @if($selectedWarehouseName)
+                        <small class="text-muted">Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong></small>
+                    @else
+                        <small class="text-warning">Pilih gudang di filter sebelum melakukan opname</small>
+                    @endif
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     @if($hasUpdatePermission)
                         <button type="button" class="btn btn-primary btn-sm btn-save">
@@ -175,7 +185,20 @@
 
         <x-modal id="filterModal" title="Filter">
             <div class="mb-3">
-                <label class="form-label">Branch</label>
+                <label class="form-label">Gudang <span class="text-danger">*</span></label>
+                <select id="selectWarehouse" class="select2-modal form-select" data-allow-clear="true">
+                    <option value="">-- Pilih Gudang --</option>
+                    @foreach($warehouseOptions as $wh)
+                        <option value="{{ $wh->id }}" @if($filterWarehouseId === $wh->id) selected @endif>
+                            {{ $wh->code }} - {{ $wh->name }}
+                            @if($wh->warehouse_type_code) [{{ $wh->warehouse_type_code }}] @endif
+                            @if($wh->branch) - {{ $wh->branch->name }} @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Branch (Filter Produk)</label>
                 <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
                     <option value="">All Branch</option>
                     @foreach($branches as $b)
@@ -274,6 +297,7 @@
 
                 $('#btnFilter').on('click', function() {
                     var params = [];
+                    var warehouseId = $('#selectWarehouse').val();
                     var branchId = $('#selectBranch').val();
                     var sku = $('#selectSku').val();
                     var productId = $('#selectProduct').val();
@@ -282,6 +306,7 @@
                     var variantSearch = $('#variantSearch').val();
                     var perPage = $('#selectPerPage').val();
 
+                    if (warehouseId) params.push('warehouse_id=' + encodeURIComponent(warehouseId));
                     if (branchId) params.push('branch_id=' + encodeURIComponent(branchId));
                     if (sku) params.push('sku=' + encodeURIComponent(sku));
                     if (productId) params.push('product_id=' + encodeURIComponent(productId));
@@ -331,6 +356,12 @@
                 }
 
                 $('.btn-save').on('click', function() {
+                    var warehouseId = @json($filterWarehouseId);
+                    if (!warehouseId) {
+                        showAlert('warning', 'Pilih gudang terlebih dahulu melalui Filter.');
+                        return;
+                    }
+
                     var items = [];
                     $('#table tbody tr:not(.parent-row)').each(function() {
                         var $row = $(this);
@@ -370,6 +401,7 @@
                         type: 'POST',
                         data: {
                             _token: "{{ csrf_token() }}",
+                            warehouse_id: warehouseId,
                             items: items,
                             notes: $('#opnameNotes').val()
                         },
