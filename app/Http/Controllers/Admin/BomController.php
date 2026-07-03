@@ -7,6 +7,8 @@ use App\Models\BillOfMaterial;
 use App\Models\BomItem;
 use App\Models\ProductVariant;
 use App\Services\FifoCostService;
+use App\Services\Manufacturing\BomRecipeCalculatorService;
+use App\Services\Manufacturing\ProductionSimulationService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -84,13 +86,66 @@ class BomController extends Controller
 
         // Produk jadi yang dipilih dari daftar (terkunci); fallback ke dropdown bila kosong
         $selected = null;
+        $outputUnits = [];
         if ($request->filled('product_variant_id')) {
-            $selected = ProductVariant::with('product')->find($request->query('product_variant_id'));
+            $selected = ProductVariant::with(['product.unitConversions', 'product.defaultUnit'])->find($request->query('product_variant_id'));
+            if ($selected?->product) {
+                $outputUnits = ProductionSimulationService::unitOptions($selected->product);
+            }
         }
 
         $outputs = WmsContext::variantOptions('FINISHED_GOOD'); // fallback dropdown produk jadi
 
-        return view('admin.bom.create', compact('outputs', 'components', 'selected'));
+        return view('admin.bom.create', compact('outputs', 'components', 'selected', 'outputUnits'));
+    }
+
+    public function outputUnits(Request $request)
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'string'],
+        ]);
+
+        $variant = ProductVariant::with(['product.unitConversions', 'product.defaultUnit'])
+            ->findOrFail($data['product_variant_id']);
+
+        if (! $variant->product) {
+            return response()->json(['units' => []]);
+        }
+
+        return response()->json([
+            'units' => ProductionSimulationService::unitOptions($variant->product),
+            'default_unit_id' => $variant->product->default_unit_id,
+        ]);
+    }
+
+    public function calculate(Request $request)
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'string'],
+            'output_qty' => ['required', 'numeric', 'min:0.000001'],
+            'output_unit_id' => ['required', 'uuid'],
+            'component_variant_id' => ['required', 'string'],
+            'component_unit_id' => ['required', 'uuid'],
+        ]);
+
+        $outputVariant = ProductVariant::with(['product.unitConversions', 'product.defaultUnit'])
+            ->findOrFail($data['product_variant_id']);
+        $componentVariant = ProductVariant::with(['product.unitConversions', 'product.defaultUnit'])
+            ->findOrFail($data['component_variant_id']);
+
+        $result = BomRecipeCalculatorService::suggest(
+            $outputVariant,
+            (float) $data['output_qty'],
+            $data['output_unit_id'],
+            $componentVariant,
+            $data['component_unit_id']
+        );
+
+        if (! $result) {
+            return response()->json(['message' => 'Tidak dapat menghitung kebutuhan bahan. Periksa konversi satuan produk.'], 422);
+        }
+
+        return response()->json($result);
     }
 
     public function store(Request $request)
@@ -98,6 +153,8 @@ class BomController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'product_variant_id' => ['required', 'string'],
+            'output_quantity' => ['required', 'numeric', 'min:0.000001'],
+            'output_unit_id' => ['required', 'uuid'],
             'components' => ['required', 'array', 'min:1'],
             'components.*.variant_id' => ['required', 'string'],
             'components.*.quantity' => ['required', 'numeric', 'min:0.000001'],
@@ -118,8 +175,8 @@ class BomController extends Controller
                 'company_id' => optional(WmsContext::distributor())->id,
                 'product_id' => $outputVariant->product_id,
                 'product_variant_id' => $outputVariant->id,
-                'output_unit_id' => $outputVariant->product->default_unit_id,
-                'output_quantity' => 1, // resep per 1 produk jadi; jumlah produksi diinput di Production Order
+                'output_unit_id' => $data['output_unit_id'],
+                'output_quantity' => (float) $data['output_quantity'],
                 'name' => $data['name'],
                 'version' => 1,
                 'is_active' => true,

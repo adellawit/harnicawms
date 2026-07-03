@@ -94,6 +94,15 @@
                                 <div class="text-muted" style="font-size: 0.85rem;">
                                     Unit: {{ $item->unit ? ($item->unit->symbol ?: $item->unit->name) : '-' }}
                                 </div>
+                                <div class="text-muted" style="font-size: 0.85rem;">
+                                    Batch: <strong>{{ $item->batch_number ?: '-' }}</strong>
+                                    | Expired:
+                                    @if($item->expiry_date)
+                                        <span class="badge bg-label-warning">{{ $item->expiry_date->format('d/m/Y') }}</span>
+                                    @else
+                                        -
+                                    @endif
+                                </div>
                             </div>
                             <div class="col-md-2">
                                 <div class="qty-info">

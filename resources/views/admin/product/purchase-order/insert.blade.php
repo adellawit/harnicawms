@@ -413,6 +413,10 @@
                     '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" data-index="'+itemCounter+'" data-max="'+(itemData && itemData.remaining_qty ? itemData.remaining_qty : '')+'" required />' +
                     buildCpoQtyHint(itemData) +
                     '</div>' +
+                    '<div class="col-md-2"><label class="form-label">Kode Batch <span class="text-danger">*</span></label>' +
+                    '<input type="text" name="items['+itemCounter+'][batch_number]" class="form-control item-batch" maxlength="100" '+(locked ? 'readonly' : '')+' required value="'+(itemData && itemData.batch_number ? itemData.batch_number : '')+'" /></div>' +
+                    '<div class="col-md-2"><label class="form-label">Expired <span class="text-danger">*</span></label>' +
+                    '<input type="text" name="items['+itemCounter+'][expiry_date]" class="form-control flatpickr-date item-expiry" '+(locked ? 'readonly' : '')+' required value="'+(itemData && itemData.expiry_date ? itemData.expiry_date : '')+'" /></div>' +
                     '<div class="col-md-2"><label class="form-label">Carton (MC)</label>' +
                     '<div class="form-control item-mc-display bg-light text-muted">-</div></div>' +
                     '<div class="col-md-2"><label class="form-label">Unit Price <span class="text-danger">*</span></label>' +
@@ -421,7 +425,7 @@
                     '<input type="text" name="items['+itemCounter+'][discount_amount]" class="form-control item-discount number-format" data-index="'+itemCounter+'" value="0" /></div>' +
                     '<div class="col-md-2"><label class="form-label">Subtotal</label>' +
                     '<input type="text" class="form-control item-subtotal bg-light" readonly /></div>' +
-                    '<div class="col-md-10"><label class="form-label">Notes</label>' +
+                    '<div class="col-md-6"><label class="form-label">Notes</label>' +
                     '<input type="text" name="items['+itemCounter+'][notes]" class="form-control" /></div>' +
                     '</div></div>';
                 $('#itemsContainer').append(row);
@@ -437,6 +441,11 @@
                     setTimeout(function() { updateMcDisplayForRow($row); }, 200);
                 });
                 initNumberInputs($lastRow);
+                $lastRow.find('.item-expiry').each(function() {
+                    if (!$(this).data('flatpickr')) {
+                        $(this).flatpickr({ dateFormat: 'd/m/Y' });
+                    }
+                });
                 bindItemCalculations($lastRow);
 
                 // Prefill dari old input jika ada
@@ -711,6 +720,8 @@
                             product_id: item.product_id,
                             variant_id: item.variant_id,
                             unit_id: item.unit_id,
+                            batch_number: item.batch_number,
+                            expiry_date: item.expiry_date,
                             unit_price: item.unit_price,
                             discount_amount: item.discount_amount,
                             committed_qty: item.committed_qty,

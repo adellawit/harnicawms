@@ -33,12 +33,31 @@
                     </thead>
                     <tbody>
                         @forelse ($orders as $o)
+                            @php
+                                $outputUnit = $o->outputUnit?->symbol ?? $o->outputUnit?->name ?? '';
+                                $qty = (float) ($o->produced_qty ?: $o->planned_qty);
+                                $conversionHint = $o->product && $o->output_unit_id
+                                    ? \App\Support\ProductionQuantityDisplay::conversionSummary($o->product, $qty, $o->output_unit_id)
+                                    : null;
+                            @endphp
                             <tr>
                                 <td class="fw-medium">{{ $o->order_number }}</td>
                                 <td>{{ optional($o->production_date)->format('d/m/Y') }}</td>
                                 <td>{{ $o->variant?->display_name ?? $o->product?->name }}</td>
-                                <td class="text-end">{{ rtrim(rtrim(number_format($o->produced_qty ?: $o->planned_qty, 2), '0'), '.') }}</td>
-                                <td class="text-end">@if($o->output_unit_cost > 0)Rp {{ number_format($o->output_unit_cost, 2) }}@else-@endif</td>
+                                <td class="text-end">
+                                    <div>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}@if ($outputUnit)<span class="text-muted ms-1">{{ $outputUnit }}</span>@endif</div>
+                                    @if ($conversionHint)
+                                        <small class="text-muted">{{ $conversionHint }}</small>
+                                    @endif
+                                </td>
+                                <td class="text-end">
+                                    @if ($o->output_unit_cost > 0)
+                                        Rp {{ number_format($o->output_unit_cost, 2) }}
+                                        @if ($outputUnit)<small class="text-muted">/ {{ $outputUnit }}</small>@endif
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                                 <td>
                                     @php $map = ['draft'=>'secondary','in_progress'=>'info','completed'=>'success','cancelled'=>'danger']; @endphp
                                     <span class="badge bg-label-{{ $map[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>

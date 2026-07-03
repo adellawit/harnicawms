@@ -19,6 +19,9 @@ class ProductPurchaseOrderReceiveItem extends Model
         'product_id',
         'variant_id',
         'unit_id',
+        'batch_number',
+        'expiry_date',
+        'product_batch_id',
         'quantity_received',
         'notes',
         'created_by',
@@ -27,6 +30,7 @@ class ProductPurchaseOrderReceiveItem extends Model
 
     protected $casts = [
         'quantity_received' => 'decimal:6',
+        'expiry_date' => 'date',
     ];
 
     public function receive(): BelongsTo

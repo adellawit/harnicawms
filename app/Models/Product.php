@@ -127,20 +127,57 @@ class Product extends Model
 
     public function getSmallestUnitId(): string
     {
-        $conv = $this->unitConversions->sortByDesc('conversion_level')->first();
-        return $conv ? $conv->to_unit_id : $this->default_unit_id;
+        $this->loadMissing('unitConversions');
+
+        if (! $this->default_unit_id) {
+            return '';
+        }
+
+        $currentUnitId = $this->default_unit_id;
+        $visited = [];
+
+        while (true) {
+            $next = $this->unitConversions
+                ->sortBy('conversion_level')
+                ->first(fn ($conv) => $conv->from_unit_id === $currentUnitId && ! isset($visited[$conv->id]));
+
+            if (! $next) {
+                break;
+            }
+
+            $visited[$next->id] = true;
+            $currentUnitId = $next->to_unit_id;
+        }
+
+        return $currentUnitId;
     }
 
     public function getFactorToSmallest(): float
     {
+        $this->loadMissing('unitConversions');
+
+        if (! $this->default_unit_id) {
+            return 1.0;
+        }
+
         $factor = 1.0;
         $currentUnitId = $this->default_unit_id;
-        foreach ($this->unitConversions->sortBy('conversion_level') as $conv) {
-            if ($conv->from_unit_id === $currentUnitId) {
-                $factor *= (float) $conv->conversion_factor;
-                $currentUnitId = $conv->to_unit_id;
+        $visited = [];
+
+        while (true) {
+            $next = $this->unitConversions
+                ->sortBy('conversion_level')
+                ->first(fn ($conv) => $conv->from_unit_id === $currentUnitId && ! isset($visited[$conv->id]));
+
+            if (! $next) {
+                break;
             }
+
+            $visited[$next->id] = true;
+            $factor *= (float) $next->conversion_factor;
+            $currentUnitId = $next->to_unit_id;
         }
+
         return $factor;
     }
 
@@ -222,11 +259,20 @@ class Product extends Model
         }
 
         $currentUnitId = $this->default_unit_id;
-        foreach ($this->unitConversions->sortBy('conversion_level') as $conv) {
-            if ($conv->from_unit_id === $currentUnitId && $conv->toUnit) {
-                $ordered->push($conv->toUnit);
-                $currentUnitId = $conv->to_unit_id;
+        $visited = [];
+
+        while (true) {
+            $next = $this->unitConversions
+                ->sortBy('conversion_level')
+                ->first(fn ($conv) => $conv->from_unit_id === $currentUnitId && ! isset($visited[$conv->id]));
+
+            if (! $next?->toUnit) {
+                break;
             }
+
+            $visited[$next->id] = true;
+            $ordered->push($next->toUnit);
+            $currentUnitId = $next->to_unit_id;
         }
 
         foreach ($this->unitConversions as $conv) {

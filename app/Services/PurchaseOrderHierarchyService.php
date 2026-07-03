@@ -449,6 +449,8 @@ class PurchaseOrderHierarchyService
                 'product_code' => $item->product?->code,
                 'variant_sku' => $item->variant?->sku,
                 'unit_label' => $item->unit?->symbol ?: $item->unit?->name,
+                'batch_number' => $item->batch_number,
+                'expiry_date' => $item->expiry_date?->format('d/m/Y'),
                 'committed_qty' => (float) $item->quantity,
                 'allocated_qty' => $allocated,
                 'received_qty' => $received,
