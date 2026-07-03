@@ -46,7 +46,13 @@
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">Step 2: Unit Conversions</h5>
-                <small class="text-muted">Define unit relationships for {{ $selectedUnit->name ?? '' }} (at least 1 conversion required)</small>
+                <small class="text-muted">
+                    @if(! empty($conversions))
+                        Continue the conversion chain from <strong>{{ $selectedUnit->name ?? 'current unit' }}</strong>
+                    @else
+                        Start from default unit <strong>{{ $defaultUnit->name ?? 'default unit' }}</strong> (at least 1 conversion required)
+                    @endif
+                </small>
             </div>
             <div class="card-body">
                 @if(session('success'))
@@ -65,7 +71,7 @@
 
                 <div class="alert alert-info mb-3">
                     <i class="ti ti-info-circle me-1"></i>
-                    <strong>Unit Conversions:</strong> Define how your product units relate to each other (e.g., 1 Dus = 24 Pcs, 1 Box = 12 Pcs). This helps with inventory management and pricing calculations.
+                    <strong>Unit Conversions:</strong> Define how your product units relate to each other (e.g., 1 Karton = 30 Pack, 1 Pack = 10 Box → total 300 Box per Karton). Each step is <em>per langkah</em>, bukan total dari Karton.
                 </div>
 
                 <form method="POST" action="{{ route('product.insert.data.step2') }}" class="row g-3">
@@ -75,10 +81,10 @@
                         <label for="from_unit_id" class="form-label">From Unit <span class="text-danger">*</span></label>
                         <select id="from_unit_id" name="from_unit_id" class="select2 form-select @error('from_unit_id') is-invalid @enderror" disabled>
                             @foreach ($units as $unit)
-                                <option value="{{ $unit->id }}" {{ (old('from_unit_id') ?? $selectedUnit->id ?? '') == $unit->id ? 'selected' : '' }}>{{ $unit->name }} ({{ $unit->symbol }})</option>
+                                <option value="{{ $unit->id }}" {{ (old('from_unit_id') ?? $selectedUnit?->id ?? '') == $unit->id ? 'selected' : '' }}>{{ $unit->name }} ({{ $unit->symbol }})</option>
                             @endforeach
                         </select>
-                        <input type="hidden" name="from_unit_id" value="{{ old('from_unit_id') ?? $selectedUnit->id ?? '' }}" id="from_unit_id_hidden" />
+                        <input type="hidden" name="from_unit_id" value="{{ old('from_unit_id') ?? $selectedUnit?->id ?? '' }}" id="from_unit_id_hidden" />
                         @error('from_unit_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
@@ -87,27 +93,46 @@
                         <select id="to_unit_id" name="to_unit_id" class="select2 form-select @error('to_unit_id') is-invalid @enderror">
                             <option value="">Select Unit</option>
                             @foreach ($units as $unit)
+                                @if($unit->id === ($selectedUnit?->id ?? '') || in_array($unit->id, $usedUnitIds ?? [], true))
+                                    @continue
+                                @endif
                                 <option value="{{ $unit->id }}" data-unit-name="{{ $unit->name }}" data-unit-symbol="{{ $unit->symbol }}" {{ old('to_unit_id') == $unit->id ? 'selected' : '' }}>{{ $unit->name }} ({{ $unit->symbol }})</option>
                             @endforeach
                         </select>
                         @error('to_unit_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <small class="text-muted">Units already in the chain are not available.</small>
                     </div>
 
                     <div class="col-md-6">
                         <label for="conversion_factor" class="form-label">Conversion Factor <span class="text-danger">*</span></label>
                         <input type="text" class="form-control @error('conversion_factor') is-invalid @enderror" id="conversion_factor" name="conversion_factor" value="{{ old('conversion_factor') }}" placeholder="e.g., 10">
-                        <div class="form-text">1 {{ $selectedUnit->name ?? 'Unit' }} = {conversion_factor} {to unit}</div>
+                        <div class="form-text" id="conversion_factor_help">1 {{ $selectedUnit->name ?? 'Unit' }} = {conversion_factor} {to unit}</div>
+                        @if(! empty($conversions))
+                            @php
+                                $chainFactor = 1;
+                                foreach ($conversions as $conv) {
+                                    $chainFactor *= (float) ($conv['conversion_factor'] ?? 1);
+                                }
+                            @endphp
+                            <small class="text-warning d-block mt-1">
+                                <i class="ti ti-alert-triangle me-1"></i>
+                                Factor berikut = per langkah (bukan total dari {{ $defaultUnit->name ?? 'satuan default' }}).
+                                Saat ini: 1 {{ $defaultUnit->name ?? 'default' }} = {{ rtrim(rtrim(number_format($chainFactor, 6, ',', '.'), '0'), ',') }}
+                                {{ $units->firstWhere('id', end($conversions)['to_unit_id'])?->name ?? 'satuan terkecil' }}.
+                            </small>
+                        @endif
                         @error('conversion_factor') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
                     <!-- Saved Conversions List -->
-                    @if(session('temp_conversions') && count(session('temp_conversions')) > 0)
+                    @if(!empty($conversions))
                         <div class="col-12 mt-4">
                             <h6>Saved Conversions:</h6>
                             <div class="table-responsive">
                                 <table class="table table-bordered table-sm">
                                     <thead>
                                         <tr>
+                                            <th>Level</th>
                                             <th>From Unit</th>
                                             <th>To Unit</th>
                                             <th>Conversion Factor</th>
@@ -115,12 +140,13 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach(session('temp_conversions') as $index => $conv)
+                                        @foreach($conversions as $index => $conv)
                                             @php
                                                 $fromUnit = $units->firstWhere('id', $conv['from_unit_id']);
                                                 $toUnit = $units->firstWhere('id', $conv['to_unit_id']);
                                             @endphp
                                             <tr data-index="{{ $index }}">
+                                                <td>{{ $conv['conversion_level'] ?? ($index + 1) }}</td>
                                                 <td>{{ $fromUnit->name ?? '-' }}</td>
                                                 <td>{{ $toUnit->name ?? '-' }}</td>
                                                 <td>{{ $conv['conversion_factor'] }}</td>
@@ -179,7 +205,7 @@
                                 <label class="form-label">To Unit <span class="text-danger">*</span></label>
                                 <select name="to_unit_id" id="edit_to_unit" class="select2 form-select" required>
                                     @foreach ($units as $unit)
-                                        <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->symbol }})</option>
+                                        <option value="{{ $unit->id }}" data-unit-name="{{ $unit->name }}" data-unit-symbol="{{ $unit->symbol }}">{{ $unit->name }} ({{ $unit->symbol }})</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -205,8 +231,46 @@
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
         <script src="{{ asset('assets/js/forms-selects.js') }}"></script>
         <script>
-            const fromUnitId = '{{ $selectedUnit->id ?? '' }}';
+            const fromUnitId = '{{ $selectedUnit?->id ?? '' }}';
             const fromUnitName = '{{ $selectedUnit->name ?? 'Unit' }}';
+            const usedUnitIds = @json($usedUnitIds ?? []);
+            const defaultUnitId = '{{ $tempProduct['default_unit_id'] ?? '' }}';
+            const savedConversions = @json($conversions ?? []);
+
+            function getUsedUnitIdsExceptIndex(exceptIndex) {
+                const chain = [defaultUnitId];
+                let currentUnitId = defaultUnitId;
+
+                savedConversions.forEach(function(conv, index) {
+                    if (index === exceptIndex) {
+                        return;
+                    }
+                    if (conv.from_unit_id === currentUnitId) {
+                        currentUnitId = conv.to_unit_id;
+                        chain.push(currentUnitId);
+                    }
+                });
+
+                return chain;
+            }
+
+            function refreshEditToUnitOptions(fromUnitId, exceptIndex, selectedToUnitId) {
+                const blockedIds = getUsedUnitIdsExceptIndex(exceptIndex);
+                const $select = $('#edit_to_unit');
+
+                $select.find('option').each(function() {
+                    const optionId = $(this).val();
+                    if (!optionId) {
+                        return;
+                    }
+
+                    const isBlocked = blockedIds.includes(optionId) || optionId === fromUnitId;
+                    const isCurrentSelection = optionId === selectedToUnitId;
+                    $(this).prop('disabled', isBlocked && !isCurrentSelection);
+                });
+
+                $select.trigger('change.select2');
+            }
 
             $(document).ready(function() {
                 // Update help text when To Unit changes
@@ -222,6 +286,14 @@
 
                     if (!toUnit) {
                         alert('Please select a To Unit.');
+                        return;
+                    }
+                    if (usedUnitIds.includes(toUnit)) {
+                        alert('To Unit is already used in the conversion chain.');
+                        return;
+                    }
+                    if (toUnit === fromUnitId) {
+                        alert('To Unit must be different from From Unit.');
                         return;
                     }
                     if (!factor) {
@@ -241,7 +313,7 @@
 
                 // Next Step button click - check if conversions exist
                 $('#btn-next-step').click(function() {
-                    const conversionCount = {{ count(session('temp_conversions') ?? []) }};
+                    const conversionCount = {{ count($conversions ?? []) }};
                     if (conversionCount === 0) {
                         alert('Please add at least one unit conversion before proceeding.');
                         return;
@@ -252,10 +324,15 @@
                 // Edit button click
                 $('.btn-edit-conv').click(function() {
                     const btn = $(this);
-                    $('#edit_conv_index').val(btn.data('index'));
-                    $('#edit_from_unit').val(btn.data('from'));
-                    $('#edit_to_unit').val(btn.data('to'));
+                    const editIndex = parseInt(btn.data('index'), 10);
+                    const editFromUnitId = btn.data('from');
+                    const editToUnitId = btn.data('to');
+
+                    $('#edit_conv_index').val(editIndex);
+                    $('#edit_from_unit').val(editFromUnitId);
+                    $('#edit_to_unit').val(editToUnitId);
                     $('#edit_conv_factor').val(btn.data('factor'));
+                    refreshEditToUnitOptions(editFromUnitId, editIndex, editToUnitId);
                     $('#edit_from_unit').trigger('change.select2');
                     $('#edit_to_unit').trigger('change.select2');
                     const modal = new bootstrap.Modal('#editConversionModal');
@@ -280,7 +357,7 @@
             function updateHelpText() {
                 const selectedOption = $('#to_unit_id option:selected');
                 const toUnitSymbol = selectedOption.data('unit-symbol') || '';
-                $('#conversion_factor').siblings('.form-text').text('1 ' + fromUnitName + ' = {conversion_factor} ' + toUnitSymbol);
+                $('#conversion_factor_help').text('1 ' + fromUnitName + ' = {conversion_factor} ' + toUnitSymbol);
             }
 
             function removeConversion(index) {
@@ -325,18 +402,18 @@
                     },
                     body: JSON.stringify(data)
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        bootstrap.Modal.getInstance('#editConversionModal').hide();
-                        location.reload();
-                    } else {
-                        alert('Error: ' + (data.message || 'Unknown error'));
+                .then(async response => {
+                    const payload = await response.json();
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Error updating conversion');
                     }
+
+                    bootstrap.Modal.getInstance('#editConversionModal').hide();
+                    location.reload();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error updating conversion');
+                    alert(error.message || 'Error updating conversion');
                 });
             }
         </script>

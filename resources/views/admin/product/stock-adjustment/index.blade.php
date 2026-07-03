@@ -19,7 +19,10 @@
                 ->orderBy('name')
                 ->get(['id', 'name']);
             $defaultBranch = auth('web')->user()->current_business_unit_id;
-            $filterBranchId = request('branch_id', $defaultBranch);
+            $filterBranchId = request('branch_id', $filterBranchId ?? $defaultBranch);
+            $filterWarehouseId = request('warehouse_id', $filterWarehouseId ?? '');
+            $selectedWarehouseName = $selectedWarehouse?->name ?? null;
+            $warehouseOptions = $warehouses ?? collect();
 
             $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch;
         @endphp
@@ -36,9 +39,27 @@
         <div id="alertArea"></div>
 
         <div class="card">
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Stock Adjustment</h5>
-                <div class="d-flex align-items-center gap-2">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h5 class="card-title mb-0">Stock Adjustment</h5>
+                    @unless($selectedWarehouseName)
+                        <small class="text-warning">Select a warehouse to view and adjust stock</small>
+                    @endunless
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="selectWarehouse" class="form-label mb-0 text-nowrap small text-muted">Warehouse</label>
+                        <select id="selectWarehouse" class="select2-warehouse form-select form-select-sm" data-allow-clear="true" style="min-width: 260px;">
+                            <option value="">-- Select Warehouse --</option>
+                            @foreach($warehouseOptions as $wh)
+                                <option value="{{ $wh->id }}" @if($filterWarehouseId === $wh->id) selected @endif>
+                                    {{ $wh->name }}
+                                    @if($wh->warehouse_type_code) [{{ $wh->warehouse_type_code }}] @endif
+                                    @if($wh->branch) - {{ $wh->branch->name }} @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                     @if($hasUpdatePermission)
                         <button type="button" class="btn btn-primary btn-sm btn-save">
                             <i class="ti ti-adjustments me-1"></i> Save Adjustment
@@ -175,7 +196,7 @@
 
         <x-modal id="filterModal" title="Filter">
             <div class="mb-3">
-                <label class="form-label">Branch</label>
+                <label class="form-label">Branch (Filter Produk)</label>
                 <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
                     <option value="">All Branch</option>
                     @foreach($branches as $b)
@@ -246,6 +267,63 @@
     @push('page-js')
         <script>
             $(document).ready(function() {
+                var listUrl = '{{ route("product.stock-adjustment.index") }}';
+
+                $('#selectWarehouse').select2({
+                    placeholder: '-- Select Warehouse --',
+                    allowClear: true,
+                    width: '100%'
+                });
+
+                function buildListUrl(options) {
+                    options = options || {};
+                    var params = [];
+                    var warehouseId = options.warehouseId !== undefined
+                        ? options.warehouseId
+                        : $('#selectWarehouse').val();
+
+                    if (warehouseId) {
+                        params.push('warehouse_id=' + encodeURIComponent(warehouseId));
+                    }
+
+                    var branchId = options.branchId !== undefined ? options.branchId : $('#selectBranch').val();
+                    var sku = options.sku !== undefined ? options.sku : $('#selectSku').val();
+                    var productId = options.productId !== undefined ? options.productId : $('#selectProduct').val();
+                    var natureId = options.natureId !== undefined ? options.natureId : $('#selectNature').val();
+                    var categoryId = options.categoryId !== undefined ? options.categoryId : $('#selectCategory').val();
+                    var variantSearch = options.variantSearch !== undefined ? options.variantSearch : $('#variantSearch').val();
+                    var perPage = options.perPage !== undefined ? options.perPage : $('#selectPerPage').val();
+
+                    if (branchId) params.push('branch_id=' + encodeURIComponent(branchId));
+                    if (sku) params.push('sku=' + encodeURIComponent(sku));
+                    if (productId) params.push('product_id=' + encodeURIComponent(productId));
+                    if (natureId) params.push('nature_id=' + encodeURIComponent(natureId));
+                    if (categoryId) params.push('category_id=' + encodeURIComponent(categoryId));
+                    if (variantSearch) params.push('variant_search=' + encodeURIComponent(variantSearch));
+                    if (perPage && perPage != 20) params.push('per_page=' + encodeURIComponent(perPage));
+
+                    if (params.length > 0) {
+                        return listUrl + '?' + params.join('&');
+                    }
+
+                    return listUrl;
+                }
+
+                $('#selectWarehouse').on('change', function() {
+                    var urlParams = new URLSearchParams(window.location.search);
+                    var url = buildListUrl({
+                        warehouseId: $(this).val(),
+                        branchId: urlParams.get('branch_id') || '',
+                        sku: urlParams.get('sku') || '',
+                        productId: urlParams.get('product_id') || '',
+                        natureId: urlParams.get('nature_id') || '',
+                        categoryId: urlParams.get('category_id') || '',
+                        variantSearch: urlParams.get('variant_search') || '',
+                        perPage: urlParams.get('per_page') || '20'
+                    });
+                    window.location = url;
+                });
+
                 $(document).on('click', '.parent-row', function() {
                     var productId = $(this).data('product-id');
                     var icon = $(this).find('.toggle-icon');
@@ -273,30 +351,14 @@
                 });
 
                 $('#btnFilter').on('click', function() {
-                    var params = [];
-                    var branchId = $('#selectBranch').val();
-                    var sku = $('#selectSku').val();
-                    var productId = $('#selectProduct').val();
-                    var natureId = $('#selectNature').val();
-                    var categoryId = $('#selectCategory').val();
-                    var variantSearch = $('#variantSearch').val();
-                    var perPage = $('#selectPerPage').val();
-
-                    if (branchId) params.push('branch_id=' + encodeURIComponent(branchId));
-                    if (sku) params.push('sku=' + encodeURIComponent(sku));
-                    if (productId) params.push('product_id=' + encodeURIComponent(productId));
-                    if (natureId) params.push('nature_id=' + encodeURIComponent(natureId));
-                    if (categoryId) params.push('category_id=' + encodeURIComponent(categoryId));
-                    if (variantSearch) params.push('variant_search=' + encodeURIComponent(variantSearch));
-                    if (perPage && perPage != 20) params.push('per_page=' + encodeURIComponent(perPage));
-
-                    var url = '{{ route("product.stock-adjustment.index") }}';
-                    if (params.length > 0) url += '?' + params.join('&');
-                    window.location = url;
+                    window.location = buildListUrl();
                 });
 
                 $('#btnResetFilter').on('click', function() {
-                    window.location = '{{ route("product.stock-adjustment.index") }}';
+                    var warehouseId = $('#selectWarehouse').val();
+                    window.location = warehouseId
+                        ? listUrl + '?warehouse_id=' + encodeURIComponent(warehouseId)
+                        : listUrl;
                 });
 
                 function parseDisplayNumber(str) {
@@ -331,6 +393,12 @@
                 }
 
                 $('.btn-save').on('click', function() {
+                    var warehouseId = $('#selectWarehouse').val();
+                    if (!warehouseId) {
+                        showAlert('warning', 'Select a warehouse first.');
+                        return;
+                    }
+
                     var items = [];
                     $('#table tbody tr:not(.parent-row)').each(function() {
                         var $row = $(this);
@@ -370,6 +438,7 @@
                         type: 'POST',
                         data: {
                             _token: "{{ csrf_token() }}",
+                            warehouse_id: warehouseId,
                             items: items,
                             notes: $('#adjustmentNotes').val()
                         },

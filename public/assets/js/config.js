@@ -1,7 +1,7 @@
 "use strict";
 let config = {
         colors: {
-            primary: "#212121",
+            primary: "#5C9E84",
             secondary: "#a8aaae",
             success: "#28c76f",
             info: "#00cfe8",
@@ -18,7 +18,7 @@ let config = {
             borderColor: "#dbdade"
         },
         colors_label: {
-            primary: "#7367f029",
+            primary: "#5C9E8429",
             secondary: "#a8aaae29",
             success: "#28c76f29",
             info: "#00cfe829",

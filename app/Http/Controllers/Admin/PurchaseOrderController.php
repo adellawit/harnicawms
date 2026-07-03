@@ -18,7 +18,12 @@ use App\Models\StockMutationType;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\InventoryCostService;
+use App\Services\PurchaseOrderHierarchyService;
 use App\Services\StockMutationService;
+use App\Support\PurchaseOrderCartonDisplay;
+use App\Support\PurchaseOrderCatalog;
+use App\Support\PurchaseOrderReceiveWarehouse;
+use App\Support\PurchaseOrderStatus;
 use App\Support\WmsContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -27,15 +32,52 @@ use Yajra\DataTables\DataTables;
 
 class PurchaseOrderController extends Controller
 {
-    protected function generatePurchaseNumber(): string
+    protected function generatePurchaseNumber(string $kind = 'standalone'): string
     {
-        $prefix = 'PO-' . date('Ym') . '-';
+        $prefixKey = match ($kind) {
+            PurchaseOrderHierarchyService::KIND_MASTER => 'CPO-',
+            default => 'PO-',
+        };
+        $prefix = $prefixKey.date('Ym').'-';
         $last = ProductPurchaseOrder::withTrashed()
-            ->where('purchase_number', 'like', $prefix . '%')
+            ->where('purchase_number', 'like', $prefix.'%')
             ->orderByRaw('LENGTH(purchase_number) DESC, purchase_number DESC')
             ->value('purchase_number');
         $seq = $last ? (int) substr($last, strlen($prefix)) + 1 : 1;
-        return $prefix . str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+
+        return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+    }
+
+    protected function computePurchaseTotal(float $subtotal, float $tax, float $discount, float $otherCost): float
+    {
+        return $subtotal + $tax - $discount + $otherCost;
+    }
+
+    protected function purchaseProductsQuery(?string $branchId)
+    {
+        return Product::query()
+            ->whereNull('deleted_at')
+            ->where('is_purchase_item', true)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->with([
+                'itemType:id,key,value',
+                'defaultUnit:id,name,symbol',
+                'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
+                'variants' => fn ($q) => $q->where('is_active', true)->whereNull('deleted_at')
+                    ->with(['variantAttributes.attributeDefinition:id,name', 'variantAttributes.attributeValue:id,value']),
+            ])
+            ->orderBy('name');
+    }
+
+    protected function purchaseUnitsQuery(?string $branchId)
+    {
+        return ProductUnit::query()
+            ->whereNull('deleted_at')
+            ->where(function ($q) use ($branchId) {
+                $q->whereNull('branch_id')
+                    ->when($branchId, fn ($query) => $query->orWhere('branch_id', $branchId));
+            })
+            ->orderBy('name');
     }
 
     public function indexView(Request $request)
@@ -47,8 +89,108 @@ class PurchaseOrderController extends Controller
         $isFilter = $status !== '';
 
         $filterBranchId = $request->get('branch_id', $defaultBranchId);
+        $poStatuses = PurchaseOrderStatus::selectableOptions();
 
-        return view('admin.product.purchase-order.index', compact('status', 'isFilter', 'filterBranchId'));
+        return view('admin.product.purchase-order.index', compact('status', 'isFilter', 'filterBranchId', 'poStatuses'));
+    }
+
+    protected function purchaseOrderStatusBadge(ProductPurchaseOrder $row): string
+    {
+        $statusKey = $row->status_key ?? $row->status;
+        $tone = $row->deleted_at
+            ? 'danger'
+            : (in_array($statusKey, ['draft'], true)
+                ? 'secondary'
+                : (in_array($statusKey, ['payment', 'received'], true) ? 'success' : 'warning'));
+
+        return '<span class="badge bg-label-' . $tone . '">' . ($row->deleted_at ? 'Deleted' : e($row->status_label)) . '</span>';
+    }
+
+    protected function purchaseOrderKindBadge(ProductPurchaseOrder $row): string
+    {
+        $kind = $row->po_kind ?? 'standalone';
+        $color = match ($kind) {
+            'master' => 'primary',
+            'sub' => 'info',
+            default => 'secondary',
+        };
+        $label = $row->po_kind_label ?? ucfirst($kind);
+
+        return '<span class="badge bg-label-' . $color . '">' . e($label) . '</span>';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function purchaseOrderIndexPayload(ProductPurchaseOrder $row, bool $includeTreeMeta = false): array
+    {
+        $payload = [
+            'id' => $row->id,
+            'purchase_number' => $row->purchase_number,
+            'purchase_date' => $row->purchase_date,
+            'supplier_name' => $row->supplier_name,
+            'po_kind' => $row->po_kind ?? 'standalone',
+            'po_kind_badge' => $this->purchaseOrderKindBadge($row),
+            'status' => $row->status,
+            'status_key' => $row->status_key ?? $row->status,
+            'status_badge' => $this->purchaseOrderStatusBadge($row),
+            'can_update_status' => PurchaseOrderStatus::canUpdate($row),
+            'can_create_sub' => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row),
+            'progress_pct' => PurchaseOrderHierarchyService::receiveProgressPercent($row),
+            'progress_display' => PurchaseOrderHierarchyService::receiveProgressHtml($row),
+            'total_fmt' => format_number((float) $row->total, 2, true),
+            'deleted_at' => $row->deleted_at,
+            'parent_id' => $row->parent_id,
+            'parent_number' => $row->parent?->purchase_number ? e($row->parent->purchase_number) : '-',
+        ];
+
+        if ($includeTreeMeta) {
+            $childrenCount = (int) ($row->children_count ?? 0);
+            $payload['children_count'] = $childrenCount;
+            $payload['has_children'] = ($row->po_kind ?? '') === PurchaseOrderHierarchyService::KIND_MASTER && $childrenCount > 0;
+            $payload['tree_control'] = $payload['has_children']
+                ? '<i class="ti ti-chevron-right po-tree-toggle" data-id="' . e($row->id) . '" title="Tampilkan Release Order"></i>'
+                : '<span class="po-tree-spacer"></span>';
+            $payload['purchase_number_display'] = e($row->purchase_number)
+                . ($payload['has_children']
+                    ? ' <span class="badge bg-label-info ms-1">' . $childrenCount . ' RO</span>'
+                    : '');
+        }
+
+        return $payload;
+    }
+
+    protected function purchaseOrderChildrenQuery(Request $request, string $parentId)
+    {
+        $user = auth('web')->user();
+        $branchId = $request->get('branch_id');
+
+        $master = ProductPurchaseOrder::query()
+            ->where('po_kind', PurchaseOrderHierarchyService::KIND_MASTER)
+            ->findOrFail($parentId);
+
+        if (! in_array($master->branch_id, $user->getAccessibleBusinessUnitIdsForQuery(), true)) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $query = ProductPurchaseOrder::query()->with([
+            'parent:id,purchase_number',
+            'items' => fn ($q) => $q->whereNull('deleted_at'),
+            'items.receiveItems',
+        ])->where('parent_id', $parentId);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        if ($request->status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($request->status !== 'active') {
+            $query->withTrashed();
+        }
+
+        return $query->orderBy('release_sequence')
+            ->orderBy('created_at');
     }
 
     public function indexData(Request $request)
@@ -56,7 +198,12 @@ class PurchaseOrderController extends Controller
         $user = auth('web')->user();
         $branchId = $request->get('branch_id');
 
-        $data = ProductPurchaseOrder::query();
+        $data = ProductPurchaseOrder::query()->with([
+            'parent:id,purchase_number',
+            'items' => fn ($q) => $q->whereNull('deleted_at'),
+            'items.receiveItems',
+        ])->withCount('children')
+            ->whereNull('parent_id');
 
         if ($branchId) {
             // explicit filter from branch selector dropdown
@@ -80,56 +227,143 @@ class PurchaseOrderController extends Controller
 
         return (new DataTables)->eloquent($data)
             ->addIndexColumn()
-            ->addColumn('status_badge', fn ($row) => '<span class="badge bg-label-' . ($row->deleted_at ? 'danger' : (in_array($row->status_key ?? $row->status, ['draft']) ? 'secondary' : (in_array($row->status_key ?? $row->status, ['payment', 'received']) ? 'success' : 'warning'))) . '">' . ($row->deleted_at ? 'Deleted' : $row->status_label) . '</span>')
+            ->addColumn('status_badge', fn ($row) => $this->purchaseOrderStatusBadge($row))
+            ->addColumn('status_key', fn ($row) => $row->status_key ?? $row->status)
+            ->addColumn('can_update_status', fn ($row) => PurchaseOrderStatus::canUpdate($row))
+            ->addColumn('can_create_sub', fn ($row) => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row))
+            ->addColumn('po_kind_badge', fn ($row) => $this->purchaseOrderKindBadge($row))
+            ->addColumn('parent_number', fn ($row) => $row->parent?->purchase_number ? e($row->parent->purchase_number) : '-')
+            ->addColumn('progress_pct', fn ($row) => PurchaseOrderHierarchyService::receiveProgressPercent($row))
+            ->addColumn('progress_display', fn ($row) => PurchaseOrderHierarchyService::receiveProgressHtml($row))
             ->addColumn('total_fmt', fn ($row) => format_number((float) $row->total, 2, true))
+            ->addColumn('children_count', fn ($row) => (int) ($row->children_count ?? 0))
+            ->addColumn('has_children', fn ($row) => ($row->po_kind ?? '') === PurchaseOrderHierarchyService::KIND_MASTER && (int) ($row->children_count ?? 0) > 0)
+            ->addColumn('tree_control', function ($row) {
+                if (($row->po_kind ?? '') !== PurchaseOrderHierarchyService::KIND_MASTER || (int) ($row->children_count ?? 0) < 1) {
+                    return '<span class="po-tree-spacer"></span>';
+                }
+
+                return '<i class="ti ti-chevron-right po-tree-toggle" data-id="' . e($row->id) . '" title="Tampilkan Release Order"></i>';
+            })
+            ->addColumn('purchase_number_display', function ($row) {
+                $html = e($row->purchase_number);
+                if (($row->po_kind ?? '') === PurchaseOrderHierarchyService::KIND_MASTER && (int) ($row->children_count ?? 0) > 0) {
+                    $html .= ' <span class="badge bg-label-info ms-1">' . (int) $row->children_count . ' RO</span>';
+                }
+
+                return $html;
+            })
             ->filter(function ($query) use ($request) {
                 if ($search = $request->get('search')['value'] ?? null) {
                     $query->where(function ($q) use ($search) {
                         $q->where('purchase_number', 'ilike', "%{$search}%")
-                            ->orWhere('supplier_name', 'ilike', "%{$search}%");
+                            ->orWhere('supplier_name', 'ilike', "%{$search}%")
+                            ->orWhereHas('children', function ($childQuery) use ($search) {
+                                $childQuery->where('purchase_number', 'ilike', "%{$search}%")
+                                    ->orWhere('supplier_name', 'ilike', "%{$search}%");
+                            });
                     });
                 }
             })
-            ->rawColumns(['status_badge', 'total_fmt'])
+            ->rawColumns(['status_badge', 'po_kind_badge', 'progress_display', 'total_fmt', 'tree_control', 'purchase_number_display'])
             ->toJson();
+    }
+
+    public function childrenData(Request $request, string $id)
+    {
+        $children = $this->purchaseOrderChildrenQuery($request, $id)->get();
+
+        return response()->json([
+            'data' => $children->map(fn (ProductPurchaseOrder $row) => $this->purchaseOrderIndexPayload($row))->values(),
+        ]);
+    }
+
+    public function mastersForSub(Request $request)
+    {
+        $user = auth('web')->user();
+        $masters = PurchaseOrderHierarchyService::eligibleMastersForUser($user->getAccessibleBusinessUnitIdsForQuery());
+
+        return response()->json($masters->map(fn (ProductPurchaseOrder $master) => [
+            'id' => $master->id,
+            'purchase_number' => $master->purchase_number,
+            'supplier_id' => $master->supplier_id,
+            'supplier_name' => $master->supplier_name,
+            'purchase_date' => optional($master->purchase_date)->format('d/m/Y'),
+            'release_status' => $master->release_status,
+            'release_status_label' => $master->release_status_label,
+            'has_remaining' => PurchaseOrderHierarchyService::masterHasRemainingRelease($master),
+        ])->values());
+    }
+
+    public function masterItems(Request $request, string $id)
+    {
+        $user = auth('web')->user();
+        $master = ProductPurchaseOrder::with(['items.product', 'items.unit', 'items.variant'])
+            ->where('po_kind', PurchaseOrderHierarchyService::KIND_MASTER)
+            ->findOrFail($id);
+
+        if (! in_array($master->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
+            abort(403, 'Unauthorized.');
+        }
+
+        PurchaseOrderHierarchyService::backfillParentItemLinks($master);
+
+        return response()->json([
+            'master' => [
+                'id' => $master->id,
+                'purchase_number' => $master->purchase_number,
+                'supplier_id' => $master->supplier_id,
+                'supplier_name' => $master->supplier_name,
+                'supplier_contact' => $master->supplier_contact,
+                'supplier_address' => $master->supplier_address,
+            ],
+            'items' => PurchaseOrderHierarchyService::masterItemsPayload($master),
+        ]);
     }
 
     public function suppliersByType(Request $request)
     {
         $branchId = auth('web')->user()->current_business_unit_id;
 
-        return Supplier::where('is_active', true)
+        $suppliers = Supplier::query()
+            ->with('supplierType:id,key,value')
+            ->where('is_active', true)
             ->whereNull('deleted_at')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
-            ->get(['id', 'code', 'name', 'contact', 'phone', 'address', 'is_ppn', 'ppn_rate']);
+            ->get(['id', 'code', 'name', 'contact', 'phone', 'address', 'is_ppn', 'ppn_rate', 'supplier_type_id']);
+
+        return response()->json(PurchaseOrderCatalog::suppliersPayload($suppliers));
     }
 
     public function insertView(Request $request)
     {
         $branchId = auth('web')->user()->current_business_unit_id;
 
-        $products = Product::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->with([
-                'defaultUnit:id,name,symbol',
-                'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
-                'variants' => fn ($q) => $q->where('is_active', true)->whereNull('deleted_at')
-                    ->with(['variantAttributes.attributeDefinition:id,name', 'variantAttributes.attributeValue:id,value']),
-            ])
-            ->orderBy('name')
-            ->get(['id', 'name', 'code', 'item_type_id', 'default_unit_id']);
+        $products = PurchaseOrderCatalog::productsPayload(
+            $this->purchaseProductsQuery($branchId)->get(['id', 'name', 'code', 'item_type_id', 'default_unit_id', 'is_purchase_item'])
+        );
 
-        $units = ProductUnit::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->orderBy('name')
-            ->get(['id', 'name', 'symbol']);
+        $units = $this->purchaseUnitsQuery($branchId)->get(['id', 'name', 'symbol']);
 
         $poStatuses = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PO_STATUS'))
             ->orderByRaw("CASE key WHEN 'draft' THEN 1 WHEN 'process' THEN 2 WHEN 'receiving' THEN 3 WHEN 'payment' THEN 4 ELSE 5 END")
             ->get(['id', 'key', 'value']);
 
-        return view('admin.product.purchase-order.insert', compact('products', 'units', 'poStatuses'));
+        $defaultPoKind = $request->get('po_kind', 'standalone');
+        $defaultParentId = $request->get('parent_id');
+        $lockDocumentTypeToSub = $defaultPoKind === 'sub' && filled($defaultParentId);
+        $supplierItemTypeMap = PurchaseOrderCatalog::SUPPLIER_ITEM_TYPE_MAP;
+
+        return view('admin.product.purchase-order.insert', compact(
+            'products',
+            'units',
+            'poStatuses',
+            'defaultPoKind',
+            'defaultParentId',
+            'lockDocumentTypeToSub',
+            'supplierItemTypeMap'
+        ));
     }
 
     public function insertData(Request $request)
@@ -138,27 +372,39 @@ class PurchaseOrderController extends Controller
             'subtotal' => normalize_number_input($request->subtotal),
             'tax_amount' => normalize_number_input($request->tax_amount),
             'discount_amount' => normalize_number_input($request->discount_amount),
+            'other_cost_amount' => normalize_number_input($request->other_cost_amount),
             'total' => normalize_number_input($request->total),
         ]);
 
         $request->merge([
-            'items' => collect($request->items ?? [])->map(function ($item) {
-                $item['product_id'] = $item['product_id'] ?? null;
-                return $item;
-            })->all(),
+            'items' => collect($request->items ?? [])
+                ->map(function ($item) {
+                    $item['product_id'] = $item['product_id'] ?? null;
+
+                    return $item;
+                })
+                ->filter(fn ($item) => (float) ($item['quantity'] ?? 0) > 0)
+                ->values()
+                ->all(),
         ]);
 
         $request->validate([
+            'po_kind' => 'required|in:standalone,master,sub',
+            'parent_id' => 'nullable|uuid|exists:product.purchase_orders,id|required_if:po_kind,sub',
             'purchase_date' => 'required|date',
-            'supplier_id' => 'required|exists:master_data.suppliers,id',
+            'supplier_id' => 'required_unless:po_kind,sub|nullable|exists:master_data.suppliers,id',
             'status_id' => 'required|exists:public.parameter_details,id',
             'expected_delivery_date' => 'nullable|date',
+            'attention_to' => 'nullable|string|max:200',
+            'ship_to_address' => 'nullable|string',
             'notes' => 'nullable|string',
             'subtotal' => 'nullable|numeric|min:0',
             'tax_amount' => 'nullable|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
+            'other_cost_amount' => 'nullable|numeric|min:0',
             'total' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1',
+            'items.*.parent_item_id' => 'nullable|uuid|exists:product.purchase_order_items,id',
             'items.*.product_id' => 'required|exists:product.products,id',
             'items.*.variant_id' => 'nullable|exists:product.product_variants,id',
             'items.*.unit_id' => 'required|exists:product.product_units,id',
@@ -167,40 +413,85 @@ class PurchaseOrderController extends Controller
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
 
+        if ($request->filled('parent_id') && $request->input('po_kind') !== PurchaseOrderHierarchyService::KIND_SUB) {
+            return redirect()->back()
+                ->withErrors(['po_kind' => 'Release dari CPO hanya dapat bertipe RO, bukan PO standalone atau CPO baru.'])
+                ->withInput();
+        }
+
         $user = auth('web')->user();
         $branchId = $user->getBranchIdForTransaction();
         $companyId = $user->getCompanyIdForProduct();
+        $poKind = $request->input('po_kind', PurchaseOrderHierarchyService::KIND_STANDALONE);
+
+        $parent = null;
+        if ($poKind === PurchaseOrderHierarchyService::KIND_SUB) {
+            $parent = ProductPurchaseOrder::with('items')->findOrFail($request->parent_id);
+            if (! PurchaseOrderHierarchyService::isMaster($parent)) {
+                return redirect()->back()->withErrors(['parent_id' => 'PO induk tidak valid.'])->withInput();
+            }
+            if (! in_array($parent->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
+                abort(403, 'Unauthorized.');
+            }
+            PurchaseOrderHierarchyService::backfillParentItemLinks($parent);
+            $mergedForValidation = $this->mergeDuplicateItems($request->items ?? [], true);
+            PurchaseOrderHierarchyService::validateSubPurchaseItems($parent, $mergedForValidation);
+        }
 
         $statusDetail = ParameterDetail::findOrFail($request->status_id);
         $status = $statusDetail->key ?? 'draft';
 
-        $supplier = Supplier::findOrFail($request->supplier_id);
+        if ($poKind === PurchaseOrderHierarchyService::KIND_SUB) {
+            $supplier = Supplier::findOrFail($parent->supplier_id);
+        } else {
+            $supplier = Supplier::findOrFail($request->supplier_id);
+        }
 
         DB::beginTransaction();
         try {
-            $purchaseNumber = $this->generatePurchaseNumber();
+            if ($poKind === PurchaseOrderHierarchyService::KIND_SUB) {
+                $purchaseNumber = PurchaseOrderHierarchyService::generateSubPurchaseNumber($parent);
+                $releaseSequence = PurchaseOrderHierarchyService::nextReleaseSequence($parent);
+            } else {
+                $purchaseNumber = $this->generatePurchaseNumber($poKind);
+                $releaseSequence = null;
+            }
+
             $purchase = ProductPurchaseOrder::create([
                 'purchase_number' => $purchaseNumber,
                 'purchase_date' => $request->purchase_date,
-                'supplier_id' => $request->supplier_id,
+                'supplier_id' => $supplier->id,
                 'supplier_name' => $supplier->name,
                 'supplier_contact' => $supplier->contact,
                 'supplier_address' => $supplier->address,
+                'attention_to' => $request->attention_to,
+                'ship_to_address' => $request->ship_to_address,
                 'company_id' => $companyId,
                 'branch_id' => $branchId,
+                'parent_id' => $parent?->id,
+                'po_kind' => $poKind,
+                'release_sequence' => $releaseSequence,
+                'release_status' => $poKind === PurchaseOrderHierarchyService::KIND_MASTER ? 'open' : null,
                 'status' => $status,
                 'expected_delivery_date' => $request->expected_delivery_date,
                 'notes' => $request->notes,
                 'subtotal' => $request->subtotal ?? 0,
                 'tax_amount' => $request->tax_amount ?? 0,
                 'discount_amount' => $request->discount_amount ?? 0,
+                'other_cost_amount' => $request->other_cost_amount ?? 0,
                 'total' => $request->total ?? 0,
                 'created_by' => $user->id,
                 'updated_by' => $user->id,
             ]);
 
-            // Merge duplicate items (same product, variant, unit) so quantity is aggregated
-            $mergedItems = $this->mergeDuplicateItems($request->items);
+            $mergedItems = $this->mergeDuplicateItems($request->items, $poKind === PurchaseOrderHierarchyService::KIND_SUB);
+
+            $productsById = Product::query()
+                ->with('unitConversions')
+                ->whereIn('id', collect($mergedItems)->pluck('product_id')->filter()->unique())
+                ->get()
+                ->keyBy('id');
+            $unitsById = ProductUnit::query()->get()->keyBy('id');
 
             $subtotal = 0;
             foreach ($mergedItems as $item) {
@@ -208,13 +499,21 @@ class PurchaseOrderController extends Controller
                 $unitPrice = $item['unit_price'];
                 $disc = $item['discount_amount'];
                 $itemSubtotal = ($qty * $unitPrice) - $disc;
+                $product = $productsById->get($item['product_id']);
+                $carton = $product
+                    ? $this->resolveCartonFields($product, (float) $qty, $item['unit_id'], $unitsById)
+                    : ['carton_qty' => null, 'carton_display' => null];
 
                 ProductPurchaseOrderItem::create([
                     'purchase_order_id' => $purchase->id,
+                    'parent_item_id' => $item['parent_item_id']
+                        ?? ($parent ? PurchaseOrderHierarchyService::resolveParentItemId($parent, $item) : null),
                     'product_id' => $item['product_id'],
-                    'variant_id' => !empty($item['variant_id']) ? $item['variant_id'] : null,
+                    'variant_id' => ! empty($item['variant_id']) ? $item['variant_id'] : null,
                     'unit_id' => $item['unit_id'],
                     'quantity' => $qty,
+                    'carton_qty' => $carton['carton_qty'],
+                    'carton_display' => $carton['carton_display'],
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -229,12 +528,29 @@ class PurchaseOrderController extends Controller
                 'subtotal' => $subtotal,
                 'tax_amount' => $request->tax_amount ?? 0,
                 'discount_amount' => $request->discount_amount ?? 0,
-                'total' => $subtotal + (float) ($request->tax_amount ?? 0) - (float) ($request->discount_amount ?? 0),
+                'other_cost_amount' => $request->other_cost_amount ?? 0,
+                'total' => $this->computePurchaseTotal(
+                    $subtotal,
+                    (float) ($request->tax_amount ?? 0),
+                    (float) ($request->discount_amount ?? 0),
+                    (float) ($request->other_cost_amount ?? 0)
+                ),
                 'updated_by' => $user->id,
             ]);
 
+            if ($parent) {
+                PurchaseOrderHierarchyService::syncParentReleaseStatus($parent);
+            }
+
             DB::commit();
-            return redirect()->route('product.purchase-order.index.view')->with('success', 'Purchase order created successfully.');
+
+            $message = match ($poKind) {
+                PurchaseOrderHierarchyService::KIND_MASTER => 'CPO (Contract PO) created successfully. Use RO for partial releases.',
+                PurchaseOrderHierarchyService::KIND_SUB => 'RO (Release Order) created from CPO.',
+                default => 'PO created successfully.',
+            };
+
+            return redirect()->route('product.purchase-order.detail.view', $purchase->id)->with('success', $message);
         } catch (\Throwable $e) {
             DB::rollBack();
             throw $e;
@@ -248,34 +564,44 @@ class PurchaseOrderController extends Controller
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
+
+        if (! PurchaseOrderHierarchyService::isEditable($purchase)) {
+            return redirect()->route('product.purchase-order.detail.view', $purchase->id)
+                ->withErrors(['error' => PurchaseOrderHierarchyService::isMaster($purchase)
+                    ? 'PO Utama tidak dapat diedit setelah disimpan.'
+                    : 'Hanya PO draft yang dapat diedit.']);
+        }
+
         $branchId = $user->current_business_unit_id;
 
-        $products = Product::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->with([
-                'defaultUnit:id,name,symbol',
-                'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
-                'variants' => fn ($q) => $q->where('is_active', true)->whereNull('deleted_at')
-                    ->with(['variantAttributes.attributeDefinition:id,name', 'variantAttributes.attributeValue:id,value']),
-            ])
-            ->orderBy('name')
-            ->get(['id', 'name', 'code', 'item_type_id', 'default_unit_id']);
+        $products = PurchaseOrderCatalog::productsPayload(
+            $this->purchaseProductsQuery($branchId)->get(['id', 'name', 'code', 'item_type_id', 'default_unit_id', 'is_purchase_item'])
+        );
 
-        $units = ProductUnit::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->orderBy('name')
-            ->get(['id', 'name', 'symbol']);
+        $units = $this->purchaseUnitsQuery($branchId)->get(['id', 'name', 'symbol']);
 
-        $suppliers = Supplier::where('is_active', true)->whereNull('deleted_at')
+        $suppliers = Supplier::query()
+            ->with('supplierType:id,key,value')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
-            ->get(['id', 'code', 'name', 'contact', 'phone', 'address', 'is_ppn', 'ppn_rate']);
+            ->get(['id', 'code', 'name', 'contact', 'phone', 'address', 'is_ppn', 'ppn_rate', 'supplier_type_id']);
 
         $poStatuses = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PO_STATUS'))
             ->orderByRaw("CASE key WHEN 'draft' THEN 1 WHEN 'process' THEN 2 WHEN 'receiving' THEN 3 WHEN 'payment' THEN 4 ELSE 5 END")
             ->get(['id', 'key', 'value']);
 
-        return view('admin.product.purchase-order.edit', compact('purchase', 'products', 'units', 'suppliers', 'poStatuses'));
+        $supplierItemTypeMap = PurchaseOrderCatalog::SUPPLIER_ITEM_TYPE_MAP;
+
+        return view('admin.product.purchase-order.edit', compact(
+            'purchase',
+            'products',
+            'units',
+            'suppliers',
+            'poStatuses',
+            'supplierItemTypeMap'
+        ));
     }
 
     public function editData(Request $request)
@@ -284,6 +610,7 @@ class PurchaseOrderController extends Controller
             'subtotal' => normalize_number_input($request->subtotal),
             'tax_amount' => normalize_number_input($request->tax_amount),
             'discount_amount' => normalize_number_input($request->discount_amount),
+            'other_cost_amount' => normalize_number_input($request->other_cost_amount),
             'total' => normalize_number_input($request->total),
         ]);
 
@@ -300,6 +627,8 @@ class PurchaseOrderController extends Controller
             'supplier_id' => 'required|exists:master_data.suppliers,id',
             'status_id' => 'required|exists:public.parameter_details,id',
             'expected_delivery_date' => 'nullable|date',
+            'attention_to' => 'nullable|string|max:200',
+            'ship_to_address' => 'nullable|string',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:product.products,id',
@@ -315,12 +644,25 @@ class PurchaseOrderController extends Controller
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
+
+        if (! PurchaseOrderHierarchyService::isEditable($purchase)) {
+            return redirect()->back()->withErrors(['error' => PurchaseOrderHierarchyService::isMaster($purchase)
+                ? 'PO Utama tidak dapat diedit setelah disimpan.'
+                : 'Hanya PO draft yang dapat diedit.'])->withInput();
+        }
+
         $statusKey = $purchase->status_key ?? $purchase->status;
         if ($statusKey !== 'draft') {
             return redirect()->back()->withErrors(['error' => 'Only draft purchase orders can be edited.'])->withInput();
         }
 
-        $user = auth('web')->user();
+        if (PurchaseOrderHierarchyService::isSub($purchase)) {
+            $parent = ProductPurchaseOrder::with('items')->findOrFail($purchase->parent_id);
+            PurchaseOrderHierarchyService::backfillParentItemLinks($parent);
+            $mergedForValidation = $this->mergeDuplicateItems($request->items ?? [], true);
+            PurchaseOrderHierarchyService::validateSubPurchaseItems($parent, $mergedForValidation, $purchase->id);
+        }
+
         $supplier = Supplier::findOrFail($request->supplier_id);
 
         $statusDetail = ParameterDetail::findOrFail($request->status_id);
@@ -334,6 +676,8 @@ class PurchaseOrderController extends Controller
                 'supplier_name' => $supplier->name,
                 'supplier_contact' => $supplier->contact,
                 'supplier_address' => $supplier->address,
+                'attention_to' => $request->attention_to,
+                'ship_to_address' => $request->ship_to_address,
                 'status' => $status,
                 'expected_delivery_date' => $request->expected_delivery_date,
                 'notes' => $request->notes,
@@ -343,7 +687,21 @@ class PurchaseOrderController extends Controller
             $purchase->items()->delete();
 
             // Merge duplicate items (same product, variant, unit) so quantity is aggregated
-            $mergedItems = $this->mergeDuplicateItems($request->items);
+            $mergedItems = $this->mergeDuplicateItems(
+                $request->items,
+                PurchaseOrderHierarchyService::isSub($purchase)
+            );
+
+            $parentForItems = PurchaseOrderHierarchyService::isSub($purchase)
+                ? ProductPurchaseOrder::with('items')->find($purchase->parent_id)
+                : null;
+
+            $productsById = Product::query()
+                ->with('unitConversions')
+                ->whereIn('id', collect($mergedItems)->pluck('product_id')->filter()->unique())
+                ->get()
+                ->keyBy('id');
+            $unitsById = ProductUnit::query()->get()->keyBy('id');
 
             $subtotal = 0;
             foreach ($mergedItems as $item) {
@@ -351,13 +709,21 @@ class PurchaseOrderController extends Controller
                 $unitPrice = $item['unit_price'];
                 $disc = $item['discount_amount'];
                 $itemSubtotal = ($qty * $unitPrice) - $disc;
+                $product = $productsById->get($item['product_id']);
+                $carton = $product
+                    ? $this->resolveCartonFields($product, (float) $qty, $item['unit_id'], $unitsById)
+                    : ['carton_qty' => null, 'carton_display' => null];
 
                 ProductPurchaseOrderItem::create([
                     'purchase_order_id' => $purchase->id,
+                    'parent_item_id' => $item['parent_item_id']
+                        ?? ($parentForItems ? PurchaseOrderHierarchyService::resolveParentItemId($parentForItems, $item) : null),
                     'product_id' => $item['product_id'],
                     'variant_id' => !empty($item['variant_id']) ? $item['variant_id'] : null,
                     'unit_id' => $item['unit_id'],
                     'quantity' => $qty,
+                    'carton_qty' => $carton['carton_qty'],
+                    'carton_display' => $carton['carton_display'],
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -372,11 +738,22 @@ class PurchaseOrderController extends Controller
                 'subtotal' => $subtotal,
                 'tax_amount' => $request->tax_amount ?? 0,
                 'discount_amount' => $request->discount_amount ?? 0,
-                'total' => $subtotal + (float) ($request->tax_amount ?? 0) - (float) ($request->discount_amount ?? 0),
+                'other_cost_amount' => $request->other_cost_amount ?? 0,
+                'total' => $this->computePurchaseTotal(
+                    $subtotal,
+                    (float) ($request->tax_amount ?? 0),
+                    (float) ($request->discount_amount ?? 0),
+                    (float) ($request->other_cost_amount ?? 0)
+                ),
                 'updated_by' => $user->id,
             ]);
 
             DB::commit();
+
+            if ($parentForItems) {
+                PurchaseOrderHierarchyService::syncParentReleaseStatus($parentForItems);
+            }
+
             return redirect()->route('product.purchase-order.detail.view', $purchase->id)->with('success', 'Purchase order updated successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -387,11 +764,14 @@ class PurchaseOrderController extends Controller
     public function detailView(Request $request, string $id)
     {
         $purchase = ProductPurchaseOrder::with([
+            'parent',
+            'children' => fn ($q) => $q->whereNull('deleted_at')->orderBy('release_sequence'),
             'items.product',
             'items.unit',
             'items.variant.variantAttributes.attributeDefinition',
             'items.variant.variantAttributes.attributeValue',
             'items.receiveItems',
+            'items.parentItem',
             'receives' => fn ($q) => $q->whereNull('deleted_at')->orderBy('receive_date', 'DESC'),
             'receives.items',
             'receives.createdByUser',
@@ -403,7 +783,13 @@ class PurchaseOrderController extends Controller
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
-        return view('admin.product.purchase-order.detail', compact('purchase'));
+
+        $masterReleaseSummary = null;
+        if (PurchaseOrderHierarchyService::isMaster($purchase)) {
+            $masterReleaseSummary = PurchaseOrderHierarchyService::masterItemsPayload($purchase);
+        }
+
+        return view('admin.product.purchase-order.detail', compact('purchase', 'masterReleaseSummary'));
     }
 
     public function exportPdf(Request $request, string $id)
@@ -440,21 +826,34 @@ class PurchaseOrderController extends Controller
             'id' => 'required|exists:product.purchase_orders,id',
         ]);
 
-        $purchase = ProductPurchaseOrder::findOrFail($request->id);
+        $purchase = ProductPurchaseOrder::with('parent')->findOrFail($request->id);
         $user = auth('web')->user();
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
         }
+
+        if (PurchaseOrderHierarchyService::isMaster($purchase)) {
+            $hasChildren = $purchase->children()->whereNull('deleted_at')->exists();
+            if ($hasChildren) {
+                return redirect()->back()->withErrors(['error' => 'PO Utama yang sudah memiliki Sub-PO tidak dapat dihapus.']);
+            }
+        }
+
         $statusKey = $purchase->status_key ?? $purchase->status;
         if ($statusKey !== 'draft') {
             return redirect()->back()->withErrors(['error' => 'Only draft purchase orders can be deleted.']);
         }
 
+        $parent = $purchase->parent;
         $user = auth('web')->user();
         $purchase->updated_by = $user->id;
         $purchase->deleted_by = $user->id;
         $purchase->save();
         $purchase->delete();
+
+        if ($parent && PurchaseOrderHierarchyService::isMaster($parent)) {
+            PurchaseOrderHierarchyService::syncParentReleaseStatus($parent);
+        }
 
         return redirect()->route('product.purchase-order.index.view')->with('success', 'Purchase order deleted successfully.');
     }
@@ -479,6 +878,47 @@ class PurchaseOrderController extends Controller
         return redirect()->route('product.purchase-order.index.view')->with('success', 'Purchase order restored successfully.');
     }
 
+    public function updateStatusData(Request $request)
+    {
+        $allowedKeys = PurchaseOrderStatus::selectableOptions()->pluck('key')->all();
+
+        $request->validate([
+            'id' => 'required|exists:product.purchase_orders,id',
+            'status' => 'required|string|in:'.implode(',', $allowedKeys),
+        ]);
+
+        $user = auth('web')->user();
+        $purchase = ProductPurchaseOrder::findOrFail($request->id);
+
+        if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if (! PurchaseOrderStatus::canUpdate($purchase)) {
+            return redirect()->back()->withErrors(['error' => 'Status PO ini tidak dapat diubah.']);
+        }
+
+        $newStatus = $request->status;
+        $error = PurchaseOrderStatus::validateTransition($purchase, $newStatus);
+        if ($error) {
+            return redirect()->back()->withErrors(['error' => $error]);
+        }
+
+        $currentStatus = $purchase->status_key ?? $purchase->status;
+        if ($currentStatus === $newStatus) {
+            return redirect()->route('product.purchase-order.index.view')
+                ->with('success', 'Status purchase order tidak berubah.');
+        }
+
+        $purchase->update([
+            'status' => $newStatus,
+            'updated_by' => $user->id,
+        ]);
+
+        return redirect()->route('product.purchase-order.index.view')
+            ->with('success', 'Status purchase order diubah menjadi '.PurchaseOrderStatus::label($newStatus).'.');
+    }
+
     protected function generateReceiveNumber(string $poNumber): string
     {
         $prefix = 'RCV-' . date('Ym') . '-';
@@ -493,18 +933,23 @@ class PurchaseOrderController extends Controller
     /**
      * Merge duplicate PO items (same product_id, variant_id, unit_id) by summing quantity and discount.
      */
-    protected function mergeDuplicateItems(array $items): array
+    protected function mergeDuplicateItems(array $items, bool $preserveParentItemIds = false): array
     {
         return collect($items)
             ->map(function ($item) {
-                // Normalise numeric values up front
                 $item['quantity'] = (float) (normalize_number_input($item['quantity'] ?? 0) ?? 0);
                 $item['unit_price'] = (float) (normalize_number_input($item['unit_price'] ?? 0) ?? 0);
                 $item['discount_amount'] = (float) (normalize_number_input($item['discount_amount'] ?? 0) ?? 0);
                 $item['variant_id'] = $item['variant_id'] ?? null;
+                $item['parent_item_id'] = $item['parent_item_id'] ?? null;
+
                 return $item;
             })
-            ->groupBy(function ($item) {
+            ->groupBy(function ($item) use ($preserveParentItemIds) {
+                if ($preserveParentItemIds && ! empty($item['parent_item_id'])) {
+                    return 'parent:' . $item['parent_item_id'];
+                }
+
                 return implode('|', [
                     $item['product_id'],
                     $item['variant_id'] ?: 'null',
@@ -553,7 +998,7 @@ class PurchaseOrderController extends Controller
     public function receiveView(Request $request, string $id)
     {
         $purchase = ProductPurchaseOrder::with([
-            'items.product',
+            'items.product.nature',
             'items.unit',
             'items.variant.variantAttributes.attributeDefinition',
             'items.variant.variantAttributes.attributeValue',
@@ -563,6 +1008,11 @@ class PurchaseOrderController extends Controller
         $user = auth('web')->user();
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
+        }
+
+        if (! PurchaseOrderHierarchyService::canReceive($purchase)) {
+            return redirect()->route('product.purchase-order.detail.view', $purchase->id)
+                ->withErrors(['error' => 'Penerimaan hanya dapat dilakukan pada Sub-PO atau PO standalone, bukan PO Utama.']);
         }
 
         $status = $purchase->status_key ?? $purchase->status;
@@ -599,6 +1049,10 @@ class PurchaseOrderController extends Controller
         $user = auth('web')->user();
         if (! in_array($purchase->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
             abort(403, 'Unauthorized.');
+        }
+
+        if (! PurchaseOrderHierarchyService::canReceive($purchase)) {
+            return redirect()->back()->withErrors(['error' => 'Penerimaan hanya dapat dilakukan pada Sub-PO atau PO standalone.'])->withInput();
         }
 
         $status = $purchase->status_key ?? $purchase->status;
@@ -643,6 +1097,8 @@ class PurchaseOrderController extends Controller
             ]);
 
             $warehouseId = $request->warehouse_id;
+            $warehouse = Warehouse::query()->whereKey($warehouseId)->first();
+            $stockBranchId = $warehouse?->branch_id ?: $warehouse?->company_id ?: $purchase->branch_id;
             $companyId = $purchase->company_id ?: $user->getCompanyIdForProduct();
             $mutationType = StockMutationType::where('code', 'PURCHASE_RECEIPT')->first();
 
@@ -666,23 +1122,25 @@ class PurchaseOrderController extends Controller
                 InventoryCostService::updateAverageCostForPurchaseReceive(
                     $poItem,
                     $qtyReceived,
-                    $purchase->branch_id,
+                    $stockBranchId,
                     $companyId,
                     $user->id,
                     $warehouseId
                 );
 
-                // Juga update product_variant_stock + cost layer (FEFO) agar halaman stok akurat
-                $variantId = $poItem->variant_id
-                    ?: ProductVariant::where('product_id', $poItem->product_id)
-                        ->where('is_active', true)
-                        ->value('id');
-                if ($variantId) {
+                // Update product_variant_stock + cost layer (FEFO) agar halaman stok akurat
+                $variant = ProductVariant::resolveForStock(
+                    $poItem->product_id,
+                    $poItem->variant_id,
+                    $user->id
+                );
+
+                if ($variant) {
                     StockMutationService::inbound(
                         productId: $poItem->product_id,
-                        variantId: $variantId,
+                        variantId: $variant->id,
                         companyId: $companyId,
-                        branchId: $purchase->branch_id,
+                        branchId: $stockBranchId,
                         unitId: $poItem->unit_id,
                         quantity: $qtyReceived,
                         unitCost: (float) $poItem->unit_price,
@@ -698,7 +1156,7 @@ class PurchaseOrderController extends Controller
                 $stock = ProductStock::firstOrCreate(
                     [
                         'product_id' => $poItem->product_id,
-                        'branch_id' => $purchase->branch_id,
+                        'branch_id' => $stockBranchId,
                         'warehouse_id' => $warehouseId,
                         'unit_id' => $poItem->unit_id,
                     ],
@@ -722,7 +1180,7 @@ class PurchaseOrderController extends Controller
                     'product_stock_id' => $stock->id,
                     'product_id' => $poItem->product_id,
                     'company_id' => $companyId,
-                    'branch_id' => $purchase->branch_id,
+                    'branch_id' => $stockBranchId,
                     'warehouse_id' => $warehouseId,
                     'unit_id' => $poItem->unit_id,
                     'stock_mutation_type_id' => $mutationType?->id,
@@ -739,6 +1197,13 @@ class PurchaseOrderController extends Controller
             }
 
             $this->updatePurchaseOrderStatus($purchase);
+
+            if (PurchaseOrderHierarchyService::isSub($purchase)) {
+                $purchase->loadMissing('parent');
+                if ($purchase->parent && PurchaseOrderHierarchyService::isMaster($purchase->parent)) {
+                    PurchaseOrderHierarchyService::syncParentReleaseStatus($purchase->parent);
+                }
+            }
 
             DB::commit();
             return redirect()->route('product.purchase-order.detail.view', $purchase->id)
@@ -802,6 +1267,13 @@ class PurchaseOrderController extends Controller
             }
         }
 
+        if (PurchaseOrderReceiveWarehouse::hasReceivableRawMaterial($purchase)) {
+            $wip = WmsContext::wipWarehouse($distId);
+            if ($wip) {
+                $options = PurchaseOrderReceiveWarehouse::appendWarehouseOption($options, $seen, $wip);
+            }
+        }
+
         if ($purchase->warehouse_id && ! isset($seen[$purchase->warehouse_id])) {
             $warehouse = Warehouse::query()->whereKey($purchase->warehouse_id)->first();
             if ($warehouse) {
@@ -821,26 +1293,19 @@ class PurchaseOrderController extends Controller
      */
     private function defaultReceiveWarehouseId(ProductPurchaseOrder $purchase, array $warehouses): ?string
     {
-        $distId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
-        $operationalUnit = $purchase->branch_id ? BusinessUnit::find($purchase->branch_id) : null;
-        $allowed = collect($warehouses)->pluck('id')->all();
+        $companyId = $purchase->company_id ?: optional(WmsContext::distributor())->id;
 
-        if ($operationalUnit?->type_code === 'COMPANY') {
-            $wipId = optional(WmsContext::wipWarehouse($distId))->id;
-            if ($wipId && in_array($wipId, $allowed, true)) {
-                return $wipId;
-            }
-        }
+        return PurchaseOrderReceiveWarehouse::defaultWarehouseId($purchase, $warehouses, $companyId);
+    }
 
-        if ($purchase->warehouse_id && in_array($purchase->warehouse_id, $allowed, true)) {
-            return $purchase->warehouse_id;
-        }
-
-        $defaultWarehouseId = optional(WmsContext::defaultWarehouse($purchase->branch_id))->id;
-        if ($defaultWarehouseId && in_array($defaultWarehouseId, $allowed, true)) {
-            return $defaultWarehouseId;
-        }
-
-        return $allowed[0] ?? null;
+    /**
+     * @return array{carton_qty: ?float, carton_display: ?string}
+     */
+    protected function resolveCartonFields(Product $product, float $quantity, string $unitId, $unitsById): array
+    {
+        return [
+            'carton_qty' => PurchaseOrderCartonDisplay::boxQuantity($product, $quantity, $unitId),
+            'carton_display' => PurchaseOrderCartonDisplay::format($product, $quantity, $unitId, $unitsById),
+        ];
     }
 }

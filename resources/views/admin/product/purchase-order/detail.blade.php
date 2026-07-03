@@ -33,13 +33,26 @@
                 <div>
                     @php
                         $poStatus = $purchase->status_key ?? $purchase->status;
-                        $canReceive = in_array($poStatus, ['process', 'receiving']) && !$purchase->trashed();
+                        $isMasterPo = $purchase->isMaster();
+                        $canReceive = \App\Services\PurchaseOrderHierarchyService::canReceive($purchase)
+                            && in_array($poStatus, ['process', 'receiving'])
+                            && !$purchase->trashed();
+                        $canEdit = \App\Services\PurchaseOrderHierarchyService::isEditable($purchase);
                         $hasRemaining = $purchase->items->contains(fn ($item) => $item->quantity_remaining > 0);
+                        $canCreateSub = $isMasterPo
+                            && !$purchase->trashed()
+                            && \App\Services\PurchaseOrderHierarchyService::masterHasRemainingRelease($purchase);
                     @endphp
 
                     <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pdfModal">
-                        <i class="ti ti-file-type-pdf me-1"></i>Generate PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
+
+                    @if($canCreateSub)
+                        <a href="{{ route('product.purchase-order.insert.view', ['po_kind' => 'sub', 'parent_id' => $purchase->id]) }}" class="btn btn-info btn-sm me-1">
+                            <i class="ti ti-git-branch me-1"></i>Buat Sub-PO
+                        </a>
+                    @endif
 
                     @if($canReceive && $hasRemaining)
                         <a href="{{ route('product.purchase-order.receive.view', $purchase->id) }}" class="btn btn-success btn-sm me-1">
@@ -47,10 +60,14 @@
                         </a>
                     @endif
 
-                    @if($poStatus === 'draft' && !$purchase->trashed())
+                    @if($canEdit)
                         <a href="{{ route('product.purchase-order.edit.view', $purchase->id) }}" class="btn btn-warning btn-sm me-1">
                             <i class="ti ti-pencil me-1"></i>Edit
                         </a>
+                        <button type="button" class="btn btn-danger btn-sm me-1" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="ti ti-trash me-1"></i>Delete
+                        </button>
+                    @elseif($poStatus === 'draft' && !$purchase->trashed() && $isMasterPo)
                         <button type="button" class="btn btn-danger btn-sm me-1" data-bs-toggle="modal" data-bs-target="#deleteModal">
                             <i class="ti ti-trash me-1"></i>Delete
                         </button>
@@ -64,6 +81,32 @@
                 <div class="row">
                     <div class="col-md-6">
                         <table class="table table-borderless">
+                            <tr>
+                                <td width="40%"><strong>Tipe PO:</strong></td>
+                                <td>
+                                    @php
+                                        $kindColor = match($purchase->po_kind ?? 'standalone') {
+                                            'master' => 'primary',
+                                            'sub' => 'info',
+                                            default => 'secondary',
+                                        };
+                                    @endphp
+                                    <x-badge :color="$kindColor">{{ $purchase->po_kind_label }}</x-badge>
+                                    @if($isMasterPo && $purchase->release_status)
+                                        <span class="ms-1 text-muted">({{ $purchase->release_status_label }})</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @if($purchase->parent)
+                            <tr>
+                                <td><strong>PO Utama:</strong></td>
+                                <td>
+                                    <a href="{{ route('product.purchase-order.detail.view', $purchase->parent_id) }}">
+                                        {{ $purchase->parent->purchase_number }}
+                                    </a>
+                                </td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td width="40%"><strong>Purchase Number:</strong></td>
                                 <td>{{ $purchase->purchase_number }}</td>
@@ -130,6 +173,84 @@
                 </div>
             </div>
         </div>
+
+        @if($isMasterPo && $masterReleaseSummary)
+        <div class="card mb-4">
+            <h5 class="card-header">Release Summary (PO Utama)</h5>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Unit</th>
+                                <th class="text-end">Committed</th>
+                                <th class="text-end">Allocated</th>
+                                <th class="text-end">Received</th>
+                                <th class="text-end">Sisa Release</th>
+                                <th class="text-end">Belum Diterima</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($masterReleaseSummary as $row)
+                            <tr>
+                                <td>{{ $row['product_name'] ?? '-' }}{{ !empty($row['product_code']) ? ' (' . $row['product_code'] . ')' : '' }}</td>
+                                <td>{{ $row['unit_label'] ?? '-' }}</td>
+                                <td class="text-end">{{ format_number($row['committed_qty'], 2, true) }}</td>
+                                <td class="text-end">{{ format_number($row['allocated_qty'] ?? $row['released_qty'], 2, true) }}</td>
+                                <td class="text-end">{{ format_number($row['received_qty'] ?? 0, 2, true) }}</td>
+                                <td class="text-end {{ ($row['remaining_qty'] ?? 0) > 0 ? 'text-warning fw-semibold' : 'text-success' }}">
+                                    {{ format_number($row['remaining_qty'], 2, true) }}
+                                </td>
+                                <td class="text-end {{ ($row['unfulfilled_qty'] ?? 0) > 0 ? 'text-info' : 'text-success' }}">
+                                    {{ format_number($row['unfulfilled_qty'] ?? 0, 2, true) }}
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        @if($isMasterPo && $purchase->children->count() > 0)
+        <div class="card mb-4">
+            <h5 class="card-header">Sub-PO</h5>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Sub-PO Number</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($purchase->children as $ci => $child)
+                            <tr>
+                                <td>{{ $ci + 1 }}</td>
+                                <td>{{ $child->purchase_number }}</td>
+                                <td>{{ $child->purchase_date?->format('d M Y') }}</td>
+                                <td><x-badge :color="in_array($child->status_key ?? $child->status, ['draft']) ? 'secondary' : 'warning'">{{ $child->status_label }}</x-badge></td>
+                                <td class="text-end">{{ format_number($child->total, 2, true) }}</td>
+                                <td class="text-center">
+                                    <a href="{{ route('product.purchase-order.detail.view', $child->id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
 
         {{-- Items Table with Receive Progress --}}
         <div class="card mb-4">
@@ -249,11 +370,11 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="pdfModalLabel">Generate PDF Purchase Order</h5>
+                    <h5 class="modal-title" id="pdfModalLabel">Print Purchase Order</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mengunduh PDF.</p>
+                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mencetak <strong>{{ $purchase->purchase_number }}</strong>.</p>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="showPricesToggle" checked>
                         <label class="form-check-label" for="showPricesToggle">Tampilkan kolom harga</label>
@@ -265,7 +386,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-primary" id="btnDownloadPdf">
-                        <i class="ti ti-download me-1"></i>Unduh PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
                 </div>
             </div>
@@ -283,7 +404,7 @@
     </script>
     @endpush
 
-    @if($poStatus === 'draft' && !$purchase->trashed())
+    @if($poStatus === 'draft' && !$purchase->trashed() && ($canEdit || $isMasterPo))
     <x-confirm-modal id="deleteModal" title="Delete Purchase Order" :action="route('product.purchase-order.delete.data')" confirmText="Delete">
         <p class="mb-0">Are you sure you want to delete purchase order <strong>{{ $purchase->purchase_number }}</strong>?</p>
         <input type="hidden" name="id" value="{{ $purchase->id }}" />

@@ -3,26 +3,36 @@
 namespace Tests\Unit;
 
 use App\Models\Product;
-use App\Services\StockAvailabilityService;
+use App\Models\ProductUnitConversion;
 use App\Services\UnitConversionService;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class StockAvailabilityServiceTest extends TestCase
 {
-    public function test_available_quantity_converts_stock_unit_to_bom_unit(): void
+    public function test_multi_hop_unit_conversion_krt_to_box(): void
     {
-        $product = $this->createMock(Product::class);
-        $product->method('convertQuantity')
-            ->willReturnCallback(function (float $qty, string $from, string $to) {
-                if ($from === 'box-id' && $to === 'sct-id') {
-                    return round($qty * 3, 6);
-                }
+        $product = new Product;
+        $krt = 'unit-krt';
+        $pck = 'unit-pck';
+        $box = 'unit-box';
 
-                return $qty;
-            });
+        $product->setRelation('unitConversions', collect([
+            new ProductUnitConversion(['from_unit_id' => $krt, 'to_unit_id' => $pck, 'conversion_factor' => 30]),
+            new ProductUnitConversion(['from_unit_id' => $pck, 'to_unit_id' => $box, 'conversion_factor' => 10]),
+        ]));
 
-        $factor = UnitConversionService::convertQuantity($product, 10.0, 'box-id', 'sct-id');
+        $this->assertSame(300.0, $product->convertQuantity(1, $krt, $box));
+        $this->assertSame(20.1, $product->convertQuantity(201, $box, $pck));
+        $this->assertEqualsWithDelta(0.67, $product->convertQuantity(201, $box, $krt), 0.01);
+    }
 
-        $this->assertEqualsWithDelta(30.0, $factor, 0.0001);
+    public function test_unit_conversion_service_delegates_to_product(): void
+    {
+        $product = new Product;
+        $product->setRelation('unitConversions', collect([
+            new ProductUnitConversion(['from_unit_id' => 'a', 'to_unit_id' => 'b', 'conversion_factor' => 2]),
+        ]));
+
+        $this->assertSame(10.0, UnitConversionService::convertQuantity($product, 5, 'a', 'b'));
     }
 }

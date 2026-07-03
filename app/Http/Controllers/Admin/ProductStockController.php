@@ -11,11 +11,17 @@ use App\Models\ProductVariantStock;
 use App\Models\ProductVariantPrice;
 use App\Models\Warehouse;
 use App\Services\FifoCostService;
+use App\Services\Product\StockDisplayService;
+use App\Support\InventoryWarehouseContext;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 
 class ProductStockController extends Controller
 {
+    public function __construct(
+        protected StockDisplayService $stockDisplay,
+    ) {}
+
     protected function getBranchId(): ?string
     {
         return auth('web')->user()->getBranchIdForTransaction();
@@ -28,38 +34,35 @@ class ProductStockController extends Controller
         // Semua BU yang dapat diakses user (untuk filter produk & stok)
         $accessibleIds = $user->getAccessibleBusinessUnitIdsForQuery();
 
-        // Lokasi spesifik jika dipilih lewat filter. Parameter lama tetap bernama branch_id.
-        $locationId = $request->get('branch_id');
+        $ctx = InventoryWarehouseContext::resolve($request, $user, autoSelectDefault: false);
+        $warehouseId = $ctx['warehouse_id'];
+        $selectedWarehouse = $ctx['warehouse'];
+        $selectedBranchId = $selectedWarehouse?->branch_id ?: $ctx['filter_branch_id'];
+        $accessibleWarehouses = $ctx['warehouses'];
+        $accessibleWarehouseIds = $accessibleWarehouses->pluck('id')->all();
 
         // Pagination
         $perPage = $request->get('per_page', 20);
+        $displayUnitMode = in_array($request->get('display_unit'), ['large', 'small'], true)
+            ? $request->get('display_unit')
+            : 'large';
 
         $fgWarehouseId = optional(WmsContext::finishedGoodsWarehouse())->id;
-        $selectedWarehouse = $locationId ? Warehouse::with('branch')->find($locationId) : null;
-        $warehouseId = $selectedWarehouse?->id;
-        $selectedBranchId = $selectedWarehouse?->branch_id ?: $locationId;
 
-        $warehouseQuery = Warehouse::query()
-            ->with('branch:id,name')
-            ->inventoryActive()
-            ->when(! empty($accessibleIds), function ($q) use ($accessibleIds) {
-                $q->where(function ($inner) use ($accessibleIds) {
-                    $inner->whereIn('branch_id', $accessibleIds)
-                        ->orWhereHas('assignedBranches', fn ($assigned) => $assigned->whereIn('master_data.business_units.id', $accessibleIds));
-                });
-            })
-            ->orderBy('code');
-
-        $locations = $warehouseQuery->get(['id', 'name', 'code', 'branch_id', 'warehouse_type_code'])
+        $locations = $accessibleWarehouses
             ->map(function (Warehouse $warehouse) {
                 $warehouse->type_code = 'WAREHOUSE';
-                $warehouse->name = $warehouse->name . ($warehouse->branch ? ' - ' . $warehouse->branch->name : '');
+                $type = $warehouse->warehouse_type_code ? " [{$warehouse->warehouse_type_code}]" : '';
+                $warehouse->name = $warehouse->code . ' - ' . $warehouse->name . $type . ($warehouse->branch ? ' - ' . $warehouse->branch->name : '');
+
                 return $warehouse;
             });
 
         // Products: tampilkan semua produk yang accessible ke user ini
         $query = Product::with([
                 'defaultUnit:id,name,symbol',
+                'unitConversions.fromUnit:id,name,symbol',
+                'unitConversions.toUnit:id,name,symbol',
                 'nature:id,name',
                 'category:id,name',
                 'variants' => function ($q) {
@@ -113,17 +116,14 @@ class ProductStockController extends Controller
         $variantPrices = collect();
 
         $stockQuery = ProductVariantStock::with('unit:id,name,symbol')
+            ->whereNull('deleted_at')
             ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))
-            ->when(! $warehouseId && ! empty($accessibleIds), fn ($q) => $q->whereIn('branch_id', $accessibleIds));
+            ->when(
+                ! $warehouseId && ! empty($accessibleWarehouseIds),
+                fn ($q) => $q->whereIn('warehouse_id', $accessibleWarehouseIds)
+            );
 
-        // Aggregate quantity per variant (sum across branches if no specific branch selected)
-        $variantStocks = $stockQuery->get()
-            ->groupBy('product_variant_id')
-            ->map(function ($rows) {
-                $first = $rows->first();
-                $first->quantity = $rows->sum('quantity');
-                return $first;
-            });
+        $variantStocks = $this->groupVariantStocksByUnit($stockQuery->get());
 
         // Prices: dari branch transaksi utama
         $pricesBranchId = $selectedBranchId ?: $this->getBranchId() ?: ($accessibleIds[0] ?? null);
@@ -140,87 +140,42 @@ class ProductStockController extends Controller
             $hasVariants = $variants->isNotEmpty();
 
             if ($hasVariants) {
-                // Product with variants - show each variant as a row
                 foreach ($variants as $variant) {
-                    $stock = $variantStocks->get($variant->id);
-                    $unit = $stock?->unit ?? $product->defaultUnit;
-                    $price = $variantPrices->get($variant->id . '_' . $unit?->id);
-
-                    // Build variant attributes display
-                    $attributes = $variant->variantAttributes->map(function ($va) {
-                        return $va->attributeValue?->value ?? '';
-                    })->filter()->implode(' / ');
-
-                    $fifoCost = ($costBranchId && $unit?->id)
-                        ? FifoCostService::currentUnitCost($variant->id, $costBranchId, $unit->id, $costWarehouseId)
-                        : 0.0;
-                    $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $variant->purchase_price);
-
-                    $productData[] = [
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'variant_id' => $variant->id,
-                        'variant_name' => $attributes ?: $variant->sku,
-                        'sku' => $variant->sku,
-                        'barcode' => $variant->barcode,
-                        'nature' => $product->nature?->name ?? '-',
-                        'category' => $product->category?->name ?? '-',
-                        'quantity' => $stock?->quantity ?? 0,
-                        'unit' => $unit?->symbol ?? $unit?->name ?? '-',
-                        'unit_id' => $unit?->id,
-                        'purchase_price' => $displayPurchase,
-                        'fifo_cost' => $fifoCost,
-                        'selling_price' => $price?->selling_price ?? $variant->selling_price,
-                        'min_stock' => $product->min_stock ?? 0,
-                        'is_first_variant' => $variant === $variants->first(),
-                        'variant_count' => $variants->count(),
-                    ];
+                    $productData[] = $this->buildVariantStockRow(
+                        $product,
+                        $variant,
+                        $variantStocks->get($variant->id, collect()),
+                        $variantPrices,
+                        $costBranchId,
+                        $costWarehouseId,
+                        $displayUnitMode,
+                        $variant === $variants->first(),
+                        $variants->count(),
+                    );
                 }
             } else {
-                // Product without variants - show as single row
-                // Find or create default variant
-                $defaultVariant = $variants->first() ?? $product->variants()->first();
-                if (!$defaultVariant) {
-                    // Create a default variant for products without one
-                    $defaultVariant = ProductVariant::create([
-                        'product_id' => $product->id,
-                        'sku' => $product->sku ?? 'PROD-' . substr($product->id, 0, 8),
-                        'barcode' => $product->barcode ?? substr($product->id, 0, 13),
-                        'purchase_price' => 0,
-                        'selling_price' => 0,
-                        'is_active' => true,
-                        'created_by' => auth('web')->id(),
-                    ]);
+                $defaultVariant = ProductVariant::resolveForStock(
+                    $product->id,
+                    null,
+                    auth('web')->id()
+                );
+
+                if (! $defaultVariant) {
+                    continue;
                 }
 
-                $stock = $variantStocks->get($defaultVariant->id);
-                $unit = $stock?->unit ?? $product->defaultUnit;
-                $price = $variantPrices->get($defaultVariant->id . '_' . $unit?->id);
-
-                $fifoCost = ($costBranchId && $unit?->id)
-                    ? FifoCostService::currentUnitCost($defaultVariant->id, $costBranchId, $unit->id, $costWarehouseId)
-                    : 0.0;
-                $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $defaultVariant->purchase_price);
-
-                $productData[] = [
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'variant_id' => $defaultVariant->id,
-                    'variant_name' => null,
-                    'sku' => $product->sku,
-                    'barcode' => $product->barcode,
-                    'nature' => $product->nature?->name ?? '-',
-                    'category' => $product->category?->name ?? '-',
-                    'quantity' => $stock?->quantity ?? 0,
-                    'unit' => $unit?->symbol ?? $unit?->name ?? '-',
-                    'unit_id' => $unit?->id,
-                    'purchase_price' => $displayPurchase,
-                    'fifo_cost' => $fifoCost,
-                    'selling_price' => $price?->selling_price ?? $defaultVariant->selling_price,
-                    'min_stock' => $product->min_stock ?? 0,
-                    'is_first_variant' => true,
-                    'variant_count' => 1,
-                ];
+                $productData[] = $this->buildVariantStockRow(
+                    $product,
+                    $defaultVariant,
+                    $variantStocks->get($defaultVariant->id, collect()),
+                    $variantPrices,
+                    $costBranchId,
+                    $costWarehouseId,
+                    $displayUnitMode,
+                    true,
+                    1,
+                    useProductSku: true,
+                );
             }
         }
 
@@ -232,6 +187,84 @@ class ProductStockController extends Controller
             'allCategories' => $allCategories,
             'locations' => $locations,
             'fgWarehouseId' => $fgWarehouseId,
+            'selectedWarehouse' => $selectedWarehouse,
+            'filterWarehouseId' => $warehouseId,
+            'displayUnitMode' => $displayUnitMode,
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array{unit_id: ?string, unit: mixed, quantity: float}>  $unitStockRows
+     * @param  \Illuminate\Support\Collection<string, ProductVariantPrice>  $variantPrices
+     */
+    private function buildVariantStockRow(
+        Product $product,
+        ProductVariant $variant,
+        $unitStockRows,
+        $variantPrices,
+        ?string $costBranchId,
+        ?string $costWarehouseId,
+        string $displayUnitMode,
+        bool $isFirstVariant,
+        int $variantCount,
+        bool $useProductSku = false,
+    ): array {
+        $stockDisplay = $this->stockDisplay->build($product, $unitStockRows, $displayUnitMode);
+        $unitId = $stockDisplay['unit_id'];
+        $price = $unitId ? $variantPrices->get($variant->id . '_' . $unitId) : null;
+
+        $attributes = $variant->variantAttributes->map(function ($va) {
+            return $va->attributeValue?->value ?? '';
+        })->filter()->implode(' / ');
+
+        $fifoCost = ($costBranchId && $unitId)
+            ? FifoCostService::currentUnitCost($variant->id, $costBranchId, $unitId, $costWarehouseId)
+            : 0.0;
+        $displayPurchase = $fifoCost > 0 ? $fifoCost : ($price?->purchase_price ?? $variant->purchase_price);
+
+        return [
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'variant_id' => $variant->id,
+            'variant_name' => $attributes ?: $variant->sku,
+            'sku' => $useProductSku ? $product->sku : $variant->sku,
+            'barcode' => $useProductSku ? $product->barcode : $variant->barcode,
+            'nature' => $product->nature?->name ?? '-',
+            'category' => $product->category?->name ?? '-',
+            'quantity' => $stockDisplay['quantity'],
+            'unit' => $stockDisplay['unit'],
+            'unit_id' => $stockDisplay['unit_id'],
+            'min_stock' => $stockDisplay['min_stock'],
+            'stock_by_units' => $stockDisplay['stock_by_units'],
+            'show_unit_detail' => $stockDisplay['show_unit_detail'],
+            'conversion_hint' => $stockDisplay['conversion_hint'],
+            'purchase_price' => $displayPurchase,
+            'fifo_cost' => $fifoCost,
+            'selling_price' => $price?->selling_price ?? $variant->selling_price,
+            'is_first_variant' => $isFirstVariant,
+            'variant_count' => $variantCount,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ProductVariantStock>  $rows
+     * @return \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, array{unit_id: ?string, unit: mixed, quantity: float}>>
+     */
+    private function groupVariantStocksByUnit($rows)
+    {
+        return $rows->groupBy('product_variant_id')->map(function ($variantRows) {
+            return $variantRows
+                ->groupBy('unit_id')
+                ->map(function ($unitRows) {
+                    $first = $unitRows->first();
+
+                    return [
+                        'unit_id' => $first->unit_id,
+                        'unit' => $first->unit,
+                        'quantity' => $unitRows->sum(fn (ProductVariantStock $row) => (float) $row->quantity),
+                    ];
+                })
+                ->values();
+        });
     }
 }

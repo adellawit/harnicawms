@@ -25,6 +25,8 @@
                         <span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ ucfirst($order->status) }}</span>
                     </div></div>
                     <div class="col-md-2"><small class="text-muted">HPP / Unit</small><div class="fw-medium text-primary">@if($order->output_unit_cost > 0)Rp {{ number_format($order->output_unit_cost, 2) }}@else-@endif</div></div>
+                    <div class="col-md-3"><small class="text-muted">Gudang Bahan Baku</small><div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '-' }}</div></div>
+                    <div class="col-md-3"><small class="text-muted">Gudang Produk Jadi</small><div class="fw-medium">{{ $order->outputWarehouse?->name ?? '-' }}</div></div>
                 </div>
                 @if ($order->status !== 'completed')
                     <form method="POST" action="{{ route('production.complete', $order->id) }}" class="mt-3" onsubmit="return confirm('Selesaikan produksi? Bahan baku akan dikonsumsi (FIFO).')">

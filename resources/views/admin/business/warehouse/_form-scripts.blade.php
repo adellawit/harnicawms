@@ -5,10 +5,10 @@
 <script>
 $(document).ready(function() {
     $('.select2').not('#province_select, #city_select').select2({ width: '100%' });
-    $('#branch_ids').select2({ width: '100%', placeholder: 'Pilih cabang' });
+    $('#branch_ids').select2({ width: '100%', placeholder: 'Select branches' });
 
     $('#province_select').select2({
-        placeholder: 'Cari provinsi (min. 3 karakter)',
+        placeholder: 'Search province (min. 3 characters)',
         allowClear: true,
         width: '100%',
         minimumInputLength: 3,
@@ -21,7 +21,7 @@ $(document).ready(function() {
         }
     });
 
-    $('#city_select').select2({ placeholder: 'Pilih provinsi dulu', allowClear: true, width: '100%' });
+    $('#city_select').select2({ placeholder: 'Select province first', allowClear: true, width: '100%' });
 
     $('#province_select').on('select2:select', function(e) {
         const provinceId = e.params.data.id;
@@ -30,7 +30,7 @@ $(document).ready(function() {
         $('#city_name_hidden').val('');
         const $city = $('#city_select').empty().append('<option value="">Loading...</option>').prop('disabled', true);
         $.get('/helper/cities', { province_id: provinceId, per_page: 9999 }, function(data) {
-            $city.empty().append('<option value="">Pilih kota</option>');
+            $city.empty().append('<option value="">Select city</option>');
             (data.results || []).forEach(c => $city.append(`<option value="${c.text}">${c.text}</option>`));
             $city.prop('disabled', false);
         });
@@ -39,13 +39,13 @@ $(document).ready(function() {
     $('#city_select').on('change', function() { $('#city_name_hidden').val($(this).val() || ''); });
     $('#province_select').on('select2:clear', function() {
         $('#province_name_hidden, #city_name_hidden').val('');
-        $('#city_select').empty().append('<option value="">Pilih provinsi dulu</option>').prop('disabled', true);
+        $('#city_select').empty().append('<option value="">Select province first</option>').prop('disabled', true);
     });
 
     @if(!empty($selectedProvinceId))
     $.get('/helper/cities', { province_id: '{{ $selectedProvinceId }}', per_page: 9999 }, function(data) {
         const $city = $('#city_select');
-        $city.empty().append('<option value="">Pilih kota</option>');
+        $city.empty().append('<option value="">Select city</option>');
         (data.results || []).forEach(c => $city.append(`<option value="${c.text}">${c.text}</option>`));
         $city.prop('disabled', false);
         const current = $('#city_name_hidden').val();

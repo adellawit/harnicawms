@@ -121,4 +121,46 @@ class ProductVariant extends Model
 
         return $productName.($this->sku ? ' ('.$this->sku.')' : '');
     }
+
+    /**
+     * Resolve variant for stock mutations — matches ProductStockController behaviour.
+     */
+    public static function resolveForStock(string $productId, ?string $variantId = null, ?string $userId = null): ?self
+    {
+        if ($variantId) {
+            return static::query()
+                ->whereKey($variantId)
+                ->where('product_id', $productId)
+                ->whereNull('deleted_at')
+                ->first();
+        }
+
+        $variant = static::query()
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
+            ->first();
+
+        if ($variant) {
+            return $variant;
+        }
+
+        $product = Product::query()->find($productId);
+        if (! $product) {
+            return null;
+        }
+
+        return static::create([
+            'product_id' => $productId,
+            'sku' => $product->sku ?? 'PROD-' . substr($productId, 0, 8),
+            'barcode' => $product->barcode ?? substr($productId, 0, 13),
+            'purchase_price' => 0,
+            'selling_price' => 0,
+            'is_active' => true,
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+    }
 }

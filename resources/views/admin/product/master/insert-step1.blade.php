@@ -147,16 +147,16 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label for="product_nature_id" class="form-label">Inventory Nature</label>
+                        <label for="product_nature_id" class="form-label">Inventory Type</label>
                         <select id="product_nature_id" name="product_nature_id" class="select2 form-select @error('product_nature_id') is-invalid @enderror" data-allow-clear="true">
-                            <option value="">Select Nature</option>
+                            <option value="">Select Type</option>
                             @foreach ($productNatures as $productNature)
                                 <option value="{{ $productNature->id }}" data-key="{{ $productNature->key }}" @selected((old('product_nature_id') ?? $tempProduct['product_nature_id'] ?? $defaultProductNatureId ?? '') == $productNature->id)>
                                     {{ $productNature->value }}
                                 </option>
                             @endforeach
                         </select>
-                        <small class="text-muted">Inventory item akan track stok dan HPP.</small>
+                        <small class="text-muted">Inventory items track stock and COGS.</small>
                         @error('product_nature_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
@@ -194,9 +194,10 @@
                     <div class="col-md-6">
                         <label for="has_variants" class="form-label">Has Variants?</label>
                         <select id="has_variants" name="has_variants" class="select2 form-select" onchange="toggleVariantOptions()">
-                            <option value="0" {{ (old('has_variants') ?? $tempProduct['has_variants'] ?? 0) == 0 ? 'selected' : '' }}>No - Single product</option>
-                            <option value="1" {{ (old('has_variants') ?? $tempProduct['has_variants'] ?? 0) == 1 ? 'selected' : '' }}>Yes - Product with variants</option>
+                            <option value="0" {{ (old('has_variants') ?? $tempProduct['has_variants'] ?? 0) == 0 ? 'selected' : '' }}>No — single SKU/product</option>
+                            <option value="1" {{ (old('has_variants') ?? $tempProduct['has_variants'] ?? 0) == 1 ? 'selected' : '' }}>Yes — multiple variants (size, color, etc.)</option>
                         </select>
+                        <small class="text-muted">Use <strong>Yes</strong> when one product has multiple SKUs (e.g. size or packaging). Step 3 will ask you to define each variant.</small>
                     </div>
 
                     @php
@@ -491,6 +492,32 @@
                         btn.disabled = false;
                     });
             });
+
+            const productNatureSelect = document.getElementById('product_nature_id');
+            const stockItemSelect = document.getElementById('is_stock_item');
+
+            function syncStockItemFromInventoryType() {
+                if (!productNatureSelect || !stockItemSelect) {
+                    return;
+                }
+
+                const selected = productNatureSelect.options[productNatureSelect.selectedIndex];
+                const natureKey = selected?.dataset?.key || '';
+                if (natureKey === 'non_inventory') {
+                    stockItemSelect.value = '0';
+                    if (window.jQuery && jQuery(stockItemSelect).data('select2')) {
+                        jQuery(stockItemSelect).val('0').trigger('change');
+                    }
+                    stockItemSelect.disabled = true;
+                } else {
+                    stockItemSelect.disabled = false;
+                }
+            }
+
+            if (productNatureSelect) {
+                productNatureSelect.addEventListener('change', syncStockItemFromInventoryType);
+                syncStockItemFromInventoryType();
+            }
 
             document.getElementById('btnSaveQuickUnit').addEventListener('click', function () {
                 const btn = this;

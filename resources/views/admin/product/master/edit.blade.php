@@ -59,7 +59,7 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="product_nature_id">Inventory Nature</label>
+                            <label class="form-label" for="product_nature_id">Inventory Type</label>
                             <select id="product_nature_id" name="product_nature_id" class="select2 form-select" data-allow-clear="true">
                                 <option value="">-- Select --</option>
                                 @foreach($productNatures as $productNature)

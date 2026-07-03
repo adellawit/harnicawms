@@ -57,7 +57,7 @@
                                     <option value="">-- Tidak ada gudang --</option>
                                 @endforelse
                             </select>
-                            <small class="text-muted">Bahan baku produksi: pilih <strong>Gudang WIP</strong>.</small>
+                            <small class="text-muted">Bahan baku (<code>RAW_MATERIAL</code>) otomatis mengarah ke <strong>Gudang WIP</strong>.</small>
                         </div>
                         <div class="col-md-5">
                             <label class="form-label" for="notes">Notes</label>

@@ -1,5 +1,5 @@
 <x-app-layout>
-    @section('title', 'Gudang | ')
+    @section('title', 'Warehouse | ')
     @push('vendor-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
     @endpush
@@ -15,14 +15,13 @@
             $hasUpdatePermission = $isSuperAdmin || session('permissions.Warehouse.is_update', false) == 1;
             $hasDeletePermission = $isSuperAdmin || session('permissions.Warehouse.is_delete', false) == 1;
             $hasAnyActionPermission = $hasUpdatePermission || $hasDeletePermission;
-            $typeLabels = ['WIP' => 'WIP', 'FG' => 'Barang Jadi', 'GENERAL' => 'Umum', 'TRANSIT' => 'Transit'];
-            $scope = $scope ?? request('scope', 'all');
+            $typeLabels = ['WIP' => 'WIP', 'FG' => 'Finished Goods', 'GENERAL' => 'General', 'TRANSIT' => 'Transit'];
         @endphp
 
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
             ['label' => 'Business'],
-            ['label' => 'Gudang', 'active' => true],
+            ['label' => 'Warehouse', 'active' => true],
         ]" />
 
         @if (session('success'))<x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>@endif
@@ -33,42 +32,29 @@
 
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Manajemen Gudang</h5>
+                <h5 class="card-title mb-0">Warehouse Management</h5>
                 <div>
                     @permission('Warehouse', 'is_create')
                     <a href="{{ route('warehouse.insert.view') }}" class="btn btn-primary btn-sm">
-                        <i class="ti ti-plus me-1"></i> Tambah Gudang
+                        <i class="ti ti-plus me-1"></i> Add Warehouse
                     </a>
                     @endpermission
                 </div>
             </div>
             <div class="card-body">
-                <div class="d-flex flex-wrap gap-2 mb-3">
-                    @foreach([
-                        'all' => 'Semua',
-                        'distributor' => 'Distributor',
-                        'branch' => 'Cabang',
-                        'shared' => 'Shared',
-                    ] as $key => $label)
-                        <a href="{{ route('warehouse.index.view', array_filter(['scope' => $key === 'all' ? null : $key, 'status' => $status ?: null])) }}"
-                           class="btn btn-sm btn-{{ $scope === $key ? 'primary' : 'label-secondary' }}">
-                            {{ $label }}
-                        </a>
-                    @endforeach
-                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered warehouse-table">
                         <thead class="table-light">
                             <tr>
                                 <th style="width:50px" class="text-center">No</th>
-                                <th>Nama</th>
-                                <th>Kode</th>
-                                <th>Tipe</th>
-                                <th>Cakupan</th>
-                                <th>Cabang Terkait</th>
+                                <th>Name</th>
+                                <th>Code</th>
+                                <th>Type</th>
+                                <th>Scope</th>
+                                <th>Linked Branches</th>
                                 <th class="text-center">Inventory</th>
-                                <th class="text-center">Aktif</th>
-                                @if($hasAnyActionPermission)<th class="text-center">Aksi</th>@endif
+                                <th class="text-center">Active</th>
+                                @if($hasAnyActionPermission)<th class="text-center">Actions</th>@endif
                             </tr>
                         </thead>
                         <tbody>
@@ -79,17 +65,17 @@
                                     <td colspan="{{ $hasAnyActionPermission ? 8 : 7 }}">
                                         <strong><span class="badge bg-label-info me-1">COMPANY</span>{{ $parent->name }}</strong>
                                         @if($parent->children->count())
-                                            <span class="badge bg-label-secondary ms-2">{{ $parent->children->count() }} gudang</span>
+                                            <span class="badge bg-label-secondary ms-2">{{ $parent->children->count() }} warehouses</span>
                                         @endif
                                     </td>
                                 </tr>
                                 @forelse ($parent->children as $wh)
                                     @php
                                         $warehouseScope = $wh->branch_id
-                                            ? ['label' => 'Cabang', 'color' => 'success']
+                                            ? ['label' => 'Branch', 'color' => 'success']
                                             : ($wh->branches->isNotEmpty()
                                                 ? ['label' => 'Shared', 'color' => 'warning']
-                                                : ['label' => 'Distributor', 'color' => 'info']);
+                                                : ['label' => 'Company', 'color' => 'info']);
                                     @endphp
                                     <tr>
                                         <td class="text-center">{{ $rowNumber++ }}</td>
@@ -103,7 +89,7 @@
                                             @elseif($wh->branch)
                                                 {{ $wh->branch->name }}
                                             @else
-                                                <span class="text-muted">Distributor / Pusat</span>
+                                                <span class="text-muted">Company / HQ</span>
                                             @endif
                                         </td>
                                         <td class="text-center">
@@ -134,10 +120,10 @@
                                         @endif
                                     </tr>
                                 @empty
-                                    <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center text-muted">Belum ada gudang di company ini.</td></tr>
+                                    <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center text-muted">No warehouses for this company yet.</td></tr>
                                 @endforelse
                             @empty
-                                <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center">Tidak ada data company.</td></tr>
+                                <tr><td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center">No company data found.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -150,14 +136,14 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form method="POST" action="{{ route('warehouse.delete.data') }}">@csrf
-                    <div class="modal-header"><h5 class="modal-title">Hapus Gudang</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-header"><h5 class="modal-title">Delete Warehouse</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        <p>Hapus gudang <strong id="warehouse-name-deleted"></strong>?</p>
+                        <p>Delete warehouse <strong id="warehouse-name-deleted"></strong>?</p>
                         <input type="hidden" id="warehouse-id-deleted" name="warehouse_id_deleted">
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger">Hapus</button>
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Delete</button>
                     </div>
                 </form>
             </div>
@@ -168,13 +154,13 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form method="POST" action="{{ route('warehouse.restore.data') }}">@csrf
-                    <div class="modal-header"><h5 class="modal-title">Restore Gudang</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-header"><h5 class="modal-title">Restore Warehouse</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        <p>Pulihkan gudang <strong id="warehouse-name-restore"></strong>?</p>
+                        <p>Restore warehouse <strong id="warehouse-name-restore"></strong>?</p>
                         <input type="hidden" id="warehouse-id-restore" name="warehouse_id_restored">
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Restore</button>
                     </div>
                 </form>

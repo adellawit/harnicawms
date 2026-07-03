@@ -12,12 +12,20 @@
             $filterCategoryId = request('category_id', '');
             $filterVariant = request('variant_search', '');
             $filterPerPage = request('per_page', 20);
+            $displayUnitMode = $displayUnitMode ?? request('display_unit', 'large');
 
             $branches = $locations ?? collect();
-            $defaultBranch = request('branch_id') ?: ($fgWarehouseId ?? auth('web')->user()->current_business_unit_id);
-            $filterBranchId = request('branch_id', '');
+            $filterWarehouseId = $filterWarehouseId ?? request('warehouse_id', request('branch_id', ''));
+            $selectedWarehouseName = $selectedWarehouse?->name ?? null;
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== '';
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterWarehouseId !== '' || $displayUnitMode !== 'large';
+
+            $unitToggleQuery = collect(request()->query())
+                ->except('display_unit')
+                ->filter(fn ($v) => $v !== null && $v !== '')
+                ->all();
+            $largeUnitUrl = route('product.stock.index.view', array_merge($unitToggleQuery, ['display_unit' => 'large']));
+            $smallUnitUrl = route('product.stock.index.view', array_merge($unitToggleQuery, ['display_unit' => 'small']));
         @endphp
 
         <x-page-header
@@ -31,8 +39,23 @@
 
         <div class="card">
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Product Stock</h5>
-                <div class="d-flex align-items-center gap-2">
+                <div>
+                    <h5 class="card-title mb-0">Product Stock</h5>
+                    @if($selectedWarehouseName)
+                        <small class="text-muted">Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong></small>
+                    @else
+                        <small class="text-muted">Menampilkan stok agregat semua gudang yang dapat diakses</small>
+                    @endif
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Tampilan satuan">
+                        <a href="{{ $largeUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'large' ? 'primary' : 'outline-primary' }}">
+                            Satuan Besar
+                        </a>
+                        <a href="{{ $smallUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'small' ? 'primary' : 'outline-primary' }}">
+                            Satuan Kecil
+                        </a>
+                    </div>
                     <button type="button" class="btn btn-{{ $isFilter ? 'warning' : 'primary' }} btn-sm" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="ti ti-filter me-1"></i> Filter
                     </button>
@@ -104,8 +127,22 @@
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
                                 <td class="text-end {{ $displayQty < 0 ? 'text-danger fw-semibold' : '' }}">
-                                    {{ format_number($displayQty, 2, true) }}
-                                    <small class="text-muted">{{ $item['unit'] }}</small>
+                                    <div>
+                                        {{ format_number($displayQty, 2, true) }}
+                                        <small class="text-muted">{{ $item['unit'] }}</small>
+                                    </div>
+                                    @if(!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
+                                        <div class="stock-unit-detail mt-1">
+                                            @foreach($item['stock_by_units'] as $unitStock)
+                                                <small class="text-muted d-block">
+                                                    {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
+                                                </small>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                    @if(!empty($item['conversion_hint']))
+                                        <small class="text-muted d-block fst-italic">{{ $item['conversion_hint'] }}</small>
+                                    @endif
                                 </td>
                                 <td class="text-end">
                                     {{ format_number($displayMinStock, 2, true) }}
@@ -162,16 +199,16 @@
 
     <x-modal id="filterModal" title="Filter">
         <div class="mb-3">
-            <label class="form-label">Lokasi (Gudang / Cabang)</label>
-            <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
-                <option value="">Semua Lokasi</option>
+            <label class="form-label">Gudang <span class="text-danger">*</span></label>
+            <select id="selectWarehouse" class="select2-modal form-select" data-allow-clear="true">
+                <option value="">Semua Gudang (Agregat)</option>
                 @foreach($branches as $b)
-                    <option value="{{ $b->id }}" @if($filterBranchId === $b->id) selected @endif>
-                        {{ $b->name }}{{ $b->type_code === 'WAREHOUSE' ? ' (Gudang)' : '' }}
+                    <option value="{{ $b->id }}" @if($filterWarehouseId === $b->id) selected @endif>
+                        {{ $b->name }}
                     </option>
                 @endforeach
             </select>
-            <small class="text-muted">Tip: pilih <strong>Gudang Barang Jadi</strong> untuk lihat stok hasil produksi + HPP.</small>
+            <small class="text-muted">Pilih gudang spesifik untuk melihat stok per lokasi.</small>
         </div>
         <div class="mb-3">
             <label class="form-label">Variant</label>
@@ -264,7 +301,7 @@
 
                 $('#btnFilter').on('click', function() {
                     var params = [];
-                    var branchId = $('#selectBranch').val();
+                    var warehouseId = $('#selectWarehouse').val();
                     var sku = $('#selectSku').val();
                     var productId = $('#selectProduct').val();
                     var natureId = $('#selectNature').val();
@@ -272,13 +309,14 @@
                     var variantSearch = $('#variantSearch').val();
                     var perPage = $('#selectPerPage').val();
 
-                    if (branchId) params.push('branch_id=' + encodeURIComponent(branchId));
+                    if (warehouseId) params.push('warehouse_id=' + encodeURIComponent(warehouseId));
                     if (sku) params.push('sku=' + encodeURIComponent(sku));
                     if (productId) params.push('product_id=' + encodeURIComponent(productId));
                     if (natureId) params.push('nature_id=' + encodeURIComponent(natureId));
                     if (categoryId) params.push('category_id=' + encodeURIComponent(categoryId));
                     if (variantSearch) params.push('variant_search=' + encodeURIComponent(variantSearch));
                     if (perPage && perPage != 20) params.push('per_page=' + encodeURIComponent(perPage));
+                    params.push('display_unit=' + encodeURIComponent('{{ $displayUnitMode }}'));
 
                     var url = '{{ route("product.stock.index.view") }}';
                     if (params.length > 0) url += '?' + params.join('&');

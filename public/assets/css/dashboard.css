@@ -45,7 +45,7 @@
 
 .stat-icon.bg-primary-soft {
     background: linear-gradient(135deg, rgba(0, 119, 182, 0.15) 0%, rgba(0, 180, 216, 0.15) 100%);
-    color: #0077b6;
+    color: #5C9E84;
 }
 
 .stat-icon.bg-success-soft {
@@ -115,7 +115,7 @@
 }
 
 .section-title i {
-    color: #0077b6;
+    color: #5C9E84;
 }
 
 /* ==========================================================================
@@ -144,7 +144,7 @@
 }
 
 .filter-section .form-control:focus {
-    border-color: #0077b6;
+    border-color: #5C9E84;
     box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.1);
 }
 

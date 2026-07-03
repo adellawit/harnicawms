@@ -10,23 +10,20 @@ class ProductPriceListSeeder extends Seeder
 {
     private const ALLOWED_CODES = [
         'REGULER',
-        'GRABFOOD',
-        'GOFOOD',
-        'SHOPEE-FOOD',
     ];
 
     /**
-     * Hapus price list lama, lalu seed: Reguler, GrabFood, GoFood, Shopee Food.
+     * Hapus price list lama, lalu seed hanya Reguler.
      */
     public function run(): void
     {
         $company = DB::table('master_data.business_units')
-            ->where('code', 'WWW-001')
+            ->where('code', 'SUHARA-001')
             ->where('type_code', 'COMPANY')
             ->first();
 
         if (! $company) {
-            $this->command?->error('Company WWW tidak ditemukan. Jalankan BusinessUnitSeeder terlebih dahulu.');
+            $this->command?->error('Company Suhara Botanica tidak ditemukan. Jalankan BusinessUnitSeeder terlebih dahulu.');
 
             return;
         }
@@ -70,30 +67,6 @@ class ProductPriceListSeeder extends Seeder
                 'external_channel_code' => null,
                 'sort_order' => 10,
             ],
-            [
-                'code' => 'GRABFOOD',
-                'name' => 'GrabFood',
-                'description' => 'Harga channel GrabFood',
-                'channel_type' => 'delivery',
-                'external_channel_code' => 'grabfood',
-                'sort_order' => 20,
-            ],
-            [
-                'code' => 'GOFOOD',
-                'name' => 'GoFood',
-                'description' => 'Harga channel GoFood',
-                'channel_type' => 'delivery',
-                'external_channel_code' => 'gofood',
-                'sort_order' => 30,
-            ],
-            [
-                'code' => 'SHOPEE-FOOD',
-                'name' => 'Shopee Food',
-                'description' => 'Harga channel Shopee Food',
-                'channel_type' => 'delivery',
-                'external_channel_code' => 'shopeefood',
-                'sort_order' => 40,
-            ],
         ];
 
         foreach ($priceLists as $pl) {
@@ -113,6 +86,6 @@ class ProductPriceListSeeder extends Seeder
             );
         }
 
-        $this->command?->info('Price list aktif: Reguler, GrabFood, GoFood, Shopee Food.');
+        $this->command?->info('Price list aktif: Reguler.');
     }
 }
