@@ -187,7 +187,6 @@
                                 <th class="text-end">Committed</th>
                                 <th class="text-end">Allocated</th>
                                 <th class="text-end">Received</th>
-                                <th class="text-end">Sisa Release</th>
                                 <th class="text-end">Belum Diterima</th>
                             </tr>
                         </thead>
@@ -199,9 +198,6 @@
                                 <td class="text-end">{{ format_number($row['committed_qty'], 2, true) }}</td>
                                 <td class="text-end">{{ format_number($row['allocated_qty'] ?? $row['released_qty'], 2, true) }}</td>
                                 <td class="text-end">{{ format_number($row['received_qty'] ?? 0, 2, true) }}</td>
-                                <td class="text-end {{ ($row['remaining_qty'] ?? 0) > 0 ? 'text-warning fw-semibold' : 'text-success' }}">
-                                    {{ format_number($row['remaining_qty'], 2, true) }}
-                                </td>
                                 <td class="text-end {{ ($row['unfulfilled_qty'] ?? 0) > 0 ? 'text-info' : 'text-success' }}">
                                     {{ format_number($row['unfulfilled_qty'] ?? 0, 2, true) }}
                                 </td>
