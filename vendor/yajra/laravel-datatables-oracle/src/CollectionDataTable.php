@@ -11,13 +11,14 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
+use Yajra\DataTables\Utilities\Helper;
 
 class CollectionDataTable extends DataTableAbstract
 {
     /**
      * Collection object.
      *
-     * @var \Illuminate\Support\Collection<array-key, array>
+     * @var Collection<array-key, array>
      */
     public Collection $original;
 
@@ -29,7 +30,7 @@ class CollectionDataTable extends DataTableAbstract
     /**
      * CollectionEngine constructor.
      *
-     * @param  \Illuminate\Support\Collection<array-key, array>  $collection
+     * @param  Collection<array-key, array>  $collection
      */
     public function __construct(public Collection $collection)
     {
@@ -61,7 +62,7 @@ class CollectionDataTable extends DataTableAbstract
     /**
      * Factory method, create and return an instance for the DataTable engine.
      *
-     * @param  AnonymousResourceCollection|array|\Illuminate\Support\Collection<array-key, array>  $source
+     * @param  AnonymousResourceCollection|array|Collection<array-key, array>  $source
      * @return static
      */
     public static function create($source)
@@ -139,7 +140,7 @@ class CollectionDataTable extends DataTableAbstract
     /**
      * Organizes works.
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function make(bool $mDataSupport = true): JsonResponse
     {
@@ -170,7 +171,7 @@ class CollectionDataTable extends DataTableAbstract
     /**
      * Get results.
      *
-     * @return \Illuminate\Support\Collection<array-key, array>
+     * @return Collection<array-key, array>
      */
     public function results(): Collection
     {
@@ -185,17 +186,39 @@ class CollectionDataTable extends DataTableAbstract
     private function revertIndexColumn($mDataSupport): void
     {
         if ($this->columnDef['index']) {
-            $indexColumn = Config::get('datatables.index_column', 'DT_RowIndex');
+            $indexColumn = (string) Config::get('datatables.index_column', 'DT_RowIndex');
             /** @var int|string $index */
             $index = $mDataSupport ? $indexColumn : 0;
             $start = $this->request->start();
+            $indexEdits = $mDataSupport ? $this->getIndexColumnEdits($indexColumn) : [];
 
-            $this->collection->transform(function ($data) use ($index, &$start) {
+            $this->collection->transform(function ($data) use ($index, &$start, $mDataSupport, $indexColumn, $indexEdits) {
                 $data[$index] = ++$start;
+
+                if ($mDataSupport && $indexEdits !== []) {
+                    foreach ($indexEdits as $content) {
+                        $data[$indexColumn] = Helper::compileContent($content, $data, $data);
+                    }
+                }
 
                 return $data;
             });
         }
+    }
+
+    /**
+     * Get edit templates/callbacks registered for the index column.
+     */
+    private function getIndexColumnEdits(string $indexColumn): array
+    {
+        $edits = [];
+        foreach ($this->columnDef['edit'] ?? [] as $column) {
+            if (($column['name'] ?? null) === $indexColumn) {
+                $edits[] = $column['content'];
+            }
+        }
+
+        return $edits;
     }
 
     /**
@@ -224,11 +247,14 @@ class CollectionDataTable extends DataTableAbstract
             foreach ($this->request->searchableColumnIndex() as $index) {
                 $column = $this->getColumnName($index);
                 $value = Arr::get($data, $column);
-                if (! is_string($value)) {
+                if (is_bool($value)) {
+                    $value = $value ? '1' : '0';
+                } elseif (! is_scalar($value) && ! $value instanceof \Stringable) {
                     continue;
-                } else {
-                    $value = $this->config->isCaseInsensitive() ? Str::lower($value) : $value;
                 }
+
+                $value = (string) $value;
+                $value = $this->config->isCaseInsensitive() ? Str::lower($value) : $value;
 
                 if (Str::contains($value, $keyword)) {
                     return true;

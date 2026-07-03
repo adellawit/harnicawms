@@ -10,6 +10,7 @@
             .detail-row { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #f8f9fa; }
             .detail-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #dee2e6; }
             .detail-row-number { font-weight: bold; color: #696cff; }
+            .item-mc-display { min-height: 38px; font-size: 0.8125rem; line-height: 1.35; word-break: break-word; }
         </style>
     @endpush
 
@@ -64,9 +65,12 @@
                             <select id="supplier_id" name="supplier_id" class="form-select select2-supplier" required>
                                 <option value="">-- Pilih Supplier --</option>
                                 @foreach(($suppliers ?? collect()) as $s)
-                                    <option value="{{ $s->id }}" {{ old('supplier_id', $purchase->supplier_id) == $s->id ? 'selected' : '' }}>{{ $s->name }}{{ $s->code ? ' ('.$s->code.')' : '' }}</option>
+                                    <option value="{{ $s->id }}" data-type-key="{{ $s->supplierType?->key }}" {{ old('supplier_id', $purchase->supplier_id) == $s->id ? 'selected' : '' }}>
+                                        {{ $s->name }}{{ $s->code ? ' ('.$s->code.')' : '' }}{{ $s->supplierType?->value ? ' ['.$s->supplierType->value.']' : '' }}
+                                    </option>
                                 @endforeach
                             </select>
+                            <small class="text-muted" id="supplier-type-hint"></small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Supplier Info</label>
@@ -74,8 +78,16 @@
                                 {{ $purchase->supplier_name ?: '-' }}{{ $purchase->supplier_contact ? ' | ' . $purchase->supplier_contact : '' }}{{ $purchase->supplier_address ? ' | ' . $purchase->supplier_address : '' }}
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="attention_to">Attention (Up.)</label>
+                            <input type="text" id="attention_to" name="attention_to" class="form-control" value="{{ old('attention_to', $purchase->attention_to) }}" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="ship_to_address">Ship To</label>
+                            <input type="text" id="ship_to_address" name="ship_to_address" class="form-control" value="{{ old('ship_to_address', $purchase->ship_to_address) }}" />
+                        </div>
                         <div class="col-12">
-                            <label class="form-label" for="notes">Notes</label>
+                            <label class="form-label" for="notes">Notes / Keterangan</label>
                             <textarea id="notes" name="notes" class="form-control" rows="2">{{ old('notes', $purchase->notes) }}</textarea>
                         </div>
                     </div>
@@ -122,6 +134,18 @@
                                     <input type="text" name="items[{{ $idx }}][quantity]" class="form-control item-qty number-format" value="{{ format_number($item->quantity, 6, true) }}" required />
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label">Kode Batch <span class="text-danger">*</span></label>
+                                    <input type="text" name="items[{{ $idx }}][batch_number]" class="form-control item-batch" maxlength="100" value="{{ old('items.'.$idx.'.batch_number', $item->batch_number) }}" required />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Expired <span class="text-danger">*</span></label>
+                                    <input type="text" name="items[{{ $idx }}][expiry_date]" class="form-control flatpickr-date item-expiry" value="{{ old('items.'.$idx.'.expiry_date', $item->expiry_date?->format('d/m/Y')) }}" required />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Carton (MC)</label>
+                                    <div class="form-control item-mc-display bg-light text-muted">{{ $item->carton_display_label }}</div>
+                                </div>
+                                <div class="col-md-2">
                                     <label class="form-label">Unit Price <span class="text-danger">*</span></label>
                                     <input type="text" name="items[{{ $idx }}][unit_price]" class="form-control item-price number-format" value="{{ format_number($item->unit_price, 4, true) }}" required />
                                 </div>
@@ -133,7 +157,7 @@
                                     <label class="form-label">Subtotal</label>
                                     <input type="text" class="form-control item-subtotal bg-light" value="{{ format_number($item->subtotal, 4, true) }}" readonly />
                                 </div>
-                                <div class="col-md-10">
+                                <div class="col-md-6">
                                     <label class="form-label">Notes</label>
                                     <input type="text" name="items[{{ $idx }}][notes]" class="form-control" value="{{ old('items.'.$idx.'.notes', $item->notes) }}" />
                                 </div>
@@ -156,6 +180,10 @@
                         <div class="col-md-3">
                             <label class="form-label" for="discount_amount">Discount Amount</label>
                             <input type="text" id="discount_amount" name="discount_amount" class="form-control number-format" value="{{ format_number($purchase->discount_amount, 4, true) }}" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="other_cost_amount">Other Costs</label>
+                            <input type="text" id="other_cost_amount" name="other_cost_amount" class="form-control number-format" value="{{ format_number($purchase->other_cost_amount ?? 0, 4, true) }}" />
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Total</label>
@@ -182,11 +210,64 @@
     @push('page-js')
         <script src="{{ asset('assets/js/forms-pickers.js') }}"></script>
         <script src="{{ asset('assets/js/forms-selects.js') }}"></script>
+        <script src="{{ asset('assets/js/purchase-order-carton.js') }}"></script>
         <script>
             var products = @json($products);
             var units = @json($units);
-            var currentSuppliers = @json($suppliers ?? []);
+            var supplierItemTypeMap = @json($supplierItemTypeMap ?? []);
+            var currentSuppliers = @json(\App\Support\PurchaseOrderCatalog::suppliersPayload($suppliers ?? collect()));
             var itemCounter = {{ $purchase->items->count() }};
+
+            function getSupplierTypeKey() {
+                var supplierId = $('#supplier_id').val();
+                if (!supplierId) return null;
+                var sup = currentSuppliers.find(function(s) { return s.id === supplierId; });
+                return sup ? (sup.supplier_type_key || null) : null;
+            }
+
+            function getFilteredProducts() {
+                var typeKey = getSupplierTypeKey();
+                var allowed = typeKey ? (supplierItemTypeMap[typeKey] || null) : null;
+                return products.filter(function(p) {
+                    if (!p.is_purchase_item) return false;
+                    if (!allowed) return true;
+                    return allowed.indexOf(p.item_type_key) !== -1;
+                });
+            }
+
+            function getProductOptionsHtml(selectedId) {
+                var opts = '<option value="">-- Select Product --</option>';
+                getFilteredProducts().forEach(function(r) {
+                    var sel = selectedId === r.id ? ' selected' : '';
+                    opts += '<option value="'+r.id+'"'+sel+'>'+r.name+(r.code ? ' ('+r.code+')' : '')+'</option>';
+                });
+                return opts;
+            }
+
+            function updateSupplierTypeHint() {
+                var typeKey = getSupplierTypeKey();
+                if (typeKey === 'raw_material') {
+                    $('#supplier-type-hint').text('Supplier Bahan Baku — hanya item bahan baku.');
+                } else if (typeKey === 'product') {
+                    $('#supplier-type-hint').text('Supplier Product — hanya item finished good.');
+                } else {
+                    $('#supplier-type-hint').text('');
+                }
+            }
+
+            function refreshProductSelects() {
+                $('.select2-product').each(function() {
+                    var $sel = $(this);
+                    var current = $sel.val();
+                    $sel.empty().append(getProductOptionsHtml(current));
+                    if (current && getFilteredProducts().some(function(p) { return p.id === current; })) {
+                        $sel.val(current);
+                    } else {
+                        $sel.val('');
+                    }
+                    $sel.trigger('change.select2');
+                });
+            }
 
             function updateSupplierInfo(supplier) {
                 if (!supplier) { $('#supplier_info').text('-'); return; }
@@ -194,6 +275,7 @@
                 if (supplier.contact) parts.push('Contact: ' + supplier.contact);
                 if (supplier.phone) parts.push('Phone: ' + supplier.phone);
                 if (supplier.is_ppn) parts.push('PPN: ' + (supplier.ppn_rate || 11) + '%');
+                if (supplier.supplier_type_label) parts.push('Type: ' + supplier.supplier_type_label);
                 if (supplier.address) parts.push(supplier.address);
                 $('#supplier_info').html(parts.join(' | '));
             }
@@ -288,9 +370,7 @@
             function addItemRow() {
                 itemCounter++;
                 var unitOpts = '<option value="">-- Select Product first --</option>';
-                var productOpts = '<option value="">-- Select Product --</option>' + products.map(function(r) {
-                    return '<option value="'+r.id+'">'+r.name+(r.code ? ' ('+r.code+')' : '')+'</option>';
-                }).join('');
+                var productOpts = getProductOptionsHtml();
                 var row = '<div class="detail-row" data-index="'+itemCounter+'">' +
                     '<div class="detail-row-header"><span class="detail-row-number">Item #'+itemCounter+'</span>' +
                     '<button type="button" class="btn btn-sm btn-danger btnRemoveItem"><i class="ti ti-trash me-1"></i>Remove</button></div>' +
@@ -303,13 +383,19 @@
                     '<select name="items['+itemCounter+'][unit_id]" class="form-select select2-unit">'+unitOpts+'</select></div>' +
                     '<div class="col-md-2"><label class="form-label">Qty <span class="text-danger">*</span></label>' +
                     '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" required /></div>' +
+                    '<div class="col-md-2"><label class="form-label">Kode Batch <span class="text-danger">*</span></label>' +
+                    '<input type="text" name="items['+itemCounter+'][batch_number]" class="form-control item-batch" maxlength="100" required /></div>' +
+                    '<div class="col-md-2"><label class="form-label">Expired <span class="text-danger">*</span></label>' +
+                    '<input type="text" name="items['+itemCounter+'][expiry_date]" class="form-control flatpickr-date item-expiry" required /></div>' +
+                    '<div class="col-md-2"><label class="form-label">Carton (MC)</label>' +
+                    '<div class="form-control item-mc-display bg-light text-muted">-</div></div>' +
                     '<div class="col-md-2"><label class="form-label">Unit Price <span class="text-danger">*</span></label>' +
                     '<input type="text" name="items['+itemCounter+'][unit_price]" class="form-control item-price number-format" required /></div>' +
                     '<div class="col-md-2"><label class="form-label">Discount</label>' +
                     '<input type="text" name="items['+itemCounter+'][discount_amount]" class="form-control item-discount number-format" value="0" /></div>' +
                     '<div class="col-md-2"><label class="form-label">Subtotal</label>' +
                     '<input type="text" class="form-control item-subtotal bg-light" readonly /></div>' +
-                    '<div class="col-md-10"><label class="form-label">Notes</label>' +
+                    '<div class="col-md-6"><label class="form-label">Notes</label>' +
                     '<input type="text" name="items['+itemCounter+'][notes]" class="form-control" /></div></div></div>';
                 $('#itemsContainer').append(row);
                 var $lastRow = $('#itemsContainer .detail-row:last');
@@ -319,8 +405,14 @@
                     var $row = $(this).closest('.detail-row');
                     $row.find('.select2-unit').empty().append(getUnitOptions(productId)).trigger('change');
                     updateVariantDropdown($row, productId);
+                    setTimeout(function() { updateMcDisplayForRow($row); }, 200);
                 });
                 initNumberInputs($lastRow);
+                $lastRow.find('.item-expiry').each(function() {
+                    if (!$(this).data('flatpickr')) {
+                        $(this).flatpickr({ dateFormat: 'd/m/Y' });
+                    }
+                });
                 bindItemCalculations($lastRow);
             }
 
@@ -337,6 +429,12 @@
 
             function parseNum(val) { return parseFloat(String(val||0).replace(/\./g,'').replace(',','.')) || 0; }
 
+            function updateMcDisplayForRow($row) {
+                if (window.PurchaseOrderCarton) {
+                    PurchaseOrderCarton.updateRowMcDisplay($row, products, units, parseNum);
+                }
+            }
+
             function bindItemCalculations(scope) {
                 $(scope || document).find('.item-qty, .item-price, .item-discount').off('input change keyup').on('input change keyup', function() {
                     var $row = $(this).closest('.detail-row');
@@ -345,7 +443,14 @@
                     var disc = parseNum($row.find('.item-discount').val());
                     var st = (qty * price) - disc;
                     $row.find('.item-subtotal').val(st.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 4}));
+                    updateMcDisplayForRow($row);
                     calculateTaxFromSupplier();
+                });
+                $(scope || document).find('.select2-unit').off('change.mc').on('change.mc', function() {
+                    updateMcDisplayForRow($(this).closest('.detail-row'));
+                });
+                $(scope || document).find('.detail-row').each(function() {
+                    updateMcDisplayForRow($(this));
                 });
             }
 
@@ -354,7 +459,8 @@
                 $('.item-subtotal').each(function() { subtotal += parseNum($(this).val()); });
                 var tax = parseNum($('#tax_amount').val());
                 var disc = parseNum($('#discount_amount').val());
-                var total = subtotal + tax - disc;
+                var other = parseNum($('#other_cost_amount').val());
+                var total = subtotal + tax - disc + other;
                 $('#subtotal_display').val(subtotal.toLocaleString('id-ID', {minimumFractionDigits: 2}));
                 $('#subtotal').val(subtotal);
                 $('#total_display').val(total.toLocaleString('id-ID', {minimumFractionDigits: 2}));
@@ -366,8 +472,9 @@
                 $('.select2-product, .select2-unit, .select2-variant').select2({ placeholder: '-- Select --', allowClear: true });
                 initNumberInputs();
                 bindItemCalculations();
-                $('#tax_amount, #discount_amount').on('input change', updateTotals);
+                $('#tax_amount, #discount_amount, #other_cost_amount').on('input change', updateTotals);
                 updateTotals();
+                updateSupplierTypeHint();
 
                 $('.detail-row').each(function() {
                     var $row = $(this);
@@ -378,7 +485,10 @@
                     }
                 });
 
-                $('#btnAddItem').click(addItemRow);
+                $('#btnAddItem').click(function() {
+                    if (!$('#supplier_id').val()) { alert('Pilih supplier terlebih dahulu.'); return; }
+                    addItemRow();
+                });
                 $(document).on('click', '.btnRemoveItem', function() {
                     if ($('.detail-row').length <= 1) { alert('Minimal 1 item diperlukan'); return; }
                     $(this).closest('.detail-row').remove();
@@ -391,12 +501,15 @@
                     var currentUnitId = $row.find('.select2-unit').val();
                     $row.find('.select2-unit').empty().append(getUnitOptions(productId, currentUnitId)).trigger('change');
                     updateVariantDropdown($row, productId);
+                    setTimeout(function() { updateMcDisplayForRow($row); }, 200);
                 });
 
                 $('#supplier_id').select2({ placeholder: '-- Pilih Supplier --', allowClear: true });
                 $('#supplier_id').on('change', function() {
                     var id = $(this).val();
                     updateSupplierInfo(id ? currentSuppliers.find(function(x){ return x.id === id; }) : null);
+                    updateSupplierTypeHint();
+                    refreshProductSelects();
                     calculateTaxFromSupplier();
                 });
 

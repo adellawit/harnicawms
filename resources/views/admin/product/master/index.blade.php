@@ -290,6 +290,18 @@
                             d.is_stock_item = "{{ request('is_stock_item', '') }}";
                             d.is_sale_item = "{{ request('is_sale_item', '') }}";
                             d.is_purchase_item = "{{ request('is_purchase_item', '') }}";
+                        },
+                        error: function(xhr) {
+                            var msg = 'Gagal memuat data tabel';
+                            if (xhr.status === 419) {
+                                msg = 'Sesi kedaluwarsa. Silakan refresh halaman dan login ulang.';
+                            } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                                msg = xhr.responseJSON.error;
+                            } else if (xhr.responseText && xhr.responseText.indexOf('<!DOCTYPE') === 0) {
+                                msg = 'Server mengembalikan HTML, bukan JSON (kemungkinan redirect login atau error server).';
+                            }
+                            console.error('DataTables AJAX error:', xhr.status, xhr.responseText);
+                            alert(msg);
                         }
                     },
                     columns: [
@@ -312,7 +324,7 @@
                         } },
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, width: '60px', render: function(d,t,r) {
                             var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
-                            if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" target="_blank" href="{{ url("product/items") }}/'+r.id+'/print-barcode"><i class="ti ti-printer me-2 text-info"></i>Print Barcode</a></li>';
+                            if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items") }}/'+r.id+'/print-barcode"><i class="ti ti-printer me-2 text-info"></i>Print Barcode</a></li>';
                             if (@json($hasReadPermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items/variants") }}/'+r.id+'"><i class="ti ti-list me-2 text-primary"></i>Manage Variants</a></li>';
                             if (@json($hasUpdatePermission)) html += '<li><a class="dropdown-item" href="{{ url("product/items/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                             if (@json($hasDeletePermission)) html += r.deleted_at ? '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-refresh me-2 text-success"></i>Restore</button></li>' : '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-name="'+r.name+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';

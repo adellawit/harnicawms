@@ -12,6 +12,19 @@ use Yajra\DataTables\DataTables;
 
 class SupplierController extends Controller
 {
+    protected function generateCode(): string
+    {
+        $prefix = 'SUP-';
+        $last = Supplier::withTrashed()
+            ->where('code', 'like', $prefix.'%')
+            ->orderByRaw('LENGTH(code) DESC, code DESC')
+            ->value('code');
+
+        $seq = $last ? ((int) substr($last, strlen($prefix)) + 1) : 1;
+
+        return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+    }
+
     public function indexView(Request $request)
     {
         $status = $request->filled('status') ? $request->status : '';
@@ -101,7 +114,7 @@ class SupplierController extends Controller
         $request->merge(['supplier_type_id' => $supplierTypeId]);
 
         $request->validate([
-            'code' => ['required', 'string', 'max:50', Rule::unique('master_data.suppliers', 'code')],
+            'code' => ['nullable', 'string', 'max:50', Rule::unique('master_data.suppliers', 'code')],
             'name' => 'required|string|max:200',
             'supplier_type_id' => ['nullable', Rule::exists('public.parameter_details', 'id')],
             'contact' => 'nullable|string|max:100',
@@ -111,7 +124,6 @@ class SupplierController extends Controller
             'ppn_rate' => 'nullable|numeric|min:0|max:100',
             'address' => 'nullable|string',
         ], [
-            'code.required' => 'Code is required.',
             'name.required' => 'Name is required.',
             'supplier_type_id.exists' => 'Tipe supplier tidak valid.',
         ]);
@@ -119,9 +131,10 @@ class SupplierController extends Controller
         $user = auth('web')->user();
         $isPpn = (bool) $request->is_ppn;
         $ppnRate = $isPpn && $request->filled('ppn_rate') ? $request->ppn_rate : null;
+        $code = $request->filled('code') ? $request->code : $this->generateCode();
 
         Supplier::create([
-            'code' => $request->code,
+            'code' => $code,
             'name' => $request->name,
             'supplier_type_id' => $request->supplier_type_id ?: null,
             'company_id' => $user->getCompanyIdForProduct(),

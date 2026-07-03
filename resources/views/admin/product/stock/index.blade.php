@@ -12,12 +12,20 @@
             $filterCategoryId = request('category_id', '');
             $filterVariant = request('variant_search', '');
             $filterPerPage = request('per_page', 20);
+            $displayUnitMode = $displayUnitMode ?? request('display_unit', 'large');
 
             $branches = $locations ?? collect();
             $filterWarehouseId = $filterWarehouseId ?? request('warehouse_id', request('branch_id', ''));
             $selectedWarehouseName = $selectedWarehouse?->name ?? null;
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterWarehouseId !== '';
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterWarehouseId !== '' || $displayUnitMode !== 'large';
+
+            $unitToggleQuery = collect(request()->query())
+                ->except('display_unit')
+                ->filter(fn ($v) => $v !== null && $v !== '')
+                ->all();
+            $largeUnitUrl = route('product.stock.index.view', array_merge($unitToggleQuery, ['display_unit' => 'large']));
+            $smallUnitUrl = route('product.stock.index.view', array_merge($unitToggleQuery, ['display_unit' => 'small']));
         @endphp
 
         <x-page-header
@@ -39,7 +47,15 @@
                         <small class="text-muted">Menampilkan stok agregat semua gudang yang dapat diakses</small>
                     @endif
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Tampilan satuan">
+                        <a href="{{ $largeUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'large' ? 'primary' : 'outline-primary' }}">
+                            Satuan Besar
+                        </a>
+                        <a href="{{ $smallUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'small' ? 'primary' : 'outline-primary' }}">
+                            Satuan Kecil
+                        </a>
+                    </div>
                     <button type="button" class="btn btn-{{ $isFilter ? 'warning' : 'primary' }} btn-sm" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="ti ti-filter me-1"></i> Filter
                     </button>
@@ -111,8 +127,30 @@
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
                                 <td class="text-end {{ $displayQty < 0 ? 'text-danger fw-semibold' : '' }}">
-                                    {{ format_number($displayQty, 2, true) }}
-                                    <small class="text-muted">{{ $item['unit'] }}</small>
+                                    <div>
+                                        {{ format_number($displayQty, 2, true) }}
+                                        <small class="text-muted">{{ $item['unit'] }}</small>
+                                    </div>
+                                    @if(!empty($item['has_smallest_display']) && ($displayUnitMode ?? 'large') === 'large')
+                                        <small class="text-primary d-block fw-semibold">
+                                            = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
+                                        </small>
+                                    @endif
+                                    @if(!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
+                                        <div class="stock-unit-detail mt-1">
+                                            @foreach($item['stock_by_units'] as $unitStock)
+                                                <small class="text-muted d-block">
+                                                    {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
+                                                    @if(($displayUnitMode ?? 'large') === 'large' && isset($unitStock['smallest_quantity']) && $unitStock['smallest_quantity'] !== null)
+                                                        <span class="text-primary">(= {{ format_number((float) $unitStock['smallest_quantity'], 2, true) }} {{ $unitStock['smallest_unit'] }})</span>
+                                                    @endif
+                                                </small>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                    @if(!empty($item['conversion_hint']))
+                                        <small class="text-muted d-block fst-italic">{{ $item['conversion_hint'] }}</small>
+                                    @endif
                                 </td>
                                 <td class="text-end">
                                     {{ format_number($displayMinStock, 2, true) }}
@@ -286,6 +324,7 @@
                     if (categoryId) params.push('category_id=' + encodeURIComponent(categoryId));
                     if (variantSearch) params.push('variant_search=' + encodeURIComponent(variantSearch));
                     if (perPage && perPage != 20) params.push('per_page=' + encodeURIComponent(perPage));
+                    params.push('display_unit=' + encodeURIComponent('{{ $displayUnitMode }}'));
 
                     var url = '{{ route("product.stock.index.view") }}';
                     if (params.length > 0) url += '?' + params.join('&');

@@ -1,8 +1,22 @@
 {{-- Sidebar Menu --}}
 @php
     $authUser        = auth()->user();
-    $currentBranch   = optional($authUser)->businessUnit;
-    $branchLabel     = $currentBranch?->name ?? 'Workspace';
+    $currentUnit     = optional($authUser)->businessUnit;
+    $companyLabel    = config('app.name', 'Company');
+    $branchLabel     = null;
+
+    if ($currentUnit) {
+        if ($currentUnit->type_code === 'BRANCH') {
+            $companyUnit = $currentUnit->relationLoaded('parent')
+                ? $currentUnit->parent
+                : $currentUnit->parent()->first();
+            $companyLabel = $companyUnit?->name ?? $currentUnit->name;
+            $branchLabel = $currentUnit->name;
+        } else {
+            $companyLabel = $currentUnit->name;
+        }
+    }
+
     $switchableIds   = $authUser ? $authUser->getSwitchableBusinessUnitIds() : [];
     $switchableBranches = collect();
 
@@ -21,14 +35,16 @@
 
     {{-- Workspace brand (static, non-clickable) --}}
     <div class="app-brand demo workspace-switcher">
-        <div class="workspace-card workspace-dropdown-wrap is-static" aria-disabled="true">
-            <span class="workspace-logo">
-                <span class="brand-logo-text">WIT</span>
-            </span>
-            <span class="workspace-meta">
-                <span class="workspace-title">WIT.</span>
-                <span class="workspace-subtitle">{{ $branchLabel }}</span>
-            </span>
+        <div class="workspace-card workspace-card--brand workspace-dropdown-wrap is-static" aria-disabled="true">
+            <div class="workspace-logo workspace-logo--brand">
+                <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="workspace-brand-logo">
+            </div>
+            <div class="workspace-meta workspace-meta--brand">
+                <span class="workspace-company">{{ $companyLabel }}</span>
+                @if ($branchLabel)
+                    <span class="workspace-branch">{{ $branchLabel }}</span>
+                @endif
+            </div>
         </div>
 
         {{-- Sidebar collapse toggle: hamburger on desktop, X on mobile --}}

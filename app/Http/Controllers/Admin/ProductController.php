@@ -16,14 +16,24 @@ use App\Models\ProductUnitConversion;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantAttribute;
 use App\Models\ProductVariantPrice;
+use App\Services\Product\ProductLabelSerialService;
+use App\Services\Product\ProductQrCodeService;
+use App\Services\Product\ProductStockBootstrapService;
+use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\DataTables;
 
 class ProductController extends Controller
 {
+    private const BARCODE_SINGLE_MAX_LABELS = 500;
+
+    private const BARCODE_HIERARCHY_MAX_LABELS = 5000;
+
     protected function generateSku(): string
     {
         // Format: DDMMYYYY + 7-digit sequence
@@ -72,6 +82,18 @@ class ProductController extends Controller
             ->value('id');
     }
 
+    protected function resolveIsStockItem(?string $productNatureId, ?bool $requested = null): bool
+    {
+        if ($productNatureId) {
+            $key = ParameterDetail::query()->where('id', $productNatureId)->value('key');
+            if ($key === 'non_inventory') {
+                return false;
+            }
+        }
+
+        return $requested ?? true;
+    }
+
     public function indexView(Request $request)
     {
         $status = $request->filled('status') ? $request->status : '';
@@ -112,9 +134,15 @@ class ProductController extends Controller
 
     public function indexData(Request $request)
     {
-        $branchId = $request->get('branch_id', auth('web')->user()->current_business_unit_id);
+        try {
+            $user = auth('web')->user();
+            if (! $user) {
+                return response()->json(['error' => 'Unauthenticated'], 401);
+            }
 
-        $data = Product::select(
+            $branchId = $request->get('branch_id', $user->current_business_unit_id);
+
+            $data = Product::select(
             'products.id',
             'products.nature_id',
             'products.category_id',
@@ -263,7 +291,8 @@ class ProductController extends Controller
                 return format_number($bigPrice, 2, true).' <small class="text-muted">/ '.$unitLabel.'</small>';
             })
             ->filter(function ($query) use ($request) {
-                if ($search = $request->get('search')['value'] ?? null) {
+                $search = data_get($request->all(), 'search.value');
+                if ($search) {
                     $query->where(function ($q) use ($search) {
                         $q->where('name', 'LIKE', "%{$search}%")
                             ->orWhere('code', 'LIKE', "%{$search}%")
@@ -272,40 +301,843 @@ class ProductController extends Controller
                 }
             })
             ->rawColumns(['variants_list', 'nature_name', 'unit_name', 'purchase_price', 'lifecycle_flags'])
-            ->toJson();
+            ->make(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => config('app.debug') ? $e->getMessage() : 'Gagal memuat data produk.',
+            ], 500);
+        }
     }
 
-    public function printBarcodeView(string $id)
+    public function printBarcodeView(string $id, ProductLabelSerialService $serialService)
     {
         $product = Product::with([
+            'defaultUnit',
+            'unitConversions.fromUnit',
+            'unitConversions.toUnit',
             'variants' => fn ($q) => $q->whereNull('deleted_at')
                 ->with(['variantAttributes.attributeValue:id,value'])
                 ->orderBy('sort_order')
                 ->orderBy('sku'),
         ])->findOrFail($id);
 
-        $labels = $product->variants->map(function (ProductVariant $variant) use ($product) {
+        $variants = $product->variants->map(function (ProductVariant $variant) use ($product) {
             $attrs = $variant->variantAttributes
                 ->pluck('attributeValue.value')
                 ->filter()
                 ->implode(' / ');
 
-            $barcode = $variant->barcode ?: $variant->sku ?: $product->sku ?: $product->code;
-
             return [
                 'id' => $variant->id,
-                'sku' => $variant->sku ?: $product->sku ?: '-',
-                'barcode' => (string) $barcode,
-                'variant_label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
-                'product_name' => $product->name,
-                'is_active' => (bool) $variant->is_active,
+                'label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
             ];
-        })->filter(fn (array $label) => filled($label['barcode']))->values();
+        })->values();
+
+        $units = $product->getBarcodeUnits()->values()->map(function (ProductUnit $unit, int $index) use ($product, $serialService) {
+            $level = $index + 1;
+
+            return [
+                'id' => $unit->id,
+                'label' => $unit->symbol ?: $unit->name,
+                'name' => $unit->name,
+                'level' => $level,
+                'format_example' => $serialService->formatExample($level),
+                'conversion_hint' => $product->getBarcodeUnitConversionHint($unit->id),
+                'content_summary' => $product->getBarcodeUnitLabelContent($unit->id),
+                'child_labels_hint' => $product->getChildLabelsPerParent($unit->id),
+            ];
+        })->values();
+
+        $unitChain = $product->getBarcodeUnitChain()->map(fn (array $item) => [
+            'unit_id' => $item['unit']->id,
+            'level' => $item['level'],
+            'label' => $item['unit']->symbol ?: $item['unit']->name,
+            'factor_to_next' => $item['factor_to_next'],
+        ])->values();
+
+        $distributor = WmsContext::distributor();
+        $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
+
+        $labelsPerParent = $product->getBarcodeHierarchyTotalLabels(1, $product->default_unit_id);
+        $maxHierarchyParentQty = $product->getMaxHierarchyParentQty(
+            self::BARCODE_HIERARCHY_MAX_LABELS,
+            $product->default_unit_id
+        );
+
+        $serialStatus = $serialService->serialStatusForProduct($product);
 
         return view('admin.product.master.print-barcode', [
             'product' => $product,
+            'variants' => $variants,
+            'units' => $units,
+            'unitChain' => $unitChain,
+            'defaultUnitId' => $product->default_unit_id,
+            'distributorName' => $distributorName,
+            'hasUnitHierarchy' => $units->count() > 1,
+            'singlePrintMaxLabels' => self::BARCODE_SINGLE_MAX_LABELS,
+            'hierarchyPrintMaxLabels' => self::BARCODE_HIERARCHY_MAX_LABELS,
+            'labelsPerParent' => $labelsPerParent,
+            'maxHierarchyParentQty' => $maxHierarchyParentQty,
+            'serialStatus' => $serialStatus,
+        ]);
+    }
+
+    public function printBarcodeResetSerials(Request $request, string $id, ProductLabelSerialService $serialService)
+    {
+        $product = Product::findOrFail($id);
+
+        $request->validate([
+            'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
+        ]);
+
+        $variantId = $request->variant_id ?: null;
+        if ($variantId && ! $product->variants()->where('id', $variantId)->exists()) {
+            abort(422, 'Variant tidak valid untuk produk ini.');
+        }
+
+        $deleted = $serialService->resetSerialsForProduct($product->id, $variantId);
+
+        return response()->json([
+            'message' => $deleted > 0
+                ? "Berhasil reset {$deleted} nomor barcode. Cetak berikutnya akan mulai dari urutan 1 per level."
+                : 'Tidak ada nomor barcode yang perlu direset untuk produk ini.',
+            'deleted' => $deleted,
+            'serial_status' => $serialService->serialStatusForProduct($product),
+        ]);
+    }
+
+    public function printBarcodePreview(Request $request, string $id, ProductLabelSerialService $serialService, ProductQrCodeService $qrCodeService)
+    {
+        $validated = $this->validatePrintBarcodeRequest($request, $id);
+
+        $product = $validated['product'];
+        $unit = $validated['unit'];
+        $unitLevel = $validated['unit_level'];
+        $printMode = $validated['print_mode'];
+        $quantity = (int) $request->quantity;
+        $variantId = $request->variant_id ?: null;
+        $previewLimit = 24;
+
+        if ($printMode === 'hierarchy') {
+            $breakdown = $product->getBarcodeQuantityBreakdown($quantity, $unit->id);
+            $breakdownMeta = [];
+            $serialsByUnitId = [];
+            $totalLabels = 0;
+
+            foreach ($breakdown as $item) {
+                $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+                if (! $levelUnit) {
+                    continue;
+                }
+
+                $itemQty = (int) $item['qty'];
+                $totalLabels += $itemQty;
+                $serials = $serialService->peekNextSerials($itemQty, $product->id, $levelUnit->id, $item['level']);
+                $serialsByUnitId[$item['unit_id']] = $serials;
+
+                $breakdownMeta[$item['unit_id']] = [
+                    'unit_id' => $item['unit_id'],
+                    'level' => $item['level'],
+                    'label' => $item['label'],
+                    'qty' => $itemQty,
+                    'content_summary' => $item['content_summary'],
+                    'serial_from' => $serials[0] ?? null,
+                    'serial_to' => $serials[$itemQty - 1] ?? null,
+                ];
+            }
+
+            $treeResult = $this->buildBarcodeHierarchyTree(
+                $product,
+                $breakdown,
+                $serialsByUnitId,
+                function (string $serial, array $item) use ($product, $qrCodeService) {
+                    $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+
+                    return $this->mapBarcodeLabel(
+                        $serial,
+                        $product,
+                        $levelUnit,
+                        $qrCodeService,
+                        $item['level'],
+                        $item['content_summary']
+                    );
+                },
+                $previewLimit
+            );
+            $treeResult['hidden'] = max(0, $totalLabels - $treeResult['displayed']);
+
+            $batchId = (string) Str::uuid();
+            session()->put("barcode_preview.{$batchId}", [
+                'print_mode' => 'hierarchy',
+                'product_id' => $product->id,
+                'variant_id' => $variantId,
+                'parent_unit_id' => $unit->id,
+                'parent_quantity' => $quantity,
+                'breakdown' => $breakdownMeta,
+                'total_labels' => $totalLabels,
+                'user_id' => auth('web')->id(),
+                'created_at' => now()->timestamp,
+            ]);
+
+            return response()->json([
+                'batch_id' => $batchId,
+                'print_mode' => 'hierarchy',
+                'total' => $totalLabels,
+                'displayed' => $treeResult['displayed'],
+                'hidden' => $treeResult['hidden'],
+                'parent_quantity' => $quantity,
+                'breakdown' => $breakdownMeta,
+                'tree' => $treeResult['tree'],
+                'distributor_name' => $validated['distributor_name'],
+                'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+                'unit_level' => $unitLevel,
+            ]);
+        }
+
+        $serials = $serialService->peekNextSerials($quantity, $product->id, $unit->id, $unitLevel);
+        $displaySerials = array_slice($serials, 0, $previewLimit);
+        $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
+
+        $labels = collect($displaySerials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary) {
+            return $this->mapBarcodeLabel($serial, $product, $unit, $qrCodeService, $unitLevel, $contentSummary);
+        })->values();
+
+        $batchId = (string) Str::uuid();
+        session()->put("barcode_preview.{$batchId}", [
+            'print_mode' => 'single',
+            'product_id' => $product->id,
+            'variant_id' => $variantId,
+            'unit_id' => $unit->id,
+            'quantity' => $quantity,
+            'serial_from' => $serials[0] ?? null,
+            'serial_to' => $serials[$quantity - 1] ?? null,
+            'user_id' => auth('web')->id(),
+            'created_at' => now()->timestamp,
+        ]);
+
+        return response()->json([
+            'batch_id' => $batchId,
+            'print_mode' => 'single',
+            'total' => $quantity,
+            'displayed' => count($displaySerials),
+            'serial_from' => $serials[0] ?? null,
+            'serial_to' => $serials[$quantity - 1] ?? null,
+            'distributor_name' => $validated['distributor_name'],
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'content_summary' => $contentSummary,
+            'format_hint' => $serialService->formatExample($unitLevel),
             'labels' => $labels,
         ]);
+    }
+
+    public function printBarcodePdf(Request $request, string $id, ProductLabelSerialService $serialService, ProductQrCodeService $qrCodeService)
+    {
+        $request->validate([
+            'batch_id' => 'required|uuid',
+        ]);
+
+        $validated = $this->validatePrintBarcodeRequest($request, $id);
+
+        $product = $validated['product'];
+        $unit = $validated['unit'];
+        $variantId = $request->variant_id ?: null;
+        $unitId = $unit->id;
+        $batchId = $request->batch_id;
+        $batch = session("barcode_preview.{$batchId}");
+        $printMode = $validated['print_mode'];
+
+        if (! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity)) {
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Preview kedaluwarsa atau tidak valid. Silakan preview ulang sebelum generate PDF.');
+        }
+
+        $tempDir = storage_path('app/temp/barcode_qr');
+        if (! is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $this->cleanupOldBarcodeTempFiles($tempDir);
+
+        ini_set('memory_limit', '512M');
+
+        $labels = [];
+        $labelTree = null;
+        $tempFiles = [];
+
+        try {
+            if ($printMode === 'hierarchy') {
+                $labelTree = $this->allocateHierarchyBarcodeLabelsForPdf(
+                    $product,
+                    $unit,
+                    (int) $request->quantity,
+                    $batch['breakdown'] ?? [],
+                    $variantId,
+                    $serialService,
+                    $qrCodeService,
+                    $tempDir
+                );
+                $labels = $this->flattenBarcodeHierarchyTree($labelTree);
+            } else {
+                $serials = $serialService->allocateSerials(
+                    (int) $request->quantity,
+                    $product->id,
+                    $unitId,
+                    $validated['unit_level'],
+                    $variantId,
+                    auth('web')->id()
+                );
+
+                if (($batch['serial_from'] ?? null) !== ($serials[0] ?? null)) {
+                    session()->forget("barcode_preview.{$batchId}");
+
+                    return redirect()
+                        ->route('product.print-barcode.view', $product->id)
+                        ->with('error', 'Nomor seri berubah karena ada cetak lain. Silakan preview ulang.');
+                }
+
+                $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
+                $labels = $this->buildBarcodeLabelsForPdf(
+                    $serials,
+                    $product,
+                    $unit,
+                    $qrCodeService,
+                    $validated['unit_level'],
+                    $tempDir,
+                    $contentSummary
+                );
+            }
+
+            $tempFiles = array_column($labels, 'qr_file');
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            session()->forget("barcode_preview.{$batchId}");
+
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Nomor barcode bentrok dengan data lama. Silakan preview ulang.');
+        } catch (\RuntimeException) {
+            session()->forget("barcode_preview.{$batchId}");
+
+            return redirect()
+                ->route('product.print-barcode.view', $product->id)
+                ->with('error', 'Nomor seri berubah karena ada cetak lain. Silakan preview ulang.');
+        }
+
+        session()->forget("barcode_preview.{$batchId}");
+
+        $filename = 'barcode-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $product->code).'-'.date('YmdHis').'.pdf';
+        $qrBaseUrl = 'file://'.str_replace('\\', '/', $tempDir).'/';
+
+        try {
+            return Pdf::loadView('admin.product.master.pdf-barcode', [
+                'labels' => $labels,
+                'labelTree' => $labelTree,
+                'printMode' => $printMode,
+                'distributorName' => $validated['distributor_name'],
+                'productName' => $product->name,
+                'qrBaseUrl' => $qrBaseUrl,
+            ])
+                ->setPaper('a3', 'portrait')
+                ->download($filename);
+        } finally {
+            foreach ($tempFiles as $file) {
+                @unlink($tempDir.DIRECTORY_SEPARATOR.$file);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function allocateHierarchyBarcodeLabelsForPdf(
+        Product $product,
+        ProductUnit $parentUnit,
+        int $parentQuantity,
+        array $breakdownPreview,
+        ?string $variantId,
+        ProductLabelSerialService $serialService,
+        ProductQrCodeService $qrCodeService,
+        string $tempDir
+    ): array {
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id);
+        $serialsByUnitId = [];
+
+        foreach ($breakdown as $item) {
+            $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+            if (! $levelUnit) {
+                continue;
+            }
+
+            $serials = $serialService->allocateSerials(
+                (int) $item['qty'],
+                $product->id,
+                $levelUnit->id,
+                $item['level'],
+                $variantId,
+                auth('web')->id()
+            );
+
+            $expectedFrom = $breakdownPreview[$item['unit_id']]['serial_from'] ?? null;
+            if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
+                throw new \RuntimeException('Serial mismatch during hierarchy print.');
+            }
+
+            $serialsByUnitId[$item['unit_id']] = $serials;
+        }
+
+        $treeResult = $this->buildBarcodeHierarchyTree(
+            $product,
+            $breakdown,
+            $serialsByUnitId,
+            function (string $serial, array $item) use ($product, $qrCodeService, $tempDir) {
+                $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+
+                return $this->mapBarcodeLabelForPdf(
+                    $serial,
+                    $product,
+                    $levelUnit,
+                    $qrCodeService,
+                    $item['level'],
+                    $tempDir,
+                    $item['content_summary']
+                );
+            }
+        );
+
+        return $treeResult['tree'];
+    }
+
+    protected function isBarcodePreviewBatchValid(
+        ?array $batch,
+        string $productId,
+        ?string $variantId,
+        string $printMode,
+        string $unitId,
+        int $quantity
+    ): bool {
+        if (! $batch
+            || ($batch['product_id'] ?? null) !== $productId
+            || ($batch['user_id'] ?? null) !== auth('web')->id()
+            || ($batch['print_mode'] ?? 'single') !== $printMode
+            || ($batch['variant_id'] ?? null) !== $variantId
+            || (now()->timestamp - ($batch['created_at'] ?? 0)) > 1800
+        ) {
+            return false;
+        }
+
+        if ($printMode === 'hierarchy') {
+            return ($batch['parent_unit_id'] ?? null) === $unitId
+                && (int) ($batch['parent_quantity'] ?? 0) === $quantity;
+        }
+
+        return ($batch['unit_id'] ?? null) === $unitId
+            && (int) ($batch['quantity'] ?? 0) === $quantity;
+    }
+
+    protected function cleanupOldBarcodeTempFiles(string $tempDir): void
+    {
+        if (! is_dir($tempDir)) {
+            return;
+        }
+
+        $maxAge = 3600;
+        $now = time();
+
+        $files = glob($tempDir.DIRECTORY_SEPARATOR.'qr_*.png');
+        if ($files === false) {
+            return;
+        }
+
+        foreach ($files as $path) {
+            if (is_file($path) && ($now - filemtime($path)) > $maxAge) {
+                @unlink($path);
+            }
+        }
+    }
+
+    /**
+     * @param  array<int, array{unit_id: string, level: int, qty: int, serial_from?: string|null}>  $breakdownPreview
+     * @return array<int, array<string, mixed>>
+     */
+    protected function allocateHierarchyBarcodeLabels(
+        Product $product,
+        ProductUnit $parentUnit,
+        int $parentQuantity,
+        array $breakdownPreview,
+        ?string $variantId,
+        ProductLabelSerialService $serialService,
+        ProductQrCodeService $qrCodeService
+    ): array {
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id);
+        $labels = [];
+
+        foreach ($breakdown as $index => $item) {
+            $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+            if (! $levelUnit) {
+                continue;
+            }
+
+            $serials = $serialService->allocateSerials(
+                (int) $item['qty'],
+                $product->id,
+                $levelUnit->id,
+                $item['level'],
+                $variantId,
+                auth('web')->id()
+            );
+
+            $expectedFrom = $breakdownPreview[$item['unit_id']]['serial_from'] ?? null;
+            if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
+                throw new \RuntimeException('Serial mismatch during hierarchy print.');
+            }
+
+            $levelLabels = $this->buildBarcodeLabels(
+                $serials,
+                $product,
+                $levelUnit,
+                $qrCodeService,
+                $item['level'],
+                $item['content_summary']
+            );
+
+            $labels = array_merge($labels, $levelLabels);
+        }
+
+        return $labels;
+    }
+
+    protected function buildBarcodeLabelsForPdf(
+        array $serials,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        string $tempDir,
+        ?string $contentSummary = null
+    ): array {
+        return collect($serials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary, $tempDir) {
+            return $this->mapBarcodeLabelForPdf($serial, $product, $unit, $qrCodeService, $unitLevel, $tempDir, $contentSummary);
+        })->all();
+    }
+
+    protected function mapBarcodeLabelForPdf(
+        string $serial,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        string $tempDir,
+        ?string $contentSummary = null
+    ): array {
+        $labelType = match ($unitLevel) {
+            1 => 'karton',
+            2 => 'pack',
+            default => 'box',
+        };
+
+        $qrFile = $qrCodeService->toPngTempFile(
+            $qrCodeService->contentForLabel($serial, $unitLevel),
+            $tempDir
+        );
+
+        return [
+            'serial' => $serial,
+            'product_name' => $product->name,
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'label_type' => $labelType,
+            'content_summary' => $contentSummary,
+            'qr_file' => $qrFile,
+        ];
+    }
+
+    protected function validatePrintBarcodeRequest(Request $request, string $id): array
+    {
+        $printMode = $request->input('print_mode', 'hierarchy');
+        $maxQty = $printMode === 'hierarchy'
+            ? self::BARCODE_HIERARCHY_MAX_LABELS
+            : self::BARCODE_SINGLE_MAX_LABELS;
+
+        $request->validate([
+            'quantity' => "required|integer|min:1|max:{$maxQty}",
+            'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
+            'unit_id' => 'required|uuid|exists:product.product_units,id',
+            'print_mode' => 'nullable|in:single,hierarchy',
+        ]);
+
+        $product = Product::with([
+            'defaultUnit',
+            'unitConversions.fromUnit',
+            'unitConversions.toUnit',
+            'variants' => fn ($q) => $q->whereNull('deleted_at'),
+        ])->findOrFail($id);
+
+        $variantId = $request->variant_id;
+        if ($variantId && ! $product->variants->contains('id', $variantId)) {
+            abort(422, 'Variant tidak valid untuk produk ini.');
+        }
+
+        if (! $product->hasBarcodeUnit($request->unit_id)) {
+            abort(422, 'Satuan tidak valid untuk produk ini.');
+        }
+
+        $unit = $product->getBarcodeUnits()->firstWhere('id', $request->unit_id);
+        if (! $unit) {
+            abort(422, 'Satuan tidak ditemukan.');
+        }
+
+        $defaultUnit = $product->getBarcodeUnits()->first();
+        if ($printMode === 'hierarchy') {
+            if ($product->getBarcodeUnits()->count() < 2) {
+                abort(422, 'Mode hierarki membutuhkan minimal 2 level satuan.');
+            }
+
+            if ($defaultUnit && $unit->id !== $defaultUnit->id) {
+                abort(422, 'Mode hierarki hanya boleh menggunakan satuan terbesar.');
+            }
+
+            $totalLabels = $product->getBarcodeHierarchyTotalLabels((int) $request->quantity, $unit->id);
+            $maxTotal = self::BARCODE_HIERARCHY_MAX_LABELS;
+            if ($totalLabels > $maxTotal) {
+                $maxParentQty = $product->getMaxHierarchyParentQty($maxTotal, $unit->id);
+                abort(422, "Total label ({$totalLabels}) melebihi batas {$maxTotal}. Maks. qty satuan terbesar: {$maxParentQty}.");
+            }
+        } elseif ((int) $request->quantity > self::BARCODE_SINGLE_MAX_LABELS) {
+            abort(422, 'Maksimal '.self::BARCODE_SINGLE_MAX_LABELS.' label per cetak (mode satuan tunggal).');
+        }
+
+        $distributor = WmsContext::distributor();
+        $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
+
+        return [
+            'product' => $product,
+            'unit' => $unit,
+            'unit_level' => $product->getBarcodeUnitLevel($unit->id),
+            'print_mode' => $printMode,
+            'distributor_name' => $distributorName,
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $serials
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildBarcodeLabels(
+        array $serials,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        ?string $contentSummary = null
+    ): array {
+        return collect($serials)->map(function (string $serial) use ($product, $unit, $qrCodeService, $unitLevel, $contentSummary) {
+            return $this->mapBarcodeLabel($serial, $product, $unit, $qrCodeService, $unitLevel, $contentSummary);
+        })->all();
+    }
+
+    /**
+     * Bangun pohon hierarki label (Karton → Pack → Box) sesuai urutan nomor seri per level.
+     *
+     * @param  array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>  $breakdown
+     * @param  array<string, array<int, string>>  $serialsByUnitId
+     * @param  callable(string, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}): array  $mapLabel
+     * @return array{tree: array<int, array<string, mixed>>, displayed: int, hidden: int}
+     */
+    protected function buildBarcodeHierarchyTree(
+        Product $product,
+        array $breakdown,
+        array $serialsByUnitId,
+        callable $mapLabel,
+        ?int $previewLimit = null
+    ): array {
+        if ($breakdown === []) {
+            return ['tree' => [], 'displayed' => 0, 'hidden' => 0];
+        }
+
+        $childFactors = $this->getHierarchyChildFactors($breakdown);
+        $serialIndexes = array_fill_keys(array_column($breakdown, 'unit_id'), 0);
+        $displayed = 0;
+        $limitReached = false;
+
+        $buildNodes = function (int $levelIndex, int $ordinal) use (
+            &$buildNodes,
+            &$displayed,
+            &$limitReached,
+            $breakdown,
+            $childFactors,
+            &$serialIndexes,
+            $serialsByUnitId,
+            $mapLabel,
+            $previewLimit
+        ): array {
+            $item = $breakdown[$levelIndex];
+            $unitId = $item['unit_id'];
+            $serialIndex = $serialIndexes[$unitId];
+            $serial = $serialsByUnitId[$unitId][$serialIndex] ?? null;
+
+            if ($serial === null) {
+                return [];
+            }
+
+            $serialIndexes[$unitId] = $serialIndex + 1;
+
+            $includeLabel = ! $limitReached;
+            if ($previewLimit !== null && $displayed >= $previewLimit) {
+                $limitReached = true;
+                $includeLabel = false;
+            }
+
+            if ($includeLabel) {
+                $displayed++;
+            }
+
+            $node = [
+                'ordinal' => $ordinal,
+                'level' => $item['level'],
+                'unit_label' => $item['label'],
+                'content_summary' => $item['content_summary'],
+                'label' => $includeLabel ? $mapLabel($serial, $item) : null,
+                'serial' => $serial,
+                'children' => [],
+                'hidden_children' => 0,
+            ];
+
+            if ($levelIndex < count($breakdown) - 1) {
+                $childrenPerNode = $childFactors[$levelIndex] ?? 0;
+
+                for ($childOrdinal = 1; $childOrdinal <= $childrenPerNode; $childOrdinal++) {
+                    if ($limitReached && $previewLimit !== null) {
+                        $node['hidden_children'] += $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+                        break;
+                    }
+
+                    $childNode = $buildNodes($levelIndex + 1, $childOrdinal);
+                    if ($childNode !== []) {
+                        $node['children'][] = $childNode;
+                    }
+                }
+
+                if ($limitReached && $previewLimit !== null && $childrenPerNode > count($node['children'])) {
+                    $remainingChildren = $childrenPerNode - count($node['children']);
+                    for ($i = 0; $i < $remainingChildren; $i++) {
+                        $node['hidden_children'] += $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+                    }
+                }
+            }
+
+            return $node;
+        };
+
+        $tree = [];
+        $rootQty = (int) $breakdown[0]['qty'];
+
+        for ($ordinal = 1; $ordinal <= $rootQty; $ordinal++) {
+            if ($limitReached && $previewLimit !== null) {
+                break;
+            }
+
+            $node = $buildNodes(0, $ordinal);
+            if ($node !== []) {
+                $tree[] = $node;
+            }
+        }
+
+        return [
+            'tree' => $tree,
+            'displayed' => $displayed,
+            'hidden' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>  $breakdown
+     * @return array<int, int>
+     */
+    protected function getHierarchyChildFactors(array $breakdown): array
+    {
+        $factors = [];
+
+        for ($i = 0; $i < count($breakdown) - 1; $i++) {
+            $parentQty = (int) $breakdown[$i]['qty'];
+            $childQty = (int) $breakdown[$i + 1]['qty'];
+            $factors[$i] = $parentQty > 0 ? (int) round($childQty / $parentQty) : 0;
+        }
+
+        return $factors;
+    }
+
+    /**
+     * @param  array<int, int>  $childFactors
+     */
+    protected function countHierarchySubtreeLabels(array $breakdown, array $childFactors, int $levelIndex): int
+    {
+        $count = 1;
+
+        if ($levelIndex < count($breakdown) - 1) {
+            $childrenPerNode = $childFactors[$levelIndex] ?? 0;
+            $childSubtree = $this->countHierarchySubtreeLabels($breakdown, $childFactors, $levelIndex + 1);
+            $count += $childrenPerNode * $childSubtree;
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $tree
+     * @return array<int, array<string, mixed>>
+     */
+    protected function flattenBarcodeHierarchyTree(array $tree): array
+    {
+        $flat = [];
+
+        foreach ($tree as $node) {
+            if (! empty($node['label'])) {
+                $flat[] = $node['label'];
+            }
+
+            if (! empty($node['children'])) {
+                $flat = array_merge($flat, $this->flattenBarcodeHierarchyTree($node['children']));
+            }
+        }
+
+        return $flat;
+    }
+
+    /**
+     * @return array{serial: string, product_name: string, unit_label: string, unit_level: int, label_type: string, content_summary: string|null, qr_data_uri: string}
+     */
+    protected function mapBarcodeLabel(
+        string $serial,
+        Product $product,
+        ProductUnit $unit,
+        ProductQrCodeService $qrCodeService,
+        int $unitLevel,
+        ?string $contentSummary = null
+    ): array {
+        $labelType = match ($unitLevel) {
+            1 => 'karton',
+            2 => 'pack',
+            default => 'box',
+        };
+
+        return [
+            'serial' => $serial,
+            'product_name' => $product->name,
+            'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+            'unit_level' => $unitLevel,
+            'label_type' => $labelType,
+            'content_summary' => $contentSummary,
+            'qr_data_uri' => $qrCodeService->toPngDataUri(
+                $qrCodeService->contentForLabel($serial, $unitLevel)
+            ),
+        ];
     }
 
     // === STEP 1: Insert Product Basic Info ===
@@ -434,7 +1266,10 @@ class ProductController extends Controller
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
             'has_variants' => $request->boolean('has_variants'),
-            'is_stock_item' => $request->boolean('is_stock_item', true),
+            'is_stock_item' => $this->resolveIsStockItem(
+                $request->product_nature_id,
+                $request->boolean('is_stock_item', true)
+            ),
             'is_sale_item' => $request->boolean('is_sale_item'),
             'is_purchase_item' => $request->boolean('is_purchase_item', true),
             'cogs_account_code' => $request->cogs_account_code,
@@ -443,11 +1278,7 @@ class ProductController extends Controller
             'selling_price' => normalize_number_input($request->selling_price),
         ]);
 
-        if ($request->boolean('has_variants')) {
-            return redirect()->route('product.insert.view.step2');
-        } else {
-            return redirect()->route('product.insert.view.step3');
-        }
+        return redirect()->route('product.insert.view.step2');
     }
 
     // === STEP 2: Unit Conversions ===
@@ -461,13 +1292,40 @@ class ProductController extends Controller
 
         $branchId = auth('web')->user()->current_business_unit_id;
         $units = ProductUnit::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where(function ($q) use ($branchId) {
+                $q->whereNull('branch_id')
+                    ->when($branchId, fn ($query) => $query->orWhere('branch_id', $branchId));
+            })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
 
-        $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
+        $conversions = session('temp_conversions', []);
+        $currentFromUnitId = $this->resolveTempConversionFromUnitId(
+            (string) $tempProduct['default_unit_id'],
+            $conversions
+        );
 
-        return view('admin.product.master.insert-step2', compact('tempProduct', 'units', 'selectedUnit'));
+        $selectedUnit = ProductUnit::find($currentFromUnitId)
+            ?? ProductUnit::find($tempProduct['default_unit_id']);
+
+        if ($selectedUnit && ! $units->contains('id', $selectedUnit->id)) {
+            $units->prepend($selectedUnit);
+        }
+
+        $defaultUnit = ProductUnit::find($tempProduct['default_unit_id']);
+        $usedUnitIds = $this->getTempConversionUsedUnitIds(
+            (string) $tempProduct['default_unit_id'],
+            $conversions
+        );
+
+        return view('admin.product.master.insert-step2', compact(
+            'tempProduct',
+            'units',
+            'selectedUnit',
+            'defaultUnit',
+            'conversions',
+            'usedUnitIds'
+        ));
     }
 
     public function insertDataStep2(Request $request)
@@ -482,19 +1340,42 @@ class ProductController extends Controller
 
             $request->validate([
                 'from_unit_id' => 'required|exists:product.product_units,id',
-                'to_unit_id' => 'required|exists:product.product_units,id',
+                'to_unit_id' => 'required|exists:product.product_units,id|different:from_unit_id',
                 'conversion_factor' => 'required|numeric|min:0.000001',
             ], [
                 'conversion_factor.required' => 'Conversion factor is required.',
                 'conversion_factor.min' => 'Conversion factor must be greater than 0.',
+                'to_unit_id.different' => 'To Unit must be different from From Unit.',
             ]);
 
-            // Store conversions in session
             $conversions = session()->get('temp_conversions', []);
+            $expectedFromUnitId = $this->resolveTempConversionFromUnitId(
+                (string) $tempProduct['default_unit_id'],
+                $conversions
+            );
+
+            if ($request->from_unit_id !== $expectedFromUnitId) {
+                return redirect()->route('product.insert.view.step2')
+                    ->with('error', 'From Unit must follow the latest conversion chain.');
+            }
+
+            $usedUnitIds = $this->getTempConversionUsedUnitIds(
+                (string) $tempProduct['default_unit_id'],
+                $conversions
+            );
+
+            if (in_array($request->to_unit_id, $usedUnitIds, true)) {
+                return redirect()->route('product.insert.view.step2')
+                    ->withInput()
+                    ->with('error', 'To Unit is already used in the conversion chain.');
+            }
+
+            // Store conversions in session
             $conversions[] = [
                 'from_unit_id' => $request->from_unit_id,
                 'to_unit_id' => $request->to_unit_id,
                 'conversion_factor' => $request->conversion_factor,
+                'conversion_level' => count($conversions) + 1,
             ];
             session()->put('temp_conversions', $conversions);
 
@@ -555,12 +1436,19 @@ class ProductController extends Controller
         } else {
             // No variants - just prices
             $units = ProductUnit::whereNull('deleted_at')
-                ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+                ->where(function ($q) use ($branchId) {
+                    $q->whereNull('branch_id')
+                        ->when($branchId, fn ($query) => $query->orWhere('branch_id', $branchId));
+                })
                 ->orderBy('name')
                 ->get(['id', 'name', 'symbol']);
 
             $conversions = session()->get('temp_conversions', []);
             $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
+
+            if ($selectedUnit && ! $units->contains('id', $selectedUnit->id)) {
+                $units->prepend($selectedUnit);
+            }
 
             return view('admin.product.master.insert-step3-prices', compact(
                 'tempProduct',
@@ -618,6 +1506,10 @@ class ProductController extends Controller
             $itemTypeId = $tempProduct['item_type_id'] ?? $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
             $productNatureId = $tempProduct['product_nature_id'] ?? $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
             $procurementTypeId = $tempProduct['procurement_type_id'] ?? $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
+            $isStockItem = $this->resolveIsStockItem(
+                $productNatureId,
+                array_key_exists('is_stock_item', $tempProduct) ? (bool) $tempProduct['is_stock_item'] : null
+            );
 
             // Get the smallest unit for price calculation
             $smallestUnitId = null;
@@ -648,7 +1540,7 @@ class ProductController extends Controller
                 'code' => $tempProduct['code'] ?? null,
                 'description' => $tempProduct['description'],
                 'sku' => $this->generateSku(),
-                'is_stock_item' => (bool) ($tempProduct['is_stock_item'] ?? true),
+                'is_stock_item' => $isStockItem,
                 'is_sale_item' => (bool) ($tempProduct['is_sale_item'] ?? false),
                 'is_purchase_item' => (bool) ($tempProduct['is_purchase_item'] ?? true),
                 'min_stock' => $tempProduct['min_stock'] ?? 0,
@@ -660,13 +1552,13 @@ class ProductController extends Controller
             ]);
 
             // Create unit conversions
-            foreach ($conversions as $convData) {
+            foreach ($conversions as $index => $convData) {
                 ProductUnitConversion::create([
                     'product_id' => $product->id,
                     'from_unit_id' => $convData['from_unit_id'],
                     'to_unit_id' => $convData['to_unit_id'],
                     'conversion_factor' => $convData['conversion_factor'],
-                    'conversion_level' => 1,
+                    'conversion_level' => $convData['conversion_level'] ?? ($index + 1),
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
@@ -801,6 +1693,15 @@ class ProductController extends Controller
                     }
                 }
             }
+
+            $product->load([
+                'variants' => fn ($q) => $q->whereNull('deleted_at'),
+                'itemType',
+                'productNature',
+                'nature',
+                'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
+            ]);
+            app(ProductStockBootstrapService::class)->bootstrap($product, $user->id);
 
             DB::commit();
 
@@ -1395,7 +2296,12 @@ class ProductController extends Controller
         $conversions = session()->get('temp_conversions', []);
         if (isset($conversions[$request->index])) {
             unset($conversions[$request->index]);
-            session()->put('temp_conversions', array_values($conversions));
+            $conversions = array_values($conversions);
+            foreach ($conversions as $index => &$conversion) {
+                $conversion['conversion_level'] = $index + 1;
+            }
+            unset($conversion);
+            session()->put('temp_conversions', $conversions);
         }
 
         return response()->json([
@@ -1409,26 +2315,49 @@ class ProductController extends Controller
         $request->validate([
             'index' => 'required|integer|min:0',
             'from_unit_id' => 'required|exists:product.product_units,id',
-            'to_unit_id' => 'required|exists:product.product_units,id',
+            'to_unit_id' => 'required|exists:product.product_units,id|different:from_unit_id',
             'conversion_factor' => 'required|numeric|min:0.000001',
         ], [
             'conversion_factor.required' => 'Conversion factor is required.',
             'conversion_factor.min' => 'Conversion factor must be greater than 0.',
+            'to_unit_id.different' => 'To Unit must be different from From Unit.',
         ]);
 
         $request->merge([
             'conversion_factor' => normalize_number_input($request->conversion_factor),
         ]);
 
+        $tempProduct = session('temp_product');
         $conversions = session()->get('temp_conversions', []);
-        if (isset($conversions[$request->index])) {
-            $conversions[$request->index] = [
-                'from_unit_id' => $request->from_unit_id,
-                'to_unit_id' => $request->to_unit_id,
-                'conversion_factor' => $request->conversion_factor,
-            ];
-            session()->put('temp_conversions', $conversions);
+        $index = (int) $request->index;
+
+        if (! isset($conversions[$index])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Conversion not found.',
+            ], 422);
         }
+
+        $usedUnitIds = $this->getTempConversionUsedUnitIds(
+            (string) ($tempProduct['default_unit_id'] ?? ''),
+            $conversions,
+            $index
+        );
+
+        if (in_array($request->to_unit_id, $usedUnitIds, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'To Unit is already used in the conversion chain.',
+            ], 422);
+        }
+
+        $conversions[$index] = [
+            'from_unit_id' => $request->from_unit_id,
+            'to_unit_id' => $request->to_unit_id,
+            'conversion_factor' => $request->conversion_factor,
+            'conversion_level' => $conversions[$index]['conversion_level'] ?? ($index + 1),
+        ];
+        session()->put('temp_conversions', $conversions);
 
         return response()->json([
             'success' => true,
@@ -1510,6 +2439,50 @@ class ProductController extends Controller
         return response()->streamDownload($callback, 'template_import_product.csv', [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    /**
+     * Resolve the next From Unit by walking the temp conversion chain from default unit.
+     *
+     * @param  list<array{from_unit_id: string, to_unit_id: string, conversion_factor: mixed, conversion_level?: int}>  $conversions
+     */
+    protected function resolveTempConversionFromUnitId(string $defaultUnitId, array $conversions): string
+    {
+        $currentUnitId = $defaultUnitId;
+
+        foreach ($conversions as $conversion) {
+            if (($conversion['from_unit_id'] ?? null) === $currentUnitId) {
+                $currentUnitId = (string) $conversion['to_unit_id'];
+            }
+        }
+
+        return $currentUnitId;
+    }
+
+    /**
+     * Unit IDs already present in the temp conversion chain (default + linked conversions).
+     *
+     * @param  list<array{from_unit_id: string, to_unit_id: string, conversion_factor: mixed, conversion_level?: int}>  $conversions
+     * @return list<string>
+     */
+    protected function getTempConversionUsedUnitIds(string $defaultUnitId, array $conversions, ?int $exceptIndex = null): array
+    {
+        $filtered = collect($conversions)
+            ->values()
+            ->when($exceptIndex !== null, fn ($items) => $items->forget($exceptIndex)->values())
+            ->all();
+
+        $chain = [$defaultUnitId];
+        $currentUnitId = $defaultUnitId;
+
+        foreach ($filtered as $conversion) {
+            if (($conversion['from_unit_id'] ?? null) === $currentUnitId) {
+                $currentUnitId = (string) $conversion['to_unit_id'];
+                $chain[] = $currentUnitId;
+            }
+        }
+
+        return array_values(array_unique($chain));
     }
 
     protected function upsertPrice(string $productId, string $branchId, ?string $companyId, string $unitId, float $pp, ?float $sp, string $userId): void

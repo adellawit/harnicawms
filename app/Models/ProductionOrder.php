@@ -64,6 +64,11 @@ class ProductionOrder extends Model
         return $this->belongsTo(BillOfMaterial::class, 'bom_id', 'id');
     }
 
+    public function outputUnit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'output_unit_id', 'id');
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');

@@ -45,7 +45,7 @@
                     @endphp
 
                     <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pdfModal">
-                        <i class="ti ti-file-type-pdf me-1"></i>Generate PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
 
                     @if($canCreateSub)
@@ -187,7 +187,6 @@
                                 <th class="text-end">Committed</th>
                                 <th class="text-end">Allocated</th>
                                 <th class="text-end">Received</th>
-                                <th class="text-end">Sisa Release</th>
                                 <th class="text-end">Belum Diterima</th>
                             </tr>
                         </thead>
@@ -199,9 +198,6 @@
                                 <td class="text-end">{{ format_number($row['committed_qty'], 2, true) }}</td>
                                 <td class="text-end">{{ format_number($row['allocated_qty'] ?? $row['released_qty'], 2, true) }}</td>
                                 <td class="text-end">{{ format_number($row['received_qty'] ?? 0, 2, true) }}</td>
-                                <td class="text-end {{ ($row['remaining_qty'] ?? 0) > 0 ? 'text-warning fw-semibold' : 'text-success' }}">
-                                    {{ format_number($row['remaining_qty'], 2, true) }}
-                                </td>
                                 <td class="text-end {{ ($row['unfulfilled_qty'] ?? 0) > 0 ? 'text-info' : 'text-success' }}">
                                     {{ format_number($row['unfulfilled_qty'] ?? 0, 2, true) }}
                                 </td>
@@ -264,6 +260,8 @@
                                 <th>Product</th>
                                 <th>Variant</th>
                                 <th>Unit</th>
+                                <th>Batch</th>
+                                <th>Expired</th>
                                 <th class="text-end">Ordered</th>
                                 <th class="text-end">Received</th>
                                 <th class="text-center">Progress</th>
@@ -295,6 +293,14 @@
                                     @endif
                                 </td>
                                 <td>{{ $item->unit ? ($item->unit->symbol ?: $item->unit->name) : '-' }}</td>
+                                <td>{{ $item->batch_number ?: '-' }}</td>
+                                <td>
+                                    @if($item->expiry_date)
+                                        <span class="badge bg-label-warning">{{ $item->expiry_date->format('d/m/Y') }}</span>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                                 <td class="text-end">{{ format_number($ordered, 2, true) }}</td>
                                 <td class="text-end">
                                     <span class="{{ $pct >= 100 ? 'text-success fw-bold' : ($received > 0 ? 'text-info' : '') }}">
@@ -370,11 +376,11 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="pdfModalLabel">Generate PDF Purchase Order</h5>
+                    <h5 class="modal-title" id="pdfModalLabel">Print Purchase Order</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mengunduh PDF.</p>
+                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mencetak <strong>{{ $purchase->purchase_number }}</strong>.</p>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="showPricesToggle" checked>
                         <label class="form-check-label" for="showPricesToggle">Tampilkan kolom harga</label>
@@ -386,7 +392,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-primary" id="btnDownloadPdf">
-                        <i class="ti ti-download me-1"></i>Unduh PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
                 </div>
             </div>

@@ -198,7 +198,7 @@ class WarehouseController extends Controller
             ->first();
 
         if (! $warehouse) {
-            return redirect()->route('warehouse.index.view')->with('warning', 'Gudang tidak ditemukan.');
+            return redirect()->route('warehouse.index.view')->with('warning', 'Warehouse not found.');
         }
 
         $parentCompanies = BusinessUnit::whereNull('deleted_at')
@@ -246,7 +246,7 @@ class WarehouseController extends Controller
             $this->syncLinkedBranches($warehouse, $request->input('branch_ids', []), $request->input('default_branch_id'));
         });
 
-        return redirect()->route('warehouse.index.view')->with('success', 'Gudang berhasil diperbarui.');
+        return redirect()->route('warehouse.index.view')->with('success', 'Warehouse updated successfully.');
     }
 
     public function deleteData(Request $request)
@@ -310,10 +310,10 @@ class WarehouseController extends Controller
             'branch_ids.*' => 'uuid|exists:master_data.business_units,id',
             'default_branch_id' => 'nullable|uuid|exists:master_data.business_units,id',
         ], [
-            'parent_id.required' => 'Distributor/Company wajib dipilih.',
-            'code.required' => 'Kode gudang wajib diisi.',
-            'code.unique' => 'Kode gudang sudah digunakan.',
-            'name.required' => 'Nama gudang wajib diisi.',
+            'parent_id.required' => 'Company is required.',
+            'code.required' => 'Warehouse code is required.',
+            'code.unique' => 'Warehouse code is already in use.',
+            'name.required' => 'Warehouse name is required.',
         ]);
 
         $branchIds = array_values(array_unique(array_filter($request->input('branch_ids', []))));

@@ -36,13 +36,8 @@ class DatabaseSeeder extends Seeder
 
             // Menu and access (depends on: roles, menus)
             MenuSeeder::class,
-            AgentMenuSeeder::class,
-            AiConfigurationMenuSeeder::class,
-            ManufacturingMenuSeeder::class,
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
-            WarehouseMenuSeeder::class,
-            PartnerNetworkMenuSeeder::class,
 
             // Product reference data
             StockMutationTypeSeeder::class,
@@ -54,21 +49,11 @@ class DatabaseSeeder extends Seeder
             // Default product types (RAW_MATERIAL, SEMI_FINISHED, FINISHED_GOOD, SERVICE, NON_STOCK)
             ProductNatureSeeder::class,
 
-            // Customer groups & karyawan (requires business_units)
-            CustomerSeeder::class,
-
             // Price lists (channel harga)
             ProductPriceListSeeder::class,
-            // ProductMenuSeeder::class, // dinonaktifkan: 49 produk menu kopi tidak dipakai (fokus herbal)
-
-            // Demo: rantai Distributor -> Agen + Produksi herbal (HPP FEFO, 2 gudang)
-            DistributionDemoSeeder::class,
 
             // Sync master_data.warehouses dari business_units WAREHOUSE + default per cabang
             WarehouseSeeder::class,
-
-            // Demo: produk manufaktur sepatu + BOM dari product_manufacture.json
-            ManufacturingBomSeeder::class,
         ]);
     }
 }

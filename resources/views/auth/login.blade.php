@@ -5,7 +5,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/page-auth.css') }}">
     @endpush
 
-    <div class="auth-wrapper auth-login-only">
+    <div class="auth-wrapper">
         <div class="bg-shapes">
             <div class="shape shape-1"></div>
             <div class="shape shape-2"></div>
@@ -14,73 +14,107 @@
         </div>
 
         <div class="auth-card-container">
-            <div class="login-card">
-                <div class="login-header">
-                    <h3>Sign in</h3>
-                    <p>{{ config('app.name', 'WMS') }}</p>
+            <div class="auth-card">
+                <div class="auth-brand-side d-none d-md-block">
+                    <div class="brand-content">
+                        <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo">
+                        <p class="brand-subtitle" style="font-weight: bold;">{{ config('app.name', 'WIT. Management System') }}</p>
+                        <div class="brand-features">
+                            <div class="feature-item">
+                                <i class="ti ti-package"></i>
+                                <span>Product &amp; Inventory Management</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="ti ti-shopping-cart"></i>
+                                <span>POS &amp; Sales Transaction</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="ti ti-truck-delivery"></i>
+                                <span>Purchasing &amp; Supplier</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="ti ti-chart-bar"></i>
+                                <span>Reporting &amp; Analytics</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                @error('username')
-                    <div class="alert-modern alert-danger">
-                        <i class="ti ti-alert-circle"></i>
-                        <span>Email is required.</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <div class="auth-form-side">
+                    <div class="login-card">
+                        <div class="auth-mobile-brand d-md-none">
+                            <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo brand-logo-sm">
+                            <p class="brand-subtitle">{{ config('app.name', 'WIT. Management System') }}</p>
+                        </div>
+
+                        <div class="login-header">
+                            <h3>Welcome! 👋</h3>
+                            <p>Please sign in to your account to continue</p>
+                        </div>
+
+                        @error('username')
+                            <div class="alert-modern alert-danger">
+                                <i class="ti ti-alert-circle"></i>
+                                <span>Email is required.</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @enderror
+
+                        @error('password')
+                            <div class="alert-modern alert-danger">
+                                <i class="ti ti-alert-circle"></i>
+                                <span>Password is required.</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @enderror
+
+                        @error('email')
+                            <div class="alert-modern alert-danger">
+                                <i class="ti ti-alert-circle"></i>
+                                <span>Invalid email or password</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @enderror
+
+                        @if (session('error'))
+                            <div class="alert-modern alert-danger">
+                                <i class="ti ti-alert-circle"></i>
+                                <span>{{ session('error') }}</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @endif
+
+                        <form method="POST" action="{{ route('login') }}">
+                            @csrf
+
+                            <div class="form-floating-custom">
+                                <i class="ti ti-user input-icon"></i>
+                                <input type="text" class="form-control" id="username" name="username"
+                                    placeholder="Enter your email" autofocus autocomplete="username"
+                                    value="{{ old('username') }}">
+                            </div>
+
+                            <div class="form-floating-custom">
+                                <i class="ti ti-lock input-icon"></i>
+                                <input type="password" class="form-control" id="password" name="password"
+                                    placeholder="Enter your password" autocomplete="current-password">
+                                <button type="button" class="password-toggle-btn" id="toggle-password">
+                                    <i class="ti ti-eye-off"></i>
+                                </button>
+                            </div>
+
+                            <button type="submit" class="btn-login">
+                                <span>Sign In</span>
+                                <i class="ti ti-arrow-right"></i>
+                            </button>
+
+                            <a href="#" class="forgot-password-link" data-bs-toggle="modal"
+                                data-bs-target="#forgotPasswordModal">
+                                Forgot password?
+                            </a>
+                        </form>
                     </div>
-                @enderror
-
-                @error('password')
-                    <div class="alert-modern alert-danger">
-                        <i class="ti ti-alert-circle"></i>
-                        <span>Password is required.</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @enderror
-
-                @error('email')
-                    <div class="alert-modern alert-danger">
-                        <i class="ti ti-alert-circle"></i>
-                        <span>Invalid email or password</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @enderror
-
-                @if (session('error'))
-                    <div class="alert-modern alert-danger">
-                        <i class="ti ti-alert-circle"></i>
-                        <span>{{ session('error') }}</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                <form method="POST" action="{{ route('login') }}">
-                    @csrf
-
-                    <div class="form-floating-custom">
-                        <i class="ti ti-mail input-icon"></i>
-                        <input type="text" class="form-control" id="username" name="username"
-                            placeholder="Enter your email" autofocus autocomplete="username"
-                            value="{{ old('username') }}">
-                    </div>
-
-                    <div class="form-floating-custom">
-                        <i class="ti ti-lock input-icon"></i>
-                        <input type="password" class="form-control" id="password" name="password"
-                            placeholder="Enter your password" autocomplete="current-password">
-                        <button type="button" class="password-toggle-btn" id="toggle-password">
-                            <i class="ti ti-eye-off"></i>
-                        </button>
-                    </div>
-
-                    <button type="submit" class="btn-login">
-                        <span>Sign In</span>
-                        <i class="ti ti-arrow-right"></i>
-                    </button>
-
-                    <a href="#" class="forgot-password-link" data-bs-toggle="modal"
-                        data-bs-target="#forgotPasswordModal">
-                        Forgot password?
-                    </a>
-                </form>
+                </div>
             </div>
         </div>
     </div>

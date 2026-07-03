@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\City;
 use App\Models\Province;
+use App\Services\MasterData\BusinessUnitCodeService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Yajra\DataTables\DataTables;
 
 class CompanyController extends Controller
 {
+    public function __construct(
+        protected BusinessUnitCodeService $businessUnitCodeService
+    ) {
+    }
     /**
      * Get accessible business unit IDs for the current user.
      */
@@ -185,8 +189,7 @@ class CompanyController extends Controller
     public function insertData(Request $request)
     {
         $request->validate([
-            'parent_id' => 'nullable|exists:master_data.business_units,id',
-            'code' => 'required|string|max:50|unique:master_data.business_units,code',
+            'parent_id' => 'required|exists:master_data.business_units,id',
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -209,16 +212,17 @@ class CompanyController extends Controller
             'opening_date' => 'nullable|date',
             'is_active' => 'nullable|boolean',
         ], [
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
+            'parent_id.required' => 'Holding is required.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
 
+        $generatedCode = $this->businessUnitCodeService->generateCompanyCode($request->parent_id);
+
         BusinessUnit::create([
             'parent_id' => $request->parent_id,
             'type_code' => 'COMPANY',
-            'code' => $request->code,
+            'code' => $generatedCode,
             'name' => $request->name,
             'brand_name' => $request->brand_name,
             'legal_name' => $request->legal_name,
@@ -244,7 +248,7 @@ class CompanyController extends Controller
             'updated_by' => auth('web')->id(),
         ]);
 
-        return redirect()->route('company.index.view')->with('success', 'Successfully added company');
+        return redirect()->route('company.index.view')->with('success', 'Successfully added company (Code: '.$generatedCode.')');
     }
 
     public function editView(Request $request, $id)
@@ -290,12 +294,6 @@ class CompanyController extends Controller
         $request->validate([
             'id' => 'required|string|exists:master_data.business_units,id',
             'parent_id' => 'nullable|exists:master_data.business_units,id',
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('master_data.business_units', 'code')->ignore($request->id),
-            ],
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -320,8 +318,6 @@ class CompanyController extends Controller
         ], [
             'id.required' => 'ID is required.',
             'id.exists' => 'Invalid company ID.',
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
@@ -333,7 +329,6 @@ class CompanyController extends Controller
 
         $company->update([
             'parent_id' => $request->parent_id,
-            'code' => $request->code,
             'name' => $request->name,
             'brand_name' => $request->brand_name,
             'legal_name' => $request->legal_name,

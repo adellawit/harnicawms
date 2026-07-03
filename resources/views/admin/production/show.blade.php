@@ -14,17 +14,43 @@
         @if (session('success'))<x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>@endif
         @if (session('error'))<x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>@endif
 
+        @php
+            $outputUnit = $order->outputUnit?->symbol ?? $order->outputUnit?->name ?? '';
+            $orderQty = (float) ($order->produced_qty ?: $order->planned_qty);
+            $orderConversionHint = $order->product && $order->output_unit_id
+                ? \App\Support\ProductionQuantityDisplay::conversionSummary($order->product, $orderQty, $order->output_unit_id)
+                : null;
+        @endphp
+
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-3"><small class="text-muted">No. Produksi</small><div class="fw-medium">{{ $order->order_number }}</div></div>
                     <div class="col-md-3"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $order->variant?->display_name ?? $order->product?->name }}</div></div>
-                    <div class="col-md-2"><small class="text-muted">Qty</small><div class="fw-medium">{{ rtrim(rtrim(number_format($order->produced_qty ?: $order->planned_qty, 2), '0'), '.') }}</div></div>
+                    <div class="col-md-2">
+                        <small class="text-muted">Qty{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
+                        <div class="fw-medium">
+                            {{ rtrim(rtrim(number_format($orderQty, 2), '0'), '.') }}
+                            @if ($outputUnit)<span class="text-muted">{{ $outputUnit }}</span>@endif
+                        </div>
+                        @if ($orderConversionHint)
+                            <small class="text-muted">{{ $orderConversionHint }}</small>
+                        @endif
+                    </div>
                     <div class="col-md-2"><small class="text-muted">Status</small><div>
                         @php $map = ['draft'=>'secondary','in_progress'=>'info','completed'=>'success','cancelled'=>'danger']; @endphp
                         <span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ ucfirst($order->status) }}</span>
                     </div></div>
-                    <div class="col-md-2"><small class="text-muted">HPP / Unit</small><div class="fw-medium text-primary">@if($order->output_unit_cost > 0)Rp {{ number_format($order->output_unit_cost, 2) }}@else-@endif</div></div>
+                    <div class="col-md-2">
+                        <small class="text-muted">HPP / Unit{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
+                        <div class="fw-medium text-primary">
+                            @if ($order->output_unit_cost > 0)
+                                Rp {{ number_format($order->output_unit_cost, 2) }}
+                            @else
+                                -
+                            @endif
+                        </div>
+                    </div>
                     <div class="col-md-3"><small class="text-muted">Gudang Bahan Baku</small><div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '-' }}</div></div>
                     <div class="col-md-3"><small class="text-muted">Gudang Produk Jadi</small><div class="fw-medium">{{ $order->outputWarehouse?->name ?? '-' }}</div></div>
                 </div>
@@ -46,9 +72,25 @@
                             <thead><tr><th>Bahan</th><th class="text-end">Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 @forelse ($order->materials as $m)
+                                    @php
+                                        $materialUnit = $m->unit?->symbol ?? $m->unit?->name ?? '';
+                                        $materialProduct = $m->componentVariant?->product ?? $m->componentProduct;
+                                        $materialQty = (float) $m->qty_consumed;
+                                        $materialConversionHint = $materialProduct && $m->unit_id
+                                            ? \App\Support\ProductionQuantityDisplay::conversionSummary($materialProduct, $materialQty, $m->unit_id)
+                                            : null;
+                                    @endphp
                                     <tr>
                                         <td>{{ $m->componentVariant?->display_name ?? $m->componentProduct?->name }}</td>
-                                        <td class="text-end">{{ rtrim(rtrim(number_format($m->qty_consumed, 4), '0'), '.') }}</td>
+                                        <td class="text-end">
+                                            <div>
+                                                {{ rtrim(rtrim(number_format($materialQty, 4), '0'), '.') }}
+                                                @if ($materialUnit)<span class="text-muted ms-1">{{ $materialUnit }}</span>@endif
+                                            </div>
+                                            @if ($materialConversionHint)
+                                                <small class="text-muted">{{ $materialConversionHint }}</small>
+                                            @endif
+                                        </td>
                                         <td class="text-end">Rp {{ number_format($m->unit_cost, 2) }}</td>
                                         <td class="text-end">Rp {{ number_format($m->total_cost, 2) }}</td>
                                     </tr>
@@ -71,9 +113,26 @@
                             <thead><tr><th>Produk</th><th class="text-end">Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 @forelse ($order->outputs as $o)
+                                    @php
+                                        $producedUnit = $o->unit?->symbol ?? $o->unit?->name ?? $outputUnit;
+                                        $outputProduct = $o->variant?->product ?? $order->product;
+                                        $producedQty = (float) $o->qty_produced;
+                                        $outputUnitId = $o->unit_id ?: $order->output_unit_id;
+                                        $outputConversionHint = $outputProduct && $outputUnitId
+                                            ? \App\Support\ProductionQuantityDisplay::conversionSummary($outputProduct, $producedQty, $outputUnitId)
+                                            : null;
+                                    @endphp
                                     <tr>
                                         <td>{{ $o->variant?->display_name ?? $o->product?->name }}</td>
-                                        <td class="text-end">{{ rtrim(rtrim(number_format($o->qty_produced, 2), '0'), '.') }}</td>
+                                        <td class="text-end">
+                                            <div>
+                                                {{ rtrim(rtrim(number_format($producedQty, 2), '0'), '.') }}
+                                                @if ($producedUnit)<span class="text-muted ms-1">{{ $producedUnit }}</span>@endif
+                                            </div>
+                                            @if ($outputConversionHint)
+                                                <small class="text-muted">{{ $outputConversionHint }}</small>
+                                            @endif
+                                        </td>
                                         <td class="text-end text-primary fw-medium">Rp {{ number_format($o->unit_cost, 2) }}</td>
                                         <td class="text-end">Rp {{ number_format($o->total_cost, 2) }}</td>
                                     </tr>

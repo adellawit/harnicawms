@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\BusinessUnit;
-use Database\Seeders\DistributionDemoSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +10,6 @@ use Illuminate\Support\Facades\DB;
 class ProductionResetCommand extends Command
 {
     protected $signature = 'production:reset
-                            {--seed : Seed ulang data demo produksi (gudang, BOM, stok bahan baku)}
                             {--force : Lewati konfirmasi}';
 
     protected $description = 'Reset fitur Produksi (manufacturing) tanpa menghapus master data';
@@ -47,20 +45,9 @@ class ProductionResetCommand extends Command
 
         $this->runManufacturingMigrations();
 
-        if ($this->option('seed')) {
-            $this->info('Menjalankan DistributionDemoSeeder...');
-            $this->call('db:seed', [
-                '--class' => DistributionDemoSeeder::class,
-                '--force' => true,
-            ]);
-        }
-
         $this->newLine();
         $this->info('Reset Produksi selesai.');
         $this->comment('Master data (produk, cabang, user, menu) tetap utuh.');
-        if (! $this->option('seed')) {
-            $this->comment('Tip: jalankan dengan --seed untuk data demo BOM + stok bahan baku di Gudang WIP.');
-        }
 
         return self::SUCCESS;
     }

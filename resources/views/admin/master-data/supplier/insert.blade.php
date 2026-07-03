@@ -29,8 +29,9 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label" for="code">Code <span class="text-danger">*</span></label>
-                            <input type="text" id="code" name="code" class="form-control" placeholder="Supplier code" value="{{ old('code') }}" required />
+                            <label class="form-label" for="code">Code</label>
+                            <input type="text" id="code" class="form-control bg-light" value="Auto-generated on save" readonly disabled />
+                            <small class="text-muted">Supplier code will be generated automatically when you save.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="name">Name <span class="text-danger">*</span></label>

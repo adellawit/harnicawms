@@ -132,7 +132,7 @@
 
 .kanban-column-body.drag-over {
     background: rgba(0, 119, 182, 0.05);
-    border: 2px dashed #0077b6;
+    border: 2px dashed #5C9E84;
     border-radius: 8px;
 }
 

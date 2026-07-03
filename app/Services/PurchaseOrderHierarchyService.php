@@ -82,6 +82,19 @@ class PurchaseOrderHierarchyService
         return false;
     }
 
+    public static function canCreateSubPurchaseOrder(ProductPurchaseOrder $purchase): bool
+    {
+        if (! self::isMaster($purchase) || $purchase->trashed()) {
+            return false;
+        }
+
+        if (in_array($purchase->status_key ?? $purchase->status, ['cancelled'], true)) {
+            return false;
+        }
+
+        return self::masterHasRemainingRelease($purchase);
+    }
+
     /**
      * Qty dialokasikan ke Sub-PO (belum tentu sudah diterima fisik).
      */
@@ -170,6 +183,46 @@ class PurchaseOrderHierarchyService
         $received = self::receivedQuantityForParentItem($master, $parentItem);
 
         return max(0, $committed - $received);
+    }
+
+    /**
+     * Persentase penerimaan fisik: total received / total ordered (0–100).
+     * CPO dihitung dari penerimaan Sub-PO terkait.
+     */
+    public static function receiveProgressPercent(ProductPurchaseOrder $purchase): int
+    {
+        $purchase->loadMissing(['items' => fn ($q) => $q->whereNull('deleted_at')]);
+
+        $ordered = (float) $purchase->items->sum('quantity');
+        if ($ordered <= 0) {
+            return 0;
+        }
+
+        if (self::isMaster($purchase)) {
+            $received = (float) $purchase->items->sum(
+                fn (ProductPurchaseOrderItem $item) => self::receivedQuantityForParentItem($purchase, $item)
+            );
+        } else {
+            $purchase->loadMissing('items.receiveItems');
+            $received = (float) $purchase->items->sum(
+                fn (ProductPurchaseOrderItem $item) => (float) $item->receiveItems->sum('quantity_received')
+            );
+        }
+
+        return (int) min(100, round($received / $ordered * 100));
+    }
+
+    public static function receiveProgressHtml(ProductPurchaseOrder $purchase): string
+    {
+        $pct = self::receiveProgressPercent($purchase);
+        $color = $pct >= 100 ? 'success' : ($pct > 0 ? 'info' : 'secondary');
+
+        return '<div class="d-flex align-items-center gap-2 po-progress-cell">'
+            .'<div class="progress flex-grow-1 po-progress-bar">'
+            .'<div class="progress-bar bg-'.$color.'" style="width:'.$pct.'%"></div>'
+            .'</div>'
+            .'<small class="text-muted text-nowrap">'.$pct.'%</small>'
+            .'</div>';
     }
 
     /**
@@ -355,13 +408,15 @@ class PurchaseOrderHierarchyService
 
     public static function generateSubPurchaseNumber(ProductPurchaseOrder $master): string
     {
-        $lastSequence = ProductPurchaseOrder::withTrashed()
-            ->where('parent_id', $master->id)
-            ->max('release_sequence');
+        $prefix = 'RO-'.date('Ym').'-';
+        $last = ProductPurchaseOrder::withTrashed()
+            ->where('purchase_number', 'like', $prefix.'%')
+            ->orderByRaw('LENGTH(purchase_number) DESC, purchase_number DESC')
+            ->value('purchase_number');
 
-        $sequence = ((int) $lastSequence) + 1;
+        $seq = $last ? ((int) substr($last, strlen($prefix)) + 1) : 1;
 
-        return $master->purchase_number . '-' . str_pad((string) $sequence, 2, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
     }
 
     public static function nextReleaseSequence(ProductPurchaseOrder $master): int
@@ -394,6 +449,8 @@ class PurchaseOrderHierarchyService
                 'product_code' => $item->product?->code,
                 'variant_sku' => $item->variant?->sku,
                 'unit_label' => $item->unit?->symbol ?: $item->unit?->name,
+                'batch_number' => $item->batch_number,
+                'expiry_date' => $item->expiry_date?->format('d/m/Y'),
                 'committed_qty' => (float) $item->quantity,
                 'allocated_qty' => $allocated,
                 'received_qty' => $received,

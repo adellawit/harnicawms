@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\City;
 use App\Models\Province;
+use App\Services\MasterData\BusinessUnitCodeService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Yajra\DataTables\DataTables;
 
 class BusinessUnitController extends Controller
 {
+    public function __construct(
+        protected BusinessUnitCodeService $businessUnitCodeService
+    ) {
+    }
     /**
      * Get accessible business unit IDs for the current user.
      */
@@ -174,7 +178,6 @@ class BusinessUnitController extends Controller
         $request->validate([
             'parent_id' => 'nullable|exists:master_data.business_units,id',
             'type_code' => 'required|in:HOLDING,COMPANY,BRANCH',
-            'code' => 'required|string|max:50|unique:master_data.business_units,code',
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -199,16 +202,19 @@ class BusinessUnitController extends Controller
         ], [
             'type_code.required' => 'Type is required.',
             'type_code.in' => 'Type must be Holding, Company, or Branch.',
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
 
+        $generatedCode = $this->businessUnitCodeService->generate(
+            $request->type_code,
+            $request->parent_id
+        );
+
         BusinessUnit::create([
             'parent_id' => $request->parent_id,
             'type_code' => $request->type_code,
-            'code' => $request->code,
+            'code' => $generatedCode,
             'name' => $request->name,
             'brand_name' => $request->brand_name,
             'legal_name' => $request->legal_name,
@@ -234,7 +240,7 @@ class BusinessUnitController extends Controller
             'updated_by' => auth('web')->id(),
         ]);
 
-        return redirect()->route('holding.index.view')->with('success', 'Successfully added business unit');
+        return redirect()->route('holding.index.view')->with('success', 'Successfully added business unit (Code: '.$generatedCode.')');
     }
 
     public function editView(Request $request, $id)
@@ -282,12 +288,6 @@ class BusinessUnitController extends Controller
             'id' => 'required|string|exists:master_data.business_units,id',
             'parent_id' => 'nullable|exists:master_data.business_units,id',
             'type_code' => 'required|in:HOLDING,COMPANY,BRANCH',
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('master_data.business_units', 'code')->ignore($request->id),
-            ],
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -314,8 +314,6 @@ class BusinessUnitController extends Controller
             'id.exists' => 'Invalid business unit ID.',
             'type_code.required' => 'Type is required.',
             'type_code.in' => 'Type must be Holding, Company, or Branch.',
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
@@ -327,7 +325,6 @@ class BusinessUnitController extends Controller
         $businessUnit->update([
             'parent_id' => $request->parent_id,
             'type_code' => $request->type_code,
-            'code' => $request->code,
             'name' => $request->name,
             'brand_name' => $request->brand_name,
             'legal_name' => $request->legal_name,

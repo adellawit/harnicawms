@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\City;
 use App\Models\Province;
+use App\Services\MasterData\BranchWarehouseService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 
 class BranchController extends Controller
 {
+    public function __construct(
+        protected BranchWarehouseService $branchWarehouseService
+    ) {
+    }
     /**
      * Get accessible business unit IDs for the current user.
      */
@@ -167,15 +172,26 @@ class BranchController extends Controller
 
         $parentCompanies = $query->orderBy('name')->get();
         $provinces = Province::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
+        $warehouseTypes = $this->branchWarehouseService->warehouseTypes();
+        $assignableWarehouses = collect();
+        foreach ($parentCompanies as $company) {
+            $assignableWarehouses = $assignableWarehouses->merge(
+                $this->branchWarehouseService->assignableWarehouses($company->id)
+            );
+        }
 
-        return view('admin.business.branch.insert', compact('parentCompanies', 'provinces'));
+        return view('admin.business.branch.insert', compact(
+            'parentCompanies',
+            'provinces',
+            'warehouseTypes',
+            'assignableWarehouses'
+        ));
     }
 
     public function insertData(Request $request)
     {
-        $request->validate([
-            'parent_id' => 'nullable|exists:master_data.business_units,id',
-            'code' => 'required|string|max:50|unique:master_data.business_units,code',
+        $request->validate(array_merge([
+            'parent_id' => 'required|exists:master_data.business_units,id',
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -197,49 +213,63 @@ class BranchController extends Controller
             'currency' => 'nullable|string|max:10',
             'opening_date' => 'nullable|date',
             'is_active' => 'nullable|boolean',
-        ], [
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
+        ], $this->branchWarehouseService->warehouseValidationRules($request)), [
+            'parent_id.required' => 'Company is required.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
 
-        BusinessUnit::create([
-            'parent_id' => $request->parent_id,
-            'type_code' => 'BRANCH',
-            'code' => $request->code,
-            'name' => $request->name,
-            'brand_name' => $request->brand_name,
-            'legal_name' => $request->legal_name,
-            'npwp' => $request->npwp,
-            'nib' => $request->nib,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'city' => $request->city,
-            'province' => $request->province,
-            'postal_code' => $request->postal_code,
-            'country' => $request->country,
-            'is_pos_active' => $request->has('is_pos_active') ? true : false,
-            'is_inventory_active' => $request->has('is_inventory_active') ? true : false,
-            'tax_type' => $request->tax_type,
-            'tax_percentage' => $request->tax_percentage,
-            'service_charge_percentage' => $request->service_charge_percentage,
-            'timezone' => $request->timezone,
-            'currency' => $request->currency,
-            'opening_date' => $request->opening_date,
-            'is_active' => $request->has('is_active') ? true : false,
-            'created_by' => auth('web')->id(),
-            'updated_by' => auth('web')->id(),
-        ]);
+        $generatedBranchCode = null;
 
-        return redirect()->route('branch.index.view')->with('success', 'Successfully added branch');
+        DB::transaction(function () use ($request, &$generatedBranchCode) {
+            $branchCode = $this->branchWarehouseService->generateBranchCode($request->parent_id);
+            $generatedBranchCode = $branchCode;
+
+            $branch = BusinessUnit::create([
+                'parent_id' => $request->parent_id,
+                'type_code' => 'BRANCH',
+                'code' => $branchCode,
+                'name' => $request->name,
+                'brand_name' => $request->brand_name,
+                'legal_name' => $request->legal_name,
+                'npwp' => $request->npwp,
+                'nib' => $request->nib,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'city' => $request->city,
+                'province' => $request->province,
+                'postal_code' => $request->postal_code,
+                'country' => $request->country,
+                'is_pos_active' => $request->has('is_pos_active') ? true : false,
+                'is_inventory_active' => $request->has('is_inventory_active') ? true : false,
+                'tax_type' => $request->tax_type,
+                'tax_percentage' => $request->tax_percentage,
+                'service_charge_percentage' => $request->service_charge_percentage,
+                'timezone' => $request->timezone,
+                'currency' => $request->currency,
+                'opening_date' => $request->opening_date,
+                'is_active' => $request->has('is_active') ? true : false,
+                'created_by' => auth('web')->id(),
+                'updated_by' => auth('web')->id(),
+            ]);
+
+            $this->branchWarehouseService->syncFromRequest($branch, $request);
+        });
+
+        $message = 'Successfully added branch';
+        if ($generatedBranchCode) {
+            $message .= ' (Code: '.$generatedBranchCode.')';
+        }
+
+        return redirect()->route('branch.index.view')->with('success', $message);
     }
 
     public function editView(Request $request, $id)
     {
         $branch = BusinessUnit::where('id', $id)
             ->where('type_code', 'BRANCH')
+            ->with(['assignedWarehouses'])
             ->withTrashed()
             ->first();
 
@@ -271,20 +301,35 @@ class BranchController extends Controller
 
         $provinces = Province::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.business.branch.edit', compact('branch', 'parentCompanies', 'provinces', 'selectedProvinceId', 'selectedCityId'));
+        $ownedWarehouse = $this->branchWarehouseService->defaultOwnedWarehouse($branch);
+        $warehouseTypes = $this->branchWarehouseService->warehouseTypes();
+        $assignableWarehouses = $this->branchWarehouseService->assignableWarehouses($branch->parent_id, $branch->id);
+        $assignedWarehouseIds = $branch->assignedWarehouses->pluck('id')->all();
+        $defaultWarehouseId = $ownedWarehouse?->is_default
+            ? $ownedWarehouse->id
+            : $branch->assignedWarehouses->firstWhere('pivot.is_default', true)?->id;
+
+        return view('admin.business.branch.edit', compact(
+            'branch',
+            'parentCompanies',
+            'provinces',
+            'selectedProvinceId',
+            'selectedCityId',
+            'ownedWarehouse',
+            'warehouseTypes',
+            'assignableWarehouses',
+            'assignedWarehouseIds',
+            'defaultWarehouseId'
+        ));
     }
 
     public function editData(Request $request)
     {
-        $request->validate([
+        $ownedWarehouseId = $request->input('warehouse_id');
+
+        $request->validate(array_merge([
             'id' => 'required|string|exists:master_data.business_units,id',
             'parent_id' => 'nullable|exists:master_data.business_units,id',
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('master_data.business_units', 'code')->ignore($request->id),
-            ],
             'name' => 'required|string|max:255',
             'brand_name' => 'nullable|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -306,11 +351,9 @@ class BranchController extends Controller
             'currency' => 'nullable|string|max:10',
             'opening_date' => 'nullable|date',
             'is_active' => 'nullable|boolean',
-        ], [
+        ], $this->branchWarehouseService->warehouseValidationRules($request, $ownedWarehouseId)), [
             'id.required' => 'ID is required.',
             'id.exists' => 'Invalid branch ID.',
-            'code.required' => 'Code is required.',
-            'code.unique' => 'Code already exists.',
             'name.required' => 'Name is required.',
             'email.email' => 'Invalid email format.',
         ]);
@@ -320,32 +363,35 @@ class BranchController extends Controller
             ->withTrashed()
             ->first();
 
-        $branch->update([
-            'parent_id' => $request->parent_id,
-            'code' => $request->code,
-            'name' => $request->name,
-            'brand_name' => $request->brand_name,
-            'legal_name' => $request->legal_name,
-            'npwp' => $request->npwp,
-            'nib' => $request->nib,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'city' => $request->city,
-            'province' => $request->province,
-            'postal_code' => $request->postal_code,
-            'country' => $request->country,
-            'is_pos_active' => $request->has('is_pos_active') ? true : false,
-            'is_inventory_active' => $request->has('is_inventory_active') ? true : false,
-            'tax_type' => $request->tax_type,
-            'tax_percentage' => $request->tax_percentage,
-            'service_charge_percentage' => $request->service_charge_percentage,
-            'timezone' => $request->timezone,
-            'currency' => $request->currency,
-            'opening_date' => $request->opening_date,
-            'is_active' => $request->has('is_active') ? true : false,
-            'updated_by' => auth('web')->id(),
-        ]);
+        DB::transaction(function () use ($request, $branch) {
+            $branch->update([
+                'parent_id' => $request->parent_id,
+                'name' => $request->name,
+                'brand_name' => $request->brand_name,
+                'legal_name' => $request->legal_name,
+                'npwp' => $request->npwp,
+                'nib' => $request->nib,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'city' => $request->city,
+                'province' => $request->province,
+                'postal_code' => $request->postal_code,
+                'country' => $request->country,
+                'is_pos_active' => $request->has('is_pos_active') ? true : false,
+                'is_inventory_active' => $request->has('is_inventory_active') ? true : false,
+                'tax_type' => $request->tax_type,
+                'tax_percentage' => $request->tax_percentage,
+                'service_charge_percentage' => $request->service_charge_percentage,
+                'timezone' => $request->timezone,
+                'currency' => $request->currency,
+                'opening_date' => $request->opening_date,
+                'is_active' => $request->has('is_active') ? true : false,
+                'updated_by' => auth('web')->id(),
+            ]);
+
+            $this->branchWarehouseService->syncFromRequest($branch, $request);
+        });
 
         return redirect()->route('branch.index.view')->with('success', 'Successfully updated branch');
     }

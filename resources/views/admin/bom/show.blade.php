@@ -14,9 +14,15 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4"><small class="text-muted">Nama Resep</small><div class="fw-medium">{{ $bom->name }}</div></div>
-                    <div class="col-md-4"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $bom->variant?->display_name ?? $bom->product?->name }}</div></div>
-                    <div class="col-md-4"><small class="text-muted">Jumlah Bahan</small><div class="fw-medium">{{ $bom->items->count() }} bahan <span class="text-muted small">(resep per 1 produk)</span></div></div>
+                    <div class="col-md-3"><small class="text-muted">Nama Resep</small><div class="fw-medium">{{ $bom->name }}</div></div>
+                    <div class="col-md-3"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $bom->variant?->display_name ?? $bom->product?->name }}</div></div>
+                    <div class="col-md-3"><small class="text-muted">Output Resep</small>
+                        <div class="fw-medium">
+                            {{ rtrim(rtrim(number_format($bom->output_quantity, 4), '0'), '.') }}
+                            {{ $bom->outputUnit?->symbol ?? $bom->outputUnit?->name ?? '-' }}
+                        </div>
+                    </div>
+                    <div class="col-md-3"><small class="text-muted">Jumlah Bahan</small><div class="fw-medium">{{ $bom->items->count() }} bahan</div></div>
                 </div>
             </div>
         </div>
@@ -28,7 +34,7 @@
                     <thead>
                         <tr>
                             <th>Bahan</th>
-                            <th class="text-end">Qty per 1 Produk</th>
+                            <th class="text-end">Qty per Output Resep</th>
                             <th>Satuan</th>
                             <th class="text-end">HPP Satuan</th>
                             <th class="text-end">Total Biaya</th>
@@ -60,7 +66,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-light fw-bold">
-                            <td colspan="4" class="text-end">Total HPP per 1 Produk Jadi</td>
+                            <td colspan="4" class="text-end">Total HPP per {{ rtrim(rtrim(number_format($bom->output_quantity, 4), '0'), '.') }} {{ $bom->outputUnit?->symbol ?? $bom->outputUnit?->name ?? 'output' }}</td>
                             <td class="text-end text-primary">Rp {{ number_format($totalCost, 2, ',', '.') }}</td>
                         </tr>
                     </tfoot>

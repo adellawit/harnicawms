@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PurchaseOrderCartonDisplay;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,11 @@ class ProductPurchaseOrderItem extends Model
         'variant_id',
         'unit_id',
         'quantity',
+        'carton_qty',
+        'carton_display',
+        'batch_number',
+        'expiry_date',
+        'product_batch_id',
         'unit_price',
         'discount_amount',
         'subtotal',
@@ -33,6 +39,8 @@ class ProductPurchaseOrderItem extends Model
 
     protected $casts = [
         'quantity' => 'decimal:6',
+        'carton_qty' => 'decimal:6',
+        'expiry_date' => 'date',
         'unit_price' => 'decimal:4',
         'discount_amount' => 'decimal:4',
         'subtotal' => 'decimal:4',
@@ -63,6 +71,11 @@ class ProductPurchaseOrderItem extends Model
         return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
     }
 
+    public function productBatch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'product_batch_id', 'id');
+    }
+
     public function receiveItems(): HasMany
     {
         return $this->hasMany(ProductPurchaseOrderReceiveItem::class, 'purchase_order_item_id', 'id');
@@ -76,5 +89,24 @@ class ProductPurchaseOrderItem extends Model
     public function getQuantityRemainingAttribute(): float
     {
         return max(0, (float) $this->quantity - $this->quantity_received);
+    }
+
+    public function getCartonDisplayLabelAttribute(): string
+    {
+        if (! $this->product_id || ! $this->unit_id) {
+            return $this->carton_display ?: '-';
+        }
+
+        $this->loadMissing(['product.unitConversions', 'unit']);
+
+        if (! $this->product) {
+            return $this->carton_display ?: '-';
+        }
+
+        return PurchaseOrderCartonDisplay::format(
+            $this->product,
+            (float) $this->quantity,
+            $this->unit_id
+        );
     }
 }
