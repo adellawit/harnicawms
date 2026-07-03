@@ -45,7 +45,7 @@
                     @endphp
 
                     <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pdfModal">
-                        <i class="ti ti-file-type-pdf me-1"></i>Generate PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
 
                     @if($canCreateSub)
@@ -370,11 +370,11 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="pdfModalLabel">Generate PDF Purchase Order</h5>
+                    <h5 class="modal-title" id="pdfModalLabel">Print Purchase Order</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mengunduh PDF.</p>
+                    <p class="text-muted mb-3">Atur tampilan dokumen sebelum mencetak <strong>{{ $purchase->purchase_number }}</strong>.</p>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="showPricesToggle" checked>
                         <label class="form-check-label" for="showPricesToggle">Tampilkan kolom harga</label>
@@ -386,7 +386,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-primary" id="btnDownloadPdf">
-                        <i class="ti ti-download me-1"></i>Unduh PDF
+                        <i class="ti ti-printer me-1"></i>Print
                     </button>
                 </div>
             </div>

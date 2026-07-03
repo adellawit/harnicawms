@@ -35,6 +35,7 @@ use App\Http\Controllers\Admin\ReportAdvancedController;
 use App\Http\Controllers\Admin\StockAdjustmentController;
 use App\Http\Controllers\Admin\StockOpnameController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
+use App\Http\Controllers\Admin\PurchaseInvoiceController;
 use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\POSController;
 use App\Http\Controllers\Admin\CustomerGroupController;
@@ -538,12 +539,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [PurchaseOrderController::class, 'indexView'])->name('product.purchase-order.index.view')->middleware('permission:Purchase Order,is_read');
             Route::get('/suppliers-by-type', [PurchaseOrderController::class, 'suppliersByType'])->name('product.purchase-order.suppliers-by-type');
             Route::post('/data', [PurchaseOrderController::class, 'indexData'])->name('product.purchase-order.index.data');
+            Route::get('/children/{id}', [PurchaseOrderController::class, 'childrenData'])->name('product.purchase-order.children.data');
             Route::get('/masters-for-sub', [PurchaseOrderController::class, 'mastersForSub'])->name('product.purchase-order.masters-for-sub');
             Route::get('/master-items/{id}', [PurchaseOrderController::class, 'masterItems'])->name('product.purchase-order.master-items');
             Route::get('/insert', [PurchaseOrderController::class, 'insertView'])->name('product.purchase-order.insert.view')->middleware('permission:Purchase Order,is_create');
             Route::post('/insert/data', [PurchaseOrderController::class, 'insertData'])->name('product.purchase-order.insert.data')->middleware('permission:Purchase Order,is_create');
             Route::get('/edit/{id}', [PurchaseOrderController::class, 'editView'])->name('product.purchase-order.edit.view')->middleware('permission:Purchase Order,is_update');
             Route::post('/edit/data', [PurchaseOrderController::class, 'editData'])->name('product.purchase-order.edit.data')->middleware('permission:Purchase Order,is_update');
+            Route::post('/update-status', [PurchaseOrderController::class, 'updateStatusData'])->name('product.purchase-order.update-status.data')->middleware('permission:Purchase Order,is_update');
             Route::get('/detail/{id}', [PurchaseOrderController::class, 'detailView'])->name('product.purchase-order.detail.view')->middleware('permission:Purchase Order,is_read');
             Route::get('/detail/{id}/pdf', [PurchaseOrderController::class, 'exportPdf'])->name('product.purchase-order.pdf')->middleware('permission:Purchase Order,is_read');
             Route::post('/delete', [PurchaseOrderController::class, 'deleteData'])->name('product.purchase-order.delete.data')->middleware('permission:Purchase Order,is_delete');
@@ -552,6 +555,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/receive/{id}', [PurchaseOrderController::class, 'receiveView'])->name('product.purchase-order.receive.view')->middleware('permission:Purchase Order,is_update');
             Route::post('/receive/data', [PurchaseOrderController::class, 'receiveData'])->name('product.purchase-order.receive.data')->middleware('permission:Purchase Order,is_update');
             Route::get('/receive-detail/{id}', [PurchaseOrderController::class, 'receiveDetailView'])->name('product.purchase-order.receive-detail.view')->middleware('permission:Purchase Order,is_read');
+        });
+
+        Route::group(['prefix' => 'purchase-invoice'], function () {
+            Route::get('/', [PurchaseInvoiceController::class, 'indexView'])->name('product.purchase-invoice.index.view')->middleware('permission:Invoice,is_read');
+            Route::post('/data', [PurchaseInvoiceController::class, 'indexData'])->name('product.purchase-invoice.index.data');
+            Route::get('/eligible-pos', [PurchaseInvoiceController::class, 'eligiblePurchaseOrders'])->name('product.purchase-invoice.eligible-pos');
+            Route::get('/insert', [PurchaseInvoiceController::class, 'insertView'])->name('product.purchase-invoice.insert.view')->middleware('permission:Invoice,is_create');
+            Route::post('/insert/data', [PurchaseInvoiceController::class, 'insertData'])->name('product.purchase-invoice.insert.data')->middleware('permission:Invoice,is_create');
+            Route::get('/edit/{id}', [PurchaseInvoiceController::class, 'editView'])->name('product.purchase-invoice.edit.view')->middleware('permission:Invoice,is_update');
+            Route::post('/edit/data', [PurchaseInvoiceController::class, 'editData'])->name('product.purchase-invoice.edit.data')->middleware('permission:Invoice,is_update');
+            Route::get('/detail/{id}', [PurchaseInvoiceController::class, 'detailView'])->name('product.purchase-invoice.detail.view')->middleware('permission:Invoice,is_read');
+            Route::post('/submit', [PurchaseInvoiceController::class, 'submitData'])->name('product.purchase-invoice.submit.data')->middleware('permission:Invoice,is_update');
+            Route::post('/payment', [PurchaseInvoiceController::class, 'paymentData'])->name('product.purchase-invoice.payment.data')->middleware('permission:Invoice,is_update');
+            Route::post('/cancel', [PurchaseInvoiceController::class, 'cancelData'])->name('product.purchase-invoice.cancel.data')->middleware('permission:Invoice,is_update');
+            Route::post('/delete', [PurchaseInvoiceController::class, 'deleteData'])->name('product.purchase-invoice.delete.data')->middleware('permission:Invoice,is_delete');
+            Route::post('/restore', [PurchaseInvoiceController::class, 'restoreData'])->name('product.purchase-invoice.restore.data')->middleware('permission:Invoice,is_delete');
         });
     });
 

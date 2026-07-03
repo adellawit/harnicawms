@@ -9,11 +9,10 @@ use App\Models\Product;
 use App\Models\ProductNature;
 use App\Models\ProductPriceList;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantPrice;
-use App\Models\ProductVariantStock;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
 use App\Services\PosCheckoutService;
+use App\Services\Product\ProductSearchService;
 use App\Support\WmsContext;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
@@ -25,6 +24,7 @@ class POSController extends Controller
 {
     public function __construct(
         protected PosCheckoutService $checkout,
+        protected ProductSearchService $productSearch,
         protected XenditService $xendit,
         protected PaymentSyncService $paymentSync,
     ) {}
@@ -143,59 +143,30 @@ class POSController extends Controller
             return response()->json(['variants' => [], 'message' => 'Branch not selected']);
         }
 
-        $product = Product::with('defaultUnit')
+        $product = Product::query()
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->findOrFail($request->product_id);
-        $defaultUnitId = $product->default_unit_id;
 
-        // Fallback: get unit from first variant price or stock
-        if (! $defaultUnitId) {
-            $firstPrice = ProductVariantPrice::whereHas('variant', fn ($q) => $q->where('product_id', $product->id))
-                ->where('branch_id', $branchId)
-                ->where('price_list_id', $request->price_list_id)
-                ->whereNull('deleted_at')
-                ->first();
-            $defaultUnitId = $firstPrice?->unit_id
-                ?? ProductVariantStock::where('product_id', $product->id)
-                    ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-                    ->whereNull('deleted_at')
-                    ->value('unit_id');
-        }
-
-        $variants = ProductVariant::where('product_id', $product->id)
-            ->whereNull('product.product_variants.deleted_at')
+        $variants = ProductVariant::query()
+            ->where('product_id', $product->id)
+            ->whereNull('deleted_at')
             ->where('is_active', true)
-            ->with(['variantAttributes.attributeValue', 'variantAttributes.attributeDefinition'])
+            ->with(['product', 'variantAttributes.attributeValue', 'variantAttributes.attributeDefinition'])
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
             ->get();
 
         $result = [];
-        foreach ($variants as $v) {
-            $priceRow = ProductVariantPrice::where('variant_id', $v->id)
-                ->where('branch_id', $branchId)
-                ->where('price_list_id', $request->price_list_id)
-                ->where('unit_id', $defaultUnitId)
-                ->whereNull('deleted_at')
-                ->first();
+        foreach ($variants as $variant) {
+            $mapped = $this->productSearch->mapVariantForPos($variant, $branchId, $request->price_list_id);
+            if ($mapped === null) {
+                continue;
+            }
 
-            $stockRow = ProductVariantStock::where('product_variant_id', $v->id)
-                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-                ->where('unit_id', $defaultUnitId)
-                ->whereNull('deleted_at')
-                ->first();
-
-            $sellingPrice = $priceRow?->selling_price ?? 0;
-            $stock = (int) ($stockRow?->quantity ?? 0);
-
-            $result[] = [
-                'id' => $v->id,
-                'sku' => $v->sku,
-                'barcode' => $v->barcode,
-                'display_name' => $v->display_name,
-                'image' => $v->image ?? $product->image ?? null,
-                'selling_price' => (float) $sellingPrice,
-                'stock' => $stock,
-                'unit_id' => $defaultUnitId,
-            ];
+            $result[] = array_merge($mapped, [
+                'barcode' => $variant->barcode,
+                'image' => $variant->image ?? $product->image ?? null,
+            ]);
         }
 
         return response()->json(['variants' => $result]);

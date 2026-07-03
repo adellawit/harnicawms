@@ -32,9 +32,12 @@ class ProductPurchaseOrder extends Model
         'status',
         'expected_delivery_date',
         'notes',
+        'attention_to',
+        'ship_to_address',
         'subtotal',
         'tax_amount',
         'discount_amount',
+        'other_cost_amount',
         'total',
         'created_by',
         'updated_by',
@@ -47,6 +50,7 @@ class ProductPurchaseOrder extends Model
         'subtotal' => 'decimal:4',
         'tax_amount' => 'decimal:4',
         'discount_amount' => 'decimal:4',
+        'other_cost_amount' => 'decimal:4',
         'total' => 'decimal:4',
     ];
 
@@ -116,9 +120,9 @@ class ProductPurchaseOrder extends Model
     public function getPoKindLabelAttribute(): string
     {
         return match ($this->po_kind ?? 'standalone') {
-            'master' => 'PO Utama',
-            'sub' => 'Sub-PO',
-            default => 'Standalone',
+            'master' => 'CPO',
+            'sub' => 'RO',
+            default => 'PO',
         };
     }
 

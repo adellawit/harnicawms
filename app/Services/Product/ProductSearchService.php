@@ -188,62 +188,114 @@ class ProductSearchService
      */
     public function mapVariant(ProductVariant $variant, string $branchId, string $priceListId): ?array
     {
-        $product = $variant->product;
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
-
-        if ($product === null) {
+        if ($variant->product === null) {
             return null;
         }
 
-        $defaultUnitId = $product->default_unit_id;
+        $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
 
-        if (! $defaultUnitId) {
-            $defaultUnitId = ProductVariantPrice::query()
-                ->where('variant_id', $variant->id)
-                ->where('branch_id', $branchId)
-                ->where('price_list_id', $priceListId)
-                ->whereNull('deleted_at')
-                ->value('unit_id')
-                ?? ProductVariantStock::query()
-                    ->where('product_variant_id', $variant->id)
-                    ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-                    ->whereNull('deleted_at')
-                    ->value('unit_id');
-        }
-
-        if (! $defaultUnitId) {
-            return null;
-        }
-
-        $priceRow = ProductVariantPrice::query()
-            ->where('variant_id', $variant->id)
-            ->where('branch_id', $branchId)
-            ->where('price_list_id', $priceListId)
-            ->where('unit_id', $defaultUnitId)
-            ->whereNull('deleted_at')
-            ->first();
-
-        $stockRow = ProductVariantStock::query()
-            ->where('product_variant_id', $variant->id)
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-            ->where('unit_id', $defaultUnitId)
-            ->whereNull('deleted_at')
-            ->first();
-
-        $sellingPrice = (float) ($priceRow?->selling_price ?? 0);
-
-        if ($sellingPrice <= 0) {
+        if ($pricing['unit_id'] === null || $pricing['selling_price'] <= 0) {
             return null;
         }
 
         return [
             'variant_id' => $variant->id,
             'product_id' => $variant->product_id,
-            'unit_id' => $defaultUnitId,
+            'unit_id' => $pricing['unit_id'],
             'sku' => (string) $variant->sku,
             'label' => $variant->display_name,
-            'unit_price' => $sellingPrice,
+            'unit_price' => $pricing['selling_price'],
+            'stock' => $pricing['stock'],
+        ];
+    }
+
+    /**
+     * @return array{
+     *   id: string,
+     *   sku: ?string,
+     *   display_name: string,
+     *   selling_price: float,
+     *   stock: int,
+     *   unit_id: ?string
+     * }|null
+     */
+    public function mapVariantForPos(ProductVariant $variant, string $branchId, string $priceListId): ?array
+    {
+        if ($variant->product === null) {
+            return null;
+        }
+
+        $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
+
+        return [
+            'id' => $variant->id,
+            'sku' => $variant->sku,
+            'display_name' => $variant->display_name,
+            'selling_price' => $pricing['selling_price'],
+            'stock' => (int) $pricing['stock'],
+            'unit_id' => $pricing['unit_id'],
+        ];
+    }
+
+    /**
+     * @return array{unit_id: ?string, selling_price: float, stock: float}
+     */
+    protected function resolveVariantPricing(ProductVariant $variant, string $branchId, string $priceListId): array
+    {
+        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $product = $variant->product;
+
+        $unitId = $product?->default_unit_id;
+
+        $priceRow = $unitId
+            ? $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $unitId)
+            : null;
+
+        if (! $priceRow) {
+            $priceRow = $this->findVariantPriceRow($variant->id, $branchId, $priceListId, null);
+            if ($priceRow) {
+                $unitId = $priceRow->unit_id;
+            }
+        }
+
+        if (! $unitId) {
+            $unitId = ProductVariantStock::query()
+                ->where('product_variant_id', $variant->id)
+                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
+                ->whereNull('deleted_at')
+                ->value('unit_id');
+        }
+
+        if (! $unitId) {
+            return ['unit_id' => null, 'selling_price' => 0.0, 'stock' => 0.0];
+        }
+
+        if (! $priceRow) {
+            $priceRow = $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $unitId);
+        }
+
+        $stockRow = ProductVariantStock::query()
+            ->where('product_variant_id', $variant->id)
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
+            ->where('unit_id', $unitId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        return [
+            'unit_id' => $unitId,
+            'selling_price' => (float) ($priceRow?->selling_price ?? 0),
             'stock' => (float) ($stockRow?->quantity ?? 0),
         ];
+    }
+
+    protected function findVariantPriceRow(string $variantId, string $branchId, string $priceListId, ?string $unitId): ?ProductVariantPrice
+    {
+        return ProductVariantPrice::query()
+            ->where('variant_id', $variantId)
+            ->where('branch_id', $branchId)
+            ->where('price_list_id', $priceListId)
+            ->when($unitId, fn ($q) => $q->where('unit_id', $unitId))
+            ->whereNull('deleted_at')
+            ->first();
     }
 }

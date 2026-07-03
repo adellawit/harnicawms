@@ -5,9 +5,21 @@ namespace Database\Seeders;
 use App\Models\BusinessUnit;
 use App\Models\ProductUnit;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProductUnitSeeder extends Seeder
 {
+    private const ALLOWED_CODES = [
+        'KARTON',
+        'PACK',
+        'BOX',
+    ];
+
+    /**
+     * Hapus satuan lama (hard delete), lalu seed hanya Karton, Pack, Box.
+     */
     public function run(): void
     {
         $companyId = BusinessUnit::query()
@@ -17,7 +29,7 @@ class ProductUnitSeeder extends Seeder
             ->value('id');
 
         foreach ($this->units() as $unit) {
-            ProductUnit::updateOrCreate(
+            ProductUnit::withTrashed()->updateOrCreate(
                 ['code' => $unit['code']],
                 [
                     'company_id' => $companyId,
@@ -25,26 +37,103 @@ class ProductUnitSeeder extends Seeder
                     'name' => $unit['name'],
                     'symbol' => $unit['symbol'],
                     'description' => $unit['description'] ?? null,
+                    'deleted_at' => null,
                 ]
             );
         }
 
-        $this->command?->info('Product units seeded successfully.');
+        $fallbackUnitId = ProductUnit::query()->where('code', 'BOX')->value('id');
+        $obsoleteIds = ProductUnit::withTrashed()
+            ->whereNotIn('code', self::ALLOWED_CODES)
+            ->pluck('id');
+
+        if ($obsoleteIds->isNotEmpty() && $fallbackUnitId) {
+            $deleted = $this->purgeObsoleteUnits($obsoleteIds, $fallbackUnitId);
+            $this->command?->info("Satuan lama dihapus permanen: {$deleted} record.");
+        }
+
+        $this->command?->info('Satuan aktif: Karton, Pack, Box.');
     }
 
     private function units(): array
     {
         return [
-            ['code' => 'PCS', 'name' => 'Pieces', 'symbol' => 'pcs'],
-            ['code' => 'BOX', 'name' => 'Box', 'symbol' => 'box'],
-            ['code' => 'DUS', 'name' => 'Dus', 'symbol' => 'dus'],
-            ['code' => 'BTL', 'name' => 'Botol', 'symbol' => 'btl'],
+            ['code' => 'KARTON', 'name' => 'Karton', 'symbol' => 'krt'],
             ['code' => 'PACK', 'name' => 'Pack', 'symbol' => 'pack'],
-            ['code' => 'KG', 'name' => 'Kilogram', 'symbol' => 'kg'],
-            ['code' => 'GR', 'name' => 'Gram', 'symbol' => 'gr'],
-            ['code' => 'LTR', 'name' => 'Liter', 'symbol' => 'ltr'],
-            ['code' => 'ML', 'name' => 'Mililiter', 'symbol' => 'ml'],
-            ['code' => 'MTR', 'name' => 'Meter', 'symbol' => 'm'],
+            ['code' => 'BOX', 'name' => 'Box', 'symbol' => 'box'],
         ];
+    }
+
+    private function purgeObsoleteUnits(Collection $obsoleteIds, string $fallbackUnitId): int
+    {
+        $ids = $obsoleteIds->all();
+
+        DB::table('product.products')
+            ->whereIn('default_unit_id', $ids)
+            ->update(['default_unit_id' => $fallbackUnitId]);
+
+        $this->deleteWhereUnitIn('product.purchase_order_receive_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.purchase_order_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('transaction.sales_order_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.sales_order_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('manufacturing.production_order_outputs', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('manufacturing.production_order_materials', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('manufacturing.bom_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('distribution.replenishment_order_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('distribution.shipment_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('distribution.receipt_items', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_batch_stock', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_batches', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_cost_layers', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_cost_history', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_stock_movements', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_variant_stock', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_stock', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_variant_prices', 'unit_id', $ids);
+        $this->deleteWhereUnitIn('product.product_prices', 'unit_id', $ids);
+
+        DB::table('product.product_label_serials')
+            ->whereIn('unit_id', $ids)
+            ->update(['unit_id' => null]);
+
+        $this->updateWhereUnitIn('manufacturing.bill_of_materials', 'output_unit_id', $ids, $fallbackUnitId);
+        $this->updateWhereUnitIn('manufacturing.production_orders', 'output_unit_id', $ids, $fallbackUnitId);
+
+        DB::table('product.product_unit_conversions')
+            ->where(function ($query) use ($ids) {
+                $query->whereIn('from_unit_id', $ids)
+                    ->orWhereIn('to_unit_id', $ids);
+            })
+            ->delete();
+
+        return ProductUnit::withTrashed()
+            ->whereIn('id', $ids)
+            ->forceDelete();
+    }
+
+    /**
+     * @param  list<string>  $unitIds
+     */
+    private function deleteWhereUnitIn(string $table, string $column, array $unitIds): void
+    {
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)->whereIn($column, $unitIds)->delete();
+    }
+
+    /**
+     * @param  list<string>  $unitIds
+     */
+    private function updateWhereUnitIn(string $table, string $column, array $unitIds, string $fallbackUnitId): void
+    {
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)
+            ->whereIn($column, $unitIds)
+            ->update([$column => $fallbackUnitId]);
     }
 }

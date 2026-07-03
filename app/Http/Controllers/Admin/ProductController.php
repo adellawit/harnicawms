@@ -18,6 +18,7 @@ use App\Models\ProductVariantAttribute;
 use App\Models\ProductVariantPrice;
 use App\Services\Product\ProductLabelSerialService;
 use App\Services\Product\ProductQrCodeService;
+use App\Services\Product\ProductStockBootstrapService;
 use App\Support\WmsContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -79,6 +80,18 @@ class ProductController extends Controller
             ->where('key', $key)
             ->whereNull('deleted_at')
             ->value('id');
+    }
+
+    protected function resolveIsStockItem(?string $productNatureId, ?bool $requested = null): bool
+    {
+        if ($productNatureId) {
+            $key = ParameterDetail::query()->where('id', $productNatureId)->value('key');
+            if ($key === 'non_inventory') {
+                return false;
+            }
+        }
+
+        return $requested ?? true;
     }
 
     public function indexView(Request $request)
@@ -1253,7 +1266,10 @@ class ProductController extends Controller
             'min_stock' => $request->min_stock ?? 0,
             'max_stock' => $request->max_stock,
             'has_variants' => $request->boolean('has_variants'),
-            'is_stock_item' => $request->boolean('is_stock_item', true),
+            'is_stock_item' => $this->resolveIsStockItem(
+                $request->product_nature_id,
+                $request->boolean('is_stock_item', true)
+            ),
             'is_sale_item' => $request->boolean('is_sale_item'),
             'is_purchase_item' => $request->boolean('is_purchase_item', true),
             'cogs_account_code' => $request->cogs_account_code,
@@ -1262,11 +1278,7 @@ class ProductController extends Controller
             'selling_price' => normalize_number_input($request->selling_price),
         ]);
 
-        if ($request->boolean('has_variants')) {
-            return redirect()->route('product.insert.view.step2');
-        } else {
-            return redirect()->route('product.insert.view.step3');
-        }
+        return redirect()->route('product.insert.view.step2');
     }
 
     // === STEP 2: Unit Conversions ===
@@ -1280,13 +1292,40 @@ class ProductController extends Controller
 
         $branchId = auth('web')->user()->current_business_unit_id;
         $units = ProductUnit::whereNull('deleted_at')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where(function ($q) use ($branchId) {
+                $q->whereNull('branch_id')
+                    ->when($branchId, fn ($query) => $query->orWhere('branch_id', $branchId));
+            })
             ->orderBy('name')
             ->get(['id', 'name', 'symbol']);
 
-        $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
+        $conversions = session('temp_conversions', []);
+        $currentFromUnitId = $this->resolveTempConversionFromUnitId(
+            (string) $tempProduct['default_unit_id'],
+            $conversions
+        );
 
-        return view('admin.product.master.insert-step2', compact('tempProduct', 'units', 'selectedUnit'));
+        $selectedUnit = ProductUnit::find($currentFromUnitId)
+            ?? ProductUnit::find($tempProduct['default_unit_id']);
+
+        if ($selectedUnit && ! $units->contains('id', $selectedUnit->id)) {
+            $units->prepend($selectedUnit);
+        }
+
+        $defaultUnit = ProductUnit::find($tempProduct['default_unit_id']);
+        $usedUnitIds = $this->getTempConversionUsedUnitIds(
+            (string) $tempProduct['default_unit_id'],
+            $conversions
+        );
+
+        return view('admin.product.master.insert-step2', compact(
+            'tempProduct',
+            'units',
+            'selectedUnit',
+            'defaultUnit',
+            'conversions',
+            'usedUnitIds'
+        ));
     }
 
     public function insertDataStep2(Request $request)
@@ -1301,19 +1340,42 @@ class ProductController extends Controller
 
             $request->validate([
                 'from_unit_id' => 'required|exists:product.product_units,id',
-                'to_unit_id' => 'required|exists:product.product_units,id',
+                'to_unit_id' => 'required|exists:product.product_units,id|different:from_unit_id',
                 'conversion_factor' => 'required|numeric|min:0.000001',
             ], [
                 'conversion_factor.required' => 'Conversion factor is required.',
                 'conversion_factor.min' => 'Conversion factor must be greater than 0.',
+                'to_unit_id.different' => 'To Unit must be different from From Unit.',
             ]);
 
-            // Store conversions in session
             $conversions = session()->get('temp_conversions', []);
+            $expectedFromUnitId = $this->resolveTempConversionFromUnitId(
+                (string) $tempProduct['default_unit_id'],
+                $conversions
+            );
+
+            if ($request->from_unit_id !== $expectedFromUnitId) {
+                return redirect()->route('product.insert.view.step2')
+                    ->with('error', 'From Unit must follow the latest conversion chain.');
+            }
+
+            $usedUnitIds = $this->getTempConversionUsedUnitIds(
+                (string) $tempProduct['default_unit_id'],
+                $conversions
+            );
+
+            if (in_array($request->to_unit_id, $usedUnitIds, true)) {
+                return redirect()->route('product.insert.view.step2')
+                    ->withInput()
+                    ->with('error', 'To Unit is already used in the conversion chain.');
+            }
+
+            // Store conversions in session
             $conversions[] = [
                 'from_unit_id' => $request->from_unit_id,
                 'to_unit_id' => $request->to_unit_id,
                 'conversion_factor' => $request->conversion_factor,
+                'conversion_level' => count($conversions) + 1,
             ];
             session()->put('temp_conversions', $conversions);
 
@@ -1374,12 +1436,19 @@ class ProductController extends Controller
         } else {
             // No variants - just prices
             $units = ProductUnit::whereNull('deleted_at')
-                ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+                ->where(function ($q) use ($branchId) {
+                    $q->whereNull('branch_id')
+                        ->when($branchId, fn ($query) => $query->orWhere('branch_id', $branchId));
+                })
                 ->orderBy('name')
                 ->get(['id', 'name', 'symbol']);
 
             $conversions = session()->get('temp_conversions', []);
             $selectedUnit = ProductUnit::find($tempProduct['default_unit_id']);
+
+            if ($selectedUnit && ! $units->contains('id', $selectedUnit->id)) {
+                $units->prepend($selectedUnit);
+            }
 
             return view('admin.product.master.insert-step3-prices', compact(
                 'tempProduct',
@@ -1437,6 +1506,10 @@ class ProductController extends Controller
             $itemTypeId = $tempProduct['item_type_id'] ?? $this->defaultProductParameterId('ITEM_TYPE', 'finished_good');
             $productNatureId = $tempProduct['product_nature_id'] ?? $this->defaultProductParameterId('PRODUCT_NATURE', 'inventory');
             $procurementTypeId = $tempProduct['procurement_type_id'] ?? $this->defaultProductParameterId('PROCUREMENT_TYPE', 'purchase');
+            $isStockItem = $this->resolveIsStockItem(
+                $productNatureId,
+                array_key_exists('is_stock_item', $tempProduct) ? (bool) $tempProduct['is_stock_item'] : null
+            );
 
             // Get the smallest unit for price calculation
             $smallestUnitId = null;
@@ -1467,7 +1540,7 @@ class ProductController extends Controller
                 'code' => $tempProduct['code'] ?? null,
                 'description' => $tempProduct['description'],
                 'sku' => $this->generateSku(),
-                'is_stock_item' => (bool) ($tempProduct['is_stock_item'] ?? true),
+                'is_stock_item' => $isStockItem,
                 'is_sale_item' => (bool) ($tempProduct['is_sale_item'] ?? false),
                 'is_purchase_item' => (bool) ($tempProduct['is_purchase_item'] ?? true),
                 'min_stock' => $tempProduct['min_stock'] ?? 0,
@@ -1479,13 +1552,13 @@ class ProductController extends Controller
             ]);
 
             // Create unit conversions
-            foreach ($conversions as $convData) {
+            foreach ($conversions as $index => $convData) {
                 ProductUnitConversion::create([
                     'product_id' => $product->id,
                     'from_unit_id' => $convData['from_unit_id'],
                     'to_unit_id' => $convData['to_unit_id'],
                     'conversion_factor' => $convData['conversion_factor'],
-                    'conversion_level' => 1,
+                    'conversion_level' => $convData['conversion_level'] ?? ($index + 1),
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
@@ -1620,6 +1693,15 @@ class ProductController extends Controller
                     }
                 }
             }
+
+            $product->load([
+                'variants' => fn ($q) => $q->whereNull('deleted_at'),
+                'itemType',
+                'productNature',
+                'nature',
+                'unitConversions' => fn ($q) => $q->whereNull('deleted_at'),
+            ]);
+            app(ProductStockBootstrapService::class)->bootstrap($product, $user->id);
 
             DB::commit();
 
@@ -2214,7 +2296,12 @@ class ProductController extends Controller
         $conversions = session()->get('temp_conversions', []);
         if (isset($conversions[$request->index])) {
             unset($conversions[$request->index]);
-            session()->put('temp_conversions', array_values($conversions));
+            $conversions = array_values($conversions);
+            foreach ($conversions as $index => &$conversion) {
+                $conversion['conversion_level'] = $index + 1;
+            }
+            unset($conversion);
+            session()->put('temp_conversions', $conversions);
         }
 
         return response()->json([
@@ -2228,26 +2315,49 @@ class ProductController extends Controller
         $request->validate([
             'index' => 'required|integer|min:0',
             'from_unit_id' => 'required|exists:product.product_units,id',
-            'to_unit_id' => 'required|exists:product.product_units,id',
+            'to_unit_id' => 'required|exists:product.product_units,id|different:from_unit_id',
             'conversion_factor' => 'required|numeric|min:0.000001',
         ], [
             'conversion_factor.required' => 'Conversion factor is required.',
             'conversion_factor.min' => 'Conversion factor must be greater than 0.',
+            'to_unit_id.different' => 'To Unit must be different from From Unit.',
         ]);
 
         $request->merge([
             'conversion_factor' => normalize_number_input($request->conversion_factor),
         ]);
 
+        $tempProduct = session('temp_product');
         $conversions = session()->get('temp_conversions', []);
-        if (isset($conversions[$request->index])) {
-            $conversions[$request->index] = [
-                'from_unit_id' => $request->from_unit_id,
-                'to_unit_id' => $request->to_unit_id,
-                'conversion_factor' => $request->conversion_factor,
-            ];
-            session()->put('temp_conversions', $conversions);
+        $index = (int) $request->index;
+
+        if (! isset($conversions[$index])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Conversion not found.',
+            ], 422);
         }
+
+        $usedUnitIds = $this->getTempConversionUsedUnitIds(
+            (string) ($tempProduct['default_unit_id'] ?? ''),
+            $conversions,
+            $index
+        );
+
+        if (in_array($request->to_unit_id, $usedUnitIds, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'To Unit is already used in the conversion chain.',
+            ], 422);
+        }
+
+        $conversions[$index] = [
+            'from_unit_id' => $request->from_unit_id,
+            'to_unit_id' => $request->to_unit_id,
+            'conversion_factor' => $request->conversion_factor,
+            'conversion_level' => $conversions[$index]['conversion_level'] ?? ($index + 1),
+        ];
+        session()->put('temp_conversions', $conversions);
 
         return response()->json([
             'success' => true,
@@ -2329,6 +2439,50 @@ class ProductController extends Controller
         return response()->streamDownload($callback, 'template_import_product.csv', [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    /**
+     * Resolve the next From Unit by walking the temp conversion chain from default unit.
+     *
+     * @param  list<array{from_unit_id: string, to_unit_id: string, conversion_factor: mixed, conversion_level?: int}>  $conversions
+     */
+    protected function resolveTempConversionFromUnitId(string $defaultUnitId, array $conversions): string
+    {
+        $currentUnitId = $defaultUnitId;
+
+        foreach ($conversions as $conversion) {
+            if (($conversion['from_unit_id'] ?? null) === $currentUnitId) {
+                $currentUnitId = (string) $conversion['to_unit_id'];
+            }
+        }
+
+        return $currentUnitId;
+    }
+
+    /**
+     * Unit IDs already present in the temp conversion chain (default + linked conversions).
+     *
+     * @param  list<array{from_unit_id: string, to_unit_id: string, conversion_factor: mixed, conversion_level?: int}>  $conversions
+     * @return list<string>
+     */
+    protected function getTempConversionUsedUnitIds(string $defaultUnitId, array $conversions, ?int $exceptIndex = null): array
+    {
+        $filtered = collect($conversions)
+            ->values()
+            ->when($exceptIndex !== null, fn ($items) => $items->forget($exceptIndex)->values())
+            ->all();
+
+        $chain = [$defaultUnitId];
+        $currentUnitId = $defaultUnitId;
+
+        foreach ($filtered as $conversion) {
+            if (($conversion['from_unit_id'] ?? null) === $currentUnitId) {
+                $currentUnitId = (string) $conversion['to_unit_id'];
+                $chain[] = $currentUnitId;
+            }
+        }
+
+        return array_values(array_unique($chain));
     }
 
     protected function upsertPrice(string $productId, string $branchId, ?string $companyId, string $unitId, float $pp, ?float $sp, string $userId): void
