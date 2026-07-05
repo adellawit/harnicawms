@@ -62,6 +62,11 @@ class ProductCostLayer extends Model
         return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
+
     public function scopeForWarehouse($query, ?string $warehouseId)
     {
         return $query->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId));

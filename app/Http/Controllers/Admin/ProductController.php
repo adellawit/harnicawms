@@ -6,6 +6,7 @@ use App\Exports\ProductExport;
 use App\Http\Controllers\Controller;
 use App\Imports\ProductImport;
 use App\Models\AttributeDefinition;
+use App\Models\BillOfMaterial;
 use App\Models\ParameterDetail;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -2193,6 +2194,10 @@ class ProductController extends Controller
         $product->deleted_by = auth('web')->id();
         $product->save();
         $product->delete();
+
+        BillOfMaterial::where('product_id', $product->id)
+            ->where('is_active', true)
+            ->update(['is_active' => false, 'updated_by' => auth('web')->id()]);
 
         return redirect()->route('product.index.view')->with('success', 'Product deleted successfully');
     }

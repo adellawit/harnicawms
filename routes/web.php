@@ -754,6 +754,7 @@ Route::group(['prefix' => 'helper'], function () {
     Route::get('/provinces', [HelperController::class, 'getProvinces'])->name('helper.provinces');
     Route::get('/cities', [HelperController::class, 'getCities'])->name('helper.cities');
     Route::get('/business-units', [HelperController::class, 'getBusinessUnits'])->name('helper.business-units');
+    Route::get('/product-variants', [HelperController::class, 'getProductVariants'])->name('helper.product-variants');
 });
 
 require __DIR__ . '/auth.php';

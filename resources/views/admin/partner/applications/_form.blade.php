@@ -18,20 +18,23 @@
     </div>
     <div class="col-md-6">
         <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-control" value="{{ old('email') }}">
+        <input type="email" name="email" class="form-control" value="{{ old('email') }}" placeholder="nama@contoh.com">
+        @error('email')
+            <div class="text-danger small">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-6">
         <label class="form-label">No. Telepon <span class="text-danger">*</span></label>
-        <input type="text" name="phone" class="form-control" value="{{ old('phone') }}" required>
+        <input type="text" name="phone" class="form-control" value="{{ old('phone') }}" inputmode="numeric" pattern="[0-9]+" maxlength="50" placeholder="08123456789" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+        @error('phone')
+            <div class="text-danger small">{{ $message }}</div>
+        @enderror
     </div>
-    <div class="col-md-6">
-        <label class="form-label">Kota</label>
-        <input type="text" name="city" class="form-control" value="{{ old('city') }}">
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Provinsi</label>
-        <input type="text" name="province" class="form-control" value="{{ old('province') }}">
-    </div>
+    @include('admin.partials.province-city-dropdown', [
+        'currentProvinceName' => old('province'),
+        'currentCityName' => old('city'),
+        'colClass' => 'col-md-6',
+    ])
     <div class="col-md-6">
         <label class="form-label">Kode Pos</label>
         <input type="text" name="postal_code" class="form-control" value="{{ old('postal_code') }}">

@@ -48,6 +48,7 @@ class ProductionOrderController extends Controller
             'items.unit',
         ])
             ->where('is_active', true)
+            ->whereHas('product')
             ->orderByDesc('created_at')
             ->get();
 

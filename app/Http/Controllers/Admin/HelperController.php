@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\City;
 use App\Models\Employees;
+use App\Models\ProductVariant;
 use App\Models\Province;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -163,6 +164,56 @@ class HelperController extends Controller
                     'type_code' => $u->type_code,
                 ];
             }),
+        ]);
+    }
+
+    /**
+     * Return product variants for Select2 AJAX dropdown.
+     * Supports: ?search=term&page=1&per_page=30&nature=CODE
+     */
+    public function getProductVariants(Request $request)
+    {
+        $search = $request->get('search', '');
+        $page = $request->get('page', 1);
+        $perPage = $request->get('per_page', 30);
+        $natureCode = $request->get('nature');
+
+        $query = ProductVariant::query()
+            ->with(['product.defaultUnit', 'variantAttributes.attributeValue'])
+            ->whereNull('deleted_at')
+            ->whereHas('product', function ($q) use ($natureCode) {
+                $q->where('is_stock_item', true)->whereNull('deleted_at');
+                if ($natureCode) {
+                    $q->whereHas('nature', fn ($n) => $n->where('code', $natureCode));
+                }
+            });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('sku', 'ILIKE', "%{$search}%")
+                    ->orWhereHas('product', fn ($p) => $p->where('name', 'ILIKE', "%{$search}%"));
+            });
+        }
+
+        $total = $query->count();
+        $variants = $query->orderBy('created_at')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
+        return response()->json([
+            'results' => $variants->map(function ($v) {
+                return [
+                    'id' => $v->id,
+                    'text' => $v->display_name,
+                    'product_id' => $v->product_id,
+                    'unit_id' => $v->product?->default_unit_id,
+                    'unit_label' => $v->product?->defaultUnit?->code,
+                ];
+            })->filter(fn ($o) => ! empty($o['unit_id']))->values(),
+            'pagination' => [
+                'more' => ($page * $perPage) < $total,
+            ],
         ]);
     }
 

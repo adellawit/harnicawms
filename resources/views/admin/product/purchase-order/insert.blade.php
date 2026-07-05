@@ -638,10 +638,6 @@
 
                 $('input[name="po_kind"][value="' + kind + '"]').prop('checked', true);
 
-                if (!lockDocumentTypeToSub) {
-                    $('.po-kind-option[data-kind="standalone"], .po-kind-option[data-kind="master"]').toggle(!isSubMode);
-                }
-
                 $('#parent-po-wrap').toggle(isSubMode);
                 $('#btnAddItem').toggle(!isSubMode);
                 $('#supplier_id').prop('disabled', isSubMode);

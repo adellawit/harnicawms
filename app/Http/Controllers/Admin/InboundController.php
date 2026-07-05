@@ -17,7 +17,7 @@ class InboundController extends Controller
 {
     public function index()
     {
-        $layers = ProductCostLayer::with(['variant.product', 'branch'])
+        $layers = ProductCostLayer::with(['variant.product', 'branch', 'unit'])
             ->orderByDesc('created_at')
             ->limit(100)
             ->get();
