@@ -19,6 +19,7 @@ class BomItem extends Model
         'component_variant_id',
         'unit_id',
         'quantity',
+        'last_unit_cost',
         'notes',
         'created_by',
         'updated_by',
@@ -26,6 +27,7 @@ class BomItem extends Model
 
     protected $casts = [
         'quantity' => 'decimal:6',
+        'last_unit_cost' => 'decimal:4',
     ];
 
     public function bom(): BelongsTo

@@ -47,13 +47,31 @@
                                 <td class="text-center">{{ $bom ? $bom->items->count() : '-' }}</td>
                                 <td class="text-end">
                                     @if ($bom)
-                                        <a href="{{ route('bom.show', $bom->id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="ti ti-eye me-1"></i> Lihat
-                                        </a>
-                                        <form method="POST" action="{{ route('bom.destroy', $bom->id) }}" class="d-inline" onsubmit="return confirm('Hapus resep produk ini?')">
-                                            @csrf
-                                            <button class="btn btn-sm btn-icon btn-outline-danger"><i class="ti ti-trash"></i></button>
-                                        </form>
+                                        <div class="dropdown">
+                                            <button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                                <i class="ti ti-dots-vertical text-primary"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('bom.show', $bom->id) }}">
+                                                        <i class="ti ti-eye me-2 text-primary"></i>Lihat
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('bom.edit', $bom->id) }}">
+                                                        <i class="ti ti-pencil me-2 text-warning"></i>Edit
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <form method="POST" action="{{ route('bom.destroy', $bom->id) }}" onsubmit="return confirm('Hapus resep produk ini?')">
+                                                        @csrf
+                                                        <button type="submit" class="dropdown-item">
+                                                            <i class="ti ti-trash me-2 text-danger"></i>Hapus
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
                                     @else
                                         <a href="{{ route('bom.create', ['product_variant_id' => $variant->id]) }}" class="btn btn-sm btn-primary">
                                             <i class="ti ti-plus me-1"></i> Input BOM
@@ -69,4 +87,16 @@
             </div>
         </div>
     </div>
+
+    @push('page-js')
+    <script>
+        document.querySelectorAll('.table-responsive .dropdown-toggle[data-bs-toggle="dropdown"]').forEach(function (toggle) {
+            bootstrap.Dropdown.getOrCreateInstance(toggle, {
+                popperConfig: function (defaultConfig) {
+                    return Object.assign({}, defaultConfig, { strategy: 'fixed' });
+                },
+            });
+        });
+    </script>
+    @endpush
 </x-app-layout>

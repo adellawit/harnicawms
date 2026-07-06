@@ -28,10 +28,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::group(['prefix' => 'bom'], function () {
         Route::get('/', [BomController::class, 'index'])->name('bom.index')->middleware('permission:Bill of Materials,is_read');
         Route::get('/create', [BomController::class, 'create'])->name('bom.create')->middleware('permission:Bill of Materials,is_create');
-        Route::get('/output-units', [BomController::class, 'outputUnits'])->name('bom.output-units')->middleware('permission:Bill of Materials,is_create');
-        Route::get('/calculate', [BomController::class, 'calculate'])->name('bom.calculate')->middleware('permission:Bill of Materials,is_create');
         Route::post('/', [BomController::class, 'store'])->name('bom.store')->middleware('permission:Bill of Materials,is_create');
         Route::get('/{id}', [BomController::class, 'show'])->name('bom.show')->middleware('permission:Bill of Materials,is_read');
+        Route::get('/{id}/edit', [BomController::class, 'edit'])->name('bom.edit')->middleware('permission:Bill of Materials,is_update');
+        Route::put('/{id}', [BomController::class, 'update'])->name('bom.update')->middleware('permission:Bill of Materials,is_update');
         Route::post('/{id}/delete', [BomController::class, 'destroy'])->name('bom.destroy')->middleware('permission:Bill of Materials,is_delete');
     });
 
