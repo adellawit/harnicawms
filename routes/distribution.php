@@ -28,6 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::group(['prefix' => 'bom'], function () {
         Route::get('/', [BomController::class, 'index'])->name('bom.index')->middleware('permission:Bill of Materials,is_read');
         Route::get('/create', [BomController::class, 'create'])->name('bom.create')->middleware('permission:Bill of Materials,is_create');
+        Route::get('/output-units', [BomController::class, 'outputUnits'])->name('bom.output-units')->middleware('permission:Bill of Materials,is_create');
+        Route::get('/calculate', [BomController::class, 'calculate'])->name('bom.calculate')->middleware('permission:Bill of Materials,is_create');
         Route::post('/', [BomController::class, 'store'])->name('bom.store')->middleware('permission:Bill of Materials,is_create');
         Route::get('/{id}', [BomController::class, 'show'])->name('bom.show')->middleware('permission:Bill of Materials,is_read');
         Route::post('/{id}/delete', [BomController::class, 'destroy'])->name('bom.destroy')->middleware('permission:Bill of Materials,is_delete');
@@ -38,6 +40,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [ProductionOrderController::class, 'index'])->name('production.index')->middleware('permission:Production Order,is_read');
         Route::get('/create', [ProductionOrderController::class, 'create'])->name('production.create')->middleware('permission:Production Order,is_create');
         Route::get('/bom-preview', [ProductionOrderController::class, 'bomPreview'])->name('production.bom-preview')->middleware('permission:Production Order,is_create');
+        Route::get('/simulate', [ProductionOrderController::class, 'simulate'])->name('production.simulate')->middleware('permission:Production Order,is_create');
         Route::post('/', [ProductionOrderController::class, 'store'])->name('production.store')->middleware('permission:Production Order,is_create');
         Route::get('/{id}', [ProductionOrderController::class, 'show'])->name('production.show')->middleware('permission:Production Order,is_read');
         Route::post('/{id}/complete', [ProductionOrderController::class, 'complete'])->name('production.complete')->middleware('permission:Production Order,is_update');

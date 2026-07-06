@@ -17,7 +17,11 @@ class StockDisplayService
      *   min_stock: float,
      *   stock_by_units: array<int, array{unit_id: ?string, unit: string, quantity: float}>,
      *   show_unit_detail: bool,
-     *   conversion_hint: ?string
+     *   conversion_hint: ?string,
+     *   smallest_quantity: float,
+     *   smallest_unit: string,
+     *   smallest_unit_id: ?string,
+     *   has_smallest_display: bool
      * }
      */
     public function build(Product $product, Collection $unitStockRows, string $displayUnitMode = 'large'): array
@@ -63,6 +67,21 @@ class StockDisplayService
         }
 
         $hasConversionChain = $largeUnitId && $smallUnitId && $largeUnitId !== $smallUnitId;
+        $smallestUnit = $units->firstWhere('id', $smallUnitId) ?? null;
+        $smallestUnitLabel = $smallestUnit?->symbol ?? $smallestUnit?->name ?? '-';
+
+        if ($hasConversionChain && $smallUnitId) {
+            $stockByUnits = array_map(function (array $row) use ($product, $smallUnitId, $smallestUnitLabel) {
+                $smallestQty = $row['unit_id'] === $smallUnitId
+                    ? $row['quantity']
+                    : UnitConversionService::convertQuantity($product, $row['quantity'], $row['unit_id'], $smallUnitId);
+
+                $row['smallest_quantity'] = $smallestQty;
+                $row['smallest_unit'] = $smallestUnitLabel;
+
+                return $row;
+            }, $stockByUnits);
+        }
 
         return [
             'quantity' => $displayQty,
@@ -72,6 +91,10 @@ class StockDisplayService
             'stock_by_units' => $stockByUnits,
             'show_unit_detail' => count($stockByUnits) > 1 || $hasConversionChain,
             'conversion_hint' => $displayUnitId ? $product->getBarcodeUnitConversionHint($displayUnitId) : null,
+            'smallest_quantity' => $totalSmallest,
+            'smallest_unit' => $smallestUnitLabel,
+            'smallest_unit_id' => $smallUnitId,
+            'has_smallest_display' => $hasConversionChain,
         ];
     }
 

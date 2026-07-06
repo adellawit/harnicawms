@@ -105,9 +105,8 @@ class PartnerApplicationController extends Controller
             ->where('company_id', $application->company_id)
             ->orderBy('name')
             ->get();
-        $variants = WmsContext::variantOptions();
 
-        return view('admin.partner.applications.show', compact('application', 'agents', 'variants'));
+        return view('admin.partner.applications.show', compact('application', 'agents'));
     }
 
     public function followup(Request $request, string $id)

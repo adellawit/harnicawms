@@ -131,11 +131,19 @@
                                         {{ format_number($displayQty, 2, true) }}
                                         <small class="text-muted">{{ $item['unit'] }}</small>
                                     </div>
+                                    @if(!empty($item['has_smallest_display']) && ($displayUnitMode ?? 'large') === 'large')
+                                        <small class="text-primary d-block fw-semibold">
+                                            = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
+                                        </small>
+                                    @endif
                                     @if(!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
                                         <div class="stock-unit-detail mt-1">
                                             @foreach($item['stock_by_units'] as $unitStock)
                                                 <small class="text-muted d-block">
                                                     {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
+                                                    @if(($displayUnitMode ?? 'large') === 'large' && isset($unitStock['smallest_quantity']) && $unitStock['smallest_quantity'] !== null)
+                                                        <span class="text-primary">(= {{ format_number((float) $unitStock['smallest_quantity'], 2, true) }} {{ $unitStock['smallest_unit'] }})</span>
+                                                    @endif
                                                 </small>
                                             @endforeach
                                         </div>

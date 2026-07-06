@@ -25,6 +25,9 @@ class ProductPurchaseOrderItem extends Model
         'quantity',
         'carton_qty',
         'carton_display',
+        'batch_number',
+        'expiry_date',
+        'product_batch_id',
         'unit_price',
         'discount_amount',
         'subtotal',
@@ -37,6 +40,7 @@ class ProductPurchaseOrderItem extends Model
     protected $casts = [
         'quantity' => 'decimal:6',
         'carton_qty' => 'decimal:6',
+        'expiry_date' => 'date',
         'unit_price' => 'decimal:4',
         'discount_amount' => 'decimal:4',
         'subtotal' => 'decimal:4',
@@ -65,6 +69,11 @@ class ProductPurchaseOrderItem extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
+
+    public function productBatch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'product_batch_id', 'id');
     }
 
     public function receiveItems(): HasMany

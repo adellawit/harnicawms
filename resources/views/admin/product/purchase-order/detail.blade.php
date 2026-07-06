@@ -260,6 +260,8 @@
                                 <th>Product</th>
                                 <th>Variant</th>
                                 <th>Unit</th>
+                                <th>Batch</th>
+                                <th>Expired</th>
                                 <th class="text-end">Ordered</th>
                                 <th class="text-end">Received</th>
                                 <th class="text-center">Progress</th>
@@ -291,6 +293,14 @@
                                     @endif
                                 </td>
                                 <td>{{ $item->unit ? ($item->unit->symbol ?: $item->unit->name) : '-' }}</td>
+                                <td>{{ $item->batch_number ?: '-' }}</td>
+                                <td>
+                                    @if($item->expiry_date)
+                                        <span class="badge bg-label-warning">{{ $item->expiry_date->format('d/m/Y') }}</span>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                                 <td class="text-end">{{ format_number($ordered, 2, true) }}</td>
                                 <td class="text-end">
                                     <span class="{{ $pct >= 100 ? 'text-success fw-bold' : ($received > 0 ? 'text-info' : '') }}">

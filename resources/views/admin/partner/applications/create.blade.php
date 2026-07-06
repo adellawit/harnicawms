@@ -1,6 +1,14 @@
 <x-app-layout>
     @section('title', 'Tambah Pendaftaran Partner | ')
 
+    @push('vendor-css')
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+    @endpush
+
+    @push('vendor-js')
+        <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+    @endpush
+
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],

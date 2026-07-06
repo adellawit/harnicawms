@@ -38,4 +38,9 @@ class ProductionOrderOutput extends Model
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id', 'id');
     }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
 }

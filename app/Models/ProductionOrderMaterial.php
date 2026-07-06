@@ -38,4 +38,9 @@ class ProductionOrderMaterial extends Model
     {
         return $this->belongsTo(ProductVariant::class, 'component_variant_id', 'id');
     }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
 }

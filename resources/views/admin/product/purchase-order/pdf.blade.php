@@ -105,6 +105,8 @@
                 <th>Nama Barang</th>
                 <th class="text-center" style="width:40px;">Qty</th>
                 <th class="text-center" style="width:45px;">Satuan</th>
+                <th class="text-center" style="width:55px;">Batch</th>
+                <th class="text-center" style="width:50px;">Expired</th>
                 <th class="text-center" style="width:45px;">Karton</th>
                 @if($showPrices)
                     <th class="text-right" style="width:65px;">Harga</th>
@@ -126,6 +128,8 @@
                     </td>
                     <td class="text-right">{{ format_number((float) $item->quantity, 2, true) }}</td>
                     <td class="text-center">{{ $item->unit ? ($item->unit->symbol ?: $item->unit->name) : '-' }}</td>
+                    <td class="text-center" style="font-size:9px;">{{ $item->batch_number ?: '-' }}</td>
+                    <td class="text-center" style="font-size:9px;">{{ $item->expiry_date?->format('d/m/Y') ?: '-' }}</td>
                     <td class="text-right" style="font-size:9px;">{{ $item->carton_display_label !== '-' ? $item->carton_display_label : '-' }}</td>
                     @if($showPrices)
                         <td class="text-right">{{ format_number((float) $item->unit_price, 2, true) }}</td>

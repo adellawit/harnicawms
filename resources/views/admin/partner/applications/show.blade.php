@@ -1,6 +1,8 @@
 <x-app-layout>
     @section('title', 'Detail Partner Application | ')
 
+    @include('admin.partials.product-variant-select2')
+
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
@@ -138,16 +140,13 @@
 
     @push('page-js')
     <script>
-        const VARIANTS = @json($variants ?? []);
         let initialLineIndex = 0;
-        function initialOptions() {
-            return '<option value="">-- Pilih produk --</option>' + VARIANTS.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
-        }
         function addInitialLine() {
             const el = document.createElement('div');
             el.className = 'border rounded p-2 mb-2';
-            el.innerHTML = `<select name="lines[${initialLineIndex}][variant_id]" class="form-select mb-2">${initialOptions()}</select><div class="row g-2"><div class="col-6"><input type="number" min="0" step="any" name="lines[${initialLineIndex}][qty]" class="form-control" placeholder="Qty"></div><div class="col-6"><input type="number" min="0" step="any" name="lines[${initialLineIndex}][unit_price]" class="form-control" placeholder="Harga"></div></div>`;
+            el.innerHTML = `<select name="lines[${initialLineIndex}][variant_id]" class="form-select mb-2 variant-select" style="width: 100%;"><option value="">-- Pilih produk --</option></select><div class="row g-2"><div class="col-6"><input type="number" min="0" step="any" name="lines[${initialLineIndex}][qty]" class="form-control" placeholder="Qty"></div><div class="col-6"><input type="number" min="0" step="any" name="lines[${initialLineIndex}][unit_price]" class="form-control" placeholder="Harga"></div></div>`;
             document.getElementById('initial-lines').appendChild(el);
+            window.initProductVariantSelect2($(el).find('.variant-select'));
             initialLineIndex++;
         }
     </script>

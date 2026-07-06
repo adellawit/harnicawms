@@ -124,6 +124,8 @@
                             <tr>
                                 <th>Product</th>
                                 <th>Unit</th>
+                                <th>Batch</th>
+                                <th>Expired</th>
                                 <th class="text-end">Qty PO</th>
                                 <th class="text-end">Diterima</th>
                                 <th class="text-end">Unit Price</th>
@@ -131,11 +133,11 @@
                             </tr>
                         </thead>
                         <tbody id="poItemsModalBody">
-                            <tr><td colspan="6" class="text-center text-muted py-3">-</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-3">-</td></tr>
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <th colspan="5" class="text-end">Total PO</th>
+                                <th colspan="7" class="text-end">Total PO</th>
                                 <th class="text-end" id="poItemsModalTotal">0</th>
                             </tr>
                         </tfoot>
@@ -297,19 +299,21 @@
                 var rows = '';
                 var items = po.items || [];
                 if (!items.length) {
-                    rows = '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada item.</td></tr>';
+                    rows = '<tr><td colspan="8" class="text-center text-muted py-3">Tidak ada item.</td></tr>';
                 } else {
                     items.forEach(function (item) {
                         rows += '<tr>'
                             + '<td>' + (item.product_label || item.product_name || '-') + '</td>'
                             + '<td>' + (item.unit_label || '-') + '</td>'
+                            + '<td>' + (item.batch_number || '-') + '</td>'
+                            + '<td>' + (item.expiry_date || '-') + '</td>'
                             + '<td class="text-end">' + formatNumber(item.quantity) + '</td>'
                             + '<td class="text-end">' + formatNumber(item.quantity_received) + '</td>'
                             + '<td class="text-end">' + formatNumber(item.unit_price) + '</td>'
                             + '<td class="text-end">' + formatNumber(item.subtotal) + '</td>'
                             + '</tr>';
                         if (item.carton_display && item.carton_display !== '-') {
-                            rows += '<tr class="table-light"><td colspan="6" class="py-1 ps-4"><small class="text-muted">MC: ' + item.carton_display + '</small></td></tr>';
+                            rows += '<tr class="table-light"><td colspan="8" class="py-1 ps-4"><small class="text-muted">MC: ' + item.carton_display + '</small></td></tr>';
                         }
                     });
                 }

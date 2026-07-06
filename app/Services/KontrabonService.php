@@ -135,6 +135,8 @@ class KontrabonService
                 'product_label' => $productLabel,
                 'variant_sku' => $item->variant?->sku,
                 'unit_label' => $item->unit?->symbol ?: $item->unit?->name,
+                'batch_number' => $item->batch_number,
+                'expiry_date' => $item->expiry_date?->format('d/m/Y'),
                 'quantity' => (float) $item->quantity,
                 'quantity_received' => $received,
                 'quantity_remaining' => max(0, (float) $item->quantity - $received),

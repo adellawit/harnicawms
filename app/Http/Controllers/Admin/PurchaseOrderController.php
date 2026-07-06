@@ -17,6 +17,7 @@ use App\Models\ProductVariant;
 use App\Models\StockMutationType;
 use App\Models\Supplier;
 use App\Models\Warehouse;
+use App\Services\BatchStockService;
 use App\Services\InventoryCostService;
 use App\Services\PurchaseOrderHierarchyService;
 use App\Services\StockMutationService;
@@ -409,6 +410,8 @@ class PurchaseOrderController extends Controller
             'items.*.variant_id' => 'nullable|exists:product.product_variants,id',
             'items.*.unit_id' => 'required|exists:product.product_units,id',
             'items.*.quantity' => 'required|numeric|min:0.000001',
+            'items.*.batch_number' => 'required|string|max:100',
+            'items.*.expiry_date' => 'required|date',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
@@ -514,6 +517,8 @@ class PurchaseOrderController extends Controller
                     'quantity' => $qty,
                     'carton_qty' => $carton['carton_qty'],
                     'carton_display' => $carton['carton_display'],
+                    'batch_number' => $this->normalizeBatchNumber($item['batch_number'] ?? ''),
+                    'expiry_date' => $item['expiry_date'] ?? null,
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -635,6 +640,8 @@ class PurchaseOrderController extends Controller
             'items.*.variant_id' => 'nullable|exists:product.product_variants,id',
             'items.*.unit_id' => 'required|exists:product.product_units,id',
             'items.*.quantity' => 'required|numeric|min:0.000001',
+            'items.*.batch_number' => 'required|string|max:100',
+            'items.*.expiry_date' => 'required|date',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
@@ -724,6 +731,8 @@ class PurchaseOrderController extends Controller
                     'quantity' => $qty,
                     'carton_qty' => $carton['carton_qty'],
                     'carton_display' => $carton['carton_display'],
+                    'batch_number' => $this->normalizeBatchNumber($item['batch_number'] ?? ''),
+                    'expiry_date' => $item['expiry_date'] ?? null,
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -942,6 +951,7 @@ class PurchaseOrderController extends Controller
                 $item['discount_amount'] = (float) (normalize_number_input($item['discount_amount'] ?? 0) ?? 0);
                 $item['variant_id'] = $item['variant_id'] ?? null;
                 $item['parent_item_id'] = $item['parent_item_id'] ?? null;
+                $item['batch_number'] = $this->normalizeBatchNumber($item['batch_number'] ?? '');
 
                 return $item;
             })
@@ -954,6 +964,7 @@ class PurchaseOrderController extends Controller
                     $item['product_id'],
                     $item['variant_id'] ?: 'null',
                     $item['unit_id'],
+                    $item['batch_number'] ?: 'null',
                 ]);
             })
             ->map(function ($group) {
@@ -1106,12 +1117,38 @@ class PurchaseOrderController extends Controller
                 $poItem = $purchase->items->firstWhere('id', $item['purchase_order_item_id']);
                 $qtyReceived = (float) $item['quantity_received'];
 
+                $expiryDate = optional($poItem->expiry_date)->toDateString();
+                $productBatch = null;
+                if ($poItem->batch_number) {
+                    $productBatch = BatchStockService::receiveInbound(
+                        productId: $poItem->product_id,
+                        companyId: $companyId,
+                        batchNumber: $poItem->batch_number,
+                        expiryDate: $expiryDate,
+                        warehouseId: $warehouseId,
+                        branchId: $stockBranchId,
+                        unitId: $poItem->unit_id,
+                        quantity: $qtyReceived,
+                        userId: $user->id,
+                    );
+
+                    if (! $poItem->product_batch_id) {
+                        $poItem->update([
+                            'product_batch_id' => $productBatch->id,
+                            'updated_by' => $user->id,
+                        ]);
+                    }
+                }
+
                 ProductPurchaseOrderReceiveItem::create([
                     'receive_id' => $receive->id,
                     'purchase_order_item_id' => $poItem->id,
                     'product_id' => $poItem->product_id,
                     'variant_id' => $poItem->variant_id,
                     'unit_id' => $poItem->unit_id,
+                    'batch_number' => $poItem->batch_number,
+                    'expiry_date' => $poItem->expiry_date,
+                    'product_batch_id' => $productBatch?->id,
                     'quantity_received' => $qtyReceived,
                     'notes' => $item['notes'] ?? null,
                     'created_by' => $user->id,
@@ -1149,6 +1186,7 @@ class PurchaseOrderController extends Controller
                         userId: $user->id,
                         notes: "Receive {$receive->receive_number} from PO {$purchase->purchase_number}",
                         date: $request->receive_date,
+                        expiryDate: $expiryDate,
                         warehouseId: $warehouseId,
                     );
                 }
@@ -1307,5 +1345,10 @@ class PurchaseOrderController extends Controller
             'carton_qty' => PurchaseOrderCartonDisplay::boxQuantity($product, $quantity, $unitId),
             'carton_display' => PurchaseOrderCartonDisplay::format($product, $quantity, $unitId, $unitsById),
         ];
+    }
+
+    protected function normalizeBatchNumber(?string $batchNumber): string
+    {
+        return strtoupper(trim((string) $batchNumber));
     }
 }
