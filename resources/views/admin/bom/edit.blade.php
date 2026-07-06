@@ -1,5 +1,5 @@
 <x-app-layout>
-    @section('title', 'Buat BOM | ')
+    @section('title', 'Edit BOM | ')
 
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
@@ -7,7 +7,7 @@
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Produksi'],
                 ['label' => 'Bill of Materials', 'url' => route('bom.index')],
-                ['label' => 'Buat', 'active' => true],
+                ['label' => 'Edit', 'active' => true],
             ]"
         />
 
@@ -15,41 +15,27 @@
             <x-alert type="danger" class="mb-3"><ul class="m-0">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></x-alert>
         @endif
 
-        <form method="POST" action="{{ route('bom.store') }}" id="bomForm">
+        <form method="POST" action="{{ route('bom.update', $bom->id) }}" id="bomForm">
             @csrf
+            @method('PUT')
             <div class="card mb-4">
                 <div class="card-header"><h5 class="card-title mb-0">Produk Jadi (Output)</h5></div>
                 <div class="card-body">
-                    @if ($selected)
-                        <input type="hidden" name="product_variant_id" id="productVariantId" value="{{ $selected->id }}">
-                        <div class="d-flex align-items-center gap-3 p-3 rounded bg-label-primary mb-3">
-                            <span class="avatar-initial rounded-circle bg-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;">
-                                <i class="ti ti-box-seam fs-4 text-white"></i>
-                            </span>
-                            <div>
-                                <div class="text-uppercase small text-muted mb-1">Produk Jadi</div>
-                                <div class="fw-bold fs-5 mb-0">{{ $selected->display_name ?? $selected->product?->name }}</div>
-                                @if ($selected->product?->defaultUnit)
-                                    <div class="small text-muted">Satuan dasar: {{ $selected->product->defaultUnit->name }}</div>
-                                @endif
-                            </div>
+                    <div class="d-flex align-items-center gap-3 p-3 rounded bg-label-primary mb-3">
+                        <span class="avatar-initial rounded-circle bg-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;">
+                            <i class="ti ti-box-seam fs-4 text-white"></i>
+                        </span>
+                        <div>
+                            <div class="text-uppercase small text-muted mb-1">Produk Jadi</div>
+                            <div class="fw-bold fs-5 mb-0">{{ $bom->variant?->display_name ?? $bom->product?->name }}</div>
+                            @if ($bom->variant?->product?->defaultUnit)
+                                <div class="small text-muted">Satuan dasar: {{ $bom->variant->product->defaultUnit->name }}</div>
+                            @endif
                         </div>
-                    @else
-                        <div class="mb-3">
-                            <label class="form-label">Produk Jadi <span class="text-danger">*</span></label>
-                            <select name="product_variant_id" id="productVariantId" class="form-select" required>
-                                <option value="">-- Pilih --</option>
-                                @foreach ($outputs as $v)
-                                    <option value="{{ $v['id'] }}" @selected(old('product_variant_id') === $v['id'])>{{ $v['label'] }} @if($v['nature'])[{{ $v['nature'] }}]@endif</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
+                    </div>
                     <div>
                         <label class="form-label">Nama Resep <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" required
-                            value="{{ old('name', $selected ? (($selected->display_name ?? $selected->product?->name) . ' - Resep Standar') : '') }}"
-                            placeholder="mis. Jamu Sehat Herbal - Resep Standar">
+                        <input type="text" name="name" class="form-control" required value="{{ old('name', $bom->name) }}">
                     </div>
                 </div>
             </div>
@@ -88,7 +74,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary"><i class="ti ti-check me-1"></i> Simpan Resep</button>
+            <button type="submit" class="btn btn-primary"><i class="ti ti-check me-1"></i> Simpan Perubahan</button>
             <a href="{{ route('bom.index') }}" class="btn btn-outline-secondary">Batal</a>
         </form>
     </div>
@@ -96,6 +82,7 @@
     @push('page-js')
     <script>
         const COMPONENTS = @json($components);
+        const PREFILL_ITEMS = @json($items);
         let idx = 0;
 
         function optionsHtml() {
@@ -163,7 +150,7 @@
             document.getElementById('summaryTotal').textContent = formatCurrency(total);
         }
 
-        function addRow() {
+        function addRow(prefill) {
             const rowIdx = idx;
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -174,11 +161,26 @@
                 <td class="text-end"><span id="hpp-baru-${rowIdx}" class="hpp-baru-value" data-cost="0">-</span></td>
                 <td><button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="this.closest('tr').remove(); updateSummary();"><i class="ti ti-x"></i></button></td>`;
             document.getElementById('rows').appendChild(tr);
+
+            if (prefill && prefill.variant_id) {
+                const compSel = tr.querySelector('select[name$="[variant_id]"]');
+                compSel.value = prefill.variant_id;
+                const comp = COMPONENTS.find(c => c.id === prefill.variant_id);
+                const unitSel = tr.querySelector('select[id^="unit-"]');
+                unitSel.innerHTML = unitOptionsHtml(comp, prefill.unit_id);
+                tr.querySelector('input[name$="[quantity]"]').value = prefill.quantity;
+                setRowCost(rowIdx, prefill.old_cost, prefill.new_cost);
+            }
+
             idx++;
             updateSummary();
         }
 
-        addRow();
+        if (PREFILL_ITEMS.length) {
+            PREFILL_ITEMS.forEach(item => addRow(item));
+        } else {
+            addRow();
+        }
     </script>
     @endpush
 </x-app-layout>

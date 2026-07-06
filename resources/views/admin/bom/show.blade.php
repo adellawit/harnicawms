@@ -79,6 +79,7 @@
 
         <div class="mt-3">
             <a href="{{ route('production.create') }}" class="btn btn-primary"><i class="ti ti-tool me-1"></i> Buat Production Order</a>
+            <a href="{{ route('bom.edit', $bom->id) }}" class="btn btn-outline-secondary"><i class="ti ti-edit me-1"></i> Edit Resep</a>
             <a href="{{ route('bom.index') }}" class="btn btn-outline-secondary">Kembali</a>
         </div>
     </div>
