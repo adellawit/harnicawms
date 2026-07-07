@@ -139,7 +139,7 @@
                                     <select name="variant_id" id="variant_id" class="form-select select2">
                                         <option value="">— Semua / Default —</option>
                                         @foreach ($variants as $variant)
-                                            <option value="{{ $variant['id'] }}">{{ $variant['label'] }}</option>
+                                            <option value="{{ $variant['id'] }}" @selected(($prefillVariantId ?? null) === $variant['id'])>{{ $variant['label'] }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -154,7 +154,7 @@
                                     class="form-control"
                                     min="1"
                                     max="{{ $maxHierarchyParentQty ?? 500 }}"
-                                    value="{{ old('quantity', 1) }}"
+                                    value="{{ old('quantity', $prefillQuantity ?? 1) }}"
                                     required
                                 >
                                 <small class="text-muted" id="quantityHelp">Masukkan qty satuan terbesar. Qty level menengah &amp; kecil akan dihitung otomatis.</small>

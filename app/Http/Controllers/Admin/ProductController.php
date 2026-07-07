@@ -316,7 +316,7 @@ class ProductController extends Controller
         }
     }
 
-    public function printBarcodeView(string $id, ProductLabelSerialService $serialService)
+    public function printBarcodeView(Request $request, string $id, ProductLabelSerialService $serialService)
     {
         $product = Product::with([
             'defaultUnit',
@@ -339,6 +339,10 @@ class ProductController extends Controller
                 'label' => $attrs !== '' ? $attrs : ($variant->sku ?: 'Default'),
             ];
         })->values();
+
+        $prefillVariantId = $request->query('variant_id');
+        $prefillUnitId = $request->query('unit_id');
+        $prefillQuantity = $request->query('quantity');
 
         $units = $product->getBarcodeUnits()->values()->map(function (ProductUnit $unit, int $index) use ($product, $serialService) {
             $level = $index + 1;
@@ -378,7 +382,11 @@ class ProductController extends Controller
             'variants' => $variants,
             'units' => $units,
             'unitChain' => $unitChain,
-            'defaultUnitId' => $product->default_unit_id,
+            'defaultUnitId' => ($prefillUnitId && $units->contains(fn (array $u) => $u['id'] === $prefillUnitId))
+                ? $prefillUnitId
+                : $product->default_unit_id,
+            'prefillVariantId' => $prefillVariantId,
+            'prefillQuantity' => $prefillQuantity,
             'distributorName' => $distributorName,
             'hasUnitHierarchy' => $units->count() > 1,
             'singlePrintMaxLabels' => self::BARCODE_SINGLE_MAX_LABELS,
