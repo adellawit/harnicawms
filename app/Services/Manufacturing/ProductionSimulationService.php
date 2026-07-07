@@ -242,14 +242,21 @@ class ProductionSimulationService
                 continue;
             }
 
-            $full = (int) floor(($remaining / $factor) + 1e-9);
+            // Epsilon di sini sengaja jauh lebih besar dari sekadar noise float (1e-9):
+            // qty yang masuk sini seringkali berasal dari pembagian oleh faktor yang bukan
+            // kelipatan 10 (mis. ÷30 saat konversi krt->pack), yang menghasilkan desimal
+            // berulang tak berujung dan sudah kepotong presisi saat disimpan (decimal:6).
+            // Tanpa epsilon yang cukup besar, "24.99999 pack" (seharusnya 25) di-floor jadi
+            // 24, dan sisa 0.99999-nya menggelinding ke level lebih kecil sebagai angka yang
+            // tampak acak (mis. "9 box · 3.9996 sch").
+            $full = (int) floor(($remaining / $factor) + 1e-4);
             if ($full > 0) {
                 $breakdown[] = [
                     'unit_id' => $unitId,
                     'label' => $label,
                     'qty' => (float) $full,
                 ];
-                $remaining -= $full * $factor;
+                $remaining = max(0.0, $remaining - $full * $factor);
             }
         }
 

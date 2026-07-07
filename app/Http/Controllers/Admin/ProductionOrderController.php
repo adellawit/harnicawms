@@ -114,7 +114,12 @@ class ProductionOrderController extends Controller
                 'label' => $item->componentVariant?->display_name ?? $item->componentProduct?->name,
                 'qty' => (float) $item->quantity * $scale,
                 'unit' => $item->unit?->symbol ?? $item->unit?->name ?? '',
-                'available' => $available,
+                // Stok yang sudah melewati beberapa kali konversi non-power-of-10 (mis. ÷30)
+                // bisa membawa sisa desimal sangat kecil (mis. 5079.99991). Ini murni kosmetik
+                // untuk preview — snap ke bilangan bulat terdekat kalau selisihnya remeh,
+                // supaya tidak menampilkan "5079.9999" yang membingungkan. Tidak memengaruhi
+                // nilai stok yang tersimpan atau pengecekan kecukupan stok saat receive.
+                'available' => (abs($available - round($available)) < 0.001) ? round($available) : round($available, 4),
             ];
         })->values();
 
