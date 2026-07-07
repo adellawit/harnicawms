@@ -356,6 +356,10 @@ class ProductionOrderController extends Controller
             'actual_unit_id' => ['required', 'uuid'],
         ]);
 
+        if (! $order->bom) {
+            return back()->withInput()->withErrors(['product_variant_id' => 'Produk ini belum punya resep (BOM). Buat resep dulu di menu Bill of Materials.']);
+        }
+
         try {
             $actualQtyInOutputUnit = ProductionQuantityNormalizer::toBomOutputUnit(
                 $order->bom,
