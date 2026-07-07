@@ -194,14 +194,18 @@ class Product extends Model
             fn ($row) => $row->from_unit_id === $fromUnitId && $row->to_unit_id === $toUnitId
         );
         if ($conv) {
-            return round($quantity * (float) $conv->conversion_factor, 6);
+            // Presisi tinggi di sini sengaja BUKAN presisi final — pembulatan ke 6 desimal
+            // terlalu dini menggeser hasil kalau nilai ini masih dikalikan lagi oleh caller
+            // (mis. skala BOM). Presisi akhir tetap dijaga oleh cast decimal:6 di kolom DB
+            // dan pembulatan tampilan di view.
+            return round($quantity * (float) $conv->conversion_factor, 10);
         }
 
         $convReverse = $conversions->first(
             fn ($row) => $row->from_unit_id === $toUnitId && $row->to_unit_id === $fromUnitId
         );
         if ($convReverse) {
-            return round($quantity / (float) $convReverse->conversion_factor, 6);
+            return round($quantity / (float) $convReverse->conversion_factor, 10);
         }
 
         return $this->convertQuantityMultiHop($quantity, $fromUnitId, $toUnitId);
@@ -219,7 +223,9 @@ class Product extends Model
             [$unitId, $qty] = array_shift($queue);
 
             if ($unitId === $toUnitId) {
-                return round($qty, 6);
+                // Sama seperti convertQuantity(): jangan bulatkan tajam di sini, nilai ini
+                // masih akan dikalikan lagi oleh caller (skala BOM dsb).
+                return round($qty, 10);
             }
 
             if (isset($visited[$unitId])) {
