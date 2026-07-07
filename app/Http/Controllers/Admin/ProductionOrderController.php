@@ -242,6 +242,76 @@ class ProductionOrderController extends Controller
         return redirect()->route('production.show', $order->id)->with('success', 'Production Order dibuat.');
     }
 
+    public function edit(string $id)
+    {
+        $order = ProductionOrder::with(['variant.product.defaultUnit', 'bom'])->findOrFail($id);
+
+        if ($order->status !== 'draft') {
+            return redirect()->route('production.show', $order->id)
+                ->with('error', 'Hanya production order berstatus Draft yang bisa diedit.');
+        }
+
+        $units = $order->bom ? ProductionSimulationService::unitOptions($order->bom->product) : [];
+
+        return view('admin.production.edit', compact('order', 'units'));
+    }
+
+    public function update(Request $request, string $id)
+    {
+        $order = ProductionOrder::with('bom')->findOrFail($id);
+
+        if ($order->status !== 'draft') {
+            return redirect()->route('production.show', $order->id)
+                ->with('error', 'Hanya production order berstatus Draft yang bisa diedit.');
+        }
+
+        $data = $request->validate([
+            'planned_qty' => ['required', 'numeric', 'min:0.000001'],
+            'planned_unit_id' => ['nullable', 'uuid'],
+            'overhead_cost' => ['nullable', 'numeric', 'min:0'],
+            'production_date' => ['nullable', 'date'],
+            'output_expiry_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $bom = $order->bom;
+        $plannedUnitId = $data['planned_unit_id'] ?? $bom->output_unit_id;
+
+        try {
+            $plannedInOutputUnit = ProductionQuantityNormalizer::toBomOutputUnit(
+                $bom,
+                (float) $data['planned_qty'],
+                $plannedUnitId
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['planned_qty' => $e->getMessage()]);
+        }
+
+        $order->update([
+            'planned_qty' => $plannedInOutputUnit,
+            'overhead_cost' => (float) ($data['overhead_cost'] ?? 0),
+            'production_date' => $data['production_date'] ?? $order->production_date,
+            'output_expiry_date' => $data['output_expiry_date'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('production.show', $order->id)->with('success', 'Production Order diperbarui.');
+    }
+
+    public function destroy(string $id)
+    {
+        $order = ProductionOrder::findOrFail($id);
+
+        if ($order->status !== 'draft') {
+            return back()->with('error', 'Hanya production order berstatus Draft yang bisa dihapus.');
+        }
+
+        $order->delete();
+
+        return redirect()->route('production.index')->with('success', 'Production Order dihapus.');
+    }
+
     public function show(string $id)
     {
         $order = ProductionOrder::with([
