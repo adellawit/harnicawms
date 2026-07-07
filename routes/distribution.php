@@ -41,7 +41,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/create', [ProductionOrderController::class, 'create'])->name('production.create')->middleware('permission:Production Order,is_create');
         Route::get('/bom-preview', [ProductionOrderController::class, 'bomPreview'])->name('production.bom-preview')->middleware('permission:Production Order,is_create');
         Route::get('/bom-for-product', [ProductionOrderController::class, 'bomForProduct'])->name('production.bom-for-product')->middleware('permission:Production Order,is_create');
-        Route::get('/simulate', [ProductionOrderController::class, 'simulate'])->name('production.simulate')->middleware('permission:Production Order,is_create');
         Route::post('/', [ProductionOrderController::class, 'store'])->name('production.store')->middleware('permission:Production Order,is_create');
         Route::get('/{id}/edit', [ProductionOrderController::class, 'edit'])->name('production.edit')->middleware('permission:Production Order,is_update');
         Route::put('/{id}', [ProductionOrderController::class, 'update'])->name('production.update')->middleware('permission:Production Order,is_update');

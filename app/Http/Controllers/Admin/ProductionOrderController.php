@@ -124,59 +124,6 @@ class ProductionOrderController extends Controller
         ]);
     }
 
-    public function simulate(Request $request)
-    {
-        $data = $request->validate([
-            'product_variant_id' => ['required', 'string'],
-            'planned_qty' => ['required', 'numeric', 'min:0.000001'],
-            'production_unit_id' => ['nullable', 'uuid'],
-        ]);
-
-        $bom = BillOfMaterial::with([
-            'product.unitConversions.fromUnit',
-            'product.unitConversions.toUnit',
-            'product.defaultUnit',
-            'outputUnit',
-            'variant',
-            'items.componentVariant.product.unitConversions.fromUnit',
-            'items.componentVariant.product.unitConversions.toUnit',
-            'items.componentVariant.product.defaultUnit',
-            'items.unit',
-        ])
-            ->where('product_variant_id', $data['product_variant_id'])
-            ->where('is_active', true)
-            ->firstOrFail();
-
-        $distId = optional(WmsContext::distributor())->id;
-        [$sourceWarehouseId, $branchId] = ManufacturingWarehouseResolver::resolveMaterialWarehouse($distId);
-        $warehouse = $sourceWarehouseId ? Warehouse::find($sourceWarehouseId) : null;
-        $productionUnitId = $data['production_unit_id'] ?? $bom->output_unit_id;
-
-        if (! $warehouse) {
-            return response()->json(['message' => 'Tidak ada gudang aktif untuk company ini.'], 422);
-        }
-
-        try {
-            $result = ProductionSimulationService::simulate(
-                $bom,
-                $branchId,
-                $warehouse->id,
-                (float) $data['planned_qty'],
-                $productionUnitId
-            );
-        } catch (\InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return response()->json(['message' => 'Gagal menghitung simulasi: '.$e->getMessage()], 500);
-        }
-
-        $result['warehouse_name'] = $warehouse->name;
-
-        return response()->json($result);
-    }
-
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -275,6 +222,11 @@ class ProductionOrderController extends Controller
         ]);
 
         $bom = $order->bom;
+
+        if (! $bom) {
+            return back()->withInput()->withErrors(['product_variant_id' => 'Produk ini belum punya resep (BOM). Buat resep dulu di menu Bill of Materials.']);
+        }
+
         $plannedUnitId = $data['planned_unit_id'] ?? $bom->output_unit_id;
 
         try {
