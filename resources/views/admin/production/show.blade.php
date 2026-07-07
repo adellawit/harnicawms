@@ -77,7 +77,7 @@
                     <div class="card-header"><h6 class="card-title mb-0">Bahan Baku Dikonsumsi</h6></div>
                     <div class="table-responsive">
                         <table class="table mb-0">
-                            <thead><tr><th>Bahan</th><th class="text-end">Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
+                            <thead><tr><th>Bahan</th><th class="text-end">Rencana</th><th class="text-end">Aktual Terpakai</th><th class="text-end">Sisa</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 @forelse ($order->materials as $m)
                                     @php
@@ -90,6 +90,8 @@
                                     @endphp
                                     <tr>
                                         <td>{{ $m->componentVariant?->display_name ?? $m->componentProduct?->name }}</td>
+                                        @php $sisa = (float) $m->expected_qty - $materialQty; @endphp
+                                        <td class="text-end">{{ rtrim(rtrim(number_format((float) $m->expected_qty, 4), '0'), '.') }} {{ $materialUnit }}</td>
                                         <td class="text-end">
                                             <div>
                                                 {{ rtrim(rtrim(number_format($materialQty, 4), '0'), '.') }}
@@ -99,15 +101,16 @@
                                                 <small class="text-muted">{{ $materialConversionHint }}</small>
                                             @endif
                                         </td>
+                                        <td class="text-end {{ $sisa > 0 ? 'text-success' : ($sisa < 0 ? 'text-danger' : '') }}">{{ rtrim(rtrim(number_format($sisa, 4), '0'), '.') }} {{ $materialUnit }}</td>
                                         <td class="text-end">Rp {{ number_format($m->unit_cost, 2) }}</td>
                                         <td class="text-end">Rp {{ number_format($m->total_cost, 2) }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="text-center text-muted py-3">Belum diproses.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-muted py-3">Belum diproses.</td></tr>
                                 @endforelse
                             </tbody>
                             @if ($order->materials->count())
-                            <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Total Biaya Bahan</td><td class="text-end">Rp {{ number_format($order->total_material_cost, 2) }}</td></tr></tfoot>
+                            <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total Biaya Bahan</td><td class="text-end">Rp {{ number_format($order->total_material_cost, 2) }}</td></tr></tfoot>
                             @endif
                         </table>
                     </div>

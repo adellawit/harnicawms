@@ -293,4 +293,40 @@ class ProductionOrderController extends Controller
 
         return redirect()->route('production.show', $order->id)->with('success', 'Produksi selesai di lantai. Lanjutkan ke Receiving untuk mencatat hasil aktual.');
     }
+
+    public function receiveView(string $id)
+    {
+        $order = ProductionOrder::with([
+            'product.defaultUnit',
+            'variant',
+            'outputUnit',
+            'bom.items.componentVariant.product',
+            'bom.items.unit',
+        ])->findOrFail($id);
+
+        if ($order->status !== 'pending_receiving') {
+            return redirect()->route('production.show', $order->id)
+                ->with('error', 'Production order ini belum siap untuk diterima.');
+        }
+
+        return view('admin.production.receive', compact('order'));
+    }
+
+    public function receive(Request $request, string $id)
+    {
+        $order = ProductionOrder::findOrFail($id);
+
+        $data = $request->validate([
+            'actual_qty' => ['required', 'numeric', 'min:0.000001'],
+        ]);
+
+        try {
+            ProductionService::receive($order, (float) $data['actual_qty'], Auth::id());
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('error', 'Gagal menerima hasil produksi: ' . $e->getMessage());
+        }
+
+        return redirect()->route('production.show', $order->id)
+            ->with('success', 'Hasil produksi diterima. Stok bahan baku terpotong dan produk jadi masuk gudang.');
+    }
 }
