@@ -320,6 +320,8 @@ class ProductionOrderController extends Controller
     {
         $order = ProductionOrder::with([
             'product.defaultUnit',
+            'product.unitConversions.fromUnit',
+            'product.unitConversions.toUnit',
             'variant',
             'outputUnit',
             'bom.items.componentVariant.product',
@@ -331,24 +333,51 @@ class ProductionOrderController extends Controller
                 ->with('error', 'Production order ini belum siap untuk diterima.');
         }
 
-        return view('admin.production.receive', compact('order'));
+        $units = ProductionSimulationService::unitOptions($order->product);
+
+        // Faktor konversi tiap satuan RELATIF ke output_unit_id order ini, dipakai
+        // JS di halaman Receiving untuk preview live (server tetap hitung ulang sendiri
+        // saat submit — ini murni tampilan).
+        $unitFactors = collect($units)->mapWithKeys(function (array $unit) use ($order) {
+            $factor = $order->product->convertQuantity(1.0, $unit['id'], $order->output_unit_id) ?? 1.0;
+
+            return [$unit['id'] => $factor];
+        });
+
+        return view('admin.production.receive', compact('order', 'units', 'unitFactors'));
     }
 
     public function receive(Request $request, string $id)
     {
-        $order = ProductionOrder::findOrFail($id);
+        $order = ProductionOrder::with('bom')->findOrFail($id);
 
         $data = $request->validate([
             'actual_qty' => ['required', 'numeric', 'min:0.000001'],
+            'actual_unit_id' => ['required', 'uuid'],
         ]);
 
         try {
-            ProductionService::receive($order, (float) $data['actual_qty'], Auth::id());
+            $actualQtyInOutputUnit = ProductionQuantityNormalizer::toBomOutputUnit(
+                $order->bom,
+                (float) $data['actual_qty'],
+                $data['actual_unit_id']
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['actual_qty' => $e->getMessage()]);
+        }
+
+        try {
+            ProductionService::receive($order, $actualQtyInOutputUnit, Auth::id());
         } catch (\Throwable $e) {
             return back()->withInput()->with('error', 'Gagal menerima hasil produksi: ' . $e->getMessage());
         }
 
-        return redirect()->route('production.show', $order->id)
-            ->with('success', 'Hasil produksi diterima. Stok bahan baku terpotong dan produk jadi masuk gudang.');
+        return redirect()->route('product.print-barcode.view', [
+            'id' => $order->product_id,
+            'variant_id' => $order->product_variant_id,
+            'unit_id' => $data['actual_unit_id'],
+            'quantity' => (int) round((float) $data['actual_qty']),
+            'print_mode' => 'hierarchy',
+        ])->with('success', 'Hasil produksi diterima. Stok bahan baku terpotong dan produk jadi masuk gudang.');
     }
 }

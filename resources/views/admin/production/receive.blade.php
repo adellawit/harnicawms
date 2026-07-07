@@ -43,6 +43,16 @@
                             <label class="form-label">Qty Aktual <span class="text-danger">*</span></label>
                             <input type="number" step="any" min="0.000001" name="actual_qty" id="actualQty" class="form-control" value="{{ old('actual_qty', (float) $order->planned_qty) }}" required>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Satuan <span class="text-danger">*</span></label>
+                            <select name="actual_unit_id" id="actualUnitId" class="form-select" required>
+                                @foreach ($units as $unit)
+                                    <option value="{{ $unit['id'] }}" @selected(old('actual_unit_id', $order->output_unit_id) === $unit['id'])>
+                                        {{ $unit['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -89,6 +99,7 @@
     @push('page-js')
     <script>
         const outputPerBatch = {{ $outputPerBatch }};
+        const unitFactors = @json($unitFactors);
 
         function formatQty(n) {
             return (+n).toFixed(4).replace(/\.?0+$/, '');
@@ -96,7 +107,10 @@
 
         function recalc() {
             const actualQty = parseFloat(document.getElementById('actualQty').value || '0');
-            const actualScale = outputPerBatch > 0 ? actualQty / outputPerBatch : actualQty;
+            const selectedUnitId = document.getElementById('actualUnitId').value;
+            const factor = unitFactors[selectedUnitId] ?? 1;
+            const actualQtyInOutputUnit = actualQty * factor;
+            const actualScale = outputPerBatch > 0 ? actualQtyInOutputUnit / outputPerBatch : actualQtyInOutputUnit;
 
             document.querySelectorAll('#materialRows tr').forEach(function (tr) {
                 const perBatchQty = parseFloat(tr.dataset.perBatchQty || '0');
@@ -114,6 +128,7 @@
         }
 
         document.getElementById('actualQty')?.addEventListener('input', recalc);
+        document.getElementById('actualUnitId')?.addEventListener('change', recalc);
         recalc();
     </script>
     @endpush
