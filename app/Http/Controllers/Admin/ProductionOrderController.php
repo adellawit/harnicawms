@@ -9,12 +9,11 @@ use App\Models\Warehouse;
 use App\Services\StockAvailabilityService;
 use App\Services\Manufacturing\ProductionService;
 use App\Services\Manufacturing\ProductionSimulationService;
-use App\Support\InventoryWarehouseContext;
+use App\Support\ManufacturingWarehouseResolver;
 use App\Support\ProductionQuantityNormalizer;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 
 class ProductionOrderController extends Controller
 {
@@ -38,53 +37,60 @@ class ProductionOrderController extends Controller
 
     public function create()
     {
-        $boms = BillOfMaterial::with([
+        return view('admin.production.create');
+    }
+
+    public function bomForProduct(Request $request)
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'string'],
+        ]);
+
+        $bom = BillOfMaterial::with([
             'product.unitConversions.fromUnit',
             'product.unitConversions.toUnit',
             'product.defaultUnit',
             'outputUnit',
             'variant',
-            'items.componentVariant.product',
-            'items.unit',
         ])
+            ->where('product_variant_id', $data['product_variant_id'])
             ->where('is_active', true)
-            ->whereHas('product')
-            ->orderByDesc('created_at')
-            ->get();
+            ->first();
 
-        $bomCatalog = $boms->map(function (BillOfMaterial $bom) {
-            return [
-                'id' => $bom->id,
-                'output_unit_id' => $bom->output_unit_id,
-                'output_quantity' => (float) $bom->output_quantity,
-                'output_unit' => $bom->outputUnit?->symbol ?? $bom->outputUnit?->name ?? '',
-                'units' => ProductionSimulationService::unitOptions($bom->product),
-            ];
-        })->values();
+        if (! $bom) {
+            return response()->json(['message' => 'Produk ini belum punya resep (BOM).'], 404);
+        }
 
-        $distributor = WmsContext::distributor();
-        $wip = WmsContext::wipWarehouse(optional($distributor)->id);
-        $fg = WmsContext::finishedGoodsWarehouse(optional($distributor)->id);
-        $warehouses = WmsContext::accessibleWarehouses();
-
-        return view('admin.production.create', compact('boms', 'bomCatalog', 'distributor', 'wip', 'fg', 'warehouses'));
+        return response()->json([
+            'bom_id' => $bom->id,
+            'output_unit_id' => $bom->output_unit_id,
+            'output_quantity' => (float) $bom->output_quantity,
+            'output_unit' => $bom->outputUnit?->symbol ?? $bom->outputUnit?->name ?? '',
+            'units' => ProductionSimulationService::unitOptions($bom->product),
+        ]);
     }
 
     public function bomPreview(Request $request)
     {
         $data = $request->validate([
-            'bom_id' => ['required', 'string'],
-            'source_warehouse_id' => ['required', 'uuid'],
+            'product_variant_id' => ['required', 'string'],
             'planned_qty' => ['required', 'numeric', 'min:0.000001'],
             'planned_unit_id' => ['nullable', 'uuid'],
         ]);
 
         $bom = BillOfMaterial::with(['items.componentVariant.product', 'items.unit', 'product.unitConversions', 'product.defaultUnit', 'outputUnit'])
-            ->findOrFail($data['bom_id']);
+            ->where('product_variant_id', $data['product_variant_id'])
+            ->where('is_active', true)
+            ->firstOrFail();
 
-        $warehouse = InventoryWarehouseContext::assertAccessible($data['source_warehouse_id']);
-        $branchId = $warehouse->branch_id ?: $warehouse->company_id ?: auth('web')->user()?->getBranchIdForTransaction();
+        $distId = optional(WmsContext::distributor())->id;
+        [$sourceWarehouseId, $branchId] = ManufacturingWarehouseResolver::resolveMaterialWarehouse($distId);
+        $warehouse = $sourceWarehouseId ? Warehouse::find($sourceWarehouseId) : null;
         $plannedUnitId = $data['planned_unit_id'] ?? $bom->output_unit_id;
+
+        if (! $warehouse) {
+            return response()->json(['message' => 'Tidak ada gudang aktif untuk company ini.'], 422);
+        }
 
         try {
             $scale = ProductionQuantityNormalizer::materialScale(
@@ -121,8 +127,7 @@ class ProductionOrderController extends Controller
     public function simulate(Request $request)
     {
         $data = $request->validate([
-            'bom_id' => ['required', 'string'],
-            'source_warehouse_id' => ['required', 'uuid'],
+            'product_variant_id' => ['required', 'string'],
             'planned_qty' => ['required', 'numeric', 'min:0.000001'],
             'production_unit_id' => ['nullable', 'uuid'],
         ]);
@@ -137,11 +142,19 @@ class ProductionOrderController extends Controller
             'items.componentVariant.product.unitConversions.toUnit',
             'items.componentVariant.product.defaultUnit',
             'items.unit',
-        ])->findOrFail($data['bom_id']);
+        ])
+            ->where('product_variant_id', $data['product_variant_id'])
+            ->where('is_active', true)
+            ->firstOrFail();
 
-        $warehouse = InventoryWarehouseContext::assertAccessible($data['source_warehouse_id']);
-        $branchId = $warehouse->branch_id ?: $warehouse->company_id ?: auth('web')->user()?->getBranchIdForTransaction();
+        $distId = optional(WmsContext::distributor())->id;
+        [$sourceWarehouseId, $branchId] = ManufacturingWarehouseResolver::resolveMaterialWarehouse($distId);
+        $warehouse = $sourceWarehouseId ? Warehouse::find($sourceWarehouseId) : null;
         $productionUnitId = $data['production_unit_id'] ?? $bom->output_unit_id;
+
+        if (! $warehouse) {
+            return response()->json(['message' => 'Tidak ada gudang aktif untuk company ini.'], 422);
+        }
 
         try {
             $result = ProductionSimulationService::simulate(
@@ -166,22 +179,26 @@ class ProductionOrderController extends Controller
 
     public function store(Request $request)
     {
-        $accessibleWarehouseIds = WmsContext::accessibleWarehouseIds();
-
         $data = $request->validate([
-            'bom_id' => ['required', 'string'],
+            'product_variant_id' => ['required', 'string'],
             'planned_qty' => ['required', 'numeric', 'min:0.000001'],
             'planned_unit_id' => ['nullable', 'uuid'],
-            'source_warehouse_id' => ['required', 'uuid', Rule::in($accessibleWarehouseIds)],
-            'output_warehouse_id' => ['required', 'uuid', Rule::in($accessibleWarehouseIds)],
             'overhead_cost' => ['nullable', 'numeric', 'min:0'],
             'production_date' => ['nullable', 'date'],
             'output_expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
-            'complete' => ['nullable'],
+            'mark_pending_receiving' => ['nullable'],
         ]);
 
-        $bom = BillOfMaterial::with(['product.unitConversions', 'product.defaultUnit', 'outputUnit'])->findOrFail($data['bom_id']);
+        $bom = BillOfMaterial::with(['product.unitConversions', 'product.defaultUnit', 'outputUnit'])
+            ->where('product_variant_id', $data['product_variant_id'])
+            ->where('is_active', true)
+            ->first();
+
+        if (! $bom) {
+            return back()->withInput()->withErrors(['product_variant_id' => 'Produk ini belum punya resep (BOM). Buat resep dulu di menu Bill of Materials.']);
+        }
+
         $plannedUnitId = $data['planned_unit_id'] ?? $bom->output_unit_id;
 
         try {
@@ -196,12 +213,11 @@ class ProductionOrderController extends Controller
 
         $distributor = WmsContext::distributor();
         $distId = optional($distributor)->id;
-        $sourceWarehouse = Warehouse::findOrFail($data['source_warehouse_id']);
-        $outputWarehouse = Warehouse::findOrFail($data['output_warehouse_id']);
         $userId = Auth::id();
-        $branchId = $outputWarehouse->branch_id
-            ?: $sourceWarehouse->branch_id
-            ?: auth('web')->user()?->getBranchIdForTransaction();
+
+        [$sourceWarehouseId, $materialBranchId] = ManufacturingWarehouseResolver::resolveMaterialWarehouse($distId);
+        [$outputWarehouseId, $outputBranchId] = ManufacturingWarehouseResolver::resolveOutputWarehouse($distId);
+        $branchId = $outputBranchId ?: $materialBranchId ?: auth('web')->user()?->getBranchIdForTransaction();
 
         $order = ProductionOrder::create([
             'order_number' => ProductionService::generateNumber(),
@@ -209,33 +225,21 @@ class ProductionOrderController extends Controller
             'output_expiry_date' => $data['output_expiry_date'] ?? null,
             'company_id' => $distId,
             'branch_id' => $branchId,
-            'source_warehouse_id' => $sourceWarehouse->id,
-            'output_warehouse_id' => $outputWarehouse->id,
+            'source_warehouse_id' => $sourceWarehouseId,
+            'output_warehouse_id' => $outputWarehouseId,
             'bom_id' => $bom->id,
             'product_id' => $bom->product_id,
             'product_variant_id' => $bom->product_variant_id,
             'output_unit_id' => $bom->output_unit_id,
             'planned_qty' => $plannedInOutputUnit,
             'overhead_cost' => (float) ($data['overhead_cost'] ?? 0),
-            'status' => 'draft',
+            'status' => $request->boolean('mark_pending_receiving') ? 'pending_receiving' : 'draft',
             'notes' => $data['notes'] ?? null,
             'created_by' => $userId,
             'updated_by' => $userId,
         ]);
 
-        if ($request->boolean('complete')) {
-            try {
-                ProductionService::complete($order, $userId);
-            } catch (\Throwable $e) {
-                return redirect()->route('production.show', $order->id)
-                    ->with('error', 'Order dibuat tapi gagal diselesaikan: ' . $e->getMessage());
-            }
-
-            return redirect()->route('production.show', $order->id)
-                ->with('success', 'Produksi selesai. HPP produk jadi telah dihitung dari bahan baku (FIFO).');
-        }
-
-        return redirect()->route('production.show', $order->id)->with('success', 'Production Order dibuat (draft).');
+        return redirect()->route('production.show', $order->id)->with('success', 'Production Order dibuat.');
     }
 
     public function show(string $id)
