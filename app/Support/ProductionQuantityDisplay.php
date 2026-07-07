@@ -58,22 +58,17 @@ class ProductionQuantityDisplay
             return null;
         }
 
-        $parts = collect($breakdown)
+        // Sensor hanya untuk kasus benar-benar identik (mis. qty "1 krt" pecah jadi "1 krt" lagi
+        // — tidak ada info baru). Selain itu SELALU ditampilkan, termasuk saat breakdown cuma
+        // 1 unit (mis. "7 pack" dari qty pecahan krt) — justru itu yang paling dibutuhkan untuk
+        // melihat hasil produksi partial batch yang sebenarnya.
+        if (count($breakdown) === 1 && ($breakdown[0]['unit_id'] ?? null) === $unitId) {
+            return null;
+        }
+
+        return implode(' · ', collect($breakdown)
             ->map(fn (array $row) => self::formatQty($row['qty']).' '.$row['label'])
-            ->all();
-
-        $text = implode(' · ', $parts);
-        $largestUnitId = $product->default_unit_id;
-
-        if ($unitId === $largestUnitId && count($breakdown) === 1) {
-            return null;
-        }
-
-        if ($unitId !== $largestUnitId && count($breakdown) === 1 && ($breakdown[0]['unit_id'] ?? null) === $largestUnitId) {
-            return null;
-        }
-
-        return $text;
+            ->all());
     }
 
     /**
