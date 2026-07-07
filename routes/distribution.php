@@ -44,7 +44,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/simulate', [ProductionOrderController::class, 'simulate'])->name('production.simulate')->middleware('permission:Production Order,is_create');
         Route::post('/', [ProductionOrderController::class, 'store'])->name('production.store')->middleware('permission:Production Order,is_create');
         Route::get('/{id}', [ProductionOrderController::class, 'show'])->name('production.show')->middleware('permission:Production Order,is_read');
-        Route::post('/{id}/complete', [ProductionOrderController::class, 'complete'])->name('production.complete')->middleware('permission:Production Order,is_update');
+        Route::post('/{id}/start', [ProductionOrderController::class, 'start'])->name('production.start')->middleware('permission:Production Order,is_update');
+        Route::post('/{id}/finish', [ProductionOrderController::class, 'finish'])->name('production.finish')->middleware('permission:Production Order,is_update');
     });
 
     // --- Replenishment (Distributor <-> Agen) ---

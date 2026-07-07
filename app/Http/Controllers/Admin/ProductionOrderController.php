@@ -268,16 +268,29 @@ class ProductionOrderController extends Controller
         return view('admin.production.show', compact('order'));
     }
 
-    public function complete(string $id)
+    public function start(string $id)
     {
         $order = ProductionOrder::findOrFail($id);
-        try {
-            ProductionService::complete($order, Auth::id());
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Gagal menyelesaikan produksi: ' . $e->getMessage());
+
+        if ($order->status !== 'draft') {
+            return back()->with('error', 'Hanya production order berstatus Draft yang bisa dimulai.');
         }
 
-        return redirect()->route('production.show', $order->id)
-            ->with('success', 'Produksi selesai. HPP produk jadi telah dihitung (FIFO).');
+        $order->update(['status' => 'in_progress', 'updated_by' => Auth::id()]);
+
+        return redirect()->route('production.show', $order->id)->with('success', 'Produksi dimulai.');
+    }
+
+    public function finish(string $id)
+    {
+        $order = ProductionOrder::findOrFail($id);
+
+        if ($order->status !== 'in_progress') {
+            return back()->with('error', 'Hanya production order yang sedang dikerjakan yang bisa ditandai selesai.');
+        }
+
+        $order->update(['status' => 'pending_receiving', 'updated_by' => Auth::id()]);
+
+        return redirect()->route('production.show', $order->id)->with('success', 'Produksi selesai di lantai. Lanjutkan ke Receiving untuk mencatat hasil aktual.');
     }
 }
