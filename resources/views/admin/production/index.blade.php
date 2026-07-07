@@ -27,8 +27,9 @@
                             <th>Produk Jadi</th>
                             <th class="text-end">Qty</th>
                             <th class="text-end">HPP/Unit</th>
+                            <th class="text-end">Grand Total</th>
                             <th>Status</th>
-                            <th></th>
+                            <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -39,6 +40,7 @@
                                 $conversionHint = $o->product && $o->output_unit_id
                                     ? \App\Support\ProductionQuantityDisplay::conversionSummary($o->product, $qty, $o->output_unit_id)
                                     : null;
+                                $map = ['draft'=>'secondary','in_progress'=>'info','pending_receiving'=>'warning','completed'=>'success','cancelled'=>'danger'];
                             @endphp
                             <tr>
                                 <td class="fw-medium">{{ $o->order_number }}</td>
@@ -58,18 +60,68 @@
                                         -
                                     @endif
                                 </td>
-                                <td>
-                                    @php $map = ['draft'=>'secondary','in_progress'=>'info','completed'=>'success','cancelled'=>'danger']; @endphp
-                                    <span class="badge bg-label-{{ $map[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>
+                                <td class="text-end">
+                                    @if ($o->output_unit_cost > 0)
+                                        Rp {{ number_format($o->output_unit_cost * $qty, 2) }}
+                                    @else
+                                        -
+                                    @endif
                                 </td>
-                                <td class="text-end"><a href="{{ route('production.show', $o->id) }}" class="btn btn-sm btn-icon btn-outline-primary"><i class="ti ti-eye"></i></a></td>
+                                <td>
+                                    @php $statusLabels = ['draft'=>'Draft','in_progress'=>'Sedang Dikerjakan','pending_receiving'=>'Menunggu Receiving','completed'=>'Selesai','cancelled'=>'Dibatalkan']; @endphp
+                                    <span class="badge bg-label-{{ $map[$o->status] ?? 'secondary' }}">{{ $statusLabels[$o->status] ?? ucfirst($o->status) }}</span>
+                                </td>
+                                <td class="text-end">
+                                    @if ($o->status === 'draft')
+                                        <div class="dropdown">
+                                            <button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                                <i class="ti ti-dots-vertical text-primary"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('production.show', $o->id) }}">
+                                                        <i class="ti ti-eye me-2 text-primary"></i>Lihat
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('production.edit', $o->id) }}">
+                                                        <i class="ti ti-pencil me-2 text-warning"></i>Edit
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <form method="POST" action="{{ route('production.destroy', $o->id) }}" onsubmit="return confirm('Hapus production order ini?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="dropdown-item">
+                                                            <i class="ti ti-trash me-2 text-danger"></i>Hapus
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    @else
+                                        <a href="{{ route('production.show', $o->id) }}" class="btn btn-sm btn-icon btn-outline-primary"><i class="ti ti-eye"></i></a>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada produksi.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada produksi.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
+
+    @push('page-js')
+    <script>
+        document.querySelectorAll('.table-responsive .dropdown-toggle[data-bs-toggle="dropdown"]').forEach(function (toggle) {
+            bootstrap.Dropdown.getOrCreateInstance(toggle, {
+                popperConfig: function (defaultConfig) {
+                    return Object.assign({}, defaultConfig, { strategy: 'fixed' });
+                },
+            });
+        });
+    </script>
+    @endpush
 </x-app-layout>
