@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\BomItem;
 use App\Models\ProductVariant;
-use App\Models\Warehouse;
 use App\Services\FifoCostService;
+use App\Support\ManufacturingWarehouseResolver;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -228,24 +228,12 @@ class BomController extends Controller
     }
 
     /**
-     * Gudang acuan untuk lookup HPP bahan baku. WIP diprioritaskan (sesuai desain awal),
-     * tapi HPP bahan baku sebenarnya tercatat di gudang RAW_MATERIAL, jadi fallback berjenjang
-     * dipakai supaya HPP tetap tampil walau gudang WIP belum ada (mis. di environment lokal/baru).
-     * company_id != branch_id di skema ini, jadi branch_id HARUS diambil dari gudang yang nyata ada,
-     * tidak boleh asal pakai company_id sebagai pengganti.
+     * Gudang acuan untuk lookup HPP bahan baku — delegasi ke resolver bersama
+     * yang juga dipakai Production Order (lihat App\Support\ManufacturingWarehouseResolver).
      */
     private function resolveWipContext(?string $companyId): array
     {
-        $warehouse = Warehouse::inventoryActive()
-            ->where('company_id', $companyId)
-            ->orderByRaw("CASE warehouse_type_code WHEN 'WIP' THEN 0 WHEN 'RAW_MATERIAL' THEN 1 WHEN 'FG' THEN 2 ELSE 3 END")
-            ->orderByDesc('is_default')
-            ->first();
-
-        $wipId = optional($warehouse)->id;
-        $wipBranchId = optional($warehouse)->branch_id ?? $wipId ?? $companyId;
-
-        return [$wipId, $wipBranchId];
+        return ManufacturingWarehouseResolver::resolveMaterialWarehouse($companyId);
     }
 
     public function show(string $id)

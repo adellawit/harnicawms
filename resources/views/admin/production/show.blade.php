@@ -38,8 +38,9 @@
                         @endif
                     </div>
                     <div class="col-md-2"><small class="text-muted">Status</small><div>
-                        @php $map = ['draft'=>'secondary','in_progress'=>'info','completed'=>'success','cancelled'=>'danger']; @endphp
-                        <span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ ucfirst($order->status) }}</span>
+                        @php $map = ['draft'=>'secondary','in_progress'=>'info','pending_receiving'=>'warning','completed'=>'success','cancelled'=>'danger']; @endphp
+                        @php $statusLabels = ['draft'=>'Draft','in_progress'=>'Sedang Dikerjakan','pending_receiving'=>'Menunggu Receiving','completed'=>'Selesai','cancelled'=>'Dibatalkan']; @endphp
+                        <span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ $statusLabels[$order->status] ?? ucfirst($order->status) }}</span>
                     </div></div>
                     <div class="col-md-2">
                         <small class="text-muted">HPP / Unit{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
@@ -54,11 +55,18 @@
                     <div class="col-md-3"><small class="text-muted">Gudang Bahan Baku</small><div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '-' }}</div></div>
                     <div class="col-md-3"><small class="text-muted">Gudang Produk Jadi</small><div class="fw-medium">{{ $order->outputWarehouse?->name ?? '-' }}</div></div>
                 </div>
-                @if ($order->status !== 'completed')
-                    <form method="POST" action="{{ route('production.complete', $order->id) }}" class="mt-3" onsubmit="return confirm('Selesaikan produksi? Bahan baku akan dikonsumsi (FIFO).')">
+                @if ($order->status === 'draft')
+                    <form method="POST" action="{{ route('production.start', $order->id) }}" class="mt-3">
+                        @csrf
+                        <button class="btn btn-primary"><i class="ti ti-player-play me-1"></i> Mulai Produksi</button>
+                    </form>
+                @elseif ($order->status === 'in_progress')
+                    <form method="POST" action="{{ route('production.finish', $order->id) }}" class="mt-3">
                         @csrf
                         <button class="btn btn-success"><i class="ti ti-check me-1"></i> Selesaikan Produksi</button>
                     </form>
+                @elseif ($order->status === 'pending_receiving')
+                    <a href="{{ route('production.receive', $order->id) }}" class="btn btn-warning mt-3"><i class="ti ti-package-import me-1"></i> Terima Hasil Produksi</a>
                 @endif
             </div>
         </div>
@@ -69,7 +77,7 @@
                     <div class="card-header"><h6 class="card-title mb-0">Bahan Baku Dikonsumsi</h6></div>
                     <div class="table-responsive">
                         <table class="table mb-0">
-                            <thead><tr><th>Bahan</th><th class="text-end">Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
+                            <thead><tr><th>Bahan</th><th class="text-end">Rencana</th><th class="text-end">Aktual Terpakai</th><th class="text-end">Sisa</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 @forelse ($order->materials as $m)
                                     @php
@@ -82,6 +90,8 @@
                                     @endphp
                                     <tr>
                                         <td>{{ $m->componentVariant?->display_name ?? $m->componentProduct?->name }}</td>
+                                        @php $sisa = (float) $m->expected_qty - $materialQty; @endphp
+                                        <td class="text-end">{{ rtrim(rtrim(number_format((float) $m->expected_qty, 4), '0'), '.') }} {{ $materialUnit }}</td>
                                         <td class="text-end">
                                             <div>
                                                 {{ rtrim(rtrim(number_format($materialQty, 4), '0'), '.') }}
@@ -91,15 +101,16 @@
                                                 <small class="text-muted">{{ $materialConversionHint }}</small>
                                             @endif
                                         </td>
+                                        <td class="text-end {{ $sisa > 0 ? 'text-success' : ($sisa < 0 ? 'text-danger' : '') }}">{{ rtrim(rtrim(number_format($sisa, 4), '0'), '.') }} {{ $materialUnit }}</td>
                                         <td class="text-end">Rp {{ number_format($m->unit_cost, 2) }}</td>
                                         <td class="text-end">Rp {{ number_format($m->total_cost, 2) }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="text-center text-muted py-3">Belum diproses.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-muted py-3">Belum diproses.</td></tr>
                                 @endforelse
                             </tbody>
                             @if ($order->materials->count())
-                            <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Total Biaya Bahan</td><td class="text-end">Rp {{ number_format($order->total_material_cost, 2) }}</td></tr></tfoot>
+                            <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total Biaya Bahan</td><td class="text-end">Rp {{ number_format($order->total_material_cost, 2) }}</td></tr></tfoot>
                             @endif
                         </table>
                     </div>

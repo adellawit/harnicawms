@@ -20,27 +20,26 @@ use Illuminate\Support\Facades\DB;
  */
 class ProductionService
 {
-    public static function complete(ProductionOrder $order, ?string $userId = null): ProductionOrder
+    public static function receive(ProductionOrder $order, float $actualQty, ?string $userId = null): ProductionOrder
     {
-        if ($order->status === 'completed') {
-            return $order;
+        if ($order->status !== 'pending_receiving') {
+            throw new \RuntimeException('Production order harus berstatus "Menunggu Receiving" sebelum bisa diterima.');
         }
 
-        return DB::transaction(function () use ($order, $userId) {
+        if ($actualQty <= 0) {
+            throw new \RuntimeException('Qty aktual produksi harus lebih dari 0.');
+        }
+
+        return DB::transaction(function () use ($order, $actualQty, $userId) {
             $bom = $order->bom()->with(['items.componentVariant.product', 'items.componentProduct'])->first();
-            $producedQty = (float) ($order->produced_qty > 0 ? $order->produced_qty : $order->planned_qty);
+            $plannedQty = (float) $order->planned_qty;
 
-            if ($producedQty <= 0) {
-                throw new \RuntimeException('Qty produksi harus lebih dari 0.');
-            }
-
-            // Faktor skala: berapa kali resep dijalankan
             $outputPerBatch = $bom ? (float) ($bom->output_quantity ?: 1) : 1;
-            $scale = $outputPerBatch > 0 ? $producedQty / $outputPerBatch : $producedQty;
+            $plannedScale = $outputPerBatch > 0 ? $plannedQty / $outputPerBatch : $plannedQty;
+            $actualScale = $outputPerBatch > 0 ? $actualQty / $outputPerBatch : $actualQty;
 
             $totalMaterialCost = 0.0;
 
-            // Bersihkan baris lama jika re-run
             $order->materials()->delete();
             $order->outputs()->delete();
 
@@ -50,7 +49,7 @@ class ProductionService
 
             if ($bom) {
                 foreach ($bom->items as $item) {
-                    $qtyNeeded = (float) $item->quantity * $scale;
+                    $qtyNeeded = (float) $item->quantity * $actualScale;
                     if ($qtyNeeded <= 0) {
                         continue;
                     }
@@ -70,7 +69,8 @@ class ProductionService
                 }
 
                 foreach ($bom->items as $item) {
-                    $qtyNeeded = (float) $item->quantity * $scale;
+                    $expectedQty = (float) $item->quantity * $plannedScale;
+                    $qtyNeeded = (float) $item->quantity * $actualScale;
                     if ($qtyNeeded <= 0) {
                         continue;
                     }
@@ -99,6 +99,7 @@ class ProductionService
                         'component_variant_id' => $item->component_variant_id,
                         'unit_id' => $item->unit_id,
                         'qty_consumed' => $qtyNeeded,
+                        'expected_qty' => $expectedQty,
                         'unit_cost' => $unitCost,
                         'total_cost' => round($cogs, 4),
                     ]);
@@ -107,16 +108,15 @@ class ProductionService
 
             $overhead = (float) $order->overhead_cost;
             $totalCost = $totalMaterialCost + $overhead;
-            $outputUnitCost = $producedQty > 0 ? round($totalCost / $producedQty, 4) : 0.0;
+            $outputUnitCost = $actualQty > 0 ? round($totalCost / $actualQty, 4) : 0.0;
 
-            // Produk jadi masuk ke gudang output dengan HPP terhitung + expiry (FEFO)
             StockMutationService::inbound(
                 $order->product_id,
                 $order->product_variant_id,
                 $order->company_id,
                 $branchId ?: $outputWarehouseId,
                 $order->output_unit_id,
-                $producedQty,
+                $actualQty,
                 $outputUnitCost,
                 'ProductionOutput',
                 $order->id,
@@ -132,13 +132,13 @@ class ProductionService
                 'product_id' => $order->product_id,
                 'product_variant_id' => $order->product_variant_id,
                 'unit_id' => $order->output_unit_id,
-                'qty_produced' => $producedQty,
+                'qty_produced' => $actualQty,
                 'unit_cost' => $outputUnitCost,
                 'total_cost' => round($totalCost, 4),
             ]);
 
             $order->update([
-                'produced_qty' => $producedQty,
+                'produced_qty' => $actualQty,
                 'total_material_cost' => round($totalMaterialCost, 4),
                 'output_unit_cost' => $outputUnitCost,
                 'status' => 'completed',

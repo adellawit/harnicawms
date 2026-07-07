@@ -19,12 +19,14 @@ class ProductionOrderMaterial extends Model
         'component_variant_id',
         'unit_id',
         'qty_consumed',
+        'expected_qty',
         'unit_cost',
         'total_cost',
     ];
 
     protected $casts = [
         'qty_consumed' => 'decimal:6',
+        'expected_qty' => 'decimal:6',
         'unit_cost' => 'decimal:4',
         'total_cost' => 'decimal:4',
     ];
