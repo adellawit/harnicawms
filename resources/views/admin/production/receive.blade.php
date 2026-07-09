@@ -53,6 +53,10 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Expired Produk Jadi <span class="text-muted small">(FEFO)</span></label>
+                            <input type="date" name="output_expiry_date" class="form-control" value="{{ old('output_expiry_date') }}">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -73,12 +77,15 @@
                             @foreach ($bomItems as $item)
                                 @php
                                     $unitLabel = $item->unit?->symbol ?? $item->unit?->name ?? '';
-                                    $expected = (float) $item->quantity * $plannedScale;
+                                    $componentProduct = $item->componentVariant?->product ?? $item->componentProduct;
+                                    $isSmallestUnit = $componentProduct && $item->unit_id === $componentProduct->getSmallestUnitId();
+                                    $expected = \App\Support\ProductionQuantityNormalizer::snapDisplayQty((float) $item->quantity * $plannedScale, $isSmallestUnit);
                                 @endphp
                                 <tr
                                     data-per-batch-qty="{{ (float) $item->quantity }}"
                                     data-expected="{{ $expected }}"
                                     data-unit="{{ $unitLabel }}"
+                                    data-is-smallest="{{ $isSmallestUnit ? 1 : 0 }}"
                                 >
                                     <td>{{ $item->componentVariant?->display_name ?? $item->componentProduct?->name }}</td>
                                     <td class="text-end expected-cell">{{ rtrim(rtrim(number_format($expected, 4), '0'), '.') }} {{ $unitLabel }}</td>
@@ -101,8 +108,16 @@
         const outputPerBatch = {{ $outputPerBatch }};
         const unitFactors = @json($unitFactors);
 
-        function formatQty(n) {
-            return (+n).toFixed(4).replace(/\.?0+$/, '');
+        function snapQty(n, isSmallestUnit) {
+            if (isSmallestUnit) {
+                return Math.round(n);
+            }
+            const r = Math.round(n);
+            return Math.abs(n - r) < 0.001 ? r : n;
+        }
+
+        function formatQty(n, isSmallestUnit) {
+            return (+snapQty(n, isSmallestUnit)).toFixed(4).replace(/\.?0+$/, '');
         }
 
         function recalc() {
@@ -116,12 +131,13 @@
                 const perBatchQty = parseFloat(tr.dataset.perBatchQty || '0');
                 const expected = parseFloat(tr.dataset.expected || '0');
                 const unit = tr.dataset.unit || '';
-                const actualUsed = perBatchQty * actualScale;
-                const sisa = expected - actualUsed;
+                const isSmallestUnit = tr.dataset.isSmallest === '1';
+                const actualUsed = snapQty(perBatchQty * actualScale, isSmallestUnit);
+                const sisa = snapQty(expected - actualUsed, isSmallestUnit);
 
-                tr.querySelector('.actual-cell').textContent = formatQty(actualUsed) + (unit ? ' ' + unit : '');
+                tr.querySelector('.actual-cell').textContent = formatQty(actualUsed, isSmallestUnit) + (unit ? ' ' + unit : '');
                 const sisaCell = tr.querySelector('.sisa-cell');
-                sisaCell.textContent = formatQty(sisa) + (unit ? ' ' + unit : '');
+                sisaCell.textContent = formatQty(sisa, isSmallestUnit) + (unit ? ' ' + unit : '');
                 sisaCell.classList.toggle('text-success', sisa > 0);
                 sisaCell.classList.toggle('text-danger', sisa < 0);
             });

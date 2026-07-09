@@ -385,7 +385,7 @@ class Product extends Model
      *
      * @return array<int, array{unit_id: string, level: int, qty: int, label: string, content_summary: string|null}>
      */
-    public function getBarcodeQuantityBreakdown(int $parentQty, ?string $parentUnitId = null): array
+    public function getBarcodeQuantityBreakdown(int $parentQty, ?string $parentUnitId = null, bool $includeSmallestUnit = true): array
     {
         $chain = $this->getBarcodeUnitChain();
         if ($chain->isEmpty() || $parentQty < 1) {
@@ -400,10 +400,16 @@ class Product extends Model
             }
         }
 
+        $lastIndex = $chain->count() - 1;
+        // Satuan terkecil (mis. sachet) biasanya tidak punya label fisik sendiri —
+        // dikecualikan secara default. Kalau starting unit sudah satuan terkecil
+        // itu sendiri, tidak ada yang bisa dikecualikan lagi.
+        $endIndex = (! $includeSmallestUnit && $lastIndex > $startIndex) ? $lastIndex - 1 : $lastIndex;
+
         $breakdown = [];
         $qty = $parentQty;
 
-        for ($i = $startIndex; $i < $chain->count(); $i++) {
+        for ($i = $startIndex; $i <= $endIndex; $i++) {
             $item = $chain[$i];
             $unit = $item['unit'];
 
@@ -426,17 +432,17 @@ class Product extends Model
     /**
      * Total label untuk mode hierarki (jumlah semua level).
      */
-    public function getBarcodeHierarchyTotalLabels(int $parentQty, ?string $parentUnitId = null): int
+    public function getBarcodeHierarchyTotalLabels(int $parentQty, ?string $parentUnitId = null, bool $includeSmallestUnit = true): int
     {
-        return (int) collect($this->getBarcodeQuantityBreakdown($parentQty, $parentUnitId))->sum('qty');
+        return (int) collect($this->getBarcodeQuantityBreakdown($parentQty, $parentUnitId, $includeSmallestUnit))->sum('qty');
     }
 
     /**
      * Qty maksimum satuan induk agar total label hierarki tidak melebihi batas.
      */
-    public function getMaxHierarchyParentQty(int $maxTotalLabels, ?string $parentUnitId = null): int
+    public function getMaxHierarchyParentQty(int $maxTotalLabels, ?string $parentUnitId = null, bool $includeSmallestUnit = true): int
     {
-        $perParent = $this->getBarcodeHierarchyTotalLabels(1, $parentUnitId);
+        $perParent = $this->getBarcodeHierarchyTotalLabels(1, $parentUnitId, $includeSmallestUnit);
         if ($perParent < 1) {
             return max(1, $maxTotalLabels);
         }

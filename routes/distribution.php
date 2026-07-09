@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/finish', [ProductionOrderController::class, 'finish'])->name('production.finish')->middleware('permission:Production Order,is_update');
         Route::get('/{id}/receive', [ProductionOrderController::class, 'receiveView'])->name('production.receive')->middleware('permission:Production Order,is_update');
         Route::post('/{id}/receive', [ProductionOrderController::class, 'receive'])->name('production.receive.store')->middleware('permission:Production Order,is_update');
+        Route::get('/{id}/receive/print', [ProductionOrderController::class, 'receivePrint'])->name('production.receive.print')->middleware('permission:Production Order,is_update');
     });
 
     // --- Replenishment (Distributor <-> Agen) ---
