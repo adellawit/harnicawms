@@ -48,6 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // === Learner (Agent) ===
     Route::prefix('academy')->name('academy.')->group(function () {
         Route::get('/', [AcademyController::class, 'dashboard'])->name('dashboard')->middleware('permission:Academy,is_read');
+        Route::get('/courses/{course}', [AcademyController::class, 'course'])->name('courses.show')->middleware('permission:Academy,is_read');
+        Route::get('/materials/{material}', [AcademyController::class, 'material'])->name('materials.show')->middleware('permission:Academy,is_read');
+        Route::post('/materials/{material}/complete', [AcademyController::class, 'complete'])->name('materials.complete')->middleware('permission:Academy,is_read');
     });
 
 });
