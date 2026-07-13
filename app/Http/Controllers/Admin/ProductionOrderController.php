@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillOfMaterial;
 use App\Models\ProductionOrder;
+use App\Models\ProductUnit;
 use App\Models\Warehouse;
 use App\Services\StockAvailabilityService;
 use App\Services\Manufacturing\ProductionService;
@@ -110,16 +111,19 @@ class ProductionOrderController extends Controller
                 $warehouse->id
             );
 
+            $componentProduct = $item->componentVariant?->product ?? $item->componentProduct;
+            $isSmallestUnit = $componentProduct && $item->unit_id === $componentProduct->getSmallestUnitId();
+
             return [
                 'label' => $item->componentVariant?->display_name ?? $item->componentProduct?->name,
                 'qty' => (float) $item->quantity * $scale,
                 'unit' => $item->unit?->symbol ?? $item->unit?->name ?? '',
                 // Stok yang sudah melewati beberapa kali konversi non-power-of-10 (mis. ÷30)
-                // bisa membawa sisa desimal sangat kecil (mis. 5079.99991). Ini murni kosmetik
-                // untuk preview — snap ke bilangan bulat terdekat kalau selisihnya remeh,
-                // supaya tidak menampilkan "5079.9999" yang membingungkan. Tidak memengaruhi
-                // nilai stok yang tersimpan atau pengecekan kecukupan stok saat receive.
-                'available' => (abs($available - round($available)) < 0.001) ? round($available) : round($available, 4),
+                // bisa membawa sisa desimal sangat kecil (mis. 5079.99991 / 4956.0014). Ini
+                // murni kosmetik untuk preview — kalau satuannya adalah satuan terkecil produk
+                // (mis. sachet), pecahan selalu noise (fisiknya tidak mungkin pecahan sachet)
+                // jadi dibulatkan tanpa syarat; kalau bukan, snap hanya kalau dekat bulat.
+                'available' => ProductionQuantityNormalizer::snapDisplayQty($available, $isSmallestUnit),
             ];
         })->values();
 
@@ -137,7 +141,6 @@ class ProductionOrderController extends Controller
             'planned_unit_id' => ['nullable', 'uuid'],
             'overhead_cost' => ['nullable', 'numeric', 'min:0'],
             'production_date' => ['nullable', 'date'],
-            'output_expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'mark_pending_receiving' => ['nullable'],
         ]);
@@ -174,7 +177,6 @@ class ProductionOrderController extends Controller
         $order = ProductionOrder::create([
             'order_number' => ProductionService::generateNumber(),
             'production_date' => $data['production_date'] ?? now()->toDateString(),
-            'output_expiry_date' => $data['output_expiry_date'] ?? null,
             'company_id' => $distId,
             'branch_id' => $branchId,
             'source_warehouse_id' => $sourceWarehouseId,
@@ -222,7 +224,6 @@ class ProductionOrderController extends Controller
             'planned_unit_id' => ['nullable', 'uuid'],
             'overhead_cost' => ['nullable', 'numeric', 'min:0'],
             'production_date' => ['nullable', 'date'],
-            'output_expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -248,7 +249,6 @@ class ProductionOrderController extends Controller
             'planned_qty' => $plannedInOutputUnit,
             'overhead_cost' => (float) ($data['overhead_cost'] ?? 0),
             'production_date' => $data['production_date'] ?? $order->production_date,
-            'output_expiry_date' => $data['output_expiry_date'] ?? null,
             'notes' => $data['notes'] ?? null,
             'updated_by' => Auth::id(),
         ]);
@@ -359,6 +359,7 @@ class ProductionOrderController extends Controller
         $data = $request->validate([
             'actual_qty' => ['required', 'numeric', 'min:0.000001'],
             'actual_unit_id' => ['required', 'uuid'],
+            'output_expiry_date' => ['nullable', 'date'],
         ]);
 
         if (! $order->bom) {
@@ -375,18 +376,57 @@ class ProductionOrderController extends Controller
             return back()->withInput()->withErrors(['actual_qty' => $e->getMessage()]);
         }
 
+        $order->output_expiry_date = $data['output_expiry_date'] ?? null;
+
         try {
             ProductionService::receive($order, $actualQtyInOutputUnit, Auth::id());
         } catch (\Throwable $e) {
             return back()->withInput()->with('error', 'Gagal menerima hasil produksi: ' . $e->getMessage());
         }
 
-        return redirect()->route('product.print-barcode.view', [
-            'id' => $order->product_id,
-            'variant_id' => $order->product_variant_id,
+        return redirect()->route('production.receive.print', [
+            'id' => $order->id,
             'unit_id' => $data['actual_unit_id'],
             'quantity' => (int) round((float) $data['actual_qty']),
-            'print_mode' => 'hierarchy',
         ])->with('success', 'Hasil produksi diterima. Stok bahan baku terpotong dan produk jadi masuk gudang.');
+    }
+
+    public function receivePrint(Request $request, string $id)
+    {
+        $order = ProductionOrder::with(['product', 'variant'])->findOrFail($id);
+
+        if ($order->status !== 'completed') {
+            return redirect()->route('production.show', $order->id)
+                ->with('error', 'Production order ini belum selesai diterima.');
+        }
+
+        $data = $request->validate([
+            'unit_id' => ['required', 'uuid'],
+            'quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $unit = ProductUnit::find($data['unit_id']);
+        if (! $unit) {
+            return redirect()->route('production.show', $order->id)
+                ->with('error', 'Satuan cetak barcode tidak valid.');
+        }
+
+        $smallestUnitId = $order->product?->getSmallestUnitId();
+        $smallestUnit = $smallestUnitId ? ProductUnit::find($smallestUnitId) : null;
+        // Toggle "sertakan satuan terkecil" cuma relevan kalau satuan yang diterima
+        // BUKAN satuan terkecil itu sendiri (kalau sama, tidak ada yang bisa dikecualikan).
+        $showSmallestUnitToggle = $smallestUnit && $smallestUnit->id !== $unit->id;
+
+        $distributor = WmsContext::distributor();
+        $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
+
+        return view('admin.production.receive-print', [
+            'order' => $order,
+            'unit' => $unit,
+            'quantity' => (int) $data['quantity'],
+            'distributorName' => $distributorName,
+            'smallestUnit' => $smallestUnit,
+            'showSmallestUnitToggle' => $showSmallestUnitToggle,
+        ]);
     }
 }

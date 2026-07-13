@@ -228,11 +228,16 @@ class ProductionSimulationService
             $factor = $factors[$unitId] ?? 1.0;
 
             if ($index === $lastIndex) {
-                if ($remaining > 1e-6) {
+                // Level terakhir = satuan terkecil produk (mis. sachet) — secara fisik
+                // tidak mungkin ada pecahan, jadi sisa di sini selalu dibulatkan penuh,
+                // bukan sekadar dipangkas ke 4 desimal (yang sebelumnya membuat noise
+                // seperti "3.9996 sch" tampak seperti angka asli).
+                $wholeRemaining = (int) round($remaining);
+                if ($wholeRemaining > 0) {
                     $breakdown[] = [
                         'unit_id' => $unitId,
                         'label' => $label,
-                        'qty' => round($remaining, 4),
+                        'qty' => (float) $wholeRemaining,
                     ];
                 }
                 break;

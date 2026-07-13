@@ -56,10 +56,6 @@
                             <input type="date" name="production_date" class="form-control" value="{{ old('production_date', date('Y-m-d')) }}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Expired Produk Jadi <span class="text-muted small">(FEFO)</span></label>
-                            <input type="date" name="output_expiry_date" class="form-control" value="{{ old('output_expiry_date') }}">
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label">Catatan</label>
                             <input type="text" name="notes" class="form-control" placeholder="opsional" value="{{ old('notes') }}">
                         </div>

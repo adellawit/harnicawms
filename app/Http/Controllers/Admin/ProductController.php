@@ -433,12 +433,13 @@ class ProductController extends Controller
         $unit = $validated['unit'];
         $unitLevel = $validated['unit_level'];
         $printMode = $validated['print_mode'];
+        $includeSmallestUnit = $validated['include_smallest_unit'];
         $quantity = (int) $request->quantity;
         $variantId = $request->variant_id ?: null;
         $previewLimit = 24;
 
         if ($printMode === 'hierarchy') {
-            $breakdown = $product->getBarcodeQuantityBreakdown($quantity, $unit->id);
+            $breakdown = $product->getBarcodeQuantityBreakdown($quantity, $unit->id, $includeSmallestUnit);
             $breakdownMeta = [];
             $serialsByUnitId = [];
             $totalLabels = 0;
@@ -492,6 +493,7 @@ class ProductController extends Controller
                 'variant_id' => $variantId,
                 'parent_unit_id' => $unit->id,
                 'parent_quantity' => $quantity,
+                'include_smallest_unit' => $includeSmallestUnit,
                 'breakdown' => $breakdownMeta,
                 'total_labels' => $totalLabels,
                 'user_id' => auth('web')->id(),
@@ -565,8 +567,9 @@ class ProductController extends Controller
         $batchId = $request->batch_id;
         $batch = session("barcode_preview.{$batchId}");
         $printMode = $validated['print_mode'];
+        $includeSmallestUnit = $validated['include_smallest_unit'];
 
-        if (! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity)) {
+        if (! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity, $includeSmallestUnit)) {
             return redirect()
                 ->route('product.print-barcode.view', $product->id)
                 ->with('error', 'Preview kedaluwarsa atau tidak valid. Silakan preview ulang sebelum generate PDF.');
@@ -595,7 +598,8 @@ class ProductController extends Controller
                     $variantId,
                     $serialService,
                     $qrCodeService,
-                    $tempDir
+                    $tempDir,
+                    $includeSmallestUnit
                 );
                 $labels = $this->flattenBarcodeHierarchyTree($labelTree);
             } else {
@@ -685,9 +689,10 @@ class ProductController extends Controller
         ?string $variantId,
         ProductLabelSerialService $serialService,
         ProductQrCodeService $qrCodeService,
-        string $tempDir
+        string $tempDir,
+        bool $includeSmallestUnit = true
     ): array {
-        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id);
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id, $includeSmallestUnit);
         $serialsByUnitId = [];
 
         foreach ($breakdown as $item) {
@@ -741,7 +746,8 @@ class ProductController extends Controller
         ?string $variantId,
         string $printMode,
         string $unitId,
-        int $quantity
+        int $quantity,
+        bool $includeSmallestUnit = true
     ): bool {
         if (! $batch
             || ($batch['product_id'] ?? null) !== $productId
@@ -755,7 +761,8 @@ class ProductController extends Controller
 
         if ($printMode === 'hierarchy') {
             return ($batch['parent_unit_id'] ?? null) === $unitId
-                && (int) ($batch['parent_quantity'] ?? 0) === $quantity;
+                && (int) ($batch['parent_quantity'] ?? 0) === $quantity
+                && ($batch['include_smallest_unit'] ?? true) === $includeSmallestUnit;
         }
 
         return ($batch['unit_id'] ?? null) === $unitId
@@ -889,6 +896,8 @@ class ProductController extends Controller
             'print_mode' => 'nullable|in:single,hierarchy',
         ]);
 
+        $includeSmallestUnit = $request->boolean('include_smallest_unit', true);
+
         $product = Product::with([
             'defaultUnit',
             'unitConversions.fromUnit',
@@ -947,6 +956,7 @@ class ProductController extends Controller
             'unit_level' => $product->getBarcodeUnitLevel($unit->id),
             'print_mode' => $printMode,
             'distributor_name' => $distributorName,
+            'include_smallest_unit' => $includeSmallestUnit,
         ];
     }
 
