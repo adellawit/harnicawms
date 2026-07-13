@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Academy\AcademyController;
 use App\Http\Controllers\Admin\Training\CategoryController;
 use App\Http\Controllers\Admin\Training\CourseContentController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{module}/materials/{material}', [CourseContentController::class, 'updateMaterial'])->name('materials.update')->middleware('permission:Training Academy,is_update');
             Route::delete('/{module}/materials/{material}', [CourseContentController::class, 'destroyMaterial'])->name('materials.destroy')->middleware('permission:Training Academy,is_delete');
         });
+    });
+
+    // === Learner (Agent) ===
+    Route::prefix('academy')->name('academy.')->group(function () {
+        Route::get('/', [AcademyController::class, 'dashboard'])->name('dashboard')->middleware('permission:Academy,is_read');
     });
 
 });
