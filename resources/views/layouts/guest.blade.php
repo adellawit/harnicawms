@@ -11,7 +11,6 @@
     @if (app()->environment('production'))
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     @endif
-    @endif
 
     <title>@yield('title', '') {{ config('app.name', 'Laravel') }}</title>
 
