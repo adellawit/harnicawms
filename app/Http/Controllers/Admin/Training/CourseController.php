@@ -33,6 +33,7 @@ class CourseController extends Controller
     public function store(CourseRequest $request)
     {
         $data = $this->payload($request);
+        $data['published_at'] = $request->input('status') === 'published' ? now() : null;
         $data['created_by'] = Auth::id();
 
         if ($request->hasFile('thumbnail')) {
@@ -59,6 +60,7 @@ class CourseController extends Controller
     {
         $course = Course::findOrFail($id);
         $data = $this->payload($request);
+        $data['published_at'] = $request->input('status') === 'published' ? ($course->published_at ?: now()) : null;
         $data['updated_by'] = Auth::id();
 
         if ($request->hasFile('thumbnail')) {
@@ -109,7 +111,6 @@ class CourseController extends Controller
             'description' => $request->input('description'),
             'status' => $request->input('status'),
             'sort_order' => (int) $request->input('sort_order', 0),
-            'published_at' => $request->input('status') === 'published' ? now() : null,
         ];
     }
 }
