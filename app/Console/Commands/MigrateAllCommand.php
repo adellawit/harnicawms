@@ -47,6 +47,7 @@ class MigrateAllCommand extends Command
         'database/migrations/distribution',
         'database/migrations/crm',
         'database/migrations/partner',
+        'database/migrations/training',
     ];
 
     /**
@@ -68,6 +69,7 @@ class MigrateAllCommand extends Command
         'distribution',
         'crm',
         'partner',
+        'training',
     ];
 
     /**
