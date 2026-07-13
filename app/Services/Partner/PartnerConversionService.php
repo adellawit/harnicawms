@@ -2,6 +2,7 @@
 
 namespace App\Services\Partner;
 
+use App\Models\Customer;
 use App\Models\Partner\Agent;
 use App\Models\Partner\AgentResellerAssignment;
 use App\Models\Partner\PartnerApplication;
@@ -56,6 +57,8 @@ class PartnerConversionService
                 'updated_by' => $userId,
             ]);
 
+            $this->syncCustomerPartnerType($application->customer_id, Customer::TYPE_AGENT, $userId);
+
             if (! empty($payload['initial_purchase']) && is_array($payload['initial_purchase'])) {
                 $this->createInitialReplenishment($agent, $payload['initial_purchase'], $userId);
             }
@@ -109,6 +112,8 @@ class PartnerConversionService
                 'converted_at' => now(),
                 'updated_by' => $userId,
             ]);
+
+            $this->syncCustomerPartnerType($application->customer_id, Customer::TYPE_RESELLER, $userId);
 
             return $reseller->fresh(['agent', 'customer', 'activeAssignment']);
         });
@@ -267,5 +272,17 @@ class PartnerConversionService
         $seq = $last ? ((int) substr($last, strrpos($last, '-') + 1) + 1) : 1;
 
         return $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function syncCustomerPartnerType(?string $customerId, string $customerType, ?string $userId): void
+    {
+        if (! $customerId) {
+            return;
+        }
+
+        Customer::where('id', $customerId)->update([
+            'customer_type' => $customerType,
+            'updated_by' => $userId,
+        ]);
     }
 }

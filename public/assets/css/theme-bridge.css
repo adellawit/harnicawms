@@ -1,0 +1,108 @@
+/* ==================================================================
+   Theme Bridge — Re-apply brand tokens AFTER custom.css overrides
+   Load last in layout head (after custom.css)
+   ================================================================== */
+
+/* Buttons */
+.btn-primary {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    box-shadow: 0 2px 6px rgba(var(--brand-primary-rgb), 0.3) !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background: var(--brand-primary-600) !important;
+    border-color: var(--brand-primary-700) !important;
+    box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.4) !important;
+}
+
+.btn-primary:active {
+    background: var(--brand-primary-700) !important;
+    border-color: var(--brand-primary-700) !important;
+    box-shadow: 0 2px 4px rgba(var(--brand-primary-rgb), 0.3) !important;
+}
+
+.btn-outline-primary {
+    color: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.3) !important;
+}
+
+.btn-label-primary {
+    color: var(--brand-primary) !important;
+    background: rgba(var(--brand-primary-rgb), 0.12) !important;
+}
+
+.btn-label-primary:hover,
+.btn-label-primary:focus {
+    background: var(--brand-primary) !important;
+    box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.3) !important;
+}
+
+/* Badges */
+.bg-label-primary {
+    background-color: rgba(var(--brand-primary-rgb), 0.12) !important;
+    color: var(--brand-primary) !important;
+}
+
+/* Sidebar & navigation accents */
+.bg-menu-theme .app-brand.demo {
+    border-bottom-color: rgba(var(--brand-primary-rgb), 0.1) !important;
+}
+
+.bg-menu-theme .app-brand-text {
+    color: var(--brand-primary) !important;
+}
+
+.bg-menu-theme .app-brand-logo .brand-logo-text {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+}
+
+.bg-menu-theme .app-brand-link:hover .app-brand-text {
+    color: var(--brand-primary-600) !important;
+}
+
+.bg-menu-theme .app-brand-link:hover .brand-logo-text {
+    background: linear-gradient(135deg, var(--brand-primary-600) 0%, var(--brand-secondary) 100%) !important;
+}
+
+.bg-menu-theme .menu-inner-shadow {
+    background: linear-gradient(180deg, rgba(var(--brand-primary-rgb), 0.05) 0%, transparent 100%) !important;
+}
+
+.bg-menu-theme .menu-link:hover,
+.bg-menu-theme .menu-link:focus,
+.bg-menu-theme .menu-item.active > .menu-link {
+    color: var(--brand-primary) !important;
+    background-color: rgba(var(--brand-primary-rgb), 0.08) !important;
+}
+
+.bg-menu-theme .menu-item.active > .menu-link .menu-icon {
+    color: var(--brand-primary) !important;
+}
+
+.bg-menu-theme .menu-sub .menu-item.active > .menu-link {
+    color: var(--brand-primary) !important;
+}
+
+/* Page header & tabs */
+.page-header-title,
+.nav-tabs .nav-link.active {
+    color: var(--brand-primary) !important;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: var(--brand-primary) !important;
+}
+
+/* DataTable row hover accent */
+table.dataTable tbody tr:hover {
+    background-color: rgba(var(--brand-primary-rgb), 0.05) !important;
+}

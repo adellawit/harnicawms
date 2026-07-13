@@ -21,6 +21,43 @@
             </x-alert>
         @endif
 
+        @if ($customer->agent || $customer->reseller || $customer->latestPartnerApplication)
+            <div class="card mb-3 border-start border-3 border-primary">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <div>
+                            <h6 class="mb-1"><i class="ti ti-affiliate me-1"></i> Network</h6>
+                            <p class="mb-0 text-muted small">
+                                Customer ini terhubung ke modul Network (partner).
+                            </p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @if ($customer->agent)
+                                <a href="{{ route('partner.agents.show', $customer->agent->id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="ti ti-users me-1"></i> Agent {{ $customer->agent->code }}
+                                </a>
+                            @endif
+                            @if ($customer->reseller)
+                                <a href="{{ route('partner.resellers.show', $customer->reseller->id) }}" class="btn btn-sm btn-outline-info">
+                                    <i class="ti ti-user-star me-1"></i> Reseller {{ $customer->reseller->code }}
+                                </a>
+                                @if ($customer->reseller->agent)
+                                    <span class="badge bg-label-secondary align-self-center">
+                                        Agent: {{ $customer->reseller->agent->name }}
+                                    </span>
+                                @endif
+                            @endif
+                            @if ($customer->latestPartnerApplication && ! $customer->agent && ! $customer->reseller)
+                                <a href="{{ route('partner.applications.show', $customer->latestPartnerApplication->id) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="ti ti-clipboard-list me-1"></i> Application {{ $customer->latestPartnerApplication->application_number }}
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('customer.list.edit.data') }}" id="postForm" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="id" value="{{ $customer->id }}" />
@@ -48,11 +85,17 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="customer_type">Type</label>
-                            <select id="customer_type" name="customer_type" class="select2 form-select">
-                                <option value="">-- Select --</option>
-                                <option value="individual" {{ old('customer_type', $customer->customer_type) == 'individual' ? 'selected' : '' }}>Individual</option>
-                                <option value="company" {{ old('customer_type', $customer->customer_type) == 'company' ? 'selected' : '' }}>Company</option>
-                            </select>
+                            @if ($customer->agent || $customer->reseller || in_array($customer->customer_type, [\App\Models\Customer::TYPE_PARTNER_LEAD, \App\Models\Customer::TYPE_AGENT, \App\Models\Customer::TYPE_RESELLER], true))
+                                <input type="text" class="form-control" value="{{ $customer->customerTypeLabel() }}" readonly />
+                                <input type="hidden" name="customer_type" value="{{ $customer->customer_type }}" />
+                                <small class="text-muted">Tipe partner dikelola otomatis dari Network.</small>
+                            @else
+                                <select id="customer_type" name="customer_type" class="select2 form-select">
+                                    <option value="">-- Select --</option>
+                                    <option value="individual" {{ old('customer_type', $customer->customer_type) == 'individual' ? 'selected' : '' }}>Individual</option>
+                                    <option value="company" {{ old('customer_type', $customer->customer_type) == 'company' ? 'selected' : '' }}>Company</option>
+                                </select>
+                            @endif
                         </div>
 
                         <div class="col-12"><hr class="my-2"><h6 class="text-muted mb-2">Tax Information</h6></div>

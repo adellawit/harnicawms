@@ -83,10 +83,22 @@ class CustomerController extends Controller
                 'customer.customers.created_at',
                 'customer.customers.deleted_at',
                 'cg.name as group_name',
-                'bu.name as branch_name'
+                'bu.name as branch_name',
+                'pa.id as partner_agent_id',
+                'pa.code as partner_agent_code',
+                'pr.id as partner_reseller_id',
+                'pr.code as partner_reseller_code',
             )
             ->join('customer.customer_groups as cg', 'customer.customers.customer_group_id', '=', 'cg.id')
-            ->leftJoin('master_data.business_units as bu', 'cg.branch_id', '=', 'bu.id');
+            ->leftJoin('master_data.business_units as bu', 'cg.branch_id', '=', 'bu.id')
+            ->leftJoin('partner.agents as pa', function ($join) {
+                $join->on('customer.customers.id', '=', 'pa.customer_id')
+                    ->whereNull('pa.deleted_at');
+            })
+            ->leftJoin('partner.resellers as pr', function ($join) {
+                $join->on('customer.customers.id', '=', 'pr.customer_id')
+                    ->whereNull('pr.deleted_at');
+            });
 
         if (!empty($groupIds)) {
             $data = $data->whereIn('customer.customers.customer_group_id', $groupIds);
@@ -104,6 +116,21 @@ class CustomerController extends Controller
 
         return (new DataTables)->eloquent($data)
             ->addIndexColumn()
+            ->addColumn('partner_role', function ($row) {
+                if ($row->partner_agent_id) {
+                    return 'agent';
+                }
+
+                if ($row->partner_reseller_id) {
+                    return 'reseller';
+                }
+
+                if ($row->customer_type === Customer::TYPE_PARTNER_LEAD) {
+                    return 'partner_lead';
+                }
+
+                return null;
+            })
             ->filter(function ($query) use ($request) {
                 if ($search = $request->get('search')['value'] ?? null) {
                     $query->where(function ($q) use ($search) {
@@ -164,7 +191,7 @@ class CustomerController extends Controller
             'username' => ['nullable', 'string', 'max:100', Rule::unique(Customer::class, 'username')->whereNull('deleted_at')],
             'password' => 'nullable|string|min:6|required_if:has_app_access,1',
             'has_app_access' => 'nullable|boolean',
-            'customer_type' => 'nullable|in:individual,company',
+            'customer_type' => 'nullable|in:individual,company,PARTNER_LEAD,AGENT,RESELLER',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'attachments' => 'nullable|array',
@@ -221,7 +248,15 @@ class CustomerController extends Controller
 
     public function editView(Request $request, $id)
     {
-        $customer = Customer::where('id', $id)->withTrashed()->with('customerGroup.branch')->firstOrFail();
+        $customer = Customer::where('id', $id)
+            ->withTrashed()
+            ->with([
+                'customerGroup.branch',
+                'agent',
+                'reseller.agent',
+                'latestPartnerApplication',
+            ])
+            ->firstOrFail();
         $groupIds = $this->getAccessibleGroupIds();
 
         if (!empty($groupIds) && !in_array($customer->customer_group_id, $groupIds)) {
@@ -272,7 +307,7 @@ class CustomerController extends Controller
             'username' => ['nullable', 'string', 'max:100', Rule::unique(Customer::class, 'username')->ignore($request->id)->whereNull('deleted_at')],
             'password' => 'nullable|string|min:6',
             'has_app_access' => 'nullable|boolean',
-            'customer_type' => 'nullable|in:individual,company',
+            'customer_type' => 'nullable|in:individual,company,PARTNER_LEAD,AGENT,RESELLER',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'attachments' => 'nullable|array',

@@ -1,4 +1,3 @@
-/.phpunit.cache
 /node_modules
 /public/build
 /public/hot
@@ -11,7 +10,6 @@
 .env.production
 .env-production
 .env.*.local
-.phpunit.result.cache
 Homestead.json
 Homestead.yaml
 auth.json

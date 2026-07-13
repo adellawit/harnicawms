@@ -57,4 +57,10 @@
         </div>
 
         <script src="{{ asset('assets/ai/chat.js') }}"></script>
+        <script>
+            document.body.classList.add('has-agent-chat');
+            if (document.querySelector('.floating-footer')) {
+                document.body.classList.add('has-agent-chat-with-footer');
+            }
+        </script>
 @endif

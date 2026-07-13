@@ -1,10 +1,11 @@
 <x-app-layout>
-    @section('title', 'Partner Network | ')
+    @section('title', 'Network | ')
 
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Partner Network', 'active' => true],
+            ['label' => 'Customer'],
+            ['label' => 'Network', 'active' => true],
         ]" />
 
         <div class="row mb-4">
@@ -18,6 +19,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Stock Summary per Agent Warehouse</h5>
                 <div>
+                    <a href="{{ route('partner.network-map.index') }}" class="btn btn-sm btn-primary"><i class="ti ti-map me-1"></i> Peta Jaringan</a>
                     <a href="{{ route('partner.applications.index') }}" class="btn btn-sm btn-outline-primary">Applications</a>
                     <a href="{{ route('partner.agents.index') }}" class="btn btn-sm btn-outline-primary">Agents</a>
                     <a href="{{ route('partner.resellers.index') }}" class="btn btn-sm btn-outline-primary">Resellers</a>

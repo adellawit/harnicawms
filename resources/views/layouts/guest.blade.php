@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="light-style customizer-hide" dir="ltr"
-    data-theme="theme-default" data-assets-path="{{ asset('assets/') }}" data-template="vertical-menu-template">
+    data-theme="theme-default" data-assets-path="{{ asset('assets/') }}" data-template="vertical-menu-template"
+    data-theme-color-mode="{{ $appTheme['color_mode'] ?? 'logo_extract' }}"
+    data-theme-primary="{{ $appTheme['primary'] ?? '#5C9E84' }}"
+    data-theme-secondary="{{ $appTheme['secondary'] ?? '#7BB5A0' }}">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    {{-- Only upgrade sub-resources to https when the request is genuinely https
-         (same check as ForceHttps middleware) -- otherwise, on a plain-http
-         deployment, the browser upgrades every asset request to https and they
-         all fail if nothing on that port terminates TLS, leaving the page unstyled. --}}
-    @if(request()->isSecure() || request()->header('X-Forwarded-Proto') === 'https' || str_contains(request()->getHost(), 'gateway.wit.id'))
+    @if (app()->environment('production'))
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    @endif
     @endif
 
     <title>@yield('title', '') {{ config('app.name', 'Laravel') }}</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/wms/favicon.ico') }}" />
+    <link rel="icon" type="image/x-icon" href="{{ $appTheme['favicon_url'] ?? asset('assets/img/wms/favicon.ico') }}" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,18 +36,23 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/node-waves/node-waves.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/typeahead-js/typeahead.css') }}" />
+    @stack('vendor-css')
 
     <!-- Page CSS -->
     @stack('page-css')
 
+    @include('layouts.partials.theme-vars')
+    <link rel="stylesheet" href="{{ asset('assets/css/design-system.css') }}" />
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/css/theme-bridge.css') }}" />
 
     <!-- Helpers -->
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
-<body>
+<body class="{{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }}">
     <div class="authentication-wrapper authentication-cover">
         <div class="authentication-inner row w-100 m-0">
             {{ $slot }}
@@ -67,5 +72,7 @@
 
     <!-- Page JS -->
     @stack('page-js')
+
+    <script src="{{ asset('assets/js/brand-theme.js') }}"></script>
 </body>
 </html>

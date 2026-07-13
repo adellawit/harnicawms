@@ -35,12 +35,19 @@
                                     <ul class="mb-0 mt-1 small">
                                         <li>Level 1 (satuan terbesar / Dus): <code>{{ date('y') }}1000000001</code>, <code>{{ date('y') }}1000000002</code>, ...</li>
                                         <li>Level 2 (Box): <code>{{ date('y') }}2000000001</code>, <code>{{ date('y') }}2000000002</code>, ...</li>
-                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ...</li>
+                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ... — <span class="text-muted">sticker transparan, tinta putih</span></li>
                                     </ul>
                                     <span class="small">Setiap level punya penomoran sendiri mulai dari 1. Preview dan PDF diurutkan hierarki: Karton → Pack → Box sesuai nomor seri per level.</span>
                                 </div>
                             </div>
                         </div>
+
+                        @if ($hasUnitHierarchy && ($maxHierarchyParentQty ?? 1) < 1)
+                            <x-alert type="warning" class="mb-4">
+                                1 satuan induk menghasilkan <strong>{{ $labelsPerParent }}</strong> label — melebihi batas hierarki
+                                ({{ $hierarchyPrintMaxLabels }}). Gunakan <strong>mode satuan tunggal</strong> atau cetak per level.
+                            </x-alert>
+                        @endif
 
                         <form id="printForm">
                             @csrf
@@ -56,7 +63,7 @@
                                                 name="print_mode"
                                                 id="print_mode_hierarchy"
                                                 value="hierarchy"
-                                                checked
+                                                @checked(($prefillPrintMode ?? 'hierarchy') === 'hierarchy')
                                             >
                                             <label class="form-check-label" for="print_mode_hierarchy">
                                                 <strong>Berdasarkan satuan terbesar</strong>
@@ -70,6 +77,7 @@
                                                 name="print_mode"
                                                 id="print_mode_single"
                                                 value="single"
+                                                @checked(($prefillPrintMode ?? 'hierarchy') === 'single')
                                             >
                                             <label class="form-check-label" for="print_mode_single">
                                                 <strong>Satuan tunggal</strong>
@@ -153,7 +161,7 @@
                                     id="quantity"
                                     class="form-control"
                                     min="1"
-                                    max="{{ $maxHierarchyParentQty ?? 500 }}"
+                                    max="{{ max(1, $maxHierarchyParentQty ?? 1) }}"
                                     value="{{ old('quantity', $prefillQuantity ?? 1) }}"
                                     required
                                 >
@@ -233,7 +241,400 @@
 
     @push('page-css')
         <style>
-            @include('admin.product.master._barcode-label-styles')
+            .preview-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1.5mm 2mm;
+            }
+
+            .preview-grid--level-3 {
+                background: #1a1a1a;
+                padding: 3mm;
+                border-radius: 4px;
+            }
+
+            .preview-group {
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 16px;
+                background: #f8f9fa;
+            }
+
+            .preview-group__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #dee2e6;
+            }
+
+            .preview-group__title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 16px;
+            }
+
+            .preview-group__badge {
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .preview-group__info {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+                font-size: 13px;
+            }
+
+            .preview-group__qty {
+                font-weight: 600;
+                color: #0d6efd;
+            }
+
+            .preview-group__serial {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: #6c757d;
+            }
+
+            .preview-group__labels {
+                background: #fff;
+                padding: 12px;
+                border-radius: 6px;
+            }
+
+            .preview-tree {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .preview-tree__node {
+                position: relative;
+            }
+
+            .preview-tree__node--level-1,
+            .preview-tree__node--level-2-group,
+            .preview-tree__node--level-3 {
+                border-radius: 8px;
+                padding: 10px;
+            }
+
+            .preview-tree__node--level-1 {
+                border: 2px dashed #0d6efd;
+                background: #f0f6ff;
+                width: fit-content;
+                max-width: 100%;
+            }
+
+            .preview-tree__node--level-2-group {
+                border: 1.5px dashed #6ea8fe;
+                background: #f0f6ff;
+            }
+
+            .preview-tree__node--level-3 {
+                border: 1.5px dashed #6c757d;
+                background: #1a1a1a;
+            }
+
+            .preview-tree__cut-line {
+                font-size: 11px;
+                color: #6c757d;
+                text-align: center;
+                border-bottom: 1px dashed #ccc;
+                margin: -10px -10px 8px;
+                padding: 5px 8px;
+                background: #e9ecef;
+                border-radius: 8px 8px 0 0;
+                line-height: 1.2;
+            }
+
+            .preview-tree__box-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 55mm);
+                gap: 1.5mm 2mm;
+                justify-content: start;
+                background: #1a1a1a;
+                padding: 2mm;
+                border-radius: 4px;
+            }
+
+            .preview-tree__box-groups-page .preview-tree__node--level-3 {
+                margin-bottom: 10px;
+            }
+
+            .preview-tree__box-groups-page .preview-tree__node--level-3:last-child {
+                margin-bottom: 0;
+            }
+
+            .preview-tree__page {
+                margin-bottom: 20px;
+            }
+
+            .preview-tree__page + .preview-tree__page {
+                border-top: 2px dashed #adb5bd;
+                padding-top: 16px;
+                margin-top: 8px;
+            }
+
+            .preview-tree__page-label {
+                font-size: 10px;
+                font-weight: 700;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                margin-bottom: 10px;
+            }
+
+            .preview-tree__page--level-1-2 {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .preview-tree__pack-grid {
+                display: grid;
+                grid-template-columns: repeat(6, 40mm);
+                gap: 1.5mm;
+                justify-content: start;
+            }
+
+            .preview-tree__pack-grid-item-title {
+                font-size: 10px;
+                font-weight: 700;
+                text-align: center;
+                color: #444;
+                margin-bottom: 3px;
+                line-height: 1;
+            }
+
+            .preview-tree__labels {
+                display: block;
+            }
+
+            .preview-tree__more {
+                margin: 6px 0 0;
+                font-size: 12px;
+                color: #6c757d;
+                font-style: italic;
+            }
+
+            .label-item {
+                overflow: hidden;
+            }
+
+            .label-item--box {
+                width: 55mm;
+                height: 9mm;
+                border: none;
+                background: transparent;
+                box-sizing: border-box;
+                overflow: hidden;
+                padding: 0.5mm;
+            }
+
+            .label-item--box .label-item__table {
+                width: 100%;
+                height: 7mm;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+
+            .label-item--box .label-item__qr {
+                width: 7mm;
+                height: 7mm;
+                vertical-align: middle;
+                text-align: center;
+                padding: 0.5mm;
+                box-sizing: border-box;
+            }
+
+            .label-item--box .label-item__qr img {
+                width: 6mm;
+                height: 6mm;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .label-item--box .label-item__content {
+                height: 7mm;
+                vertical-align: middle;
+                text-align: left;
+                padding: 0 0.6mm 0 0.9mm;
+            }
+
+            .label-item--box .label-item__distributed-by {
+                font-size: 4.5pt;
+                font-weight: 400;
+                color: #fff;
+                line-height: 1.1;
+                white-space: nowrap;
+                margin: 0;
+                padding: 0;
+            }
+
+            .label-item--box .label-item__distributor-name {
+                font-size: 6pt;
+                font-weight: 700;
+                color: #fff;
+                line-height: 1.1;
+                text-transform: uppercase;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin: 0;
+                padding: 0;
+            }
+
+            .label-item--karton {
+                width: 100mm;
+                height: 80mm;
+                padding: 1mm;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                border: 1px solid #999;
+                background: #fff;
+            }
+
+            .label-item--karton .label-item__top {
+                width: 100%;
+                flex-shrink: 0;
+            }
+
+            .label-item--karton .label-item__bottom {
+                width: 100%;
+                margin-top: auto;
+                flex-shrink: 0;
+                text-align: center;
+            }
+
+            .label-item--pack {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                align-items: center;
+                text-align: center;
+                width: 40mm;
+                height: 30mm;
+                padding: 9% 1mm 10%;
+                box-sizing: border-box;
+                border: 1px solid #999;
+                background: #fff;
+            }
+
+            .label-item--pack .label-item__top {
+                width: 100%;
+                flex-shrink: 0;
+                line-height: 1.15;
+            }
+
+            .label-item--pack .label-item__bottom {
+                text-align: center;
+                width: 100%;
+                flex-shrink: 0;
+                line-height: 1.15;
+                padding-top: 0;
+            }
+
+            .label-item--karton .label-item__logo {
+                line-height: 0;
+                margin-bottom: 0.3mm;
+            }
+
+            .label-item--karton .label-item__qr {
+                width: auto;
+                height: auto;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .label-item--karton .label-item__logo img {
+                max-width: 96mm;
+                max-height: 15mm;
+                object-fit: contain;
+            }
+
+            .label-item--karton .label-item__product {
+                font-size: 17px;
+                font-weight: 700;
+                text-transform: uppercase;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--karton .label-item__unit-qty {
+                font-size: 11px;
+                font-weight: 700;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--karton .label-item__summary {
+                font-size: 9px;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--karton .label-item__qr img {
+                display: block;
+                margin: 0 auto;
+                width: 35mm;
+                height: 35mm;
+            }
+
+            .label-item--karton .label-item__serial {
+                font-size: 10px;
+                font-weight: 700;
+                font-family: ui-monospace, monospace;
+                line-height: 1.15;
+                margin-top: 0.4mm;
+            }
+
+            .label-item--pack .label-item__qr {
+                width: auto;
+                height: auto;
+                display: block;
+                margin: 0 auto;
+                line-height: 0;
+            }
+
+            .label-item--pack .label-item__product {
+                font-size: 9px;
+                font-weight: 700;
+                text-transform: uppercase;
+                line-height: 1.15;
+                margin-top: 0;
+            }
+
+            .label-item--pack .label-item__summary {
+                font-size: 7px;
+                line-height: 1.15;
+                margin-top: 0.3mm;
+                margin-bottom: 0;
+            }
+
+            .label-item--pack .label-item__qr img {
+                width: 14mm;
+                height: 14mm;
+            }
+
+            .label-item--pack .label-item__serial {
+                font-size: 7px;
+                font-family: ui-monospace, monospace;
+                line-height: 1.1;
+                margin-top: 0.4mm;
+            }
         </style>
     @endpush
 
@@ -252,9 +653,9 @@
                 var defaultUnitId = @json($defaultUnitId);
                 var hasUnitHierarchy = @json($hasUnitHierarchy);
                 var singlePrintMaxLabels = @json($singlePrintMaxLabels ?? 500);
-                var hierarchyPrintMaxLabels = @json($hierarchyPrintMaxLabels ?? 5000);
+                var hierarchyPrintMaxLabels = @json($hierarchyPrintMaxLabels ?? 10000);
                 var labelsPerParent = @json($labelsPerParent ?? 1);
-                var maxHierarchyParentQty = @json($maxHierarchyParentQty ?? 500);
+                var maxHierarchyParentQty = @json($maxHierarchyParentQty ?? 1);
 
                 $('.select2').select2({ width: '100%', allowClear: true });
 
@@ -339,10 +740,10 @@
                         $('#unit_id').val(defaultUnitId).trigger('change.select2');
                         $('#unit_id').prop('disabled', true);
                         $('#quantity').attr('max', maxHierarchyParentQty);
-                        $('#quantityLabel').text('Jumlah Satuan Terbesar (Qty)');
+                        $('#quantityLabel').text('Jumlah Satuan Induk (Qty)');
                         $('#quantityHelp').text(
-                            '1 satuan terbesar = ' + labelsPerParent + ' label total. ' +
-                            'Maks. qty induk: ' + maxHierarchyParentQty + ' (total ' + hierarchyPrintMaxLabels + ' label).'
+                            '1 satuan induk = ' + labelsPerParent + ' label total. ' +
+                            'Maks. qty: ' + maxHierarchyParentQty + ' (batas ' + hierarchyPrintMaxLabels + ' label).'
                         );
                     } else {
                         $('#unit_id').prop('disabled', false);
@@ -412,7 +813,187 @@
                     $('#previewMeta, #previewRange, #previewMore').text('');
                 }
 
-                @include('admin.product.master._barcode-tree-renderer')
+                function formatBoxBrandLabel(distName) {
+                    var name = (distName || '').trim();
+                    if (name.toUpperCase().indexOf('HARNICA ') === 0) {
+                        return name;
+                    }
+                    return 'HARNICA ' + name;
+                }
+
+                function renderPreviewLabel(label, distName) {
+                    var type = label.label_type || 'box';
+                    var distHtml = $('<div>').text(distName).html();
+                    var productHtml = $('<div>').text(label.product_name || productName).html();
+                    var summaryHtml = $('<div>').text(label.content_summary || '').html();
+
+                    if (type === 'karton') {
+                        return '<div class="label-item label-item--karton">' +
+                            '<div class="label-item__top">' +
+                            '<div class="label-item__logo"><img src="' + harnicaLogoUrl + '" alt="Harnica"></div>' +
+                            '<div class="label-item__product">' + productHtml + '</div>' +
+                            '<div class="label-item__unit-qty">1 ' + label.unit_label + '</div>' +
+                            (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
+                            '</div>' +
+                            '<div class="label-item__bottom">' +
+                            '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="Barcode"></div>' +
+                            '<div class="label-item__serial">' + label.serial + '</div>' +
+                            '</div></div>';
+                    }
+
+                    if (type === 'pack') {
+                        return '<div class="label-item label-item--pack">' +
+                            '<div class="label-item__top">' +
+                            '<div class="label-item__product">' + productHtml + '</div>' +
+                            (label.content_summary ? '<div class="label-item__summary">' + summaryHtml + '</div>' : '') +
+                            '</div>' +
+                            '<div class="label-item__bottom">' +
+                            '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="Barcode"></div>' +
+                            '<div class="label-item__serial">' + label.serial + '</div>' +
+                            '</div></div>';
+                    }
+
+                    var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
+
+                    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:none;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
+                        '<table class="label-item__table" cellpadding="0" cellspacing="0" style="width:100%;height:7mm;border-collapse:collapse;table-layout:fixed;">' +
+                        '<colgroup><col style="width:7mm"><col></colgroup>' +
+                        '<tr style="height:7mm;">' +
+                        '<td class="label-item__qr" valign="middle" align="center" style="width:7mm;height:7mm;padding:0.5mm;box-sizing:border-box;vertical-align:middle;text-align:center;">' +
+                        '<table cellpadding="0" cellspacing="0" style="width:100%;height:100%;border-collapse:collapse;"><tr>' +
+                        '<td align="center" valign="middle" style="width:100%;height:100%;padding:0;text-align:center;vertical-align:middle;">' +
+                        '<img src="' + label.qr_data_uri + '" alt="QR" style="width:6mm;height:6mm;display:block;margin:0 auto;">' +
+                        '</td></tr></table></td>' +
+                        '<td class="label-item__content" valign="middle" style="height:7mm;vertical-align:middle;text-align:left;padding:0 0.6mm 0 0.9mm;">' +
+                        '<div class="label-item__distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#fff;">Distributed by :</div>' +
+                        '<div class="label-item__distributor-name" style="font-size:6pt;font-weight:700;line-height:1.1;margin:0;padding:0;color:#fff;text-transform:uppercase;">' + boxBrandHtml + '</div>' +
+                        '</td></tr></table></div>';
+                }
+
+                function renderHierarchyTreePreview(tree) {
+                    function boxSerialRange(packNode) {
+                        var serials = (packNode.children || [])
+                            .map(function (child) {
+                                return child.serial || (child.label && child.label.serial) || null;
+                            })
+                            .filter(Boolean);
+                        if (!serials.length) {
+                            return '';
+                        }
+                        if (serials.length === 1) {
+                            return serials[0];
+                        }
+                        return serials[0] + '-' + serials[serials.length - 1];
+                    }
+
+                    function renderPackGroupSection(kartonNode) {
+                        var packs = kartonNode.children || [];
+                        if (!packs.length) {
+                            return '';
+                        }
+
+                        var unitLabel = $('<div>').text(packs[0].unit_label || 'Pack').html();
+                        var html = '<div class="preview-tree__node preview-tree__node--level-2-group">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + unitLabel.toUpperCase() + ' : 1-' + packs.length + '</div>';
+                        html += '<div class="preview-tree__pack-grid">';
+
+                        packs.forEach(function (packNode) {
+                            if (packNode.label) {
+                                html += '<div class="preview-tree__pack-grid-item">';
+                                html += '<div class="preview-tree__pack-grid-item-title">' + packNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
+                                html += renderPreviewLabel(packNode.label, distributorName);
+                                html += '</div>';
+                            }
+                        });
+
+                        html += '</div></div>';
+                        return html;
+                    }
+
+                    function renderLevel1And2Page(kartonNode) {
+                        var unitLabel = $('<div>').text(kartonNode.unit_label || 'Karton').html();
+                        var html = '<div class="preview-tree__page preview-tree__page--level-1-2">';
+                        html += '<div class="preview-tree__page-label">Halaman Level 1 &amp; 2 — Karton &amp; Pack</div>';
+
+                        html += '<div class="preview-tree__node preview-tree__node--level-1">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + kartonNode.ordinal + ' ' + unitLabel.toUpperCase() + '</div>';
+
+                        if (kartonNode.label) {
+                            html += '<div class="preview-tree__labels">';
+                            html += renderPreviewLabel(kartonNode.label, distributorName);
+                            html += '</div>';
+                        }
+
+                        if (kartonNode.hidden_children && kartonNode.hidden_children > 0) {
+                            html += '<p class="preview-tree__more">... dan ' + kartonNode.hidden_children + ' label lainnya akan disertakan di PDF.</p>';
+                        }
+
+                        html += '</div>';
+
+                        html += renderPackGroupSection(kartonNode);
+                        html += '</div>';
+                        return html;
+                    }
+
+                    function renderBoxGroupSection(packNode) {
+                        var unitLabel = $('<div>').text(packNode.unit_label || 'Pack').html();
+                        var boxLabels = (packNode.children || [])
+                            .map(function (child) { return child.label; })
+                            .filter(Boolean);
+
+                        if (!boxLabels.length) {
+                            return '';
+                        }
+
+                        var rangeLabel = boxSerialRange(packNode);
+                        var html = '<div class="preview-tree__node preview-tree__node--level-3">';
+                        html += '<div class="preview-tree__cut-line">&#9986; POTONG &mdash; ' + packNode.ordinal + ' ' + unitLabel.toUpperCase();
+                        if (rangeLabel) {
+                            html += ' : ' + rangeLabel;
+                        }
+                        html += '</div>';
+                        html += '<div class="preview-tree__box-grid">';
+                        boxLabels.forEach(function (label) {
+                            html += renderPreviewLabel(label, distributorName);
+                        });
+                        html += '</div>';
+
+                        if (packNode.hidden_children && packNode.hidden_children > 0) {
+                            html += '<p class="preview-tree__more">... dan ' + packNode.hidden_children + ' box lainnya akan disertakan di PDF.</p>';
+                        }
+
+                        html += '</div>';
+                        return html;
+                    }
+
+                    function renderLevel3Page(kartonNode) {
+                        var packs = kartonNode.children || [];
+                        var sections = packs.map(renderBoxGroupSection).filter(Boolean);
+
+                        if (!sections.length) {
+                            return '';
+                        }
+
+                        var html = '<div class="preview-tree__page preview-tree__page--level-3">';
+                        html += '<div class="preview-tree__page-label">Halaman Level 3 — Box</div>';
+                        html += '<div class="preview-tree__box-groups-page">';
+                        html += sections.join('');
+                        html += '</div></div>';
+                        return html;
+                    }
+
+                    function renderKartonNode(kartonNode) {
+                        return renderLevel1And2Page(kartonNode) + renderLevel3Page(kartonNode);
+                    }
+
+                    var html = '<div class="preview-tree">';
+                    tree.forEach(function (rootNode) {
+                        html += renderKartonNode(rootNode);
+                    });
+                    html += '</div>';
+
+                    $('#previewGrid').html(html);
+                }
 
                 function updateSerialStatusTable(rows) {
                     if (!rows || !rows.length) {
@@ -484,7 +1065,7 @@
                         var breakdown = computeBreakdown(qty, defaultUnitId);
                         var total = breakdown.reduce(function (sum, row) { return sum + row.qty; }, 0);
                         if (total > hierarchyPrintMaxLabels) {
-                            alert('Total label (' + total + ') melebihi batas ' + hierarchyPrintMaxLabels + '. Maks. qty induk: ' + maxHierarchyParentQty + '.');
+                            alert('Total label (' + total + ') melebihi batas ' + hierarchyPrintMaxLabels + '. Maks. qty: ' + maxHierarchyParentQty + '.');
                             return;
                         }
                     }
@@ -520,6 +1101,7 @@
                                 $('#previewRange').text('Total ' + res.total + ' label');
 
                                 renderHierarchyTreePreview(res.tree || []);
+                                $('#previewGrid').removeClass('preview-grid--level-3');
 
                                 if (res.hidden && res.hidden > 0) {
                                     $('#previewMore').removeClass('d-none').text(
@@ -537,10 +1119,16 @@
 
                                 var html = '';
                                 var distName = res.distributor_name || distributorName;
+                                var $grid = $('#previewGrid');
+                                if (res.unit_level === 3) {
+                                    $grid.addClass('preview-grid--level-3');
+                                } else {
+                                    $grid.removeClass('preview-grid--level-3');
+                                }
                                 res.labels.forEach(function (label) {
                                     html += renderPreviewLabel(label, distName);
                                 });
-                                $('#previewGrid').html(html);
+                                $grid.html(html);
                             }
 
                             $('#previewCard').removeClass('d-none')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });

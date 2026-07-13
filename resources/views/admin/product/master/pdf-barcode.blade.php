@@ -15,60 +15,71 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: DejaVu Sans, sans-serif;
+            font-family: Arial, Helvetica, DejaVu Sans, sans-serif;
         }
 
-        /* ── Box 50×12mm ── */
+        /* ── Box 55×9mm — sticker transparan, tinta putih (Level 3) ── */
         .label-box {
-            position: relative;
-            width: 50mm;
-            height: 12mm;
-            border: 0.1mm solid #999;
+            width: 55mm;
+            height: 9mm;
+            border: none;
+            padding: 0.5mm;
             overflow: hidden;
-            background: #fff;
+            background: transparent;
             page-break-inside: avoid;
             break-inside: avoid;
+            box-sizing: border-box;
         }
 
-        .label-box .label-qr {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 12mm;
-            height: 12mm;
+        .label-box__table {
+            width: 100%;
+            height: 7mm;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .label-box__qr-cell {
+            width: 7mm;
+            height: 7mm;
+            vertical-align: middle;
             text-align: center;
+            padding: 0.5mm;
+            box-sizing: border-box;
         }
 
-        .label-box .label-qr img {
-            width: 10mm;
-            height: 10mm;
-            margin-top: 1mm;
+        .label-box__qr-cell img {
+            width: 6mm;
+            height: 6mm;
+            display: block;
+            margin: 0 auto;
         }
 
-        .label-box .label-text {
-            position: absolute;
-            left: 12mm;
-            bottom: 0;
-            width: 38mm;
-            padding: 0 1.5mm 1mm 1mm;
+        .label-box__text-cell {
+            vertical-align: middle;
+            text-align: left;
+            padding: 0 0.6mm 0 0.9mm;
         }
 
-        .label-box .serial {
-            font-size: 6.5px;
-            font-weight: bold;
-            font-family: DejaVu Sans Mono, monospace;
-            line-height: 1.2;
+        .label-box .distributed-by {
+            font-size: 4.5pt;
+            font-weight: normal;
+            line-height: 1.1;
             white-space: nowrap;
-            margin: 0 0 0.4mm;
+            color: #fff;
+            margin: 0;
+            padding: 0;
         }
 
         .label-box .distributor-name {
-            font-size: 6.5px;
+            font-size: 6pt;
             font-weight: bold;
             text-transform: uppercase;
-            line-height: 1.2;
+            line-height: 1.1;
             white-space: nowrap;
             overflow: hidden;
+            color: #fff;
+            margin: 0;
+            padding: 0;
         }
 
         /* ── Karton 100×80mm & Pack 40×30mm ── */
@@ -371,8 +382,8 @@
         }
 
         table.box-grid td {
-            width: 50mm;
-            height: 12mm;
+            width: 55mm;
+            height: 9mm;
             padding: 0;
             vertical-align: top;
         }
@@ -386,8 +397,8 @@
         }
 
         table.sheet td {
-            width: 50mm;
-            height: 12mm;
+            width: 55mm;
+            height: 9mm;
             padding: 0;
             vertical-align: top;
         }
@@ -399,6 +410,11 @@
         $printMode = $printMode ?? 'single';
         $labelTree = $labelTree ?? null;
         $boxCols = 5;
+        $labelShared = [
+            'distributorName' => $distributorName ?? '',
+            'productName' => $productName ?? '',
+            'qrBaseUrl' => $qrBaseUrl,
+        ];
     @endphp
 
     @if ($printMode === 'hierarchy' && ! empty($labelTree))
@@ -423,7 +439,7 @@
                         </div>
                         @if (! empty($kartonNode['label']))
                             <div class="label-wrap label-wrap--karton">
-                                @include('admin.product.master.pdf-barcode-label', ['label' => $kartonNode['label']])
+                                @include('admin.product.master.pdf-barcode-label', array_merge($labelShared, ['label' => $kartonNode['label']]))
                             </div>
                         @endif
                     </div>
@@ -446,7 +462,7 @@
                                                 <div class="pack-grid__item-title">{{ $packNode['ordinal'] }} {{ $packUnitLabel }}</div>
                                                 @if (! empty($packNode['label']))
                                                     <div class="label-wrap label-wrap--pack">
-                                                        @include('admin.product.master.pdf-barcode-label', ['label' => $packNode['label']])
+                                                        @include('admin.product.master.pdf-barcode-label', array_merge($labelShared, ['label' => $packNode['label']]))
                                                     </div>
                                                 @endif
                                             </td>
@@ -494,7 +510,7 @@
                                                 @for ($c = 0; $c < $boxCols; $c++)
                                                     <td>
                                                         @if (! empty($rowLabels[$c]))
-                                                            @include('admin.product.master.pdf-barcode-label', ['label' => $rowLabels[$c]])
+                                                            @include('admin.product.master.pdf-barcode-label', array_merge($labelShared, ['label' => $rowLabels[$c]]))
                                                         @endif
                                                     </td>
                                                 @endfor
@@ -519,7 +535,7 @@
                     @for ($c = 0; $c < $boxCols; $c++)
                         <td>
                             @if (! empty($rowLabels[$c]))
-                                @include('admin.product.master.pdf-barcode-label', ['label' => $rowLabels[$c]])
+                                @include('admin.product.master.pdf-barcode-label', array_merge($labelShared, ['label' => $rowLabels[$c]]))
                             @endif
                         </td>
                     @endfor

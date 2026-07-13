@@ -33,11 +33,23 @@ class PartnerApplication extends Model
         'name',
         'email',
         'phone',
+        'birth_place',
+        'birth_date',
+        'address_ktp',
         'requested_purchase_quantity',
         'address',
         'city',
         'province',
         'postal_code',
+        'latitude',
+        'longitude',
+        'marketplace_tokopedia',
+        'marketplace_shopee',
+        'marketplace_other',
+        'reseller_package',
+        'terms_accepted',
+        'declaration_accepted',
+        'filled_at',
         'status',
         'notes',
         'submitted_at',
@@ -52,6 +64,14 @@ class PartnerApplication extends Model
 
     protected $casts = [
         'requested_purchase_quantity' => 'decimal:4',
+        'birth_date' => 'date',
+        'filled_at' => 'date',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
+        'marketplace_tokopedia' => 'boolean',
+        'marketplace_shopee' => 'boolean',
+        'terms_accepted' => 'array',
+        'declaration_accepted' => 'boolean',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'assigned_at' => 'datetime',
@@ -97,5 +117,12 @@ class PartnerApplication extends Model
     public function scopeForCompany(Builder $query, ?string $companyId): Builder
     {
         return $query->when($companyId, fn (Builder $q) => $q->where('company_id', $companyId));
+    }
+
+    public function isEditable(): bool
+    {
+        return ! $this->converted_at
+            && ! $this->converted_agent_id
+            && ! $this->converted_reseller_id;
     }
 }

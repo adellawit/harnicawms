@@ -50,8 +50,11 @@ use App\Http\Controllers\Ai\ChatController;
 use App\Http\Controllers\Ai\ConversationController;
 use App\Http\Controllers\Admin\AiConfigurationController;
 use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
+use App\Http\Controllers\Admin\ThemeConfigurationController;
+use App\Http\Controllers\Admin\DesignSystemController;
 use App\Http\Controllers\Admin\Partner\AgentController as PartnerAgentController;
 use App\Http\Controllers\Admin\Partner\PartnerApplicationController;
+use App\Http\Controllers\Admin\Partner\PartnerNetworkMapController;
 use App\Http\Controllers\Admin\Partner\PartnerReportController;
 use App\Http\Controllers\Admin\Partner\ResellerController as PartnerResellerController;
 use Illuminate\Support\Facades\Route;
@@ -79,9 +82,21 @@ Route::post('/webhooks/xendit', [XenditWebhookController::class, 'handle'])
 Route::post('/webhooks/telegram', [TelegramWebhookController::class, 'handle'])
     ->name('webhooks.telegram');
 
-Route::get('/partner/register', [PartnerApplicationController::class, 'publicCreate'])->name('partner.register');
-Route::post('/partner/register', [PartnerApplicationController::class, 'publicStore'])->name('partner.register.store');
-Route::get('/partner/register/thank-you/{number}', [PartnerApplicationController::class, 'thankYou'])->name('partner.register.thank-you');
+/*
+|--------------------------------------------------------------------------
+| Public Partner Registration (NO auth)
+|--------------------------------------------------------------------------
+| Must stay outside the auth/verified group below. Guests need this URL.
+| After deploy, verify: php artisan route:list --path=partner/register -v
+| Middleware must be only "web" (not auth). Then: php artisan route:clear
+*/
+Route::prefix('partner')->name('partner.')->group(function () {
+    Route::get('/register', [PartnerApplicationController::class, 'publicCreate'])->name('register');
+    Route::post('/register', [PartnerApplicationController::class, 'publicStore'])->name('register.store');
+    Route::get('/register/thank-you/{number}', [PartnerApplicationController::class, 'thankYou'])->name('register.thank-you');
+    Route::get('/register/form-agen', [PartnerApplicationController::class, 'downloadAgentForm'])->name('register.form-agent');
+    Route::get('/register/form-reseller', [PartnerApplicationController::class, 'downloadResellerForm'])->name('register.form-reseller');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -92,8 +107,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/subscription-list', [DashboardController::class, 'getSubscriptionListData'])->name('dashboard.subscription.list');
     Route::redirect('/warehouse', '/business/warehouse');
 
-    /// COMPONENT SHOWCASE
-    // Route::get('/component-showcase', [ComponentShowcaseController::class, 'indexView'])->name('component-showcase.index.view');
+    // ************************
+    // DESIGN SYSTEM
+    // ************************
+    Route::get('/design-system', [DesignSystemController::class, 'indexView'])->name('design-system.index.view');
 
     /// AI CHAT (WMS AI Assistant widget API)
     Route::group([
@@ -121,10 +138,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::group(['prefix' => 'partner-network'], function () {
-        Route::get('/', [PartnerReportController::class, 'index'])->name('partner.reports.index')->middleware('permission:Partner Network,is_read');
+        Route::get('/', [PartnerReportController::class, 'index'])->name('partner.reports.index')->middleware('permission:Network,is_read');
+        Route::get('/map', [PartnerNetworkMapController::class, 'index'])->name('partner.network-map.index')->middleware('permission:Network,is_read');
         Route::get('/applications', [PartnerApplicationController::class, 'index'])->name('partner.applications.index')->middleware('permission:Partner Application,is_read');
         Route::get('/applications/create', [PartnerApplicationController::class, 'create'])->name('partner.applications.create')->middleware('permission:Partner Application,is_create');
         Route::post('/applications', [PartnerApplicationController::class, 'store'])->name('partner.applications.store')->middleware('permission:Partner Application,is_create');
+        Route::get('/applications/{application}/edit', [PartnerApplicationController::class, 'edit'])->name('partner.applications.edit')->middleware('permission:Partner Application,is_update');
+        Route::put('/applications/{application}', [PartnerApplicationController::class, 'update'])->name('partner.applications.update')->middleware('permission:Partner Application,is_update');
         Route::get('/applications/{id}', [PartnerApplicationController::class, 'show'])->name('partner.applications.show')->middleware('permission:Partner Application,is_read');
         Route::post('/applications/{id}/followup', [PartnerApplicationController::class, 'followup'])->name('partner.applications.followup')->middleware('permission:Partner Application,is_update');
         Route::post('/applications/{id}/assign-agent', [PartnerApplicationController::class, 'assignAgent'])->name('partner.applications.assign-agent')->middleware('permission:Partner Application,is_update');
@@ -368,6 +388,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/payment-gateway-configuration/test', [PaymentGatewayConfigurationController::class, 'testConnection'])
             ->name('settings.payment-gateway-configuration.test')
             ->middleware('permission:Payment Gateway Configuration,is_update');
+
+        Route::get('/theme-configuration', [ThemeConfigurationController::class, 'indexView'])
+            ->name('settings.theme-configuration.index.view')
+            ->middleware('permission:Appearance & Theme,is_read');
+        Route::post('/theme-configuration', [ThemeConfigurationController::class, 'update'])
+            ->name('settings.theme-configuration.update')
+            ->middleware('permission:Appearance & Theme,is_update');
     });
 
     /*****************

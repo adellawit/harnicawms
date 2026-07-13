@@ -13,6 +13,11 @@
         var root = document.getElementById('agent-chat-root');
         if (!root) return;
 
+        document.body.classList.add('has-agent-chat');
+        if (document.querySelector('.floating-footer')) {
+            document.body.classList.add('has-agent-chat-with-footer');
+        }
+
         var chatUrl = root.dataset.chatUrl;
         var newUrl = root.dataset.newUrl;
         var csrfToken = document.querySelector('meta[name="csrf-token"]');

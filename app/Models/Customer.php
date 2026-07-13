@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
+use App\Models\Partner\PartnerApplication;
+use App\Models\Partner\Reseller;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -12,6 +16,16 @@ use Illuminate\Notifications\Notifiable;
 class Customer extends Authenticatable
 {
     use HasFactory, HasUuids, Notifiable, SoftDeletes;
+
+    public const TYPE_INDIVIDUAL = 'individual';
+
+    public const TYPE_COMPANY = 'company';
+
+    public const TYPE_PARTNER_LEAD = 'PARTNER_LEAD';
+
+    public const TYPE_AGENT = 'AGENT';
+
+    public const TYPE_RESELLER = 'RESELLER';
 
     protected $connection = 'pgsql';
 
@@ -72,6 +86,80 @@ class Customer extends Authenticatable
     public function customerGroup(): BelongsTo
     {
         return $this->belongsTo(CustomerGroup::class, 'customer_group_id', 'id');
+    }
+
+    public function agent(): HasOne
+    {
+        return $this->hasOne(Agent::class, 'customer_id', 'id');
+    }
+
+    public function reseller(): HasOne
+    {
+        return $this->hasOne(Reseller::class, 'customer_id', 'id');
+    }
+
+    public function latestPartnerApplication(): HasOne
+    {
+        return $this->hasOne(PartnerApplication::class, 'customer_id', 'id')->latestOfMany();
+    }
+
+    public function isPartnerAgent(): bool
+    {
+        if ($this->relationLoaded('agent')) {
+            return $this->agent !== null;
+        }
+
+        return $this->agent()->exists();
+    }
+
+    public function isPartnerReseller(): bool
+    {
+        if ($this->relationLoaded('reseller')) {
+            return $this->reseller !== null;
+        }
+
+        return $this->reseller()->exists();
+    }
+
+    public function partnerRole(): ?string
+    {
+        if ($this->isPartnerAgent()) {
+            return 'agent';
+        }
+
+        if ($this->isPartnerReseller()) {
+            return 'reseller';
+        }
+
+        if ($this->customer_type === self::TYPE_PARTNER_LEAD) {
+            return 'partner_lead';
+        }
+
+        return null;
+    }
+
+    public function partnerRoleLabel(): ?string
+    {
+        return match ($this->partnerRole()) {
+            'agent' => 'Agent',
+            'reseller' => 'Reseller',
+            'partner_lead' => 'Partner Lead',
+            default => null,
+        };
+    }
+
+    public function customerTypeLabel(): string
+    {
+        return match ($this->customer_type) {
+            self::TYPE_INDIVIDUAL => 'Individual',
+            self::TYPE_COMPANY => 'Company',
+            self::TYPE_PARTNER_LEAD => 'Partner Lead',
+            self::TYPE_AGENT => 'Agent',
+            self::TYPE_RESELLER => 'Reseller',
+            default => $this->customer_type
+                ? ucwords(str_replace('_', ' ', strtolower($this->customer_type)))
+                : '-',
+        };
     }
 
     public function getBranchId(): ?string

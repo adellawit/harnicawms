@@ -87,7 +87,56 @@ class Product extends Model
 
     public function unitConversions(): HasMany
     {
-        return $this->hasMany(ProductUnitConversion::class, 'product_id', 'id');
+        return $this->hasMany(ProductUnitConversion::class, 'product_id', 'id')
+            ->orderBy('conversion_level')
+            ->orderBy('created_at');
+    }
+
+    /**
+     * Semua konversi aktif, terurut level.
+     */
+    public function getOrderedUnitConversions(): \Illuminate\Support\Collection
+    {
+        $this->loadMissing(['unitConversions.fromUnit', 'unitConversions.toUnit']);
+
+        return $this->unitConversions
+            ->sortBy(fn (ProductUnitConversion $conversion) => sprintf(
+                '%05d-%s',
+                $conversion->conversion_level ?? 9999,
+                $conversion->created_at?->timestamp ?? 0
+            ))
+            ->values();
+    }
+
+    /**
+     * From unit berikutnya untuk menambah konversi (ujung rantai dari default unit).
+     */
+    public function getNextConversionFromUnitId(): ?string
+    {
+        if (! $this->default_unit_id) {
+            return null;
+        }
+
+        $this->loadMissing('unitConversions');
+
+        $currentUnitId = (string) $this->default_unit_id;
+        $visited = [];
+
+        while (true) {
+            $next = $this->unitConversions
+                ->sortBy('conversion_level')
+                ->first(fn (ProductUnitConversion $conv) => (string) $conv->from_unit_id === $currentUnitId
+                    && ! isset($visited[$conv->id]));
+
+            if (! $next) {
+                break;
+            }
+
+            $visited[$next->id] = true;
+            $currentUnitId = (string) $next->to_unit_id;
+        }
+
+        return $currentUnitId;
     }
 
     public function variants(): HasMany
@@ -444,10 +493,14 @@ class Product extends Model
     {
         $perParent = $this->getBarcodeHierarchyTotalLabels(1, $parentUnitId, $includeSmallestUnit);
         if ($perParent < 1) {
-            return max(1, $maxTotalLabels);
+            return $maxTotalLabels;
         }
 
-        return max(1, (int) floor($maxTotalLabels / $perParent));
+        if ($perParent > $maxTotalLabels) {
+            return 0;
+        }
+
+        return (int) floor($maxTotalLabels / $perParent);
     }
 
     /**
