@@ -203,7 +203,7 @@ build-production:
       ssh $SSH_OPTS "$SSH_TARGET" 'mkdir -p ~/.docker && cat > ~/.docker/config.json' <<DOCKERCFG
       {"auths":{"$DOCKER_REGISTRY_PULL":{"auth":"$(printf '%s:%s' "$REGISTRY_DEPLOY_USER" "$REGISTRY_DEPLOY_TOKEN" | base64 | tr -d '\n')"}}}
       DOCKERCFG
-    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME' && docker image prune -f"
+    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME' && docker compose exec -T '$COMPOSE_SERVICE_NAME' php artisan migrate --force && docker image prune -f"
   after_script:
     - '[ -n "${HEALTH_URL:-}" ] && (for i in $(seq 1 10); do curl -fsS "$HEALTH_URL" && break; echo "waiting for healthcheck..."; sleep 3; done) || true'
 
