@@ -44,10 +44,6 @@
                             <label class="form-label">Tgl Produksi</label>
                             <input type="date" name="production_date" class="form-control" value="{{ old('production_date', optional($order->production_date)->toDateString()) }}">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Expired Produk Jadi</label>
-                            <input type="date" name="output_expiry_date" class="form-control" value="{{ old('output_expiry_date', optional($order->output_expiry_date)->toDateString()) }}">
-                        </div>
                         <div class="col-md-12">
                             <label class="form-label">Catatan</label>
                             <input type="text" name="notes" class="form-control" value="{{ old('notes', $order->notes) }}">

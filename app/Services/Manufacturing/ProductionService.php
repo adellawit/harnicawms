@@ -8,6 +8,7 @@ use App\Models\ProductionOrderOutput;
 use App\Models\Product;
 use App\Services\StockAvailabilityService;
 use App\Services\StockMutationService;
+use App\Support\ProductionQuantityNormalizer;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -49,7 +50,8 @@ class ProductionService
 
             if ($bom) {
                 foreach ($bom->items as $item) {
-                    $qtyNeeded = (float) $item->quantity * $actualScale;
+                    $isSmallestUnit = self::isComponentSmallestUnit($item);
+                    $qtyNeeded = ProductionQuantityNormalizer::snapDisplayQty((float) $item->quantity * $actualScale, $isSmallestUnit);
                     if ($qtyNeeded <= 0) {
                         continue;
                     }
@@ -69,8 +71,9 @@ class ProductionService
                 }
 
                 foreach ($bom->items as $item) {
-                    $expectedQty = (float) $item->quantity * $plannedScale;
-                    $qtyNeeded = (float) $item->quantity * $actualScale;
+                    $isSmallestUnit = self::isComponentSmallestUnit($item);
+                    $expectedQty = ProductionQuantityNormalizer::snapDisplayQty((float) $item->quantity * $plannedScale, $isSmallestUnit);
+                    $qtyNeeded = ProductionQuantityNormalizer::snapDisplayQty((float) $item->quantity * $actualScale, $isSmallestUnit);
                     if ($qtyNeeded <= 0) {
                         continue;
                     }
@@ -147,6 +150,13 @@ class ProductionService
 
             return $order->fresh(['materials', 'outputs']);
         });
+    }
+
+    protected static function isComponentSmallestUnit($item): bool
+    {
+        $componentProduct = $item->componentVariant?->product ?? $item->componentProduct;
+
+        return $componentProduct && $item->unit_id === $componentProduct->getSmallestUnitId();
     }
 
     /**
