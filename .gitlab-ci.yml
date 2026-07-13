@@ -151,6 +151,11 @@ build-production:
 .deploy_template: &deploy_job
   stage: deploy
   image: alpine:latest
+  # Pinned to the on-prem runner: SSH_HOST is a private LAN address
+  # (192.168.10.250), unreachable from the GCP-hosted shared runner. Without
+  # this tag, GitLab schedules onto any online untagged-capable runner and
+  # the job silently fails when it lands on one with no route to that LAN.
+  tags: [on-prem]
   before_script: *ssh_deploy_before
   script:
     - 'ssh $SSH_OPTS "$SSH_TARGET" "test -f $DEPLOY_PATH/docker-compose.yml" || { echo "ERROR: $DEPLOY_PATH/docker-compose.yml not found on $SSH_HOST -- the SHARED stack must be provisioned once by hand before any pipeline can deploy into it"; exit 1; }'
@@ -231,6 +236,9 @@ deploy-production:
   image: alpine:latest
   variables:
     ROLLBACK_TAG: ""
+  # Same on-prem pinning as .deploy_template above — rollback also needs to
+  # reach the private-LAN deploy host.
+  tags: [on-prem]
   before_script: *ssh_deploy_before
   script:
     - test -n "$ROLLBACK_TAG" || { echo "set ROLLBACK_TAG to a previous vX.Y.Z-$CHANNEL tag"; exit 1; }
