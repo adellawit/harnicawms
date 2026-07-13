@@ -3,6 +3,7 @@
 use App\Http\Controllers\Academy\AcademyController;
 use App\Http\Controllers\Admin\Training\CategoryController;
 use App\Http\Controllers\Admin\Training\CourseContentController;
+use App\Http\Controllers\Admin\Training\ReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,6 +44,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{module}/materials/{material}', [CourseContentController::class, 'updateMaterial'])->name('materials.update')->middleware('permission:Training Academy,is_update');
             Route::delete('/{module}/materials/{material}', [CourseContentController::class, 'destroyMaterial'])->name('materials.destroy')->middleware('permission:Training Academy,is_delete');
         });
+
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index')->middleware('permission:Training Academy,is_read');
     });
 
     // === Learner (Agent) ===
