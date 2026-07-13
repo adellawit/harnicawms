@@ -151,6 +151,11 @@ build-production:
 .deploy_template: &deploy_job
   stage: deploy
   image: alpine:latest
+  # Pinned to the on-prem runner: SSH_HOST is a private LAN address
+  # (192.168.10.250), unreachable from the GCP-hosted shared runner. Without
+  # this tag, GitLab schedules onto any online untagged-capable runner and
+  # the job silently fails when it lands on one with no route to that LAN.
+  tags: [on-prem]
   before_script: *ssh_deploy_before
   script:
     - 'ssh $SSH_OPTS "$SSH_TARGET" "test -f $DEPLOY_PATH/docker-compose.yml" || { echo "ERROR: $DEPLOY_PATH/docker-compose.yml not found on $SSH_HOST -- the SHARED stack must be provisioned once by hand before any pipeline can deploy into it"; exit 1; }'
@@ -198,7 +203,7 @@ build-production:
       ssh $SSH_OPTS "$SSH_TARGET" 'mkdir -p ~/.docker && cat > ~/.docker/config.json' <<DOCKERCFG
       {"auths":{"$DOCKER_REGISTRY_PULL":{"auth":"$(printf '%s:%s' "$REGISTRY_DEPLOY_USER" "$REGISTRY_DEPLOY_TOKEN" | base64 | tr -d '\n')"}}}
       DOCKERCFG
-    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME' && docker image prune -f"
+    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME' && docker compose exec -T '$COMPOSE_SERVICE_NAME' php artisan migrate --force && docker image prune -f"
   after_script:
     - '[ -n "${HEALTH_URL:-}" ] && (for i in $(seq 1 10); do curl -fsS "$HEALTH_URL" && break; echo "waiting for healthcheck..."; sleep 3; done) || true'
 
@@ -231,6 +236,9 @@ deploy-production:
   image: alpine:latest
   variables:
     ROLLBACK_TAG: ""
+  # Same on-prem pinning as .deploy_template above — rollback also needs to
+  # reach the private-LAN deploy host.
+  tags: [on-prem]
   before_script: *ssh_deploy_before
   script:
     - test -n "$ROLLBACK_TAG" || { echo "set ROLLBACK_TAG to a previous vX.Y.Z-$CHANNEL tag"; exit 1; }
