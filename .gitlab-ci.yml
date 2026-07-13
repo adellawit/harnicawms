@@ -1,0 +1,267 @@
+# Copied from ~/WORK/wit-indonesia/ci-template/.gitlab-ci.yml (fleet-wide
+# template — see ci-template/README.md and ci-template/PIPELINE.md for the
+# full design rationale). This copy is unmodified except:
+#   - COMPOSE_SERVICE_NAME set to "wms" in the deploy-*/rollback-* jobs below
+#     (this project's service name inside the shared docker-compose.yml on
+#     each target host).
+#   - RUNTIME_CONFIG_FILE: .env.wms set on deploy-* (this repo is the .env
+#     variant per ci-template/AGENT-RUNBOOK.md §6 — Laravel reads config via
+#     env vars, not a config.yaml file — so docker-compose.yml uses
+#     env_file: .env.wms instead of a config.yaml bind-mount). A per-service
+#     filename, NOT the bare .env — that name is already used by docker
+#     compose itself on the shared host for image-tag substitution across
+#     EVERY project; reusing it here would leak every other project's env
+#     vars into this container and let this job's render step clobber their
+#     image tags. See docker-compose.yml's top comment for the full reasoning.
+#   - lint-test's Makefile-based `ci-test` gate is left as a no-op: this repo
+#     has no Makefile yet, and the existing test suite needs a real
+#     PostgreSQL connection (see phpunit.xml), which this template's alpine
+#     lint-test job doesn't provision. Add a Makefile `ci-test:` target (with
+#     a Postgres service) later to turn this gate on; until then it silently
+#     skips rather than failing (allow_failure: true either way).
+stages:
+  - validate
+  - lint-test
+  - tag
+  - build
+  - deploy
+  - rollback
+
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_HOST: tcp://docker:2375
+  GIT_IMAGE: "alpine:latest"
+  DOCKER_REGISTRY_PUSH: "100.92.146.24:5000"
+  DOCKER_REGISTRY_PULL: "registry.wit.id:443"
+  CI_REGISTRY_IMAGE_PUSH: "$DOCKER_REGISTRY_PUSH/$CI_PROJECT_PATH"
+  CI_REGISTRY_IMAGE_PULL: "$DOCKER_REGISTRY_PULL/$CI_PROJECT_PATH"
+
+# REGISTRY_DEPLOY_USER / REGISTRY_DEPLOY_TOKEN — required project CI/CD
+# variables (protected + masked), NOT set here. GitLab Deploy Token
+# (Settings > Repository > Deploy tokens), scope read_registry+write_registry.
+
+validate-branch-naming:
+  stage: validate
+  image: alpine:latest
+  allow_failure: true
+  script:
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        case "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" in
+          feature/*|fix/*|hotfix/*)
+            echo "OK: source branch '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME' follows convention." ;;
+          *)
+            echo "Note: source branch '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME' doesn't follow feature/*, fix/*, hotfix/* — MR continues anyway, this is just a reminder." ;;
+        esac
+      else
+        echo "Direct push to $CI_COMMIT_BRANCH (not via MR) — nothing to validate, this workflow is supported too."
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "production" || $CI_COMMIT_BRANCH == "main"'
+
+lint-test:
+  stage: lint-test
+  image: alpine:latest
+  allow_failure: true
+  before_script:
+    - apk add --no-cache make bash git >/dev/null 2>&1 || true
+  script:
+    - |
+      if grep -qE '^ci-test:' Makefile 2>/dev/null; then
+        make ci-test
+      else
+        echo "no 'ci-test' Makefile target found in this repo yet — add one to enable this gate. Skipping."
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+.tag_template: &tag_job
+  stage: tag
+  image: $GIT_IMAGE
+  script:
+    - apk add --no-cache git bash >/dev/null 2>&1 || true
+    - git config user.email "ci@$CI_SERVER_HOST"; git config user.name "gitlab-ci"
+    - NEXT="$(bash scripts/ci/next-version.sh "$CHANNEL")"
+    - echo "Next version for $CHANNEL = $NEXT"
+    - git tag -a "$NEXT" -m "release $NEXT [skip ci]"
+    - git push "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$NEXT"
+
+tag-development:
+  <<: *tag_job
+  variables: {CHANNEL: development}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "development"'
+
+tag-production:
+  <<: *tag_job
+  variables: {CHANNEL: production}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "production" || $CI_COMMIT_BRANCH == "main"'
+
+.build_template: &build_job
+  stage: build
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      entrypoint: ["sh", "-c"]
+      command: ["exec dockerd-entrypoint.sh --insecure-registry=$DOCKER_REGISTRY_PUSH"]
+  script:
+    - |
+      if docker -H unix:///var/run/docker.sock info >/dev/null 2>&1; then
+        echo "Host Docker socket available on this runner -- using it directly, skipping dind."
+        export DOCKER_HOST=unix:///var/run/docker.sock
+      else
+        echo "No usable host socket on this runner -- waiting for the dind service instead."
+        export DOCKER_HOST=tcp://docker:2375
+        until docker info >/dev/null 2>&1; do sleep 1; done
+      fi
+    - echo "$REGISTRY_DEPLOY_TOKEN" | docker login -u "$REGISTRY_DEPLOY_USER" --password-stdin "$DOCKER_REGISTRY_PUSH"
+    - docker pull "$CI_REGISTRY_IMAGE_PUSH:$CHANNEL" || true
+    - docker build --cache-from "$CI_REGISTRY_IMAGE_PUSH:$CHANNEL" -t "$CI_REGISTRY_IMAGE_PUSH:$CI_COMMIT_TAG" -t "$CI_REGISTRY_IMAGE_PUSH:$CHANNEL" .
+    - docker push "$CI_REGISTRY_IMAGE_PUSH:$CI_COMMIT_TAG"
+    - docker push "$CI_REGISTRY_IMAGE_PUSH:$CHANNEL"
+
+build-development:
+  <<: *build_job
+  variables: {CHANNEL: development}
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /-development$/'
+
+build-production:
+  <<: *build_job
+  variables: {CHANNEL: production}
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /-production$/'
+
+.ssh_deploy_before: &ssh_deploy_before
+  - 'test -n "$SSH_HOST" || { echo "ERROR: set SSH_HOST (environment-scoped CI/CD variable) for this environment"; exit 1; }'
+  - 'test -n "$DEPLOY_PATH" || { echo "ERROR: set DEPLOY_PATH (environment-scoped CI/CD variable) for this environment"; exit 1; }'
+  - 'test -n "$COMPOSE_SERVICE_NAME" || { echo "ERROR: set COMPOSE_SERVICE_NAME in this job variables block -- the service name for this project inside the shared docker-compose.yml"; exit 1; }'
+  - apk add --no-cache openssh-client >/dev/null 2>&1 || true
+  - eval $(ssh-agent -s) >/dev/null
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - >/dev/null
+  - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  - '[ -n "${SSH_KNOWN_HOSTS:-}" ] && echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts || ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null'
+  - chmod 644 ~/.ssh/known_hosts
+  - export SSH_TARGET="${SSH_USER:-deploy}@${SSH_HOST}"
+  - export SSH_OPTS="-p ${SSH_PORT:-22}"
+  - export IMAGE_KEY="$(echo "$COMPOSE_SERVICE_NAME" | tr 'a-z-' 'A-Z_')_IMAGE"
+
+.deploy_template: &deploy_job
+  stage: deploy
+  image: alpine:latest
+  before_script: *ssh_deploy_before
+  script:
+    - 'ssh $SSH_OPTS "$SSH_TARGET" "test -f $DEPLOY_PATH/docker-compose.yml" || { echo "ERROR: $DEPLOY_PATH/docker-compose.yml not found on $SSH_HOST -- the SHARED stack must be provisioned once by hand before any pipeline can deploy into it"; exit 1; }'
+    - |
+      if [ -n "${VAULT_ADDR:-}" ]; then
+        test -n "${VAULT_ROLE:-}" || { echo "ERROR: VAULT_ADDR is set but VAULT_ROLE is not -- set both (environment-scoped CI/CD variables) or neither"; exit 1; }
+        apk add --no-cache curl jq >/dev/null 2>&1 || true
+        VAULT_LOGIN_PAYLOAD="$(jq -n --arg jwt "$VAULT_ID_TOKEN" --arg role "$VAULT_ROLE" '{jwt: $jwt, role: $role}')"
+        VAULT_LOGIN_HTTP_CODE="$(curl -sS -o /tmp/vault_login.json -w '%{http_code}' --request POST --data "$VAULT_LOGIN_PAYLOAD" "$VAULT_ADDR/v1/auth/jwt/login")"
+        VAULT_LOGIN_RESPONSE="$(cat /tmp/vault_login.json 2>/dev/null)"
+        if [ "$VAULT_LOGIN_HTTP_CODE" != "200" ] || ! echo "$VAULT_LOGIN_RESPONSE" | jq -e . >/dev/null 2>&1; then
+          echo "ERROR: Vault JWT login failed (HTTP $VAULT_LOGIN_HTTP_CODE) at $VAULT_ADDR/v1/auth/jwt/login -- response was not valid JSON, likely unreachable/wrong URL/wrong role. Body: $(echo "$VAULT_LOGIN_RESPONSE" | head -c 500)"
+          exit 1
+        fi
+        VAULT_CLIENT_TOKEN="$(echo "$VAULT_LOGIN_RESPONSE" | jq -r '.auth.client_token // empty')"
+        test -n "$VAULT_CLIENT_TOKEN" || { echo "ERROR: Vault JWT login returned HTTP 200 but no client_token: $VAULT_LOGIN_RESPONSE"; exit 1; }
+        VAULT_KV_MOUNT="${VAULT_KV_MOUNT:-secret}"
+        VAULT_SECRET_PATH="${VAULT_SECRET_PATH:-$CI_PROJECT_NAME/$CHANNEL}"
+        VAULT_READ_HTTP_CODE="$(curl -sS -o /tmp/vault_read.json -w '%{http_code}' --header "X-Vault-Token: $VAULT_CLIENT_TOKEN" "$VAULT_ADDR/v1/$VAULT_KV_MOUNT/data/$VAULT_SECRET_PATH")"
+        VAULT_READ_RESPONSE="$(cat /tmp/vault_read.json 2>/dev/null)"
+        if [ "$VAULT_READ_HTTP_CODE" != "200" ] || ! echo "$VAULT_READ_RESPONSE" | jq -e . >/dev/null 2>&1; then
+          echo "ERROR: Vault KV read failed (HTTP $VAULT_READ_HTTP_CODE) at $VAULT_KV_MOUNT/data/$VAULT_SECRET_PATH -- check VAULT_SECRET_PATH/VAULT_KV_MOUNT and the role's policy. Body: $(echo "$VAULT_READ_RESPONSE" | head -c 500)"
+          exit 1
+        fi
+        RUNTIME_CONFIG_CONTENT="$(echo "$VAULT_READ_RESPONSE" | jq '.data.data')"
+        test -n "$RUNTIME_CONFIG_CONTENT" && [ "$RUNTIME_CONFIG_CONTENT" != "null" ] || { echo "ERROR: empty secret at $VAULT_KV_MOUNT/data/$VAULT_SECRET_PATH: $VAULT_READ_RESPONSE"; exit 1; }
+        export RUNTIME_CONFIG_CONTENT
+        echo "RUNTIME_CONFIG_CONTENT fetched from Vault ($VAULT_KV_MOUNT/data/$VAULT_SECRET_PATH)"
+      fi
+    - |
+      if [ -n "${RUNTIME_CONFIG_CONTENT:-}" ]; then
+        printf %s "$RUNTIME_CONFIG_CONTENT" | ssh $SSH_OPTS "$SSH_TARGET" "cat > '$DEPLOY_PATH/${RUNTIME_CONFIG_FILE:-config.$COMPOSE_SERVICE_NAME.yaml}'"
+      fi
+    - export IMAGE_VALUE="$CI_REGISTRY_IMAGE_PULL:$CI_COMMIT_TAG"
+    - |
+      ssh $SSH_OPTS "$SSH_TARGET" "IMAGE_KEY='$IMAGE_KEY' IMAGE_VALUE='$IMAGE_VALUE' DEPLOY_PATH='$DEPLOY_PATH' sh -s" <<'REMOTE'
+        set -e
+        cd "$DEPLOY_PATH"
+        touch .env
+        grep -v "^${IMAGE_KEY}=" .env > .env.new || true
+        echo "${IMAGE_KEY}=${IMAGE_VALUE}" >> .env.new
+        mv .env.new .env
+      REMOTE
+    - |
+      ssh $SSH_OPTS "$SSH_TARGET" 'mkdir -p ~/.docker && cat > ~/.docker/config.json' <<DOCKERCFG
+      {"auths":{"$DOCKER_REGISTRY_PULL":{"auth":"$(printf '%s:%s' "$REGISTRY_DEPLOY_USER" "$REGISTRY_DEPLOY_TOKEN" | base64 | tr -d '\n')"}}}
+      DOCKERCFG
+    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME' && docker image prune -f"
+  after_script:
+    - '[ -n "${HEALTH_URL:-}" ] && (for i in $(seq 1 10); do curl -fsS "$HEALTH_URL" && break; echo "waiting for healthcheck..."; sleep 3; done) || true'
+
+deploy-development:
+  <<: *deploy_job
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: "vault-gitlab-ci"
+  variables: {CHANNEL: development, COMPOSE_SERVICE_NAME: wms, RUNTIME_CONFIG_FILE: .env.wms}
+  environment: {name: development, url: "$HEALTH_URL"}
+  needs: ["build-development"]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /-development$/'
+      when: on_success
+
+deploy-production:
+  <<: *deploy_job
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: "vault-gitlab-ci"
+  variables: {CHANNEL: production, COMPOSE_SERVICE_NAME: wms, RUNTIME_CONFIG_FILE: .env.wms}
+  environment: {name: production, url: "$HEALTH_URL"}
+  needs: ["build-production"]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /-production$/'
+      when: manual
+
+.rollback_template: &rollback_job
+  stage: rollback
+  image: alpine:latest
+  variables:
+    ROLLBACK_TAG: ""
+  before_script: *ssh_deploy_before
+  script:
+    - test -n "$ROLLBACK_TAG" || { echo "set ROLLBACK_TAG to a previous vX.Y.Z-$CHANNEL tag"; exit 1; }
+    - export IMAGE_VALUE="$CI_REGISTRY_IMAGE_PULL:$ROLLBACK_TAG"
+    - |
+      ssh $SSH_OPTS "$SSH_TARGET" "IMAGE_KEY='$IMAGE_KEY' IMAGE_VALUE='$IMAGE_VALUE' DEPLOY_PATH='$DEPLOY_PATH' sh -s" <<'REMOTE'
+        set -e
+        cd "$DEPLOY_PATH"
+        touch .env
+        grep -v "^${IMAGE_KEY}=" .env > .env.new || true
+        echo "${IMAGE_KEY}=${IMAGE_VALUE}" >> .env.new
+        mv .env.new .env
+      REMOTE
+    - |
+      ssh $SSH_OPTS "$SSH_TARGET" 'mkdir -p ~/.docker && cat > ~/.docker/config.json' <<DOCKERCFG
+      {"auths":{"$DOCKER_REGISTRY_PULL":{"auth":"$(printf '%s:%s' "$REGISTRY_DEPLOY_USER" "$REGISTRY_DEPLOY_TOKEN" | base64 | tr -d '\n')"}}}
+      DOCKERCFG
+    - ssh $SSH_OPTS "$SSH_TARGET" "cd '$DEPLOY_PATH' && docker compose pull '$COMPOSE_SERVICE_NAME' && docker compose up -d --no-deps '$COMPOSE_SERVICE_NAME'"
+
+rollback-development:
+  <<: *rollback_job
+  variables: {CHANNEL: development, ROLLBACK_TAG: "", COMPOSE_SERVICE_NAME: wms}
+  environment: {name: development, url: "$HEALTH_URL"}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "development"'
+      when: manual
+
+rollback-production:
+  <<: *rollback_job
+  variables: {CHANNEL: production, ROLLBACK_TAG: "", COMPOSE_SERVICE_NAME: wms}
+  environment: {name: production, url: "$HEALTH_URL"}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "production" || $CI_COMMIT_BRANCH == "main"'
+      when: manual

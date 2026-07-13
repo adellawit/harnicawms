@@ -1,0 +1,38 @@
+# Copied from the ci-template pattern (ci-template/docker-compose.yml.example),
+# adapted for the .env-variant (see ci-template/AGENT-RUNBOOK.md §6): this app
+# reads Laravel config via env vars / a real .env, not a config.yaml file, so
+# secrets are injected with env_file: instead of a config.yaml bind-mount.
+#
+# On the shared deploy host this project's block is pasted into the ONE
+# shared docker-compose.yml alongside every other project's service (see
+# ci-template/README.md "Deploy model") — CI itself only ever updates this
+# service's image tag in the shared .env and rolls this one service. Locally,
+# this file also works standalone for `docker compose up` dev/testing.
+#
+# IMPORTANT: env_file: below points at .env.wms, NOT the bare .env that
+# docker compose auto-loads from this same directory for its own ${VAR}
+# substitution (image tags for EVERY project on the shared host live in that
+# bare .env). Using the bare .env here would leak every other project's
+# secrets into this container's environment (env_file: has no per-service
+# filtering) and, if RUNTIME_CONFIG_CONTENT is ever wired up, the deploy job
+# would overwrite that shared .env wholesale instead of merging one line.
+services:
+  wms:
+    image: ${CI_REGISTRY_IMAGE:-wms-3.0}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${SERVICE_PORT:-8181}:8181"
+    # This project's own secrets, one file per service on the shared host —
+    # never in git, never COPYed into the image (see .dockerignore's .env.*
+    # pattern). The deploy job in .gitlab-ci.yml renders this file from the
+    # RUNTIME_CONFIG_CONTENT CI/CD variable when set (RUNTIME_CONFIG_FILE=.env.wms).
+    env_file:
+      - .env.wms
+    healthcheck:
+      # Laravel's built-in health route (bootstrap/app.php: health: '/up'),
+      # no DB/auth dependency.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8181/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
