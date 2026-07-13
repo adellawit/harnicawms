@@ -17,7 +17,7 @@
             <div class="auth-card">
                 <div class="auth-brand-side d-none d-md-block">
                     <div class="brand-content">
-                        <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo">
+                        <img src="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo" data-brand-logo="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}">
                         <p class="brand-subtitle" style="font-weight: bold;">{{ config('app.name', 'WIT. Management System') }}</p>
                         <div class="brand-features">
                             <div class="feature-item">
@@ -43,7 +43,7 @@
                 <div class="auth-form-side">
                     <div class="login-card">
                         <div class="auth-mobile-brand d-md-none">
-                            <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo brand-logo-sm">
+                            <img src="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="brand-logo brand-logo-sm" data-brand-logo="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}">
                             <p class="brand-subtitle">{{ config('app.name', 'WIT. Management System') }}</p>
                         </div>
 

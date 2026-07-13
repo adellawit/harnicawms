@@ -65,14 +65,19 @@ class POSController extends Controller
             ->get(['id', 'code', 'name', 'uses_payment_gateway', 'gateway_provider', 'payment_group_code', 'gateway_channel_code']);
 
         // Customers (from customer.customers, filter by branch via customer_group)
-        $customers = Customer::with('customerGroup')
+        $customers = Customer::with([
+            'customerGroup',
+            'agent:id,customer_id,code,status',
+            'reseller:id,customer_id,code,status,agent_id',
+            'reseller.agent:id,code,name',
+        ])
             ->whereNull('deleted_at')
             ->where('is_active', true)
             ->when($branchId, function ($q) use ($branchId) {
                 $q->whereHas('customerGroup', fn ($cg) => $cg->where('branch_id', $branchId));
             })
             ->orderBy('name')
-            ->get(['id', 'code', 'name', 'customer_group_id']);
+            ->get(['id', 'code', 'name', 'customer_group_id', 'customer_type']);
 
         // Product parents (no price/stock on card - fetched on variant selection)
         $products = Product::with('nature')

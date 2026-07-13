@@ -2,13 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class IamHasAccessSeeder extends Seeder
 {
-    private const SUPER_ADMIN_IAM_ACCESS_ID = '87d14961-0c14-474f-a6fa-b1130b521d39';
+    private const SUPER_ADMIN_IAM_ACCESS_ID = Role::SUPER_ADMIN_IAM_ACCESS_ID;
 
     private const AGENT_IAM_ACCESS_ID = '2ac6f6a1-7b8c-4d9e-9f10-111213141517';
 
@@ -20,7 +21,9 @@ class IamHasAccessSeeder extends Seeder
     ];
 
     /**
-     * Run the database seeds.
+     * Sinkronkan IAM dari master_data.menus.
+     * Jalankan setelah MenuSeeder — struktur menu (Customer > Network,
+     * Product > Production, tanpa Stok Masuk) sudah didefinisikan di sana.
      */
     public function run(): void
     {

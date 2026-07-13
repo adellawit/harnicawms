@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\View;
 use App\Services\Ai\Contracts\LlmProviderInterface;
 use App\Services\Ai\LlmProviderManager;
 use App\Services\Shop\ShopContextService;
+use App\Services\Theme\AppThemeService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -52,6 +53,30 @@ class AppServiceProvider extends ServiceProvider
             $view->with([
                 'shopCompanyName' => $companyName,
             ]);
+        });
+
+        View::composer(['layouts.*', 'auth.*', 'dashboard', 'customer.*'], function ($view) {
+            try {
+                $view->with('appTheme', app(AppThemeService::class)->viewData());
+            } catch (\Throwable) {
+                $view->with('appTheme', [
+                    'primary' => '#5C9E84',
+                    'secondary' => '#7BB5A0',
+                    'primary_rgb' => '92, 158, 132',
+                    'secondary_rgb' => '123, 181, 160',
+                    'primary_600' => '#4A8770',
+                    'primary_700' => '#3D7260',
+                    'primary_soft' => '#E8F3EE',
+                    'secondary_600' => '#6AA894',
+                    'secondary_soft' => '#E8F3EE',
+                    'color_mode' => 'logo_extract',
+                    'glass_enabled' => true,
+                    'motion_enabled' => true,
+                    'logo_url' => asset('assets/img/harnica/logo.png'),
+                    'favicon_url' => asset('assets/img/wms/favicon.ico'),
+                    'default_logo_url' => asset('assets/img/harnica/logo.png'),
+                ]);
+            }
         });
 
         // Blade directive for checking permissions in views

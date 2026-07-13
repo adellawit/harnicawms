@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin\Partner;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Partner\StorePartnerApplicationRequest;
+use App\Http\Requests\Partner\UpdatePartnerApplicationRequest;
 use App\Models\Partner\Agent;
 use App\Models\Partner\PartnerApplication;
 use App\Services\Partner\PartnerApplicationService;
@@ -24,11 +26,12 @@ class PartnerApplicationController extends Controller
         return view('admin.partner.applications.public-register');
     }
 
-    public function publicStore(Request $request)
+    public function publicStore(StorePartnerApplicationRequest $request)
     {
-        $this->validateApplication($request);
-
-        $application = $this->applicationService->createApplication($request, WmsContext::distributor()?->id);
+        $application = $this->applicationService->insert(
+            $request,
+            WmsContext::distributor()?->id
+        );
 
         return redirect()->route('partner.register.thank-you', $application->application_number);
     }
@@ -38,6 +41,31 @@ class PartnerApplicationController extends Controller
         $application = PartnerApplication::where('application_number', $number)->firstOrFail();
 
         return view('admin.partner.applications.thank-you', compact('application'));
+    }
+
+    public function downloadAgentForm()
+    {
+        $path = $this->partnerFormPath('form-registrasi-agen-harnica.pdf');
+        abort_unless(is_file($path), 404, 'Formulir registrasi agen tidak ditemukan.');
+
+        return response()->download($path, 'Form-Registrasi-Agen-Harnica.pdf', [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    public function downloadResellerForm()
+    {
+        $path = $this->partnerFormPath('form-registrasi-reseller-harnica.pdf');
+        abort_unless(is_file($path), 404, 'Formulir registrasi reseller tidak ditemukan.');
+
+        return response()->download($path, 'Form-Registrasi-Reseller-Harnica.pdf', [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    private function partnerFormPath(string $filename): string
+    {
+        return public_path('downloads/partner/' . $filename);
     }
 
     public function index(Request $request)
@@ -64,29 +92,49 @@ class PartnerApplicationController extends Controller
 
     public function create()
     {
-        return view('admin.partner.applications.create');
+        return view('admin.partner.applications.create', [
+            'lockPartnerTypeReseller' => (bool) $this->currentAgent(),
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePartnerApplicationRequest $request)
     {
-        if ($agent = $this->currentAgent()) {
-            $request->merge(['partner_type' => PartnerApplication::TYPE_RESELLER]);
-        }
-
-        $this->validateApplication($request);
-
-        $application = $this->applicationService->createApplication(
+        $application = $this->applicationService->insert(
             $request,
             WmsContext::distributor()?->id,
             Auth::id()
         );
 
-        if ($agent ?? null) {
+        if ($agent = $this->currentAgent()) {
             $this->applicationService->assignAgent($application, $agent->id, Auth::id());
         }
 
         return redirect()->route('partner.applications.show', $application->id)
             ->with('success', 'Pendaftaran partner berhasil dibuat.');
+    }
+
+    public function edit(PartnerApplication $application)
+    {
+        $this->authorizeAgentApplication($application);
+        abort_unless($application->isEditable(), 403, 'Application yang sudah dikonversi tidak dapat diubah.');
+
+        $application->load('documents');
+
+        return view('admin.partner.applications.edit', [
+            'application' => $application,
+            'lockPartnerTypeReseller' => (bool) $this->currentAgent(),
+        ]);
+    }
+
+    public function update(UpdatePartnerApplicationRequest $request, PartnerApplication $application)
+    {
+        $this->authorizeAgentApplication($application);
+        abort_unless($application->isEditable(), 403, 'Application yang sudah dikonversi tidak dapat diubah.');
+
+        $this->applicationService->update($application, $request, Auth::id());
+
+        return redirect()->route('partner.applications.show', $application->id)
+            ->with('success', 'Pendaftaran partner berhasil diperbarui.');
     }
 
     public function show(string $id)
@@ -187,25 +235,6 @@ class PartnerApplicationController extends Controller
 
         return redirect()->route('partner.resellers.show', $reseller->id)
             ->with('success', 'Application berhasil dikonversi menjadi Reseller.');
-    }
-
-    private function validateApplication(Request $request): void
-    {
-        $request->validate([
-            'partner_type' => ['required', Rule::in([PartnerApplication::TYPE_AGENT, PartnerApplication::TYPE_RESELLER])],
-            'name' => ['required', 'string', 'max:200'],
-            'email' => ['nullable', 'email', 'max:150'],
-            'phone' => ['required', 'string', 'max:50'],
-            'requested_purchase_quantity' => ['nullable', 'numeric', 'min:0'],
-            'address' => ['nullable', 'string'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'province' => ['nullable', 'string', 'max:100'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'notes' => ['nullable', 'string'],
-            'documents' => ['nullable', 'array'],
-            'documents.*' => ['file', 'max:5120'],
-            'document_types' => ['nullable', 'array'],
-        ]);
     }
 
     private function currentAgent(): ?Agent

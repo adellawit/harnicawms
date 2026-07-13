@@ -52,17 +52,37 @@
     </div>
 @else
     @php
-        $boxBrandLabel = str_starts_with(strtoupper($distributorName), 'HARNICA ')
-            ? $distributorName
-            : 'HARNICA '.$distributorName;
+        $distName = $distributorName ?? '';
+        $boxBrandLabel = str_starts_with(strtoupper($distName), 'HARNICA ')
+            ? $distName
+            : 'HARNICA '.$distName;
+        $boxPad = '0.5mm';
+        $innerH = '7mm';
+        $qrCol = '7mm';
+        $qrSize = '6mm';
+        $qrGap = '0.5mm';
     @endphp
-    <div class="label-box">
-        <div class="label-qr">
-            <img src="{{ $qrSrc }}" alt="QR">
-        </div>
-        <div class="label-text">
-            <div class="serial">{{ $label['serial'] }}</div>
-            <div class="distributor-name">{{ $boxBrandLabel }}</div>
-        </div>
+    <div class="label-box" style="width:55mm;height:9mm;border:none;background:transparent;overflow:hidden;box-sizing:border-box;padding:{{ $boxPad }};">
+        <table class="label-box__table" cellpadding="0" cellspacing="0" style="width:100%;height:{{ $innerH }};border-collapse:collapse;table-layout:fixed;">
+            <colgroup>
+                <col style="width: {{ $qrCol }};">
+                <col>
+            </colgroup>
+            <tr style="height:{{ $innerH }};">
+                <td class="label-box__qr-cell" valign="middle" align="center" style="width:{{ $qrCol }};height:{{ $innerH }};padding:{{ $qrGap }};box-sizing:border-box;vertical-align:middle;text-align:center;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;height:100%;border-collapse:collapse;">
+                        <tr>
+                            <td align="center" valign="middle" style="width:100%;height:100%;padding:0;text-align:center;vertical-align:middle;">
+                                <img src="{{ $qrSrc }}" alt="QR" style="width:{{ $qrSize }};height:{{ $qrSize }};display:block;margin:0 auto;">
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="label-box__text-cell" valign="middle" style="height:{{ $innerH }};vertical-align:middle;text-align:left;padding:0 0.6mm 0 0.9mm;">
+                    <div class="distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#fff;">Distributed by :</div>
+                    <div class="distributor-name" style="font-size:6pt;font-weight:bold;line-height:1.1;margin:0;padding:0;color:#fff;text-transform:uppercase;">{{ $boxBrandLabel }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
 @endif

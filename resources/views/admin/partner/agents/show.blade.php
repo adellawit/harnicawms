@@ -4,7 +4,8 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Partner Network', 'url' => route('partner.reports.index')],
+            ['label' => 'Customer'],
+            ['label' => 'Network', 'url' => route('partner.reports.index')],
             ['label' => 'Agents', 'url' => route('partner.agents.index')],
             ['label' => $agent->name, 'active' => true],
         ]" />
@@ -17,7 +18,13 @@
                     <div class="col-md-3"><small class="text-muted">Status</small><div><span class="badge bg-label-success">{{ $agent->status }}</span></div></div>
                     <div class="col-md-3"><small class="text-muted">Approval</small><div>{{ $agent->approval_status }}</div></div>
                     <div class="col-md-6"><small class="text-muted">Kontak</small><div>{{ $agent->email ?: '-' }} · {{ $agent->phone ?: '-' }}</div></div>
-                    <div class="col-md-6"><small class="text-muted">Customer</small><div>{{ $agent->customer?->code }} {{ $agent->customer?->name }}</div></div>
+                    <div class="col-md-6"><small class="text-muted">Customer</small><div>
+                        @if ($agent->customer)
+                            <a href="{{ route('customer.list.edit.view', $agent->customer->id) }}">{{ $agent->customer->code }} {{ $agent->customer->name }}</a>
+                        @else
+                            -
+                        @endif
+                    </div></div>
                     <div class="col-md-6"><small class="text-muted">Username Login</small><div>{{ $agent->user?->username ?: '-' }}</div></div>
                     <div class="col-md-6"><small class="text-muted">Password Awal</small><div>{{ $agent->user ? 'agent12345 (wajib diganti saat login pertama)' : '-' }}</div></div>
                     <div class="col-12"><small class="text-muted">Alamat</small><div>{{ $agent->address ?: '-' }}</div></div>

@@ -21,7 +21,7 @@ use App\Services\Product\ProductLabelSerialService;
 use App\Services\Product\ProductQrCodeService;
 use App\Services\Product\ProductStockBootstrapService;
 use App\Support\WmsContext;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\Snappy\Facades\SnappyPdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -33,7 +33,7 @@ class ProductController extends Controller
 {
     private const BARCODE_SINGLE_MAX_LABELS = 500;
 
-    private const BARCODE_HIERARCHY_MAX_LABELS = 5000;
+    private const BARCODE_HIERARCHY_MAX_LABELS = 10000;
 
     protected function generateSku(): string
     {
@@ -343,6 +343,7 @@ class ProductController extends Controller
         $prefillVariantId = $request->query('variant_id');
         $prefillUnitId = $request->query('unit_id');
         $prefillQuantity = $request->query('quantity');
+        $prefillPrintMode = $request->query('print_mode');
 
         $units = $product->getBarcodeUnits()->values()->map(function (ProductUnit $unit, int $index) use ($product, $serialService) {
             $level = $index + 1;
@@ -369,10 +370,14 @@ class ProductController extends Controller
         $distributor = WmsContext::distributor();
         $distributorName = strtoupper($distributor?->legal_name ?: $distributor?->name ?: config('app.name'));
 
-        $labelsPerParent = $product->getBarcodeHierarchyTotalLabels(1, $product->default_unit_id);
+        $startUnitId = ($prefillUnitId && $units->contains(fn (array $u) => $u['id'] === $prefillUnitId))
+            ? $prefillUnitId
+            : $product->default_unit_id;
+
+        $labelsPerParent = $product->getBarcodeHierarchyTotalLabels(1, $startUnitId);
         $maxHierarchyParentQty = $product->getMaxHierarchyParentQty(
             self::BARCODE_HIERARCHY_MAX_LABELS,
-            $product->default_unit_id
+            $startUnitId
         );
 
         $serialStatus = $serialService->serialStatusForProduct($product);
@@ -382,11 +387,10 @@ class ProductController extends Controller
             'variants' => $variants,
             'units' => $units,
             'unitChain' => $unitChain,
-            'defaultUnitId' => ($prefillUnitId && $units->contains(fn (array $u) => $u['id'] === $prefillUnitId))
-                ? $prefillUnitId
-                : $product->default_unit_id,
+            'defaultUnitId' => $startUnitId,
             'prefillVariantId' => $prefillVariantId,
             'prefillQuantity' => $prefillQuantity,
+            'prefillPrintMode' => in_array($prefillPrintMode, ['single', 'hierarchy'], true) ? $prefillPrintMode : null,
             'distributorName' => $distributorName,
             'hasUnitHierarchy' => $units->count() > 1,
             'singlePrintMaxLabels' => self::BARCODE_SINGLE_MAX_LABELS,
@@ -575,11 +579,11 @@ class ProductController extends Controller
 
         $this->cleanupOldBarcodeTempFiles($tempDir);
 
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '1024M');
+        set_time_limit(300);
 
         $labels = [];
         $labelTree = null;
-        $tempFiles = [];
 
         try {
             if ($printMode === 'hierarchy') {
@@ -623,8 +627,6 @@ class ProductController extends Controller
                     $contentSummary
                 );
             }
-
-            $tempFiles = array_column($labels, 'qr_file');
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             session()->forget("barcode_preview.{$batchId}");
 
@@ -645,7 +647,7 @@ class ProductController extends Controller
         $qrBaseUrl = 'file://'.str_replace('\\', '/', $tempDir).'/';
 
         try {
-            return Pdf::loadView('admin.product.master.pdf-barcode', [
+            $pdf = SnappyPdf::loadView('admin.product.master.pdf-barcode', [
                 'labels' => $labels,
                 'labelTree' => $labelTree,
                 'printMode' => $printMode,
@@ -653,12 +655,22 @@ class ProductController extends Controller
                 'productName' => $product->name,
                 'qrBaseUrl' => $qrBaseUrl,
             ])
-                ->setPaper('a3', 'portrait')
-                ->download($filename);
+                ->setPaper('a3')
+                ->setOrientation('portrait')
+                ->setOption('margin-top', '5mm')
+                ->setOption('margin-right', '5mm')
+                ->setOption('margin-bottom', '5mm')
+                ->setOption('margin-left', '5mm')
+                ->setOption('enable-local-file-access', true)
+                ->setOption('disable-smart-shrinking', true)
+                ->setOption('dpi', 300);
+
+            return $pdf->download($filename)->withHeaders([
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+            ]);
         } finally {
-            foreach ($tempFiles as $file) {
-                @unlink($tempDir.DIRECTORY_SEPARATOR.$file);
-            }
+            // Hash-named QR cache files are reused across labels; cleaned by cleanupOldBarcodeTempFiles().
         }
     }
 
@@ -853,7 +865,8 @@ class ProductController extends Controller
 
         $qrFile = $qrCodeService->toPngTempFile(
             $qrCodeService->contentForLabel($serial, $unitLevel),
-            $tempDir
+            $tempDir,
+            $qrCodeService->inkStyleForUnitLevel($unitLevel)
         );
 
         return [
@@ -869,13 +882,8 @@ class ProductController extends Controller
 
     protected function validatePrintBarcodeRequest(Request $request, string $id): array
     {
-        $printMode = $request->input('print_mode', 'hierarchy');
-        $maxQty = $printMode === 'hierarchy'
-            ? self::BARCODE_HIERARCHY_MAX_LABELS
-            : self::BARCODE_SINGLE_MAX_LABELS;
-
         $request->validate([
-            'quantity' => "required|integer|min:1|max:{$maxQty}",
+            'quantity' => 'required|integer|min:1',
             'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
             'unit_id' => 'required|uuid|exists:product.product_units,id',
             'print_mode' => 'nullable|in:single,hierarchy',
@@ -902,23 +910,31 @@ class ProductController extends Controller
             abort(422, 'Satuan tidak ditemukan.');
         }
 
-        $defaultUnit = $product->getBarcodeUnits()->first();
+        $printMode = $request->input('print_mode', 'hierarchy');
+        $quantity = (int) $request->quantity;
+
         if ($printMode === 'hierarchy') {
             if ($product->getBarcodeUnits()->count() < 2) {
                 abort(422, 'Mode hierarki membutuhkan minimal 2 level satuan.');
             }
 
-            if ($defaultUnit && $unit->id !== $defaultUnit->id) {
-                abort(422, 'Mode hierarki hanya boleh menggunakan satuan terbesar.');
+            $labelsPerParent = $product->getBarcodeHierarchyTotalLabels(1, $unit->id);
+            $maxTotal = self::BARCODE_HIERARCHY_MAX_LABELS;
+            $maxParentQty = $product->getMaxHierarchyParentQty($maxTotal, $unit->id);
+
+            if ($maxParentQty < 1) {
+                abort(422, "1 {$unit->symbol} menghasilkan {$labelsPerParent} label, melebihi batas cetak hierarki ({$maxTotal}). Gunakan mode satuan tunggal atau cetak per level.");
             }
 
-            $totalLabels = $product->getBarcodeHierarchyTotalLabels((int) $request->quantity, $unit->id);
-            $maxTotal = self::BARCODE_HIERARCHY_MAX_LABELS;
-            if ($totalLabels > $maxTotal) {
-                $maxParentQty = $product->getMaxHierarchyParentQty($maxTotal, $unit->id);
-                abort(422, "Total label ({$totalLabels}) melebihi batas {$maxTotal}. Maks. qty satuan terbesar: {$maxParentQty}.");
+            if ($quantity > $maxParentQty) {
+                abort(422, "Qty maksimum untuk satuan ini adalah {$maxParentQty} (total label tidak boleh melebihi {$maxTotal}).");
             }
-        } elseif ((int) $request->quantity > self::BARCODE_SINGLE_MAX_LABELS) {
+
+            $totalLabels = $product->getBarcodeHierarchyTotalLabels($quantity, $unit->id);
+            if ($totalLabels > $maxTotal) {
+                abort(422, "Total label ({$totalLabels}) melebihi batas {$maxTotal}. Maks. qty: {$maxParentQty}.");
+            }
+        } elseif ($quantity > self::BARCODE_SINGLE_MAX_LABELS) {
             abort(422, 'Maksimal '.self::BARCODE_SINGLE_MAX_LABELS.' label per cetak (mode satuan tunggal).');
         }
 
@@ -1144,7 +1160,8 @@ class ProductController extends Controller
             'label_type' => $labelType,
             'content_summary' => $contentSummary,
             'qr_data_uri' => $qrCodeService->toPngDataUri(
-                $qrCodeService->contentForLabel($serial, $unitLevel)
+                $qrCodeService->contentForLabel($serial, $unitLevel),
+                $qrCodeService->inkStyleForUnitLevel($unitLevel)
             ),
         ];
     }
@@ -1740,8 +1757,22 @@ class ProductController extends Controller
         $companyId = auth('web')->user()->getCompanyIdForProduct();
 
         $product = Product::where('id', $id)->withTrashed()
-            ->with(['unitConversions.fromUnit', 'unitConversions.toUnit', 'variants.prices'])
+            ->with([
+                'defaultUnit' => fn ($q) => $q->withTrashed(),
+                'unitConversions' => fn ($q) => $q->whereNull('deleted_at')->orderBy('conversion_level')->orderBy('created_at'),
+                'unitConversions.fromUnit',
+                'unitConversions.toUnit',
+                'variants' => fn ($q) => $q->whereNull('deleted_at')->with([
+                    'prices' => fn ($pq) => $pq->whereNull('deleted_at'),
+                ]),
+            ])
             ->firstOrFail();
+
+        $orderedConversions = $product->getOrderedUnitConversions();
+        $unitChainLabel = $product->getBarcodeUnits()
+            ->map(fn (ProductUnit $unit) => $unit->symbol ?: $unit->name)
+            ->join(' → ');
+        $nextConversionFromUnitId = $product->getNextConversionFromUnitId();
 
         $natures = ProductNature::whereNull('deleted_at')
             ->where(function ($q) use ($branchId) {
@@ -1776,7 +1807,10 @@ class ProductController extends Controller
             'units',
             'itemTypes',
             'productNatures',
-            'procurementTypes'
+            'procurementTypes',
+            'orderedConversions',
+            'unitChainLabel',
+            'nextConversionFromUnitId'
         ));
     }
 
@@ -2229,11 +2263,16 @@ class ProductController extends Controller
             return back()->with('error', 'Conversion already exists.');
         }
 
+        $nextLevel = (int) ProductUnitConversion::where('product_id', $request->raw_material_id)
+            ->whereNull('deleted_at')
+            ->max('conversion_level');
+
         ProductUnitConversion::create([
             'product_id' => $request->raw_material_id,
             'from_unit_id' => $request->from_unit_id,
             'to_unit_id' => $request->to_unit_id,
             'conversion_factor' => normalize_number_input($request->conversion_factor),
+            'conversion_level' => $nextLevel + 1,
             'created_by' => auth('web')->id(),
             'updated_by' => auth('web')->id(),
         ]);

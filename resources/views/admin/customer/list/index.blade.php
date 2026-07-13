@@ -46,6 +46,7 @@
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Type</th>
+                            <th>Partner</th>
                             <th>App Access</th>
                             <th>Active</th>
                             <th>Created At</th>
@@ -94,6 +95,38 @@
     @push('page-js')
         <script>
             $(document).ready(function() {
+                function renderCustomerType(type) {
+                    if (!type) return '-';
+                    var labels = {
+                        individual: 'Individual',
+                        company: 'Company',
+                        PARTNER_LEAD: 'Partner Lead',
+                        AGENT: 'Agent',
+                        RESELLER: 'Reseller'
+                    };
+                    var badges = {
+                        PARTNER_LEAD: 'bg-label-warning',
+                        AGENT: 'bg-label-success',
+                        RESELLER: 'bg-label-info'
+                    };
+                    var label = labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
+                    var badgeClass = badges[type] || 'bg-label-secondary';
+                    return '<span class="badge ' + badgeClass + '">' + label + '</span>';
+                }
+
+                function renderPartnerRole(role, row) {
+                    if (role === 'agent') {
+                        return '<span class="badge bg-label-success">Agent</span><div class="small text-muted">' + (row.partner_agent_code || '-') + '</div>';
+                    }
+                    if (role === 'reseller') {
+                        return '<span class="badge bg-label-info">Reseller</span><div class="small text-muted">' + (row.partner_reseller_code || '-') + '</div>';
+                    }
+                    if (role === 'partner_lead') {
+                        return '<span class="badge bg-label-warning">Lead</span>';
+                    }
+                    return '-';
+                }
+
                 $('#table').DataTable({
                     processing: true, serverSide: true, paging: true, scrollX: true,
                     ajax: { url: "{{ route('customer.list.index.data') }}", type: "POST", data: { _token: "{{ csrf_token() }}", status: "{{ $status }}" } },
@@ -106,7 +139,8 @@
                         { data: 'contact_person', orderable: false, searchable: true, render: d => d || '-' },
                         { data: 'email', orderable: false, searchable: true, render: d => d || '-' },
                         { data: 'phone', orderable: false, searchable: true, render: d => d || '-' },
-                        { data: 'customer_type', orderable: true, searchable: false, render: d => d ? d.charAt(0).toUpperCase() + d.slice(1) : '-' },
+                        { data: 'customer_type', orderable: true, searchable: false, render: d => renderCustomerType(d) },
+                        { data: 'partner_role', orderable: false, searchable: false, render: (d, t, r) => renderPartnerRole(d, r) },
                         { data: 'has_app_access', orderable: true, searchable: false, render: d => d ? '<span class="badge bg-label-success">Yes</span>' : '<span class="badge bg-label-secondary">No</span>' },
                         { data: 'is_active', orderable: true, searchable: false, render: d => d ? '<span class="badge bg-label-success">Yes</span>' : '<span class="badge bg-label-secondary">No</span>' },
                         { data: 'created_at', render: d => d ? moment(d).format("DD MMM YYYY") : '-' },

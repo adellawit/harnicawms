@@ -5,7 +5,8 @@
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Produksi'],
+                ['label' => 'Product'],
+                ['label' => 'Production', 'url' => route('production.index')],
                 ['label' => 'Bill of Materials', 'url' => route('bom.index')],
                 ['label' => 'Edit', 'active' => true],
             ]"

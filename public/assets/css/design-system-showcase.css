@@ -1,0 +1,153 @@
+/* Design System showcase page — scoped under .ds-showcase */
+.ds-showcase .ds-nav {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 10;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(12px) saturate(130%);
+    backdrop-filter: blur(12px) saturate(130%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--brand-radius-sm);
+    padding: 0.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--glass-shadow);
+}
+
+.ds-showcase .ds-nav .nav-link {
+    color: var(--brand-ink-soft);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+}
+
+.ds-showcase .ds-nav .nav-link.active,
+.ds-showcase .ds-nav .nav-link:hover {
+    color: var(--brand-primary-700);
+    background: rgba(var(--brand-primary-rgb), 0.1);
+}
+
+.ds-showcase .ds-section {
+    scroll-margin-top: 7rem;
+    margin-bottom: 1.5rem;
+}
+
+.ds-showcase .ds-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brand-ink-soft);
+    margin-bottom: 0.75rem;
+}
+
+.ds-showcase .ds-swatch {
+    border-radius: var(--brand-radius-sm);
+    padding: 1rem;
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ds-showcase .ds-swatch-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.ds-showcase .ds-swatch-value {
+    font-size: 0.6875rem;
+    font-family: ui-monospace, monospace;
+    opacity: 0.75;
+}
+
+.ds-showcase .ds-token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.ds-showcase .ds-radius-demo {
+    width: 64px;
+    height: 64px;
+    background: rgba(var(--brand-primary-rgb), 0.15);
+    border: 2px solid var(--brand-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--brand-primary-700);
+}
+
+.ds-showcase .ds-demo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.ds-showcase .ds-code {
+    font-size: 0.75rem;
+    color: var(--brand-primary-700);
+    background: rgba(var(--brand-primary-rgb), 0.08);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+.ds-showcase .ds-subsection + .ds-subsection {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ds-showcase .surface-glass-demo {
+    padding: 1.25rem;
+}
+
+.ds-showcase .ds-surface-compare-labels .ds-section-title {
+    min-height: 1.75rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.ds-showcase .ds-surface-panel {
+    min-height: 108px;
+}
+
+.ds-showcase .ds-surface-panel .card-body,
+.ds-showcase .ds-surface-panel.surface-glass-demo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+}
+
+.ds-showcase .ds-type-scale h1 { font-size: 2rem; }
+.ds-showcase .ds-type-scale h2 { font-size: 1.5rem; }
+.ds-showcase .ds-type-scale h3 { font-size: 1.25rem; }
+.ds-showcase .ds-type-scale h4 { font-size: 1.125rem; }
+.ds-showcase .ds-type-scale h5 { font-size: 1rem; }
+.ds-showcase .ds-type-scale h6 { font-size: 0.875rem; }
+
+.ds-showcase .ds-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+}
+
+.ds-showcase .ds-status-pill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}

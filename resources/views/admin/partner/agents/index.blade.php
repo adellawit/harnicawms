@@ -4,7 +4,8 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Partner Network', 'url' => route('partner.reports.index')],
+            ['label' => 'Customer'],
+            ['label' => 'Network', 'url' => route('partner.reports.index')],
             ['label' => 'Agents', 'active' => true],
         ]" />
 

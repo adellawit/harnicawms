@@ -37,7 +37,7 @@
     <div class="app-brand demo workspace-switcher">
         <div class="workspace-card workspace-card--brand workspace-dropdown-wrap is-static" aria-disabled="true">
             <div class="workspace-logo workspace-logo--brand">
-                <img src="{{ asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="workspace-brand-logo">
+                <img src="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}" alt="Harnica" class="workspace-brand-logo" data-brand-logo="{{ $appTheme['logo_url'] ?? asset('assets/img/harnica/logo.png') }}">
             </div>
             <div class="workspace-meta workspace-meta--brand">
                 <span class="workspace-company">{{ $companyLabel }}</span>

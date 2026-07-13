@@ -36,7 +36,6 @@
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.0",
-        "phpunit/phpunit": "^11.0",
         "spatie/laravel-ignition": "^2.4"
     },
     "autoload": {
@@ -48,11 +47,6 @@
         "files": [
             "app/Helpers/helpers.php"
         ]
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
     },
     "scripts": {
         "post-autoload-dump": [
@@ -80,7 +74,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
             "php-http/discovery": true
         }
     },

@@ -9,39 +9,132 @@ use App\Models\Partner\PartnerApplication;
 use App\Models\Partner\PartnerApplicationDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PartnerApplicationService
 {
+    public function insert(Request $request, ?string $companyId, ?string $userId = null): PartnerApplication
+    {
+        return $this->createApplication($request, $companyId, $userId);
+    }
+
     public function createApplication(Request $request, ?string $companyId, ?string $userId = null): PartnerApplication
     {
         return DB::transaction(function () use ($request, $companyId, $userId) {
             $companyId = $companyId ?: $this->fallbackCompanyId();
             $customer = $this->findOrCreateCustomer($request, $companyId, $userId);
 
-            $application = PartnerApplication::create([
-                'company_id' => $companyId,
-                'customer_id' => $customer?->id,
-                'application_number' => $this->generateApplicationNumber(),
-                'partner_type' => $request->partner_type,
-                'name' => $request->name,
-                'email' => $request->email ?: null,
-                'phone' => $request->phone ?: null,
-                'requested_purchase_quantity' => (float) ($request->requested_purchase_quantity ?? 0),
-                'address' => $request->address ?: null,
-                'city' => $request->city ?: null,
-                'province' => $request->province ?: null,
-                'postal_code' => $request->postal_code ?: null,
-                'status' => 'submitted',
-                'notes' => $request->notes ?: null,
-                'submitted_at' => now(),
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]);
+            $application = PartnerApplication::create(array_merge(
+                $this->applicationAttributes($request),
+                [
+                    'company_id' => $companyId,
+                    'customer_id' => $customer?->id,
+                    'application_number' => $this->generateApplicationNumber(),
+                    'status' => 'submitted',
+                    'submitted_at' => now(),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]
+            ));
 
             $this->storeDocuments($application, $request, $userId);
+            $this->storeSignature($application, $request, $userId);
+            $this->storeSignedForm($application, $request, $userId);
 
             return $application->fresh(['customer', 'documents']);
         });
+    }
+
+    public function update(PartnerApplication $application, Request $request, ?string $userId = null): PartnerApplication
+    {
+        return DB::transaction(function () use ($application, $request, $userId) {
+            $application->update(array_merge(
+                $this->applicationAttributes($request),
+                ['updated_by' => $userId]
+            ));
+
+            $this->syncCustomer($application, $request, $userId);
+            $this->storeDocuments($application, $request, $userId);
+
+            if ($request->filled('signature_data')) {
+                $this->replaceDocumentsByType($application, 'signature');
+                $this->storeSignature($application, $request, $userId);
+            }
+
+            if ($request->hasFile('signed_form')) {
+                $this->replaceDocumentsByType($application, 'signed_registration_form');
+                $this->storeSignedForm($application, $request, $userId);
+            }
+
+            return $application->fresh(['customer', 'documents']);
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function applicationAttributes(Request $request): array
+    {
+        return [
+            'partner_type' => $request->partner_type,
+            'name' => $request->name,
+            'email' => $request->email ?: null,
+            'phone' => $request->phone ?: null,
+            'birth_place' => $request->birth_place ?: null,
+            'birth_date' => $request->birth_date ?: null,
+            'address_ktp' => $request->address_ktp ?: null,
+            'requested_purchase_quantity' => $this->resolvePurchaseQuantity($request),
+            'address' => $request->address ?: null,
+            'city' => $request->city ?: null,
+            'province' => $request->province ?: null,
+            'postal_code' => $request->postal_code ?: null,
+            'latitude' => $request->filled('latitude') ? $request->input('latitude') : null,
+            'longitude' => $request->filled('longitude') ? $request->input('longitude') : null,
+            'marketplace_tokopedia' => $request->boolean('marketplace_tokopedia'),
+            'marketplace_shopee' => $request->boolean('marketplace_shopee'),
+            'marketplace_other' => $request->input('marketplace_other') ?: null,
+            'reseller_package' => $request->input('reseller_package') ?: null,
+            'terms_accepted' => $request->input('terms_accepted', []),
+            'declaration_accepted' => $request->boolean('declaration_accepted'),
+            'filled_at' => $request->input('filled_at', now()->toDateString()),
+            'notes' => $request->notes ?: null,
+        ];
+    }
+
+    private function syncCustomer(PartnerApplication $application, Request $request, ?string $userId): void
+    {
+        $customer = $application->customer;
+        if (! $customer) {
+            return;
+        }
+
+        $customer->update([
+            'name' => $request->name,
+            'email' => $request->email ?: null,
+            'phone' => $request->phone ?: null,
+            'mobile' => $request->phone ?: null,
+            'address' => $request->address ?: null,
+            'city' => $request->city ?: null,
+            'province' => $request->province ?: null,
+            'postal_code' => $request->postal_code ?: null,
+            'lat' => $request->filled('latitude') ? $request->input('latitude') : null,
+            'long' => $request->filled('longitude') ? $request->input('longitude') : null,
+            'birth_place' => $request->birth_place ?: null,
+            'birth_date' => $request->birth_date ?: null,
+            'address_ktp' => $request->address_ktp ?: null,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function replaceDocumentsByType(PartnerApplication $application, string $documentType): void
+    {
+        $application->documents()
+            ->where('document_type', $documentType)
+            ->get()
+            ->each(function (PartnerApplicationDocument $document) {
+                Storage::disk('public')->delete($document->file_path);
+                $document->delete();
+            });
     }
 
     public function addFollowup(PartnerApplication $application, array $data, ?string $userId): PartnerApplication
@@ -108,8 +201,13 @@ class PartnerApplicationService
             'city' => $request->city ?: null,
             'province' => $request->province ?: null,
             'postal_code' => $request->postal_code ?: null,
+            'lat' => $request->filled('latitude') ? $request->input('latitude') : null,
+            'long' => $request->filled('longitude') ? $request->input('longitude') : null,
+            'birth_place' => $request->birth_place ?: null,
+            'birth_date' => $request->birth_date ?: null,
+            'address_ktp' => $request->address_ktp ?: null,
             'country' => 'Indonesia',
-            'customer_type' => 'PARTNER_LEAD',
+            'customer_type' => Customer::TYPE_PARTNER_LEAD,
             'notes' => 'Created from partner application.',
             'has_app_access' => false,
             'is_active' => true,
@@ -144,6 +242,95 @@ class PartnerApplicationService
                 'is_active' => true,
             ]
         );
+    }
+
+    private function storeSignature(PartnerApplication $application, Request $request, ?string $userId): void
+    {
+        if ($request->hasFile('signature')) {
+            $file = $request->file('signature');
+            if (! $file->isValid()) {
+                return;
+            }
+
+            $filename = time() . '_signature_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+            $path = $file->storeAs('partner/applications/' . $application->id, $filename, 'public');
+
+            PartnerApplicationDocument::create([
+                'application_id' => $application->id,
+                'document_type' => 'signature',
+                'file_path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'status' => 'submitted',
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ]);
+
+            return;
+        }
+
+        if (! $request->filled('signature_data')) {
+            return;
+        }
+
+        $encoded = preg_replace('#^data:image/\w+;base64,#i', '', $request->signature_data);
+        $binary = base64_decode($encoded, true);
+
+        if ($binary === false || strlen($binary) > 5 * 1024 * 1024) {
+            return;
+        }
+
+        $filename = time() . '_signature_digital.png';
+        $path = 'partner/applications/' . $application->id . '/' . $filename;
+        Storage::disk('public')->put($path, $binary);
+
+        PartnerApplicationDocument::create([
+            'application_id' => $application->id,
+            'document_type' => 'signature',
+            'file_path' => $path,
+            'original_name' => 'tanda-tangan-digital.png',
+            'status' => 'submitted',
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function storeSignedForm(PartnerApplication $application, Request $request, ?string $userId): void
+    {
+        if (! $request->hasFile('signed_form')) {
+            return;
+        }
+
+        $file = $request->file('signed_form');
+        if (! $file->isValid()) {
+            return;
+        }
+
+        $filename = time() . '_signed_form_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+        $path = $file->storeAs('partner/applications/' . $application->id, $filename, 'public');
+
+        PartnerApplicationDocument::create([
+            'application_id' => $application->id,
+            'document_type' => 'signed_registration_form',
+            'file_path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'status' => 'submitted',
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function resolvePurchaseQuantity(Request $request): float
+    {
+        if ($request->filled('requested_purchase_quantity')) {
+            return (float) $request->requested_purchase_quantity;
+        }
+
+        return match ($request->input('reseller_package')) {
+            'A' => 120,
+            'B' => 60,
+            'C' => 30,
+            default => $request->partner_type === PartnerApplication::TYPE_AGENT ? 600 : 0,
+        };
     }
 
     private function storeDocuments(PartnerApplication $application, Request $request, ?string $userId): void

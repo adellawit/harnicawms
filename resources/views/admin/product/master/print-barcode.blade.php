@@ -35,12 +35,19 @@
                                     <ul class="mb-0 mt-1 small">
                                         <li>Level 1 (satuan terbesar / Dus): <code>{{ date('y') }}1000000001</code>, <code>{{ date('y') }}1000000002</code>, ...</li>
                                         <li>Level 2 (Box): <code>{{ date('y') }}2000000001</code>, <code>{{ date('y') }}2000000002</code>, ...</li>
-                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ...</li>
+                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ... — <span class="text-muted">sticker transparan, tinta putih</span></li>
                                     </ul>
                                     <span class="small">Setiap level punya penomoran sendiri mulai dari 1. Preview dan PDF diurutkan hierarki: Karton → Pack → Box sesuai nomor seri per level.</span>
                                 </div>
                             </div>
                         </div>
+
+                        @if ($hasUnitHierarchy && ($maxHierarchyParentQty ?? 1) < 1)
+                            <x-alert type="warning" class="mb-4">
+                                1 satuan induk menghasilkan <strong>{{ $labelsPerParent }}</strong> label — melebihi batas hierarki
+                                ({{ $hierarchyPrintMaxLabels }}). Gunakan <strong>mode satuan tunggal</strong> atau cetak per level.
+                            </x-alert>
+                        @endif
 
                         <form id="printForm">
                             @csrf
@@ -56,7 +63,7 @@
                                                 name="print_mode"
                                                 id="print_mode_hierarchy"
                                                 value="hierarchy"
-                                                checked
+                                                @checked(($prefillPrintMode ?? 'hierarchy') === 'hierarchy')
                                             >
                                             <label class="form-check-label" for="print_mode_hierarchy">
                                                 <strong>Berdasarkan satuan terbesar</strong>
@@ -70,6 +77,7 @@
                                                 name="print_mode"
                                                 id="print_mode_single"
                                                 value="single"
+                                                @checked(($prefillPrintMode ?? 'hierarchy') === 'single')
                                             >
                                             <label class="form-check-label" for="print_mode_single">
                                                 <strong>Satuan tunggal</strong>
@@ -153,7 +161,7 @@
                                     id="quantity"
                                     class="form-control"
                                     min="1"
-                                    max="{{ $maxHierarchyParentQty ?? 500 }}"
+                                    max="{{ max(1, $maxHierarchyParentQty ?? 1) }}"
                                     value="{{ old('quantity', $prefillQuantity ?? 1) }}"
                                     required
                                 >
@@ -237,6 +245,12 @@
                 display: flex;
                 flex-wrap: wrap;
                 gap: 1.5mm 2mm;
+            }
+
+            .preview-grid--level-3 {
+                background: #1a1a1a;
+                padding: 3mm;
+                border-radius: 4px;
             }
 
             .preview-group {
@@ -327,8 +341,8 @@
             }
 
             .preview-tree__node--level-3 {
-                border: 1.5px dashed #28a745;
-                background: #f8fff9;
+                border: 1.5px dashed #6c757d;
+                background: #1a1a1a;
             }
 
             .preview-tree__cut-line {
@@ -345,9 +359,12 @@
 
             .preview-tree__box-grid {
                 display: grid;
-                grid-template-columns: repeat(5, 50mm);
+                grid-template-columns: repeat(5, 55mm);
                 gap: 1.5mm 2mm;
                 justify-content: start;
+                background: #1a1a1a;
+                padding: 2mm;
+                border-radius: 4px;
             }
 
             .preview-tree__box-groups-page .preview-tree__node--level-3 {
@@ -412,61 +429,70 @@
             }
 
             .label-item {
-                border: 1px solid #999;
                 overflow: hidden;
-                background: #fff;
             }
 
             .label-item--box {
-                width: 50mm;
-                height: 12mm;
-                display: flex;
+                width: 55mm;
+                height: 9mm;
+                border: none;
+                background: transparent;
+                box-sizing: border-box;
+                overflow: hidden;
+                padding: 0.5mm;
+            }
+
+            .label-item--box .label-item__table {
+                width: 100%;
+                height: 7mm;
+                border-collapse: collapse;
+                table-layout: fixed;
             }
 
             .label-item--box .label-item__qr {
-                width: 12mm;
-                height: 12mm;
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                width: 7mm;
+                height: 7mm;
+                vertical-align: middle;
+                text-align: center;
+                padding: 0.5mm;
+                box-sizing: border-box;
             }
 
             .label-item--box .label-item__qr img {
-                width: 10mm;
-                height: 10mm;
+                width: 6mm;
+                height: 6mm;
                 display: block;
+                margin: 0 auto;
             }
 
             .label-item--box .label-item__content {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-                padding: 0 1.5mm 1mm 1mm;
-                min-width: 0;
+                height: 7mm;
+                vertical-align: middle;
+                text-align: left;
+                padding: 0 0.6mm 0 0.9mm;
             }
 
-            .label-item__distributor-name {
-                font-size: 6.5px;
+            .label-item--box .label-item__distributed-by {
+                font-size: 4.5pt;
+                font-weight: 400;
+                color: #fff;
+                line-height: 1.1;
+                white-space: nowrap;
+                margin: 0;
+                padding: 0;
+            }
+
+            .label-item--box .label-item__distributor-name {
+                font-size: 6pt;
                 font-weight: 700;
-                color: #000;
-                line-height: 1.2;
+                color: #fff;
+                line-height: 1.1;
                 text-transform: uppercase;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-            }
-
-            .label-item__serial {
-                font-size: 6.5px;
-                font-weight: 700;
-                color: #000;
-                font-family: ui-monospace, monospace;
-                letter-spacing: 0.02em;
-                line-height: 1.2;
-                white-space: nowrap;
-                margin-bottom: 0.4mm;
+                margin: 0;
+                padding: 0;
             }
 
             .label-item--karton {
@@ -477,6 +503,8 @@
                 flex-direction: column;
                 align-items: center;
                 text-align: center;
+                border: 1px solid #999;
+                background: #fff;
             }
 
             .label-item--karton .label-item__top {
@@ -501,6 +529,8 @@
                 height: 30mm;
                 padding: 9% 1mm 10%;
                 box-sizing: border-box;
+                border: 1px solid #999;
+                background: #fff;
             }
 
             .label-item--pack .label-item__top {
@@ -623,9 +653,9 @@
                 var defaultUnitId = @json($defaultUnitId);
                 var hasUnitHierarchy = @json($hasUnitHierarchy);
                 var singlePrintMaxLabels = @json($singlePrintMaxLabels ?? 500);
-                var hierarchyPrintMaxLabels = @json($hierarchyPrintMaxLabels ?? 5000);
+                var hierarchyPrintMaxLabels = @json($hierarchyPrintMaxLabels ?? 10000);
                 var labelsPerParent = @json($labelsPerParent ?? 1);
-                var maxHierarchyParentQty = @json($maxHierarchyParentQty ?? 500);
+                var maxHierarchyParentQty = @json($maxHierarchyParentQty ?? 1);
 
                 $('.select2').select2({ width: '100%', allowClear: true });
 
@@ -710,10 +740,10 @@
                         $('#unit_id').val(defaultUnitId).trigger('change.select2');
                         $('#unit_id').prop('disabled', true);
                         $('#quantity').attr('max', maxHierarchyParentQty);
-                        $('#quantityLabel').text('Jumlah Satuan Terbesar (Qty)');
+                        $('#quantityLabel').text('Jumlah Satuan Induk (Qty)');
                         $('#quantityHelp').text(
-                            '1 satuan terbesar = ' + labelsPerParent + ' label total. ' +
-                            'Maks. qty induk: ' + maxHierarchyParentQty + ' (total ' + hierarchyPrintMaxLabels + ' label).'
+                            '1 satuan induk = ' + labelsPerParent + ' label total. ' +
+                            'Maks. qty: ' + maxHierarchyParentQty + ' (batas ' + hierarchyPrintMaxLabels + ' label).'
                         );
                     } else {
                         $('#unit_id').prop('disabled', false);
@@ -825,12 +855,19 @@
 
                     var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
 
-                    return '<div class="label-item label-item--box">' +
-                        '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="QR"></div>' +
-                        '<div class="label-item__content">' +
-                        '<div class="label-item__serial">' + label.serial + '</div>' +
-                        '<div class="label-item__distributor-name">' + boxBrandHtml + '</div>' +
-                        '</div></div>';
+                    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:none;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
+                        '<table class="label-item__table" cellpadding="0" cellspacing="0" style="width:100%;height:7mm;border-collapse:collapse;table-layout:fixed;">' +
+                        '<colgroup><col style="width:7mm"><col></colgroup>' +
+                        '<tr style="height:7mm;">' +
+                        '<td class="label-item__qr" valign="middle" align="center" style="width:7mm;height:7mm;padding:0.5mm;box-sizing:border-box;vertical-align:middle;text-align:center;">' +
+                        '<table cellpadding="0" cellspacing="0" style="width:100%;height:100%;border-collapse:collapse;"><tr>' +
+                        '<td align="center" valign="middle" style="width:100%;height:100%;padding:0;text-align:center;vertical-align:middle;">' +
+                        '<img src="' + label.qr_data_uri + '" alt="QR" style="width:6mm;height:6mm;display:block;margin:0 auto;">' +
+                        '</td></tr></table></td>' +
+                        '<td class="label-item__content" valign="middle" style="height:7mm;vertical-align:middle;text-align:left;padding:0 0.6mm 0 0.9mm;">' +
+                        '<div class="label-item__distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#fff;">Distributed by :</div>' +
+                        '<div class="label-item__distributor-name" style="font-size:6pt;font-weight:700;line-height:1.1;margin:0;padding:0;color:#fff;text-transform:uppercase;">' + boxBrandHtml + '</div>' +
+                        '</td></tr></table></div>';
                 }
 
                 function renderHierarchyTreePreview(tree) {
@@ -1028,7 +1065,7 @@
                         var breakdown = computeBreakdown(qty, defaultUnitId);
                         var total = breakdown.reduce(function (sum, row) { return sum + row.qty; }, 0);
                         if (total > hierarchyPrintMaxLabels) {
-                            alert('Total label (' + total + ') melebihi batas ' + hierarchyPrintMaxLabels + '. Maks. qty induk: ' + maxHierarchyParentQty + '.');
+                            alert('Total label (' + total + ') melebihi batas ' + hierarchyPrintMaxLabels + '. Maks. qty: ' + maxHierarchyParentQty + '.');
                             return;
                         }
                     }
@@ -1064,6 +1101,7 @@
                                 $('#previewRange').text('Total ' + res.total + ' label');
 
                                 renderHierarchyTreePreview(res.tree || []);
+                                $('#previewGrid').removeClass('preview-grid--level-3');
 
                                 if (res.hidden && res.hidden > 0) {
                                     $('#previewMore').removeClass('d-none').text(
@@ -1081,10 +1119,16 @@
 
                                 var html = '';
                                 var distName = res.distributor_name || distributorName;
+                                var $grid = $('#previewGrid');
+                                if (res.unit_level === 3) {
+                                    $grid.addClass('preview-grid--level-3');
+                                } else {
+                                    $grid.removeClass('preview-grid--level-3');
+                                }
                                 res.labels.forEach(function (label) {
                                     html += renderPreviewLabel(label, distName);
                                 });
-                                $('#previewGrid').html(html);
+                                $grid.html(html);
                             }
 
                             $('#previewCard').removeClass('d-none')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });

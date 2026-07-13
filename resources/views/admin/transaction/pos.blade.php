@@ -315,6 +315,39 @@
                 border-radius: 2rem;
                 white-space: nowrap;
             }
+            .pos-customer-option {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                width: 100%;
+            }
+            .pos-customer-option .pos-customer-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .pos-customer-badge {
+                font-size: 0.625rem;
+                font-weight: 600;
+                padding: 0.15rem 0.45rem;
+                border-radius: 999px;
+                white-space: nowrap;
+            }
+            .pos-customer-badge.agent { background: #e8f5e9; color: #2e7d32; }
+            .pos-customer-badge.reseller { background: #e3f2fd; color: #1565c0; }
+            .pos-customer-badge.partner-lead { background: #fff8e1; color: #f57f17; }
+            #selectedPartnerBadge {
+                display: none;
+                font-size: 0.6875rem;
+                font-weight: 600;
+                padding: 0.2rem 0.5rem;
+                border-radius: 999px;
+                white-space: nowrap;
+            }
+            #selectedPartnerBadge.agent { background: #e8f5e9; color: #2e7d32; }
+            #selectedPartnerBadge.reseller { background: #e3f2fd; color: #1565c0; }
+            #selectedPartnerBadge.partner-lead { background: #fff8e1; color: #f57f17; }
 
             /* Cart items list */
             .pos-cart-items {
@@ -1181,10 +1214,17 @@
                     <select id="customerSelect" style="width:100%">
                         <option value="">Walk-in Customer</option>
                         @forelse($customers ?? collect() as $customer)
-                        <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                        <option value="{{ $customer->id }}"
+                            data-partner-role="{{ $customer->partnerRole() }}"
+                            data-partner-label="{{ $customer->partnerRoleLabel() }}"
+                            data-partner-code="{{ $customer->agent?->code ?? $customer->reseller?->code }}"
+                            data-customer-code="{{ $customer->code }}">
+                            {{ $customer->name }}
+                        </option>
                         @empty
                         @endforelse
                     </select>
+                    <span id="selectedPartnerBadge"></span>
                     <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
@@ -1441,8 +1481,65 @@
                 $('#customerSelect').select2({
                     dropdownParent: $('body'),
                     placeholder: 'Walk-in Customer',
-                    allowClear: true
+                    allowClear: true,
+                    templateResult: function(option) {
+                        if (!option.id) {
+                            return option.text;
+                        }
+
+                        var $option = $(option.element);
+                        var role = $option.data('partner-role');
+                        var label = $option.data('partner-label');
+                        var code = $option.data('partner-code');
+                        var customerCode = $option.data('customer-code');
+                        var name = option.text.trim();
+                        var $wrap = $('<div class="pos-customer-option"></div>');
+                        var $name = $('<span class="pos-customer-name"></span>').text(name + (customerCode ? ' (' + customerCode + ')' : ''));
+                        $wrap.append($name);
+
+                        if (role && label) {
+                            var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                            $wrap.append(
+                                $('<span class="pos-customer-badge ' + badgeClass + '"></span>').text(label + (code ? ' · ' + code : ''))
+                            );
+                        }
+
+                        return $wrap;
+                    },
+                    templateSelection: function(option) {
+                        if (!option.id) {
+                            return option.text;
+                        }
+
+                        var $option = $(option.element);
+                        var name = option.text.trim();
+                        var customerCode = $option.data('customer-code');
+                        return customerCode ? name + ' (' + customerCode + ')' : name;
+                    }
                 });
+
+                function updateSelectedPartnerBadge() {
+                    var $selected = $('#customerSelect option:selected');
+                    var $badge = $('#selectedPartnerBadge');
+                    var role = $selected.data('partner-role');
+                    var label = $selected.data('partner-label');
+                    var code = $selected.data('partner-code');
+
+                    if (!role || !label) {
+                        $badge.hide().removeClass('agent reseller partner-lead').text('');
+                        return;
+                    }
+
+                    var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                    $badge
+                        .removeClass('agent reseller partner-lead')
+                        .addClass(badgeClass)
+                        .text(label + (code ? ' · ' + code : ''))
+                        .show();
+                }
+
+                $('#customerSelect').on('change', updateSelectedPartnerBadge);
+                updateSelectedPartnerBadge();
                 // ── Discount toggle (% / Rp) ─────────────────────────────
                 var discountType = 'percent';
 

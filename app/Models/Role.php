@@ -12,6 +12,10 @@ class Role extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const SUPER_ADMIN_ID = '147c8a8e-52dc-4a79-a8ce-acb612b6e484';
+
+    public const SUPER_ADMIN_IAM_ACCESS_ID = '87d14961-0c14-474f-a6fa-b1130b521d39';
+
     /**
      * The primary key type.
      *

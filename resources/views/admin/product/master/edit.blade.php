@@ -149,12 +149,25 @@
                 <x-badge color="secondary">e.g. 1 Dus = 24 Botol</x-badge>
             </h5>
             <div class="card-body">
-                @php $conversions = $product->unitConversions ?? collect(); @endphp
+                @php
+                    $conversions = $orderedConversions ?? $product->getOrderedUnitConversions();
+                    $chainLabel = $unitChainLabel ?? $product->getBarcodeUnits()->map(fn ($u) => $u->symbol ?: $u->name)->join(' → ');
+                    $suggestedFromUnitId = $nextConversionFromUnitId ?? $product->getNextConversionFromUnitId();
+                @endphp
+
+                @if ($chainLabel !== '')
+                    <div class="alert alert-secondary py-2 mb-3">
+                        <strong>Unit chain:</strong> {{ $chainLabel }}
+                        <span class="text-muted">({{ $product->getBarcodeUnits()->count() }} level{{ $product->getBarcodeUnits()->count() === 1 ? '' : 's' }}, {{ $conversions->count() }} conversion{{ $conversions->count() === 1 ? '' : 's' }})</span>
+                    </div>
+                @endif
+
                 @if ($conversions->isNotEmpty())
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered">
                             <thead class="table-light">
                                 <tr>
+                                    <th style="width:70px">Level</th>
                                     <th>From Unit</th>
                                     <th>To Unit</th>
                                     <th>Factor</th>
@@ -162,8 +175,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($conversions as $conv)
+                                @foreach ($conversions as $index => $conv)
                                     <tr>
+                                        <td>{{ $conv->conversion_level ?? ($index + 1) }}</td>
                                         <td>1 {{ $conv->fromUnit?->name ?? '-' }} {{ $conv->fromUnit?->symbol ? '('.$conv->fromUnit->symbol.')' : '' }}</td>
                                         <td>= {{ format_number($conv->conversion_factor, 10, true) }} {{ $conv->toUnit?->name ?? '-' }} {{ $conv->toUnit?->symbol ? '('.$conv->toUnit->symbol.')' : '' }}</td>
                                         <td>{{ format_number($conv->conversion_factor, 10, true) }}</td>
@@ -199,7 +213,7 @@
                         <select name="from_unit_id" class="select2 form-select" required>
                             <option value="">-- Select --</option>
                             @foreach ($units as $u)
-                                <option value="{{ $u->id }}">{{ $u->name }} {{ $u->symbol ? '('.$u->symbol.')' : '' }}</option>
+                                <option value="{{ $u->id }}" {{ old('from_unit_id', $suggestedFromUnitId) == $u->id ? 'selected' : '' }}>{{ $u->name }} {{ $u->symbol ? '('.$u->symbol.')' : '' }}</option>
                             @endforeach
                         </select>
                     </div>

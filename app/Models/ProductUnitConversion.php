@@ -34,11 +34,11 @@ class ProductUnitConversion extends Model
 
     public function fromUnit(): BelongsTo
     {
-        return $this->belongsTo(ProductUnit::class, 'from_unit_id', 'id');
+        return $this->belongsTo(ProductUnit::class, 'from_unit_id', 'id')->withTrashed();
     }
 
     public function toUnit(): BelongsTo
     {
-        return $this->belongsTo(ProductUnit::class, 'to_unit_id', 'id');
+        return $this->belongsTo(ProductUnit::class, 'to_unit_id', 'id')->withTrashed();
     }
 }
