@@ -2,11 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // partner schema di-migrate setelah customer — skip pada fresh.
+        // Data sync hanya relevan untuk DB existing yang sudah punya agents/resellers.
+        if (! Schema::hasTable('partner.agents') || ! Schema::hasTable('partner.resellers')) {
+            return;
+        }
+
         $agentCustomerIds = DB::table('partner.agents')
             ->whereNull('deleted_at')
             ->whereNotNull('customer_id')

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 return new class extends Migration
@@ -12,6 +13,12 @@ return new class extends Migration
 
     public function up(): void
     {
+        // auth schema belum ada saat folder master_data di-migrate (fresh).
+        // IAM grant untuk fresh install diurus IamHasAccessSeeder.
+        if (! Schema::hasTable('auth.iam_accesses') || ! Schema::hasTable('auth.iam_has_accesses')) {
+            return;
+        }
+
         $menuExists = DB::table('master_data.menus')
             ->where('id', self::MENU_ID)
             ->exists();

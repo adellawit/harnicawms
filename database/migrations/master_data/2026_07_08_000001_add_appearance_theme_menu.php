@@ -10,6 +10,16 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Parent Settings hanya ada setelah MenuSeeder (fresh) atau di DB existing.
+        // Skip pada migrate:fresh — menu diisi lewat MenuSeeder.
+        $parentExists = DB::table('master_data.menus')
+            ->where('id', self::SETTINGS_PARENT_ID)
+            ->exists();
+
+        if (! $parentExists) {
+            return;
+        }
+
         $exists = DB::table('master_data.menus')
             ->where('id', self::MENU_ID)
             ->orWhere('code', 'appearance_theme')
