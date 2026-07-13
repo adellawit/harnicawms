@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Training\CategoryController;
+use App\Http\Controllers\Admin\Training\CourseContentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -28,6 +29,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{id}', [\App\Http\Controllers\Admin\Training\CourseController::class, 'update'])->name('update')->middleware('permission:Training Academy,is_update');
             Route::delete('/{id}', [\App\Http\Controllers\Admin\Training\CourseController::class, 'destroy'])->name('destroy')->middleware('permission:Training Academy,is_delete');
             Route::post('/{id}/publish', [\App\Http\Controllers\Admin\Training\CourseController::class, 'publish'])->name('publish')->middleware('permission:Training Academy,is_update');
+        });
+
+        Route::get('/courses/{course}/content', [CourseContentController::class, 'content'])->name('courses.content')->middleware('permission:Training Academy,is_read');
+
+        Route::prefix('courses/{course}/modules')->name('modules.')->group(function () {
+            Route::post('/', [CourseContentController::class, 'storeModule'])->name('store')->middleware('permission:Training Academy,is_create');
+            Route::put('/{module}', [CourseContentController::class, 'updateModule'])->name('update')->middleware('permission:Training Academy,is_update');
+            Route::delete('/{module}', [CourseContentController::class, 'destroyModule'])->name('destroy')->middleware('permission:Training Academy,is_delete');
+
+            Route::post('/{module}/materials', [CourseContentController::class, 'storeMaterial'])->name('materials.store')->middleware('permission:Training Academy,is_create');
+            Route::put('/{module}/materials/{material}', [CourseContentController::class, 'updateMaterial'])->name('materials.update')->middleware('permission:Training Academy,is_update');
+            Route::delete('/{module}/materials/{material}', [CourseContentController::class, 'destroyMaterial'])->name('materials.destroy')->middleware('permission:Training Academy,is_delete');
         });
     });
 
