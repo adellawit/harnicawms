@@ -1,5 +1,9 @@
 FROM php:8.4.7-cli
 
+# -j1: the shared CI runner OOMs gcc mid-compile of mbstring's mbfilter_cjk.c
+# (huge static tables) when make runs at full nproc parallelism, crashing with
+# "internal compiler error: Segmentation fault". Serial compile is slower but
+# reliable; revisit if a runner with more RAM/dedicated resources is available.
 RUN apt-get update && apt-get install -y \
     libonig-dev \
     libzip-dev \
@@ -9,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     zip unzip git curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
+    && docker-php-ext-install -j1 \
         pdo \
         pdo_pgsql \
         mbstring \
@@ -23,6 +27,12 @@ RUN curl -sS https://getcomposer.org/installer | php -- \
     --install-dir=/usr/local/bin \
     --filename=composer
 
+# Non-root runtime user. .env lives on the host only (see docker-compose.yml
+# env_file:) and is excluded by .dockerignore, so it's never in this build
+# context — nothing secret to protect during composer install as root below,
+# but the app itself must not run as root.
+RUN useradd -u 10001 -m -d /home/app -s /bin/sh app
+
 WORKDIR /app
 
 COPY . .
@@ -30,7 +40,10 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader
 
 RUN mkdir -p storage bootstrap/cache \
+    && chown -R app:app /app \
     && chmod -R 775 storage bootstrap/cache
+
+USER app
 
 RUN php artisan storage:link || true
 

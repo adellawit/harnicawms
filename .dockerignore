@@ -1,0 +1,28 @@
+# Keeps secrets out of the build context so `COPY . .` in the Dockerfile can
+# never bake them into an image layer. .env is injected at run time via
+# docker-compose's env_file:, never copied in at build time.
+.env
+.env.*
+.env-*
+
+.git
+.gitlab-ci.yml
+*.md
+
+node_modules
+vendor
+
+# NOTE: do NOT exclude storage/framework/{cache,sessions,views} — Laravel
+# ships these as empty dirs (.gitignore placeholders only, no secrets) and
+# the Blade compiler needs storage/framework/views to exist at build time
+# (package:discover boots the framework). Excluding them breaks the build
+# with "Please provide a valid cache path." — confirmed by testing this.
+storage/*.key
+
+tests
+.phpunit.cache
+.phpunit.result.cache
+
+.DS_Store
+.idea
+.vscode
