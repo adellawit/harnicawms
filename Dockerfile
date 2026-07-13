@@ -1,5 +1,9 @@
 FROM php:8.4.7-cli
 
+# -j1: the shared CI runner OOMs gcc mid-compile of mbstring's mbfilter_cjk.c
+# (huge static tables) when make runs at full nproc parallelism, crashing with
+# "internal compiler error: Segmentation fault". Serial compile is slower but
+# reliable; revisit if a runner with more RAM/dedicated resources is available.
 RUN apt-get update && apt-get install -y \
     libonig-dev \
     libzip-dev \
@@ -9,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     zip unzip git curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
+    && docker-php-ext-install -j1 \
         pdo \
         pdo_pgsql \
         mbstring \
