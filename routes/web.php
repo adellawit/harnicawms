@@ -788,3 +788,4 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/customer.php';
 
 require __DIR__ . '/distribution.php';
+require __DIR__ . '/training.php';
