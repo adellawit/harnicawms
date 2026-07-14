@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Training;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Training\CourseRequest;
+use App\Models\Marketing\Asset;
 use App\Models\Training\Category;
 use App\Models\Training\Course;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class CourseController extends Controller
     {
         return view('admin.training.courses.create', [
             'categories' => Category::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'thumbnailAssets' => $this->thumbnailAssets(),
         ]);
     }
 
@@ -53,6 +55,7 @@ class CourseController extends Controller
         return view('admin.training.courses.edit', [
             'course' => $course,
             'categories' => Category::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'thumbnailAssets' => $this->thumbnailAssets(),
         ]);
     }
 
@@ -111,6 +114,13 @@ class CourseController extends Controller
             'description' => $request->input('description'),
             'status' => $request->input('status'),
             'sort_order' => (int) $request->input('sort_order', 0),
+            'thumbnail_asset_id' => $request->input('thumbnail_asset_id') ?: null,
         ];
+    }
+
+    private function thumbnailAssets()
+    {
+        return Asset::active()->where('type', 'image')->where('can_be_thumbnail', true)
+            ->orderBy('title')->get(['id', 'title']);
     }
 }

@@ -18,11 +18,21 @@
         <textarea name="description" class="form-control" rows="3">{{ old('description', $course->description ?? '') }}</textarea>
     </div>
     <div class="col-md-6">
-        <label class="form-label">Thumbnail</label>
+        <label class="form-label">Thumbnail (upload)</label>
         <input type="file" name="thumbnail" class="form-control" accept="image/*">
         @if (!empty($course?->thumbnail_url))
             <img src="{{ $course->thumbnail_url }}" alt="thumb" class="mt-2 rounded" style="max-height:80px">
         @endif
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Atau pilih dari Pustaka</label>
+        <select name="thumbnail_asset_id" class="form-select">
+            <option value="">— tidak pakai pustaka —</option>
+            @foreach (($thumbnailAssets ?? []) as $ta)
+                <option value="{{ $ta->id }}" @selected(old('thumbnail_asset_id', $course->thumbnail_asset_id ?? '') === $ta->id)>{{ $ta->title }}</option>
+            @endforeach
+        </select>
+        <small class="text-muted">Jika dipilih, mengalahkan upload.</small>
     </div>
     <div class="col-md-3">
         <label class="form-label">Status</label>
