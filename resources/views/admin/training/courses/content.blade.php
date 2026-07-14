@@ -94,11 +94,11 @@
                 <div class="mb-3">
                     <label class="form-label d-block">Sumber</label>
                     <div class="form-check form-check-inline">
-                        <input type="radio" name="mat_source" id="srcUpload" class="form-check-input" value="upload" checked onchange="toggleMatSource()">
+                        <input type="radio" name="mat_source" id="srcUpload" class="form-check-input" value="upload" checked onchange="onMatSourceChange()">
                         <label class="form-check-label" for="srcUpload">Upload / Link</label>
                     </div>
                     <div class="form-check form-check-inline">
-                        <input type="radio" name="mat_source" id="srcLibrary" class="form-check-input" value="library" onchange="toggleMatSource()">
+                        <input type="radio" name="mat_source" id="srcLibrary" class="form-check-input" value="library" onchange="onMatSourceChange()">
                         <label class="form-check-label" for="srcLibrary">Pilih dari Pustaka</label>
                     </div>
                 </div>
@@ -161,10 +161,14 @@
             document.getElementById('matYoutube').disabled = lib;
             const libSel = document.getElementById('matLibAsset');
             libSel.disabled = !lib;
-            if (lib && libSel.options.length === 0) loadLibraryAssets();
         }
 
-        function loadLibraryAssets() {
+        function onMatSourceChange() {
+            toggleMatSource();
+            if (document.getElementById('srcLibrary').checked) loadLibraryAssets();
+        }
+
+        function loadLibraryAssets(preselectId) {
             const type = document.getElementById('matLibType').value;
             const sel = document.getElementById('matLibAsset');
             sel.innerHTML = '<option value="">memuat…</option>';
@@ -178,6 +182,7 @@
                         o.value = a.id; o.textContent = a.title;
                         sel.appendChild(o);
                     });
+                    if (preselectId) sel.value = preselectId;
                 });
         }
 
@@ -197,9 +202,16 @@
             document.getElementById('matSort').value = mat.sort_order ?? 0;
             document.getElementById('matFile').value = '';
             toggleMatFields();
-            document.getElementById('srcUpload').checked = true;
-            document.getElementById('matLibAsset').innerHTML = '';
-            toggleMatSource();
+            if (mat.marketing_asset_id) {
+                document.getElementById('srcLibrary').checked = true;
+                document.getElementById('matLibType').value = mat.type;
+                toggleMatSource();
+                loadLibraryAssets(mat.marketing_asset_id);
+            } else {
+                document.getElementById('srcUpload').checked = true;
+                document.getElementById('matLibAsset').innerHTML = '';
+                toggleMatSource();
+            }
         }
     </script>
     @endpush
