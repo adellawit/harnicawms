@@ -8,6 +8,7 @@ use App\Models\Marketing\Asset;
 use App\Models\Marketing\Category;
 use App\Models\Training\Course;
 use App\Models\Training\CourseMaterial;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -97,6 +98,26 @@ class AssetController extends Controller
         $asset->delete();
 
         return redirect()->route('marketing.assets.index')->with('success', 'Aset dihapus.');
+    }
+
+    public function picker(Request $request)
+    {
+        $type = $request->query('asset_type'); // image | pdf | video
+        $assets = Asset::active()
+            ->usableInTraining()
+            ->when(in_array($type, ['image', 'pdf', 'video'], true), fn ($q) => $q->where('type', $type))
+            ->whereIn('type', ['image', 'pdf', 'video'])
+            ->orderBy('title')
+            ->get()
+            ->map(fn (Asset $a) => [
+                'id' => $a->id,
+                'title' => $a->title,
+                'type' => $a->type,
+                'file_url' => $a->file_url,
+                'link_url' => $a->link_url,
+            ]);
+
+        return response()->json(['assets' => $assets]);
     }
 
     /** Build the shared attribute array, nulling fields that don't belong to the chosen type. */

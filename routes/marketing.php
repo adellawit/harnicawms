@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified'])->prefix('marketing')->name('marketing.')
         Route::get('/', [AssetController::class, 'index'])->name('index')->middleware('permission:Marketing Center,is_read');
         Route::get('/create', [AssetController::class, 'create'])->name('create')->middleware('permission:Marketing Center,is_create');
         Route::post('/', [AssetController::class, 'store'])->name('store')->middleware('permission:Marketing Center,is_create');
+        Route::get('/picker', [AssetController::class, 'picker'])->name('picker')->middleware('permission:Marketing Center,is_read');
         Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit')->middleware('permission:Marketing Center,is_update');
         Route::put('/{id}', [AssetController::class, 'update'])->name('update')->middleware('permission:Marketing Center,is_update');
         Route::delete('/{id}', [AssetController::class, 'destroy'])->name('destroy')->middleware('permission:Marketing Center,is_delete');
