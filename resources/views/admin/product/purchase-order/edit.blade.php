@@ -99,7 +99,10 @@
                     </div>
                     <div id="itemsContainer">
                         @foreach($purchase->items as $idx => $item)
-                        @php $itemHasVariants = $products->firstWhere('id', $item->product_id)?->variants->count() > 0; @endphp
+                        @php
+                            $productRow = collect($products)->firstWhere('id', $item->product_id);
+                            $itemHasVariants = collect(data_get($productRow, 'variants', []))->isNotEmpty();
+                        @endphp
                         <div class="detail-row" data-index="{{ $idx }}" data-variant-id="{{ $item->variant_id }}">
                             <div class="detail-row-header">
                                 <span class="detail-row-number">Item #{{ $idx + 1 }}</span>
@@ -111,7 +114,7 @@
                                     <select name="items[{{ $idx }}][product_id]" class="form-select select2-product" data-index="{{ $idx }}" required>
                                         <option value="">-- Select --</option>
                                         @foreach($products as $product)
-                                            <option value="{{ $product->id }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product->id ? 'selected' : '' }}>{{ $product->name }}{{ $product->code ? ' ('.$product->code.')' : '' }}</option>
+                                            <option value="{{ $product['id'] }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product['id'] ? 'selected' : '' }}>{{ $product['name'] }}{{ !empty($product['code']) ? ' ('.$product['code'].')' : '' }}</option>
                                         @endforeach
                                     </select>
                                 </div>
