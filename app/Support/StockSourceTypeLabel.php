@@ -8,6 +8,8 @@ class StockSourceTypeLabel
         'Inbound' => 'Stok Masuk Manual',
         'TransferIn' => 'Transfer Masuk',
         'TransferOut' => 'Transfer Keluar',
+        'MarketingAllocationIn' => 'Alokasi Marketing (Masuk)',
+        'MarketingAllocationOut' => 'Alokasi Marketing (Keluar)',
         'ProductionOutput' => 'Hasil Produksi',
         'ProductionConsume' => 'Konsumsi Produksi',
         'ProductionConsumeReverse' => 'Pembalikan Konsumsi Produksi',

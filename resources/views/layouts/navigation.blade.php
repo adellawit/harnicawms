@@ -180,13 +180,39 @@
                                                     $grandChildUrl = $grandChild->route_name && Route::has($grandChild->route_name)
                                                         ? route($grandChild->route_name)
                                                         : url($grandChild->url_path);
-                                                    $isGrandChildActive = $checkMenuActive($grandChild);
+                                                    $isGrandChildActive = $checkMenuActive($grandChild) || $checkActiveDescendant($grandChild);
+                                                    $hasGreatGrandChildren = $grandChild->has_page
+                                                        && $grandChild->relationLoaded('children')
+                                                        && $grandChild->children->count() > 0;
                                                 @endphp
-                                                <li class="menu-item @if ($isGrandChildActive) active @endif">
-                                                    <a href="{{ $grandChildUrl }}" class="menu-link">
-                                                        <div data-i18n="{{ $grandChild->name }}">{{ $grandChild->name }}</div>
-                                                    </a>
-                                                </li>
+                                                @if ($hasGreatGrandChildren)
+                                                    <li class="menu-item @if ($isGrandChildActive) active open @endif">
+                                                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                                                            <div data-i18n="{{ $grandChild->name }}">{{ $grandChild->name }}</div>
+                                                        </a>
+                                                        <ul class="menu-sub">
+                                                            @foreach ($grandChild->children->sortBy('order_number') as $greatGrandChild)
+                                                                @php
+                                                                    $greatGrandChildUrl = $greatGrandChild->route_name && Route::has($greatGrandChild->route_name)
+                                                                        ? route($greatGrandChild->route_name)
+                                                                        : url($greatGrandChild->url_path);
+                                                                    $isGreatGrandChildActive = $checkMenuActive($greatGrandChild);
+                                                                @endphp
+                                                                <li class="menu-item @if ($isGreatGrandChildActive) active @endif">
+                                                                    <a href="{{ $greatGrandChildUrl }}" class="menu-link">
+                                                                        <div data-i18n="{{ $greatGrandChild->name }}">{{ $greatGrandChild->name }}</div>
+                                                                    </a>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </li>
+                                                @else
+                                                    <li class="menu-item @if ($isGrandChildActive) active @endif">
+                                                        <a href="{{ $grandChildUrl }}" class="menu-link">
+                                                            <div data-i18n="{{ $grandChild->name }}">{{ $grandChild->name }}</div>
+                                                        </a>
+                                                    </li>
+                                                @endif
                                             @endforeach
                                         </ul>
                                     </li>

@@ -47,6 +47,10 @@ class SidebarService
                     $query->whereHas('iamHasAccess', $iamMenuConstraint)
                         ->orderBy('order_number');
                 },
+                'children.children.children' => function ($query) use ($iamMenuConstraint) {
+                    $query->whereHas('iamHasAccess', $iamMenuConstraint)
+                        ->orderBy('order_number');
+                },
             ])
             ->orderBy('order_number')
             ->get();
@@ -62,6 +66,7 @@ class SidebarService
             ->with([
                 'children' => fn ($query) => $query->orderBy('order_number'),
                 'children.children' => fn ($query) => $query->orderBy('order_number'),
+                'children.children.children' => fn ($query) => $query->orderBy('order_number'),
             ])
             ->orderBy('order_number')
             ->get();

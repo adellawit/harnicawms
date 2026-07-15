@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BomController;
 use App\Http\Controllers\Admin\HppReportController;
 use App\Http\Controllers\Admin\InboundController;
+use App\Http\Controllers\Admin\MarketingAllocationController;
 use App\Http\Controllers\Admin\ProductionOrderController;
 use App\Http\Controllers\Admin\ReplenishmentOrderController;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}/receive', [ProductionOrderController::class, 'receiveView'])->name('production.receive')->middleware('permission:Production Order,is_update');
         Route::post('/{id}/receive', [ProductionOrderController::class, 'receive'])->name('production.receive.store')->middleware('permission:Production Order,is_update');
         Route::get('/{id}/receive/print', [ProductionOrderController::class, 'receivePrint'])->name('production.receive.print')->middleware('permission:Production Order,is_update');
+    });
+
+    // --- Marketing Allocation (Product warehouse → Marketing warehouse) ---
+    Route::group(['prefix' => 'marketing-allocation'], function () {
+        Route::get('/', [MarketingAllocationController::class, 'index'])->name('marketing-allocation.index')->middleware('permission:Marketing Allocation,is_read');
+        Route::get('/create', [MarketingAllocationController::class, 'create'])->name('marketing-allocation.create')->middleware('permission:Marketing Allocation,is_create');
+        Route::post('/', [MarketingAllocationController::class, 'store'])->name('marketing-allocation.store')->middleware('permission:Marketing Allocation,is_create');
+        Route::get('/{id}', [MarketingAllocationController::class, 'show'])->name('marketing-allocation.show')->middleware('permission:Marketing Allocation,is_read');
     });
 
     // --- Replenishment (Distributor <-> Agen) ---

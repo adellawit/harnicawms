@@ -57,6 +57,13 @@ class WarehouseSeeder extends Seeder
                 'short_name' => 'DEF',
                 'is_default' => false,
             ],
+            [
+                'code' => 'SUHARA-BDG-WH-MKT',
+                'type' => 'MARKETING',
+                'name' => 'Gudang Marketing',
+                'short_name' => 'MKT',
+                'is_default' => false,
+            ],
         ];
 
         foreach ($warehouses as $warehouse) {
@@ -76,6 +83,19 @@ class WarehouseSeeder extends Seeder
                 ]
             );
         }
+
+        // Align existing "Gudang Marketing" (auto-coded WH-00001) to MARKETING type.
+        Warehouse::query()
+            ->where('branch_id', $branch->id)
+            ->where(function ($q) {
+                $q->where('code', 'WH-00001')
+                    ->orWhere('name', 'Gudang Marketing');
+            })
+            ->update([
+                'warehouse_type_code' => 'MARKETING',
+                'is_inventory_active' => true,
+                'is_active' => true,
+            ]);
 
         Warehouse::query()
             ->where('branch_id', $branch->id)

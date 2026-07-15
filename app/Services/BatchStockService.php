@@ -94,14 +94,32 @@ class BatchStockService
         float $quantity,
         ?string $userId = null
     ): float {
+        $lines = self::consumeOutboundLines($productId, $warehouseId, $unitId, $quantity, $userId);
+
+        return array_sum(array_column($lines, 'quantity'));
+    }
+
+    /**
+     * Potong stok batch FEFO dan kembalikan rincian batch yang dikonsumsi
+     * (untuk transfer antar gudang).
+     *
+     * @return list<array{batch_number: string, expiry_date: ?string, quantity: float, unit_id: string}>
+     */
+    public static function consumeOutboundLines(
+        string $productId,
+        string $warehouseId,
+        string $unitId,
+        float $quantity,
+        ?string $userId = null
+    ): array {
         if ($quantity <= 0 || $warehouseId === '') {
-            return 0.0;
+            return [];
         }
 
         $product = Product::with(['unitConversions.fromUnit', 'unitConversions.toUnit', 'defaultUnit'])
             ->find($productId);
         if (! $product) {
-            return 0.0;
+            return [];
         }
 
         $smallestUnitId = $product->getSmallestUnitId() ?: $unitId;
@@ -112,7 +130,7 @@ class BatchStockService
         }
         $remainingSmallest = (float) $remainingSmallest;
         if ($remainingSmallest <= 0) {
-            return 0.0;
+            return [];
         }
 
         $rows = ProductBatchStock::query()
@@ -134,7 +152,7 @@ class BatchStockService
             })
             ->values();
 
-        $consumedSmallest = 0.0;
+        $lines = [];
 
         foreach ($rows as $row) {
             if ($remainingSmallest <= 1e-9) {
@@ -160,16 +178,30 @@ class BatchStockService
                 ? $takeSmallest
                 : (UnitConversionService::convertQuantity($product, $takeSmallest, $smallestUnitId, $rowUnitId) ?? $takeSmallest);
 
+            $takeInTxnUnit = $rowUnitId === $unitId
+                ? (float) $takeInRowUnit
+                : (UnitConversionService::convertQuantity($product, (float) $takeInRowUnit, $rowUnitId, $unitId) ?? (float) $takeInRowUnit);
+
             $newQty = max(0.0, $rowQty - (float) $takeInRowUnit);
             $row->quantity = $newQty;
             $row->updated_by = $userId;
             $row->save();
 
             $remainingSmallest -= $takeSmallest;
-            $consumedSmallest += $takeSmallest;
+
+            $batchNumber = trim((string) ($row->batch?->batch_number ?? ''));
+            if ($batchNumber !== '' && $takeInTxnUnit > 0) {
+                $expiry = $row->batch?->expiry_date;
+                $lines[] = [
+                    'batch_number' => $batchNumber,
+                    'expiry_date' => $expiry ? $expiry->format('Y-m-d') : null,
+                    'quantity' => $takeInTxnUnit,
+                    'unit_id' => $unitId,
+                ];
+            }
         }
 
-        return $consumedSmallest;
+        return $lines;
     }
 
     /**
