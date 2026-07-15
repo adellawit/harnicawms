@@ -789,3 +789,4 @@ require __DIR__ . '/customer.php';
 
 require __DIR__ . '/distribution.php';
 require __DIR__ . '/training.php';
+require __DIR__ . '/marketing.php';

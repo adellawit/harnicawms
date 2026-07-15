@@ -19,6 +19,7 @@ class Course extends Model
 
     protected $fillable = [
         'company_id', 'category_id', 'title', 'description', 'thumbnail_path',
+        'thumbnail_asset_id',
         'status', 'published_at', 'sort_order', 'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -42,8 +43,16 @@ class Course extends Model
         return $query->where('status', 'published');
     }
 
+    public function thumbnailAsset(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Marketing\Asset::class, 'thumbnail_asset_id', 'id');
+    }
+
     public function getThumbnailUrlAttribute(): ?string
     {
+        if ($this->thumbnail_asset_id && $this->thumbnailAsset) {
+            return $this->thumbnailAsset->file_url;
+        }
         return $this->thumbnail_path ? Storage::url($this->thumbnail_path) : null;
     }
 

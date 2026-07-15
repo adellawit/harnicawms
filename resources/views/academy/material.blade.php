@@ -18,17 +18,24 @@
                 @endif
             </div>
             <div class="card-body">
-                @if ($material->type === 'youtube' && $material->youtube_embed_id)
-                    <div class="ratio ratio-16x9">
-                        <iframe src="https://www.youtube.com/embed/{{ $material->youtube_embed_id }}" title="{{ $material->title }}" allowfullscreen></iframe>
-                    </div>
-                @elseif ($material->type === 'image' && $material->file_url)
-                    <img src="{{ $material->file_url }}" alt="{{ $material->title }}" class="img-fluid rounded">
-                @elseif ($material->type === 'pdf' && $material->file_url)
+                @php($et = $material->effective_type)
+                @if ($et === 'video')
+                    @if ($material->effective_video_embed_id)
+                        <div class="ratio ratio-16x9">
+                            <iframe src="https://www.youtube.com/embed/{{ $material->effective_video_embed_id }}" title="{{ $material->title }}" allowfullscreen></iframe>
+                        </div>
+                    @elseif ($material->effective_video_url)
+                        <a href="{{ $material->effective_video_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary"><i class="ti ti-external-link me-1"></i>Buka video</a>
+                    @else
+                        <div class="alert alert-warning mb-0">Materi tidak dapat ditampilkan.</div>
+                    @endif
+                @elseif ($et === 'image' && $material->effective_file_url)
+                    <img src="{{ $material->effective_file_url }}" alt="{{ $material->title }}" class="img-fluid rounded">
+                @elseif ($et === 'pdf' && $material->effective_file_url)
                     <div class="ratio" style="--bs-aspect-ratio: 130%">
-                        <iframe src="{{ $material->file_url }}" title="{{ $material->title }}"></iframe>
+                        <iframe src="{{ $material->effective_file_url }}" title="{{ $material->title }}"></iframe>
                     </div>
-                    <a href="{{ $material->file_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2"><i class="ti ti-download me-1"></i>Buka PDF</a>
+                    <a href="{{ $material->effective_file_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2"><i class="ti ti-download me-1"></i>Buka PDF</a>
                 @else
                     <div class="alert alert-warning mb-0">Materi tidak dapat ditampilkan.</div>
                 @endif

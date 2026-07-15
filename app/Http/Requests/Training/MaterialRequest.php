@@ -15,13 +15,21 @@ class MaterialRequest extends FormRequest
 
     public function rules(): array
     {
+        if ($this->filled('marketing_asset_id')) {
+            return [
+                'title' => ['required', 'string', 'max:200'],
+                'marketing_asset_id' => ['required', 'string', \Illuminate\Validation\Rule::exists('pgsql.marketing.assets', 'id')],
+                'estimated_minutes' => ['nullable', 'integer', 'min:0', 'max:100000'],
+                'sort_order' => ['nullable', 'integer', 'min:0'],
+            ];
+        }
+
         $type = $this->input('type');
-        // On create a file is required for pdf/image; on update (material already has a file) it is optional.
         $fileRequired = in_array($type, ['pdf', 'image'], true) && ! $this->route('material');
 
         return [
             'title' => ['required', 'string', 'max:200'],
-            'type' => ['required', Rule::in(['pdf', 'image', 'youtube'])],
+            'type' => ['required', \Illuminate\Validation\Rule::in(['pdf', 'image', 'youtube'])],
             'estimated_minutes' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'file' => [$fileRequired ? 'required' : 'nullable', 'file', $this->fileMimeRule($type)],

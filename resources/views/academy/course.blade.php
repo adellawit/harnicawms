@@ -25,7 +25,7 @@
                         @php($done = isset($completedIds[$mat->id]))
                         <a href="{{ route('academy.materials.show', $mat->id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <span>
-                                <i class="ti {{ $mat->type === 'youtube' ? 'ti-brand-youtube' : ($mat->type === 'pdf' ? 'ti-file-type-pdf' : 'ti-photo') }} me-2"></i>
+                                <i class="ti {{ $mat->effective_type === 'video' ? 'ti-brand-youtube' : ($mat->effective_type === 'pdf' ? 'ti-file-type-pdf' : 'ti-photo') }} me-2"></i>
                                 {{ $mat->title }}
                                 @if($mat->estimated_minutes)<span class="text-muted small ms-2">{{ $mat->estimated_minutes }} mnt</span>@endif
                             </span>
