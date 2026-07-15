@@ -52,6 +52,29 @@ $(document).ready(function() {
         if (current) $city.val(current).trigger('change');
     });
     @endif
+
+    function refreshWarehouseCode() {
+        const $code = $('#warehouse_code');
+        const $btn = $('#btn_regenerate_warehouse_code');
+        if (!$code.length || !$btn.length) return;
+
+        const companyId = $('#warehouse_company_id').val() || '';
+        $btn.prop('disabled', true);
+        $.get(@json(route('warehouse.generate.code')), { company_id: companyId })
+            .done(function (res) {
+                if (res && res.code) $code.val(res.code);
+            })
+            .always(function () {
+                $btn.prop('disabled', false);
+            });
+    }
+
+    $('#btn_regenerate_warehouse_code').on('click', refreshWarehouseCode);
+    $('#warehouse_company_id').on('change', function () {
+        if ($('#btn_regenerate_warehouse_code').length) {
+            refreshWarehouseCode();
+        }
+    });
 });
 </script>
 @endpush

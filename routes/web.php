@@ -267,6 +267,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/data', [WarehouseController::class, 'indexData'])->name('warehouse.index.data');
             Route::get('/insert', [WarehouseController::class, 'insertView'])->name('warehouse.insert.view')->middleware('permission:Warehouse,is_create');
             Route::post('/insert/data', [WarehouseController::class, 'insertData'])->name('warehouse.insert.data')->middleware('permission:Warehouse,is_create');
+            Route::get('/generate-code', [WarehouseController::class, 'generateCodeApi'])->name('warehouse.generate.code')->middleware('permission:Warehouse,is_create');
             Route::get('/edit/{id}', [WarehouseController::class, 'editView'])->name('warehouse.edit.view')->middleware('permission:Warehouse,is_update');
             Route::post('/edit/data', [WarehouseController::class, 'editData'])->name('warehouse.edit.data')->middleware('permission:Warehouse,is_update');
             Route::post('/delete', [WarehouseController::class, 'deleteData'])->name('warehouse.delete.data')->middleware('permission:Warehouse,is_delete');

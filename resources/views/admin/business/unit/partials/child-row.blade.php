@@ -1,18 +1,38 @@
+@php
+    $hasAnyActionPermission = $hasAnyActionPermission ?? false;
+    $level = $level ?? 1;
+    $warehouses = collect();
+    if (($child->type_code ?? '') === 'BRANCH') {
+        $warehouses = collect()
+            ->merge($child->ownedWarehouses ?? [])
+            ->merge($child->assignedWarehouses ?? [])
+            ->unique('id')
+            ->sortBy('code')
+            ->values();
+    }
+    $nestedBuChildren = ($child->children ?? collect())
+        ->filter(fn ($c) => ($c->type_code ?? '') !== 'WAREHOUSE')
+        ->values();
+    $hasNested = $nestedBuChildren->count() > 0 || $warehouses->count() > 0;
+@endphp
+
 <tr class="child-row" data-parent-id="{{ $child->parent_id }}" data-child-id="{{ $child->id }}">
     <td class="text-center"></td>
     <td style="padding-left: {{ 2 + ($level * 1.5) }}rem;">
         @for($i = 0; $i < $level; $i++)
             <span class="text-muted me-1">└</span>
         @endfor
-        @if($child->children && $child->children->count() > 0)
+        @if($hasNested)
             <i class="ti ti-chevron-right expand-icon me-2" data-expand-id="{{ $child->id }}"></i>
         @else
             <span class="text-muted me-2">└</span>
         @endif
         <span class="badge bg-label-secondary me-1">{{ $child->type_code }}</span>
         {{ $child->name }}
-        @if($child->children && $child->children->count() > 0)
-            <span class="badge bg-label-secondary ms-2">{{ $child->children->count() }} Children</span>
+        @if($hasNested)
+            <span class="badge bg-label-secondary ms-2">
+                {{ $nestedBuChildren->count() + $warehouses->count() }} Children
+            </span>
         @endif
     </td>
     <td>
@@ -52,8 +72,15 @@
     @endif
 </tr>
 
-@if($child->children && $child->children->count() > 0)
-    @foreach ($child->children as $grandchild)
-        @include('admin.business.unit.partials.child-row', ['child' => $grandchild, 'level' => $level + 1])
-    @endforeach
-@endif
+@foreach ($warehouses as $warehouse)
+    @include('admin.business.unit.partials.warehouse-row', [
+        'warehouse' => $warehouse,
+        'parentId' => $child->id,
+        'level' => $level + 1,
+        'hasAnyActionPermission' => $hasAnyActionPermission,
+    ])
+@endforeach
+
+@foreach ($nestedBuChildren as $grandchild)
+    @include('admin.business.unit.partials.child-row', ['child' => $grandchild, 'level' => $level + 1])
+@endforeach
