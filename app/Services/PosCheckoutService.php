@@ -8,7 +8,7 @@ use App\Models\ProductVariant;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
-use App\Models\StockMutationType;
+use App\Models\Warehouse;
 use App\Services\MembershipPointService;
 use App\Services\Promotion\PromotionEngineService;
 use App\Support\WmsContext;
@@ -261,9 +261,10 @@ class PosCheckoutService
                     'updated_by' => $userId,
                 ]);
 
-            $salesMutationType = StockMutationType::where('code', 'SALES')
-                ->whereNull('deleted_at')
-                ->first();
+            $order->loadMissing(['items', 'customer.agent.defaultWarehouse']);
+
+            $agentWarehouse = $this->resolveAgentDestinationWarehouse($order);
+            $actorId = $userId ?? $order->created_by;
 
             foreach ($order->items as $item) {
                 $product = Product::find($item->product_id);
@@ -271,52 +272,74 @@ class PosCheckoutService
                     continue;
                 }
 
-                $warehouseId = $item->source_warehouse_id ?: $order->warehouse_id;
+                $sourceWarehouseId = $item->source_warehouse_id ?: $order->warehouse_id;
 
-                $this->deductStock(
-                    productId: $item->product_id,
-                    variantId: $item->product_variant_id,
-                    unitId: $item->unit_id,
-                    branchId: $order->branch_id,
-                    companyId: $order->company_id,
-                    quantity: (float) $item->quantity,
-                    salesOrderId: $order->id,
-                    mutationType: $salesMutationType,
-                    userId: $userId ?? $order->created_by,
-                    warehouseId: $warehouseId,
-                    note: $item->is_promo_free ? 'POS Sale (promo free)' : 'POS Sale',
+                $outbound = StockMutationService::outbound(
+                    $item->product_id,
+                    $item->product_variant_id,
+                    $order->company_id,
+                    $order->branch_id,
+                    $item->unit_id,
+                    (float) $item->quantity,
+                    SalesOrder::class,
+                    $order->id,
+                    $actorId,
+                    $item->is_promo_free ? 'POS Sale (promo free)' : 'POS Sale',
+                    $sourceWarehouseId
                 );
+
+                // Agent POS: stock moves to the agent's warehouse (paid + free lines).
+                if ($agentWarehouse) {
+                    $agentBranchId = $agentWarehouse->branch_id ?: $order->branch_id;
+
+                    StockMutationService::inbound(
+                        $item->product_id,
+                        $item->product_variant_id,
+                        $order->company_id,
+                        $agentBranchId,
+                        $item->unit_id,
+                        (float) $item->quantity,
+                        (float) $item->unit_price,
+                        SalesOrder::class,
+                        $order->id,
+                        $actorId,
+                        $item->is_promo_free
+                            ? 'POS transfer ke gudang Agent (promo free) - '.$order->sales_number
+                            : 'POS transfer ke gudang Agent - '.$order->sales_number,
+                        null,
+                        $outbound['earliest_expiry'] ?? null,
+                        $agentWarehouse->id
+                    );
+                }
             }
 
-            $this->membershipPointService->awardForPaidOrder($order, $userId ?? $order->created_by);
+            $this->membershipPointService->awardForPaidOrder($order, $actorId);
         });
     }
 
-    protected function deductStock(
-        string $productId,
-        string $variantId,
-        string $unitId,
-        string $branchId,
-        ?string $companyId,
-        float $quantity,
-        string $salesOrderId,
-        ?StockMutationType $mutationType,
-        ?string $userId,
-        ?string $warehouseId = null,
-        string $note = 'POS Sale',
-    ): void {
-        StockMutationService::outbound(
-            $productId,
-            $variantId,
-            $companyId,
-            $branchId,
-            $unitId,
-            $quantity,
-            SalesOrder::class,
-            $salesOrderId,
-            $userId,
-            $note,
-            $warehouseId
-        );
+    /**
+     * Resolve destination warehouse when POS customer is a partner Agent.
+     * Reseller / walk-in: null (sale only, no agent stock-in).
+     *
+     * @throws \RuntimeException when customer is Agent but has no warehouse
+     */
+    protected function resolveAgentDestinationWarehouse(SalesOrder $order): ?Warehouse
+    {
+        $customer = $order->customer;
+        if (! $customer || ! $customer->isPartnerAgent()) {
+            return null;
+        }
+
+        $agent = $customer->agent;
+        $warehouse = $agent?->defaultWarehouse
+            ?: ($agent ? WmsContext::defaultAgentWarehouse($agent->id) : null);
+
+        if (! $warehouse) {
+            throw new \RuntimeException(
+                'Agent belum memiliki gudang. Set default warehouse Agent sebelum transaksi POS.'
+            );
+        }
+
+        return $warehouse;
     }
 }
