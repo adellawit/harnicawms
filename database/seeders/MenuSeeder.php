@@ -900,6 +900,24 @@ class MenuSeeder extends Seeder
                 'has_create' => true, 'has_update' => true, 'has_read' => true, 'has_delete' => false,
                 'has_custom1' => false, 'has_custom2' => false, 'has_custom3' => false, 'has_custom4' => false, 'has_custom5' => false,
             ],
+            // Product > Promotions
+            [
+                'id' => 'a1000000-0000-4000-8000-000000000020',
+                'parent_id' => 'a7b8c9d0-e1f2-4a5b-9c8d-7e6f5a4b3c2d',
+                'name' => 'Promotions',
+                'code' => 'product_promotions',
+                'text_sidebar' => 'Promotions',
+                'icon' => 'ti ti-gift',
+                'has_page' => false,
+                'url_path' => 'promotions',
+                'route_name' => 'promotions.index',
+                'slug' => 'promotions',
+                'level_sidebar' => 2,
+                'order_number' => 10,
+                'is_label' => false,
+                'has_create' => true, 'has_update' => true, 'has_read' => true, 'has_delete' => true,
+                'has_custom1' => false, 'has_custom2' => false, 'has_custom3' => false, 'has_custom4' => false, 'has_custom5' => false,
+            ],
             // Product > Master > Tag (moved from Product > Tag)
             [
                 'id' => 'e1f2a3b4-c5d6-4e7f-3a2b-1c0d9e8f7a9b',

@@ -178,6 +178,88 @@ class POSController extends Controller
     }
 
     /**
+     * Preview free promo lines for current POS cart (live UI).
+     */
+    public function previewPromo(Request $request)
+    {
+        $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.variant_id' => ['required', 'string'],
+            'items.*.unit_id' => ['required', 'string'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.000001'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $branchId = $this->getBranchId();
+        $companyId = $this->getCompanyId() ?: optional(WmsContext::distributor())->id;
+        $orderWarehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+
+        $itemsData = [];
+        foreach ($request->items as $item) {
+            $variant = ProductVariant::with('product')->find($item['variant_id']);
+            if (! $variant) {
+                continue;
+            }
+
+            $itemsData[] = [
+                'product_id' => $variant->product_id,
+                'product_variant_id' => $variant->id,
+                'unit_id' => $item['unit_id'],
+                'quantity' => (float) $item['quantity'],
+                'unit_price' => (float) ($item['unit_price'] ?? 0),
+                'discount_type' => 'percent',
+                'discount_value' => 0,
+                'discount_amount' => 0,
+                'subtotal' => 0,
+                'is_promo_free' => false,
+            ];
+        }
+
+        if ($itemsData === []) {
+            return response()->json(['success' => true, 'free_items' => []]);
+        }
+
+        $expanded = \App\Services\Promotion\PromotionEngineService::applyToCartLines(
+            $itemsData,
+            $companyId,
+            $branchId,
+            $orderWarehouseId
+        );
+
+        $freeItems = collect($expanded)
+            ->filter(fn ($row) => ! empty($row['is_promo_free']))
+            ->map(function (array $row) {
+                $variant = ProductVariant::with(['product.defaultUnit'])->find($row['product_variant_id']);
+                $unit = $row['unit_id']
+                    ? \App\Models\ProductUnit::query()->find($row['unit_id'], ['id', 'symbol', 'name'])
+                    : ($variant?->product?->defaultUnit);
+
+                return [
+                    'variant_id' => $row['product_variant_id'],
+                    'product_id' => $row['product_id'],
+                    'unit_id' => $row['unit_id'],
+                    'unit_label' => $unit?->symbol ?: ($unit?->name ?: null),
+                    'quantity' => (float) $row['quantity'],
+                    'name' => $variant?->display_name
+                        ?? $variant?->product?->name
+                        ?? 'Promo item',
+                    'image' => $variant?->image ?? $variant?->product?->image,
+                    'promo_code' => $row['promo_code'] ?? null,
+                    'promotion_id' => $row['promotion_id'] ?? null,
+                    'notes' => $row['notes'] ?? 'Free promo item',
+                    'source_warehouse_id' => $row['source_warehouse_id'] ?? null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'free_items' => $freeItems,
+            'free_count' => $freeItems->count(),
+        ]);
+    }
+
+    /**
      * Poll payment status (Xendit / pending orders).
      */
     public function paymentStatus(Request $request, string $orderId)
@@ -387,6 +469,7 @@ class POSController extends Controller
                     'total' => (float) $order->total,
                     'amount_paid' => $amountPaid,
                     'change_amount' => $changeAmount,
+                    'promo_free_count' => (int) ($totals['promo_free_count'] ?? 0),
                 ],
             ]);
         } catch (\Throwable $e) {

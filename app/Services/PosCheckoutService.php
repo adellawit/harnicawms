@@ -3,15 +3,14 @@
 namespace App\Services;
 
 use App\Models\Customer;
-use App\Models\ProductStockMovement;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantStock;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
 use App\Models\StockMutationType;
 use App\Services\MembershipPointService;
+use App\Services\Promotion\PromotionEngineService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,8 +38,6 @@ class PosCheckoutService
     public function buildCartTotals(Request $request): array
     {
         $itemsData = [];
-        $subtotalGross = 0;
-        $totalItemDisc = 0;
 
         foreach ($request->items as $item) {
             $variant = ProductVariant::findOrFail($item['variant_id']);
@@ -58,8 +55,6 @@ class PosCheckoutService
             }
 
             $lineSubtotal = $lineTotal - $itemDiscAmt;
-            $subtotalGross += $lineTotal;
-            $totalItemDisc += $itemDiscAmt;
 
             $itemsData[] = [
                 'product_id' => $variant->product_id,
@@ -71,7 +66,35 @@ class PosCheckoutService
                 'discount_value' => $discVal,
                 'discount_amount' => $itemDiscAmt,
                 'subtotal' => $lineSubtotal,
+                'is_promo_free' => false,
+                'promotion_id' => null,
+                'source_warehouse_id' => null,
             ];
+        }
+
+        $branchId = $this->resolveBranchId($request);
+        $companyId = optional(WmsContext::distributor())->id;
+        $orderWarehouseId = $branchId
+            ? optional(WmsContext::defaultWarehouse($branchId))->id
+            : null;
+
+        $itemsData = PromotionEngineService::applyToCartLines(
+            $itemsData,
+            $companyId,
+            $branchId,
+            $orderWarehouseId
+        );
+
+        // Totals exclude free promo lines (already subtotal 0).
+        $subtotalGross = 0;
+        $totalItemDisc = 0;
+        foreach ($itemsData as $row) {
+            if (! empty($row['is_promo_free'])) {
+                continue;
+            }
+            $lineGross = round((float) $row['quantity'] * (float) $row['unit_price'], 4);
+            $subtotalGross += $lineGross;
+            $totalItemDisc += (float) ($row['discount_amount'] ?? 0);
         }
 
         $subtotalNet = $subtotalGross - $totalItemDisc;
@@ -105,7 +128,15 @@ class PosCheckoutService
             'tax_enabled' => $taxEnabled,
             'txn_disc_type' => $txnDiscType,
             'txn_disc_val' => $txnDiscVal,
+            'promo_free_count' => collect($itemsData)->where('is_promo_free', true)->count(),
         ];
+    }
+
+    protected function resolveBranchId(Request $request): ?string
+    {
+        return $request->branch_id
+            ?: auth('web')->user()?->current_business_unit_id
+            ?: null;
     }
 
     /**
@@ -159,11 +190,44 @@ class PosCheckoutService
             'created_by' => $userId,
         ]);
 
+        $createdByLineKey = [];
+
         foreach ($totals['items_data'] as $iData) {
-            SalesOrderItem::create(array_merge($iData, [
+            $parentKey = $iData['_parent_line_key'] ?? null;
+            $lineKey = $iData['_line_key'] ?? null;
+
+            $payload = [
                 'sales_order_id' => $order->id,
+                'product_id' => $iData['product_id'],
+                'product_variant_id' => $iData['product_variant_id'],
+                'unit_id' => $iData['unit_id'],
+                'quantity' => $iData['quantity'],
+                'unit_price' => $iData['unit_price'],
+                'discount_type' => $iData['discount_type'] ?? 'percent',
+                'discount_value' => $iData['discount_value'] ?? 0,
+                'discount_amount' => $iData['discount_amount'] ?? 0,
+                'subtotal' => $iData['subtotal'],
+                'notes' => $iData['notes'] ?? null,
+                'is_promo_free' => (bool) ($iData['is_promo_free'] ?? false),
+                'promotion_id' => $iData['promotion_id'] ?? null,
+                'source_warehouse_id' => $iData['source_warehouse_id']
+                    ?? (! empty($iData['is_promo_free']) ? null : $warehouseId),
+                'parent_item_id' => $parentKey !== null
+                    ? ($createdByLineKey[$parentKey] ?? null)
+                    : null,
                 'created_by' => $userId,
-            ]));
+            ];
+
+            // Paid lines default to order warehouse when not set.
+            if (empty($payload['is_promo_free']) && empty($payload['source_warehouse_id'])) {
+                $payload['source_warehouse_id'] = $warehouseId;
+            }
+
+            $item = SalesOrderItem::create($payload);
+
+            if ($lineKey !== null) {
+                $createdByLineKey[$lineKey] = $item->id;
+            }
         }
 
         return $order;
@@ -207,6 +271,8 @@ class PosCheckoutService
                     continue;
                 }
 
+                $warehouseId = $item->source_warehouse_id ?: $order->warehouse_id;
+
                 $this->deductStock(
                     productId: $item->product_id,
                     variantId: $item->product_variant_id,
@@ -217,11 +283,11 @@ class PosCheckoutService
                     salesOrderId: $order->id,
                     mutationType: $salesMutationType,
                     userId: $userId ?? $order->created_by,
-                    warehouseId: $order->warehouse_id,
+                    warehouseId: $warehouseId,
+                    note: $item->is_promo_free ? 'POS Sale (promo free)' : 'POS Sale',
                 );
             }
 
-            // Award membership points after order is officially paid/completed.
             $this->membershipPointService->awardForPaidOrder($order, $userId ?? $order->created_by);
         });
     }
@@ -237,6 +303,7 @@ class PosCheckoutService
         ?StockMutationType $mutationType,
         ?string $userId,
         ?string $warehouseId = null,
+        string $note = 'POS Sale',
     ): void {
         StockMutationService::outbound(
             $productId,
@@ -248,7 +315,7 @@ class PosCheckoutService
             SalesOrder::class,
             $salesOrderId,
             $userId,
-            'POS Sale',
+            $note,
             $warehouseId
         );
     }

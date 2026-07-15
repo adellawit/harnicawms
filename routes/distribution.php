@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\HppReportController;
 use App\Http\Controllers\Admin\InboundController;
 use App\Http\Controllers\Admin\MarketingAllocationController;
 use App\Http\Controllers\Admin\ProductionOrderController;
+use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReplenishmentOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +53,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}/receive', [ProductionOrderController::class, 'receiveView'])->name('production.receive')->middleware('permission:Production Order,is_update');
         Route::post('/{id}/receive', [ProductionOrderController::class, 'receive'])->name('production.receive.store')->middleware('permission:Production Order,is_update');
         Route::get('/{id}/receive/print', [ProductionOrderController::class, 'receivePrint'])->name('production.receive.print')->middleware('permission:Production Order,is_update');
+    });
+
+    // --- Promotions (buy X get Y rules) ---
+    Route::group(['prefix' => 'promotions'], function () {
+        Route::get('/', [PromotionController::class, 'index'])->name('promotions.index')->middleware('permission:Promotions,is_read');
+        Route::get('/create', [PromotionController::class, 'create'])->name('promotions.create')->middleware('permission:Promotions,is_create');
+        Route::post('/', [PromotionController::class, 'store'])->name('promotions.store')->middleware('permission:Promotions,is_create');
+        Route::get('/{id}', [PromotionController::class, 'show'])->name('promotions.show')->middleware('permission:Promotions,is_read');
+        Route::get('/{id}/edit', [PromotionController::class, 'edit'])->name('promotions.edit')->middleware('permission:Promotions,is_update');
+        Route::put('/{id}', [PromotionController::class, 'update'])->name('promotions.update')->middleware('permission:Promotions,is_update');
+        Route::delete('/{id}', [PromotionController::class, 'destroy'])->name('promotions.destroy')->middleware('permission:Promotions,is_delete');
     });
 
     // --- Marketing Allocation (Product warehouse → Marketing warehouse) ---

@@ -730,6 +730,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/data', [TransactionController::class, 'indexData'])->name('transaction.index.data');
         Route::get('/pos', [POSController::class, 'indexView'])->name('transaction.pos');
         Route::get('/pos/product-variants', [POSController::class, 'getProductVariants'])->name('transaction.pos.product-variants');
+        Route::post('/pos/preview-promo', [POSController::class, 'previewPromo'])->name('transaction.pos.preview-promo');
         Route::post('/pos/payment', [POSController::class, 'processPayment'])->name('transaction.pos.payment');
             Route::get('/pos/payment/{orderId}/status', [POSController::class, 'paymentStatus'])->name('transaction.pos.payment.status');
             Route::post('/pos/payment/{orderId}/sync', [POSController::class, 'syncPaymentStatus'])->name('transaction.pos.payment.sync');

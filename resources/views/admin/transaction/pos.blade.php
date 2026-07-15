@@ -388,6 +388,13 @@
                 text-overflow: ellipsis;
             }
             .pos-cart-item .ci-price { font-size: 0.725rem; color: #677788; }
+            .pos-cart-item .ci-qty-unit {
+                font-size: 0.68rem;
+                color: #8592a3;
+                font-weight: 500;
+                white-space: nowrap;
+                min-width: 1.5rem;
+            }
             .pos-cart-item .ci-right { display: flex; align-items: center; gap: 0.375rem; }
             .pos-cart-item .ci-qty {
                 display: flex;
@@ -504,6 +511,50 @@
             }
             .pos-cart-item .ci-disc-btn:hover { background: var(--pos-accent-muted); }
             .pos-cart-item.has-discount .ci-disc-btn { background: var(--pos-accent); color: #fff; }
+
+            .pos-cart-item.is-promo-free {
+                background: #f3faf5;
+                border-color: #b7e4c7;
+            }
+            .pos-cart-item.is-promo-free .ci-name {
+                display: flex;
+                align-items: center;
+                gap: 0.35rem;
+                flex-wrap: wrap;
+            }
+            .pos-cart-item.is-promo-free .ci-promo-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.2rem;
+                font-size: 0.65rem;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                color: #146c2e;
+                background: #d8f3dc;
+                border-radius: 0.25rem;
+                padding: 0.1rem 0.35rem;
+            }
+            .pos-cart-item.is-promo-free .ci-price { color: #146c2e; font-weight: 600; }
+            .pos-cart-item.is-promo-free .ci-qty button,
+            .pos-cart-item.is-promo-free .ci-disc-btn,
+            .pos-cart-item.is-promo-free .ci-delete { display: none !important; }
+            .pos-cart-item.is-promo-free .ci-qty input {
+                border: none;
+                background: transparent;
+                font-weight: 700;
+                color: #146c2e;
+            }
+            .pos-cart-item.is-promo-free .ci-bottom { display: none !important; }
+            #promoHintRow {
+                display: none;
+                font-size: 0.75rem;
+                color: #146c2e;
+                background: #f3faf5;
+                border: 1px dashed #b7e4c7;
+                border-radius: 0.375rem;
+                padding: 0.4rem 0.55rem;
+                margin: 0 0.75rem 0.5rem;
+            }
 
             .pos-empty-cart {
                 text-align: center;
@@ -1249,6 +1300,7 @@
                                 <input type="text" value="1" class="quantity-input" inputmode="numeric" pattern="[0-9]*" readonly tabindex="-1" aria-label="Quantity">
                                 <button type="button" class="btn-plus">+</button>
                             </div>
+                            <span class="ci-qty-unit"></span>
                             <button type="button" class="ci-disc-btn btn-item-disc" title="Item Discount">
                                 <i class="ti ti-discount-2" style="font-size:0.7rem"></i>
                             </button>
@@ -1267,6 +1319,10 @@
                             <span class="ci-disc-label">- <span class="item-disc-display">Rp 0</span></span>
                         </div>
                     </div>
+                </div>
+                <div id="promoHintRow">
+                    <i class="ti ti-gift me-1"></i>
+                    <span id="promoHintText">Promo applied</span>
                 </div>
 
                 <!-- Footer / Summary -->
@@ -1689,7 +1745,7 @@
                         if (withPrice.length === 0) { alert('No variants with price for this price list'); return; }
                         if (withPrice.length === 1) {
                             var v = withPrice[0];
-                            addToCart(v.id, v.display_name, v.selling_price, v.image || productImage, v.unit_id);
+                            addToCart(v.id, v.display_name, v.selling_price, v.image || productImage, v.unit_id, v.unit_label);
                             return;
                         }
                         showVariantModal(variants, productImage);
@@ -1714,7 +1770,7 @@
                             var stockClass = v.stock > 10 ? 'stock-ok' : (v.stock > 0 ? 'stock-low' : 'stock-out');
                             html += '<div class="variant-card variant-item" role="button" tabindex="0"';
                             html += ' data-variant-id="'+v.id+'" data-name="'+escapeHtml(v.display_name)+'" data-price="'+v.selling_price+'"';
-                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'">';
+                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'" data-unit-label="'+(v.unit_label||'')+'">';
                             html += '<img src="'+img+'" alt="'+escapeHtml(v.display_name)+'" class="v-img" onerror="this.src=\'https://placehold.co/300x225/f8f9fa/b0b7c3?text=?\'">';
                             html += '<div class="v-body">';
                             html += '<div class="v-name">'+escapeHtml(v.display_name)+'</div>';
@@ -1731,7 +1787,7 @@
                 $(document).on('click', '.variant-item', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    addToCart($(this).data('variant-id'), $(this).data('name'), $(this).data('price'), $(this).data('image'), $(this).data('unit-id'));
+                    addToCart($(this).data('variant-id'), $(this).data('name'), $(this).data('price'), $(this).data('image'), $(this).data('unit-id'), $(this).data('unit-label'));
                     variantModal.hide();
                 });
 
@@ -1741,16 +1797,19 @@
 
                 // ── Cart quantity ─────────────────────────────────────
                 $(document).on('click', '.btn-minus', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     var inp = $(this).siblings('.quantity-input');
                     var val = parseInt(inp.val());
                     if (val > 1) { inp.val(val - 1); updateCartTotals(); }
                 });
                 $(document).on('click', '.btn-plus', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     var inp = $(this).siblings('.quantity-input');
                     inp.val(parseInt(inp.val()) + 1);
                     updateCartTotals();
                 });
                 $(document).on('click', '.btn-delete', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     $(this).closest('.pos-cart-item').remove();
                     updateCartTotals();
                     checkEmptyCart();
@@ -1935,9 +1994,13 @@
                     return $('#cartItems .pos-cart-item').not('#sampleCartItem');
                 }
 
+                function $cartPaidItems() {
+                    return $cartLineItems().not('.is-promo-free');
+                }
+
                 function getCartItemQty() {
                     var count = 0;
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         count += parseInt($(this).find('.quantity-input').val(), 10) || 0;
                     });
                     return count;
@@ -1945,7 +2008,7 @@
 
                 function collectCartItems() {
                     var items = [];
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         var $el = $(this);
                         var inp = $el.find('.quantity-input');
                         var unitPrice = parseFloat(inp.data('unit-price')) || 0;
@@ -1965,6 +2028,100 @@
                         });
                     });
                     return items;
+                }
+
+                var promoPreviewTimer = null;
+                var promoPreviewXhr = null;
+
+                function clearPromoFreeLines() {
+                    $cartLineItems().filter('.is-promo-free').remove();
+                    $('#promoHintRow').hide();
+                }
+
+                function renderPromoFreeLines(freeItems) {
+                    clearPromoFreeLines();
+                    if (!freeItems || !freeItems.length) {
+                        checkEmptyCart();
+                        return;
+                    }
+
+                    freeItems.forEach(function(row) {
+                        var item = $('#sampleCartItem').clone().removeAttr('id').show();
+                        item.addClass('is-promo-free');
+                        item.attr('data-variant-id', row.variant_id);
+                        item.attr('data-unit-id', row.unit_id || '');
+                        item.attr('data-unit-label', row.unit_label || '');
+                        item.attr('data-promotion-id', row.promotion_id || '');
+                        item.find('.ci-img').attr('src', row.image || 'https://placehold.co/44x44/d8f3dc/146c2e?text=FREE');
+                        item.find('.ci-name').html(
+                            '<span class="ci-promo-badge"><i class="ti ti-gift"></i> FREE' +
+                            (row.promo_code ? ' · ' + row.promo_code : '') +
+                            '</span><span>' + $('<div>').text(row.name || 'Promo item').html() + '</span>'
+                        );
+                        item.find('.ci-price').text('Rp 0' + (row.unit_label ? ' / ' + row.unit_label : ''));
+                        item.find('.ci-qty-unit').text(row.unit_label || '');
+                        item.find('.quantity-input').val(row.quantity).data('unit-price', 0);
+                        $('#cartItems').append(item);
+                    });
+
+                    var totalFreeQty = freeItems.reduce(function(sum, row) {
+                        return sum + (parseFloat(row.quantity) || 0);
+                    }, 0);
+                    $('#promoHintText').text(
+                        'Promo applied: ' + totalFreeQty + ' free item(s) will be fulfilled from configured warehouse.'
+                    );
+                    $('#promoHintRow').show();
+                    checkEmptyCart();
+                }
+
+                function refreshPromoPreview() {
+                    clearTimeout(promoPreviewTimer);
+                    promoPreviewTimer = setTimeout(function() {
+                        var items = collectCartItems();
+                        if (!items.length) {
+                            clearPromoFreeLines();
+                            updateCartBadgeOnly();
+                            return;
+                        }
+
+                        if (promoPreviewXhr) {
+                            promoPreviewXhr.abort();
+                        }
+
+                        promoPreviewXhr = $.ajax({
+                            url: '{{ route("transaction.pos.preview-promo") }}',
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                                'Accept': 'application/json'
+                            },
+                            contentType: 'application/json',
+                            data: JSON.stringify({ items: items }),
+                            success: function(res) {
+                                if (res && res.success) {
+                                    renderPromoFreeLines(res.free_items || []);
+                                    updateCartBadgeOnly();
+                                }
+                            },
+                            error: function(xhr) {
+                                if (xhr.statusText === 'abort') return;
+                                clearPromoFreeLines();
+                                updateCartBadgeOnly();
+                            }
+                        });
+                    }, 280);
+                }
+
+                function updateCartBadgeOnly() {
+                    var paidQty = 0;
+                    var freeQty = 0;
+                    $cartPaidItems().each(function() {
+                        paidQty += parseInt($(this).find('.quantity-input').val(), 10) || 0;
+                    });
+                    $cartLineItems().filter('.is-promo-free').each(function() {
+                        freeQty += parseInt($(this).find('.quantity-input').val(), 10) || 0;
+                    });
+                    $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(paidQty + freeQty);
                 }
 
                 var xenditPollTimer = null;
@@ -2035,6 +2192,9 @@
                     }
                     if (d.change_amount > 0) {
                         html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Change</td><td class="text-end py-1 fw-bold text-success">' + formatRp(d.change_amount) + '</td></tr>';
+                    }
+                    if (d.promo_free_count > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Promo FREE</td><td class="text-end py-1 fw-bold text-success">' + d.promo_free_count + ' item(s)</td></tr>';
                     }
                     html += '</table>';
 
@@ -2186,9 +2346,9 @@
                 }
 
                 // ── addToCart ──────────────────────────────────────────
-                function addToCart(variantId, name, price, image, unitId) {
+                function addToCart(variantId, name, price, image, unitId, unitLabel) {
                     $('#emptyCart').hide();
-                    var existing = $('#cartItems .pos-cart-item').not('#sampleCartItem').filter('[data-variant-id="'+variantId+'"]');
+                    var existing = $cartPaidItems().filter('[data-variant-id="'+variantId+'"]');
                     if (existing.length > 0) {
                         var inp = existing.find('.quantity-input');
                         inp.val(parseInt(inp.val()) + 1);
@@ -2196,9 +2356,13 @@
                         var item = $('#sampleCartItem').clone().removeAttr('id').show();
                         item.attr('data-variant-id', variantId);
                         item.attr('data-unit-id', unitId || '');
+                        item.attr('data-unit-label', unitLabel || '');
                         item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
                         item.find('.ci-name').text(name);
-                        item.find('.ci-price').text('Rp ' + Number(price).toLocaleString('id-ID'));
+                        item.find('.ci-price').text(
+                            'Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
+                        );
+                        item.find('.ci-qty-unit').text(unitLabel || '');
                         item.find('.quantity-input').data('unit-price', price);
                         $('#cartItems').append(item);
                     }
@@ -2212,7 +2376,7 @@
                 // ── updateCartTotals ──────────────────────────────────
                 function updateCartTotals() {
                     var subtotalGross = 0, subtotalNet = 0, totalItemDisc = 0, itemCount = 0;
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         var $el = $(this);
                         var inp = $el.find('.quantity-input');
                         var unitPrice = parseFloat(inp.data('unit-price')) || (parseInt($el.find('.ci-price').text().replace(/\D/g,''))||0);
@@ -2254,13 +2418,15 @@
                     var total = subtotalNet + tax - txnDiscAmt;
                     if (total < 0) total = 0;
 
-                    $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(itemCount);
                     $('#subtotal').text('Rp ' + subtotalNet.toLocaleString('id-ID'));
                     $('#itemDiscTotal').text('Rp ' + totalItemDisc.toLocaleString('id-ID'));
                     if (totalItemDisc > 0) { $('#itemDiscRow').show(); } else { $('#itemDiscRow').hide(); }
                     $('#tax').text('Rp ' + tax.toLocaleString('id-ID'));
                     $('#discountDisplay').text('Rp ' + txnDiscAmt.toLocaleString('id-ID'));
                     $('#total').text('Rp ' + total.toLocaleString('id-ID'));
+
+                    updateCartBadgeOnly();
+                    refreshPromoPreview();
                 }
 
                 function checkEmptyCart() {
@@ -2269,6 +2435,7 @@
                         $('#emptyCart').hide();
                     } else {
                         $('#emptyCart').show();
+                        $('#promoHintRow').hide();
                     }
                 }
 
