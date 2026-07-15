@@ -3,7 +3,9 @@
 namespace App\Services\Product;
 
 use App\Models\Product;
+use App\Services\Manufacturing\ProductionSimulationService;
 use App\Services\UnitConversionService;
+use App\Support\ProductionQuantityDisplay;
 use Illuminate\Support\Collection;
 
 class StockDisplayService
@@ -15,9 +17,12 @@ class StockDisplayService
      *   unit: string,
      *   unit_id: ?string,
      *   min_stock: float,
-     *   stock_by_units: array<int, array{unit_id: ?string, unit: string, quantity: float}>,
+     *   stock_by_units: array<int, array{unit_id: ?string, unit: string, quantity: float, smallest_quantity?: float|null, smallest_unit?: string}>,
      *   show_unit_detail: bool,
      *   conversion_hint: ?string,
+     *   conversion_chain_hint: ?string,
+     *   packaging_breakdown: array<int, array{unit_id: string, label: string, qty: float}>,
+     *   packaging_hint: ?string,
      *   smallest_quantity: float,
      *   smallest_unit: string,
      *   smallest_unit_id: ?string,
@@ -83,19 +88,71 @@ class StockDisplayService
             }, $stockByUnits);
         }
 
+        $packagingBreakdown = ($smallUnitId && $totalSmallest > 0)
+            ? ProductionQuantityDisplay::packagingBreakdown($product, $totalSmallest, $smallUnitId)
+            : [];
+
+        $packagingHint = $packagingBreakdown === []
+            ? null
+            : implode(' · ', array_map(
+                fn (array $row) => $this->formatQtyLabel((float) $row['qty']).' '.$row['label'],
+                $packagingBreakdown
+            ));
+
+        // Detail per unit stock hanya relevan bila stok tersimpan di >1 satuan fisik.
+        $showUnitDetail = count($stockByUnits) > 1;
+
         return [
             'quantity' => $displayQty,
             'unit' => $displayUnit?->symbol ?? $displayUnit?->name ?? '-',
             'unit_id' => $displayUnitId,
             'min_stock' => $minStock,
             'stock_by_units' => $stockByUnits,
-            'show_unit_detail' => count($stockByUnits) > 1 || $hasConversionChain,
+            'show_unit_detail' => $showUnitDetail,
             'conversion_hint' => $displayUnitId ? $product->getBarcodeUnitConversionHint($displayUnitId) : null,
+            'conversion_chain_hint' => $this->buildConversionChainHint($product),
+            'packaging_breakdown' => $packagingBreakdown,
+            'packaging_hint' => $packagingHint,
             'smallest_quantity' => $totalSmallest,
             'smallest_unit' => $smallestUnitLabel,
             'smallest_unit_id' => $smallUnitId,
             'has_smallest_display' => $hasConversionChain,
         ];
+    }
+
+    protected function buildConversionChainHint(Product $product): ?string
+    {
+        $chain = ProductionSimulationService::buildUnitChain($product)->values();
+        if ($chain->count() < 2) {
+            return null;
+        }
+
+        $parts = [];
+        $factorFromLargest = 1.0;
+        $largestLabel = $chain[0]['unit']->symbol ?: $chain[0]['unit']->name;
+
+        $parts[] = '1 '.$largestLabel;
+
+        for ($i = 0; $i < $chain->count() - 1; $i++) {
+            $factorToNext = (float) ($chain[$i]['factor_to_next'] ?? 1);
+            if ($factorToNext <= 0) {
+                continue;
+            }
+            $factorFromLargest *= $factorToNext;
+            $label = $chain[$i + 1]['unit']->symbol ?: $chain[$i + 1]['unit']->name;
+            $parts[] = $this->formatQtyLabel($factorFromLargest).' '.$label;
+        }
+
+        return count($parts) > 1 ? implode(' = ', $parts) : null;
+    }
+
+    protected function formatQtyLabel(float $qty): string
+    {
+        if (abs($qty - round($qty)) < 1e-9) {
+            return (string) (int) round($qty);
+        }
+
+        return rtrim(rtrim(number_format($qty, 4, ',', '.'), '0'), ',');
     }
 
     /**

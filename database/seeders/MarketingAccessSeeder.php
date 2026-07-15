@@ -2,60 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\IamAccess;
-use App\Models\IamHasAccess;
 use App\Models\Menu;
 use Illuminate\Database\Seeder;
 
+/**
+ * Menu Marketing Center sementara dihapus dari sidebar.
+ * Seeder ini memastikan menu tidak muncul lagi setelah seed/re-login.
+ */
 class MarketingAccessSeeder extends Seeder
 {
-    private const ADMINISTRATOR_ROLE_ID = '08d263b7-2c3b-43f0-a49b-b80d9d4b7685';
-    private const MARKETING_ROLE_ID = 'c1a2b3d4-e5f6-4a01-8b02-000000000001';
-
     private const MENU_ID = 'c1a2b3d4-e5f6-4a01-8b02-000000000020';
 
     public function run(): void
     {
-        Menu::updateOrCreate(['id' => self::MENU_ID], [
-            'parent_id' => null,
-            'name' => 'Marketing Center',
-            'code' => 'marketing-center',
-            'text_sidebar' => 'Marketing Center',
-            'icon' => 'ti ti-speakerphone',
-            'has_page' => true,
-            'url_path' => 'marketing/assets',
-            'route_name' => 'marketing.assets.index',
-            'slug' => 'marketing-center',
-            'level_sidebar' => 1,
-            'order_number' => 902,
-            'is_label' => false,
-            'has_create' => true,
-            'has_update' => true,
-            'has_read' => true,
-            'has_delete' => true,
-            'has_custom1' => false, 'has_custom2' => false, 'has_custom3' => false,
-            'has_custom4' => false, 'has_custom5' => false,
-        ]);
-
-        foreach ([self::ADMINISTRATOR_ROLE_ID, self::MARKETING_ROLE_ID] as $roleId) {
-            $this->grant($roleId, self::MENU_ID);
+        $menu = Menu::withTrashed()->find(self::MENU_ID);
+        if ($menu && ! $menu->trashed()) {
+            $menu->delete();
         }
-    }
-
-    private function grant(string $roleId, string $menuId): void
-    {
-        $iamAccess = IamAccess::firstOrCreate(
-            ['role_id' => $roleId],
-            ['id' => (string) \Illuminate\Support\Str::uuid(), 'is_notification' => false]
-        );
-
-        IamHasAccess::updateOrCreate(
-            ['iam_access_id' => $iamAccess->id, 'sidebar_menu_id' => $menuId],
-            [
-                'is_create' => true, 'is_read' => true, 'is_update' => true, 'is_delete' => true,
-                'is_custom_1' => false, 'is_custom_2' => false, 'is_custom_3' => false,
-                'is_custom_4' => false, 'is_custom_5' => false,
-            ]
-        );
     }
 }

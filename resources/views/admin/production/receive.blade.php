@@ -1,152 +1,271 @@
 <x-app-layout>
-    @section('title', 'Terima Hasil Produksi | ')
+    @section('title', 'Receive Production Output | ')
+    @push('vendor-css')
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}">
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
+    @endpush
 
-    <div class="container-xxl flex-grow-1 container-p-y">
+    <div class="container-xxl flex-grow-1 container-p-y" style="padding-bottom: 72px !important;">
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Product'],
-                ['label' => 'Production', 'url' => route('production.index')],
-                ['label' => 'Production In-House', 'url' => route('production.index')],
+                ['label' => 'Production Order', 'url' => route('production.index')],
                 ['label' => $order->order_number, 'url' => route('production.show', $order->id)],
-                ['label' => 'Terima Hasil', 'active' => true],
+                ['label' => 'Receive', 'active' => true],
             ]"
         />
 
         @if ($errors->any())
-            <x-alert type="danger" class="mb-3"><ul class="m-0">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></x-alert>
+            <x-alert type="danger" class="mb-3">
+                <ul class="m-0">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+            </x-alert>
         @endif
-        @if (session('error'))<x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>@endif
+        @if (session('error'))
+            <x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>
+        @endif
 
         @php
             $outputUnit = $order->outputUnit?->symbol ?? $order->outputUnit?->name ?? '';
-            $bomItems = $order->bom?->items ?? collect();
-            $outputPerBatch = (float) ($order->bom?->output_quantity ?: 1);
-            $plannedScale = $outputPerBatch > 0 ? (float) $order->planned_qty / $outputPerBatch : (float) $order->planned_qty;
+            $productName = $order->variant?->display_name ?? $order->product?->name;
+            $plannedQty = (float) $order->planned_qty;
+            $qtyLevels = $order->product && $order->output_unit_id && $plannedQty > 0
+                ? \App\Support\ProductionQuantityDisplay::qtyLevelBreakdown($order->product, $plannedQty, $order->output_unit_id)
+                : [];
+            $materialCost = (float) ($order->total_material_cost ?? 0);
+            $overheadCost = (float) ($order->overhead_cost ?? 0);
         @endphp
 
         <div class="card mb-4">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h5 class="card-title mb-0">Receive Output</h5>
+                        <span class="badge bg-label-warning">Pending Receiving</span>
+                    </div>
+                    <div class="fw-medium">{{ $productName }}</div>
+                    <small class="text-muted">{{ $order->order_number }}</small>
+                </div>
+                <a href="{{ route('production.show', $order->id) }}" class="btn btn-outline-secondary">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-4"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $order->variant?->display_name ?? $order->product?->name }}</div></div>
-                    <div class="col-md-4"><small class="text-muted">Qty Rencana</small><div class="fw-medium">{{ rtrim(rtrim(number_format((float) $order->planned_qty, 4), '0'), '.') }} {{ $outputUnit }}</div></div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">Production Date</small>
+                        <div class="fw-medium">{{ optional($order->production_date)->format('d M Y') ?: '—' }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">RM Warehouse</small>
+                        <div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">FG Warehouse</small>
+                        <div class="fw-medium">{{ $order->outputWarehouse?->name ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">Planned Qty</small>
+                        <div class="fw-medium">
+                            {{ format_number($plannedQty, 4, true) }}
+                            @if ($outputUnit)<span class="text-muted">{{ $outputUnit }}</span>@endif
+                        </div>
+                        @if (count($qtyLevels) > 1)
+                            <div class="small text-muted lh-sm mt-1">
+                                @foreach ($qtyLevels as $level)
+                                    @if (! $level['is_base'])
+                                        <div>{{ format_number($level['qty'], 4, true) }} {{ $level['label'] }}</div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
 
-        <form method="POST" action="{{ route('production.receive.store', $order->id) }}" onsubmit="return confirm('Kirim hasil produksi? Bahan baku akan dipotong dan stok produk jadi bertambah. Tindakan ini final dan tidak bisa diedit.')">
+        <form method="POST" action="{{ route('production.receive.store', $order->id) }}" id="receiveForm"
+            onsubmit="return confirm('Submit receive? Finished goods will be added to warehouse. Raw materials were already deducted on submit.')">
             @csrf
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="card-title mb-0">Qty Aktual Produksi</h5></div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Qty Aktual <span class="text-danger">*</span></label>
-                            <input type="number" step="any" min="0.000001" name="actual_qty" id="actualQty" class="form-control" value="{{ old('actual_qty', (float) $order->planned_qty) }}" required>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-7">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">Actual Output</h6>
+                            <small class="text-muted">Enter the quantity produced to receive into FG warehouse</small>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Satuan <span class="text-danger">*</span></label>
-                            <select name="actual_unit_id" id="actualUnitId" class="form-select" required>
-                                @foreach ($units as $unit)
-                                    <option value="{{ $unit['id'] }}" @selected(old('actual_unit_id', $order->output_unit_id) === $unit['id'])>
-                                        {{ $unit['label'] }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label" for="actualQty">Actual Qty <span class="text-danger">*</span></label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="0.000001"
+                                        name="actual_qty"
+                                        id="actualQty"
+                                        class="form-control"
+                                        value="{{ $defaultActualQty }}"
+                                        required
+                                    >
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="actualUnitId">Unit <span class="text-danger">*</span></label>
+                                    <select name="actual_unit_id" id="actualUnitId" class="form-select select2" required>
+                                        @foreach ($units as $unit)
+                                            <option value="{{ $unit['id'] }}" @selected($defaultUnitId === $unit['id'])>
+                                                {{ $unit['label'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="outputExpiryDate">Expiry Date <span class="text-danger">*</span></label>
+                                    <input
+                                        type="text"
+                                        name="output_expiry_date"
+                                        id="outputExpiryDate"
+                                        class="form-control flatpickr-date"
+                                        placeholder="DD/MM/YYYY"
+                                        value="{{ old('output_expiry_date') }}"
+                                        required
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="border rounded p-3 mt-3 bg-label-primary bg-opacity-10">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <small class="text-muted text-uppercase fw-semibold">Qty Preview</small>
+                                    <span class="badge bg-label-secondary" id="previewPrimary">—</span>
+                                </div>
+                                <div class="small text-muted lh-sm" id="previewLevels">—</div>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Expired Produk Jadi <span class="text-muted small">(FEFO)</span></label>
-                            <input type="date" name="output_expiry_date" class="form-control" value="{{ old('output_expiry_date') }}">
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">Cost Summary</h6>
+                            <small class="text-muted">Based on materials already deducted</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Material Cost</span>
+                                <span class="fw-medium">Rp {{ format_number($materialCost, 2, true) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Overhead</span>
+                                <span class="fw-medium">Rp {{ format_number($overheadCost, 2, true) }}</span>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-semibold">Total Cost</span>
+                                <span class="fw-bold text-primary">Rp {{ format_number($materialCost + $overheadCost, 2, true) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <span class="text-muted">Est. Unit Cost</span>
+                                <span class="fw-medium" id="estUnitCost">—</span>
+                            </div>
+                            <x-alert type="info" class="mt-3 mb-0" :dismissible="false">
+                                <small class="mb-0">Raw materials were deducted when the production order was submitted. Receiving only adds finished goods stock.</small>
+                            </x-alert>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="card-title mb-0">Kebutuhan Bahan Baku</h5></div>
-                <div class="table-responsive">
-                    <table class="table mb-0">
-                        <thead>
-                            <tr>
-                                <th>Bahan</th>
-                                <th class="text-end">Qty Rencana</th>
-                                <th class="text-end">Qty Aktual Terpakai</th>
-                                <th class="text-end">Sisa/Hemat</th>
-                            </tr>
-                        </thead>
-                        <tbody id="materialRows">
-                            @foreach ($bomItems as $item)
-                                @php
-                                    $unitLabel = $item->unit?->symbol ?? $item->unit?->name ?? '';
-                                    $componentProduct = $item->componentVariant?->product ?? $item->componentProduct;
-                                    $isSmallestUnit = $componentProduct && $item->unit_id === $componentProduct->getSmallestUnitId();
-                                    $expected = \App\Support\ProductionQuantityNormalizer::snapDisplayQty((float) $item->quantity * $plannedScale, $isSmallestUnit);
-                                @endphp
-                                <tr
-                                    data-per-batch-qty="{{ (float) $item->quantity }}"
-                                    data-expected="{{ $expected }}"
-                                    data-unit="{{ $unitLabel }}"
-                                    data-is-smallest="{{ $isSmallestUnit ? 1 : 0 }}"
-                                >
-                                    <td>{{ $item->componentVariant?->display_name ?? $item->componentProduct?->name }}</td>
-                                    <td class="text-end expected-cell">{{ rtrim(rtrim(number_format($expected, 4), '0'), '.') }} {{ $unitLabel }}</td>
-                                    <td class="text-end actual-cell">-</td>
-                                    <td class="text-end sisa-cell">-</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+            <div class="d-flex flex-wrap gap-2 sticky-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-package me-1"></i> Receive
+                </button>
+                <a href="{{ route('production.show', $order->id) }}" class="btn btn-outline-secondary">Cancel</a>
             </div>
-
-            <button type="submit" class="btn btn-primary"><i class="ti ti-check me-1"></i> Kirim & Terima</button>
-            <a href="{{ route('production.show', $order->id) }}" class="btn btn-outline-secondary">Batal</a>
         </form>
     </div>
 
-    @push('page-js')
-    <script>
-        const outputPerBatch = {{ $outputPerBatch }};
-        const unitFactors = @json($unitFactors);
-
-        function snapQty(n, isSmallestUnit) {
-            if (isSmallestUnit) {
-                return Math.round(n);
+    @push('page-css')
+        <style>
+            .sticky-actions {
+                position: sticky;
+                bottom: 0;
+                padding: 0.75rem 0;
+                background: linear-gradient(180deg, transparent, var(--bs-body-bg) 35%);
+                z-index: 2;
             }
-            const r = Math.round(n);
-            return Math.abs(n - r) < 0.001 ? r : n;
-        }
+        </style>
+    @endpush
 
-        function formatQty(n, isSmallestUnit) {
-            return (+snapQty(n, isSmallestUnit)).toFixed(4).replace(/\.?0+$/, '');
-        }
+    @push('vendor-js')
+        <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+    @endpush
+    @push('page-js')
+        <script>
+            (function () {
+                const unitFactors = @json($unitFactors);
+                const units = @json(collect($units)->values());
+                const totalCost = {{ (float) ($materialCost + $overheadCost) }};
 
-        function recalc() {
-            const actualQty = parseFloat(document.getElementById('actualQty').value || '0');
-            const selectedUnitId = document.getElementById('actualUnitId').value;
-            const factor = unitFactors[selectedUnitId] ?? 1;
-            const actualQtyInOutputUnit = actualQty * factor;
-            const actualScale = outputPerBatch > 0 ? actualQtyInOutputUnit / outputPerBatch : actualQtyInOutputUnit;
+                $('.select2').select2({ width: '100%', minimumResultsForSearch: 8 });
+                $('.flatpickr-date').flatpickr({ dateFormat: 'd/m/Y', allowInput: true, disableMobile: true });
 
-            document.querySelectorAll('#materialRows tr').forEach(function (tr) {
-                const perBatchQty = parseFloat(tr.dataset.perBatchQty || '0');
-                const expected = parseFloat(tr.dataset.expected || '0');
-                const unit = tr.dataset.unit || '';
-                const isSmallestUnit = tr.dataset.isSmallest === '1';
-                const actualUsed = snapQty(perBatchQty * actualScale, isSmallestUnit);
-                const sisa = snapQty(expected - actualUsed, isSmallestUnit);
+                function formatQty(n) {
+                    const num = Number(n || 0);
+                    return num.toLocaleString(undefined, {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 4,
+                    });
+                }
 
-                tr.querySelector('.actual-cell').textContent = formatQty(actualUsed, isSmallestUnit) + (unit ? ' ' + unit : '');
-                const sisaCell = tr.querySelector('.sisa-cell');
-                sisaCell.textContent = formatQty(sisa, isSmallestUnit) + (unit ? ' ' + unit : '');
-                sisaCell.classList.toggle('text-success', sisa > 0);
-                sisaCell.classList.toggle('text-danger', sisa < 0);
-            });
-        }
+                function formatRp(n) {
+                    return 'Rp ' + Number(n || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                    });
+                }
 
-        document.getElementById('actualQty')?.addEventListener('input', recalc);
-        document.getElementById('actualUnitId')?.addEventListener('change', recalc);
-        recalc();
-    </script>
+                function actualInOutputUnit() {
+                    const actualQty = parseFloat(document.getElementById('actualQty').value || '0');
+                    const selectedUnitId = document.getElementById('actualUnitId').value;
+                    const factor = unitFactors[selectedUnitId] ?? 1;
+                    return actualQty * factor;
+                }
+
+                function recalcPreview() {
+                    const actualQty = parseFloat(document.getElementById('actualQty').value || '0');
+                    const selectedUnitId = document.getElementById('actualUnitId').value;
+                    const selectedUnit = units.find(function (u) { return u.id === selectedUnitId; });
+                    const actualOutput = actualInOutputUnit();
+
+                    document.getElementById('previewPrimary').textContent = actualQty > 0
+                        ? formatQty(actualQty) + ' ' + (selectedUnit?.label || '')
+                        : '—';
+
+                    const lines = [];
+                    units.forEach(function (u) {
+                        if (u.id === selectedUnitId) return;
+                        const toOutput = unitFactors[u.id] ?? 1;
+                        if (!toOutput) return;
+                        const qtyInUnit = actualOutput / toOutput;
+                        lines.push('<div>' + formatQty(qtyInUnit) + ' ' + u.label + '</div>');
+                    });
+                    document.getElementById('previewLevels').innerHTML = lines.length ? lines.join('') : '—';
+
+                    const est = document.getElementById('estUnitCost');
+                    if (actualOutput > 0 && totalCost > 0) {
+                        est.textContent = formatRp(totalCost / actualOutput) + ' / output unit';
+                    } else {
+                        est.textContent = '—';
+                    }
+                }
+
+                $('#actualUnitId').on('change', recalcPreview);
+                document.getElementById('actualQty')?.addEventListener('input', recalcPreview);
+                recalcPreview();
+            })();
+        </script>
     @endpush
 </x-app-layout>

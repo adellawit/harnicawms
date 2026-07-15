@@ -20,13 +20,23 @@ class ProductLabelSerialService
         string $unitId,
         int $unitLevel,
         ?string $variantId = null,
-        ?string $userId = null
+        ?string $userId = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null
     ): array {
         if ($quantity < 1) {
             return [];
         }
 
-        return DB::transaction(function () use ($quantity, $productId, $unitId, $unitLevel, $variantId, $userId) {
+        return DB::transaction(function () use ($quantity, $productId, $unitId, $unitLevel, $variantId, $userId, $sourceType, $sourceId) {
+            // Jika sudah pernah dialokasi untuk source yang sama, jangan generate ulang.
+            if ($sourceType && $sourceId) {
+                $existing = $this->serialsForSource($sourceType, $sourceId, $unitLevel, $unitId);
+                if ($existing !== []) {
+                    return $existing;
+                }
+            }
+
             $lastSequence = $this->lastSequenceForUnit($productId, $unitId, $unitLevel);
 
             $serials = [];
@@ -44,6 +54,8 @@ class ProductLabelSerialService
                     'unit_id' => $unitId,
                     'unit_level' => $unitLevel,
                     'printed_by' => $userId,
+                    'source_type' => $sourceType,
+                    'source_id' => $sourceId,
                 ]);
 
                 $serials[] = $serialNumber;
@@ -51,6 +63,62 @@ class ProductLabelSerialService
 
             return $serials;
         });
+    }
+
+    /**
+     * Ambil nomor yang sudah terkunci untuk source, atau peek nomor berikutnya (belum persist).
+     *
+     * @return array{serials: array<int, string>, locked: bool}
+     */
+    public function resolveSerialsForPreview(
+        int $quantity,
+        string $productId,
+        string $unitId,
+        int $unitLevel,
+        ?string $sourceType = null,
+        ?string $sourceId = null
+    ): array {
+        if ($sourceType && $sourceId) {
+            $existing = $this->serialsForSource($sourceType, $sourceId, $unitLevel, $unitId);
+            if ($existing !== []) {
+                return ['serials' => $existing, 'locked' => true];
+            }
+        }
+
+        return [
+            'serials' => $this->peekNextSerials($quantity, $productId, $unitId, $unitLevel),
+            'locked' => false,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function serialsForSource(
+        string $sourceType,
+        string $sourceId,
+        int $unitLevel,
+        ?string $unitId = null
+    ): array {
+        $query = ProductLabelSerial::query()
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->where('unit_level', $unitLevel)
+            ->orderBy('sequence');
+
+        if ($unitId) {
+            $query->where('unit_id', $unitId);
+        }
+
+        return $query->pluck('serial_number')->all();
+    }
+
+    public function hasSourceAllocation(string $sourceType, string $sourceId): bool
+    {
+        return ProductLabelSerial::query()
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->exists();
     }
 
     /**

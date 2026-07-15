@@ -436,6 +436,8 @@ class ProductController extends Controller
         $includeSmallestUnit = $validated['include_smallest_unit'];
         $quantity = (int) $request->quantity;
         $variantId = $request->variant_id ?: null;
+        $sourceType = $validated['source_type'];
+        $sourceId = $validated['source_id'];
         $previewLimit = 24;
 
         if ($printMode === 'hierarchy') {
@@ -443,6 +445,7 @@ class ProductController extends Controller
             $breakdownMeta = [];
             $serialsByUnitId = [];
             $totalLabels = 0;
+            $serialsLocked = false;
 
             foreach ($breakdown as $item) {
                 $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
@@ -451,8 +454,22 @@ class ProductController extends Controller
                 }
 
                 $itemQty = (int) $item['qty'];
+                $resolved = $serialService->resolveSerialsForPreview(
+                    $itemQty,
+                    $product->id,
+                    $levelUnit->id,
+                    $item['level'],
+                    $sourceType,
+                    $sourceId
+                );
+                $serials = $resolved['serials'];
+                $serialsLocked = $serialsLocked || $resolved['locked'];
+                if ($resolved['locked']) {
+                    $itemQty = count($serials);
+                    $item['qty'] = $itemQty;
+                }
+
                 $totalLabels += $itemQty;
-                $serials = $serialService->peekNextSerials($itemQty, $product->id, $levelUnit->id, $item['level']);
                 $serialsByUnitId[$item['unit_id']] = $serials;
 
                 $breakdownMeta[$item['unit_id']] = [
@@ -465,6 +482,15 @@ class ProductController extends Controller
                     'serial_to' => $serials[$itemQty - 1] ?? null,
                 ];
             }
+
+            // Rebuild breakdown rows with locked qty so tree matches stored serials.
+            $breakdown = array_map(function (array $item) use ($breakdownMeta) {
+                if (isset($breakdownMeta[$item['unit_id']])) {
+                    $item['qty'] = $breakdownMeta[$item['unit_id']]['qty'];
+                }
+
+                return $item;
+            }, $breakdown);
 
             $treeResult = $this->buildBarcodeHierarchyTree(
                 $product,
@@ -494,6 +520,9 @@ class ProductController extends Controller
                 'parent_unit_id' => $unit->id,
                 'parent_quantity' => $quantity,
                 'include_smallest_unit' => $includeSmallestUnit,
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+                'serials_locked' => $serialsLocked,
                 'breakdown' => $breakdownMeta,
                 'total_labels' => $totalLabels,
                 'user_id' => auth('web')->id(),
@@ -509,13 +538,26 @@ class ProductController extends Controller
                 'parent_quantity' => $quantity,
                 'breakdown' => $breakdownMeta,
                 'tree' => $treeResult['tree'],
+                'serials_locked' => $serialsLocked,
                 'distributor_name' => $validated['distributor_name'],
                 'unit_label' => strtoupper($unit->symbol ?: $unit->name),
                 'unit_level' => $unitLevel,
             ]);
         }
 
-        $serials = $serialService->peekNextSerials($quantity, $product->id, $unit->id, $unitLevel);
+        $resolved = $serialService->resolveSerialsForPreview(
+            $quantity,
+            $product->id,
+            $unit->id,
+            $unitLevel,
+            $sourceType,
+            $sourceId
+        );
+        $serials = $resolved['serials'];
+        $serialsLocked = $resolved['locked'];
+        if ($serialsLocked) {
+            $quantity = count($serials);
+        }
         $displaySerials = array_slice($serials, 0, $previewLimit);
         $contentSummary = $product->getBarcodeUnitLabelContent($unit->id);
 
@@ -530,6 +572,9 @@ class ProductController extends Controller
             'variant_id' => $variantId,
             'unit_id' => $unit->id,
             'quantity' => $quantity,
+            'source_type' => $sourceType,
+            'source_id' => $sourceId,
+            'serials_locked' => $serialsLocked,
             'serial_from' => $serials[0] ?? null,
             'serial_to' => $serials[$quantity - 1] ?? null,
             'user_id' => auth('web')->id(),
@@ -543,6 +588,7 @@ class ProductController extends Controller
             'displayed' => count($displaySerials),
             'serial_from' => $serials[0] ?? null,
             'serial_to' => $serials[$quantity - 1] ?? null,
+            'serials_locked' => $serialsLocked,
             'distributor_name' => $validated['distributor_name'],
             'unit_label' => strtoupper($unit->symbol ?: $unit->name),
             'unit_level' => $unitLevel,
@@ -555,7 +601,7 @@ class ProductController extends Controller
     public function printBarcodePdf(Request $request, string $id, ProductLabelSerialService $serialService, ProductQrCodeService $qrCodeService)
     {
         $request->validate([
-            'batch_id' => 'required|uuid',
+            'batch_id' => 'nullable|uuid',
         ]);
 
         $validated = $this->validatePrintBarcodeRequest($request, $id);
@@ -565,11 +611,15 @@ class ProductController extends Controller
         $variantId = $request->variant_id ?: null;
         $unitId = $unit->id;
         $batchId = $request->batch_id;
-        $batch = session("barcode_preview.{$batchId}");
+        $batch = $batchId ? session("barcode_preview.{$batchId}") : null;
         $printMode = $validated['print_mode'];
         $includeSmallestUnit = $validated['include_smallest_unit'];
+        $sourceType = $validated['source_type'];
+        $sourceId = $validated['source_id'];
+        $sourceLocked = $sourceType && $sourceId && $serialService->hasSourceAllocation($sourceType, $sourceId);
 
-        if (! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity, $includeSmallestUnit)) {
+        // Production reprint: jika nomor sudah terkunci ke source, boleh tanpa session preview.
+        if (! $sourceLocked && ! $this->isBarcodePreviewBatchValid($batch, $product->id, $variantId, $printMode, $unitId, (int) $request->quantity, $includeSmallestUnit)) {
             return redirect()
                 ->route('product.print-barcode.view', $product->id)
                 ->with('error', 'Preview kedaluwarsa atau tidak valid. Silakan preview ulang sebelum generate PDF.');
@@ -599,7 +649,9 @@ class ProductController extends Controller
                     $serialService,
                     $qrCodeService,
                     $tempDir,
-                    $includeSmallestUnit
+                    $includeSmallestUnit,
+                    $sourceType,
+                    $sourceId
                 );
                 $labels = $this->flattenBarcodeHierarchyTree($labelTree);
             } else {
@@ -609,11 +661,15 @@ class ProductController extends Controller
                     $unitId,
                     $validated['unit_level'],
                     $variantId,
-                    auth('web')->id()
+                    auth('web')->id(),
+                    $sourceType,
+                    $sourceId
                 );
 
-                if (($batch['serial_from'] ?? null) !== ($serials[0] ?? null)) {
-                    session()->forget("barcode_preview.{$batchId}");
+                if (! $sourceLocked && ($batch['serial_from'] ?? null) !== ($serials[0] ?? null)) {
+                    if ($batchId) {
+                        session()->forget("barcode_preview.{$batchId}");
+                    }
 
                     return redirect()
                         ->route('product.print-barcode.view', $product->id)
@@ -632,20 +688,26 @@ class ProductController extends Controller
                 );
             }
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
-            session()->forget("barcode_preview.{$batchId}");
+            if ($batchId) {
+                session()->forget("barcode_preview.{$batchId}");
+            }
 
             return redirect()
                 ->route('product.print-barcode.view', $product->id)
                 ->with('error', 'Nomor barcode bentrok dengan data lama. Silakan preview ulang.');
         } catch (\RuntimeException) {
-            session()->forget("barcode_preview.{$batchId}");
+            if ($batchId) {
+                session()->forget("barcode_preview.{$batchId}");
+            }
 
             return redirect()
                 ->route('product.print-barcode.view', $product->id)
                 ->with('error', 'Nomor seri berubah karena ada cetak lain. Silakan preview ulang.');
         }
 
-        session()->forget("barcode_preview.{$batchId}");
+        if ($batchId) {
+            session()->forget("barcode_preview.{$batchId}");
+        }
 
         $filename = 'barcode-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $product->code).'-'.date('YmdHis').'.pdf';
         $qrBaseUrl = 'file://'.str_replace('\\', '/', $tempDir).'/';
@@ -690,12 +752,15 @@ class ProductController extends Controller
         ProductLabelSerialService $serialService,
         ProductQrCodeService $qrCodeService,
         string $tempDir,
-        bool $includeSmallestUnit = true
+        bool $includeSmallestUnit = true,
+        ?string $sourceType = null,
+        ?string $sourceId = null
     ): array {
         $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnit->id, $includeSmallestUnit);
         $serialsByUnitId = [];
+        $sourceLocked = $sourceType && $sourceId && $serialService->hasSourceAllocation($sourceType, $sourceId);
 
-        foreach ($breakdown as $item) {
+        foreach ($breakdown as &$item) {
             $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
             if (! $levelUnit) {
                 continue;
@@ -707,16 +772,23 @@ class ProductController extends Controller
                 $levelUnit->id,
                 $item['level'],
                 $variantId,
-                auth('web')->id()
+                auth('web')->id(),
+                $sourceType,
+                $sourceId
             );
 
+            if ($sourceLocked || count($serials) !== (int) $item['qty']) {
+                $item['qty'] = count($serials);
+            }
+
             $expectedFrom = $breakdownPreview[$item['unit_id']]['serial_from'] ?? null;
-            if ($expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
+            if (! $sourceLocked && $expectedFrom !== null && $expectedFrom !== ($serials[0] ?? null)) {
                 throw new \RuntimeException('Serial mismatch during hierarchy print.');
             }
 
             $serialsByUnitId[$item['unit_id']] = $serials;
         }
+        unset($item);
 
         $treeResult = $this->buildBarcodeHierarchyTree(
             $product,
@@ -894,9 +966,13 @@ class ProductController extends Controller
             'variant_id' => 'nullable|uuid|exists:product.product_variants,id',
             'unit_id' => 'required|uuid|exists:product.product_units,id',
             'print_mode' => 'nullable|in:single,hierarchy',
+            'source_type' => 'nullable|string|in:production_order',
+            'source_id' => 'nullable|uuid|required_with:source_type',
         ]);
 
         $includeSmallestUnit = $request->boolean('include_smallest_unit', true);
+        $sourceType = $request->input('source_type');
+        $sourceId = $request->input('source_id');
 
         $product = Product::with([
             'defaultUnit',
@@ -957,6 +1033,8 @@ class ProductController extends Controller
             'print_mode' => $printMode,
             'distributor_name' => $distributorName,
             'include_smallest_unit' => $includeSmallestUnit,
+            'source_type' => $sourceType,
+            'source_id' => $sourceId,
         ];
     }
 

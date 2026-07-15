@@ -162,6 +162,11 @@ class StockMutationService
 
         self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'out', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
 
+        // Ikuti potong stok batch (FEFO) agar tampilan batch sinkron dengan stok varian.
+        if ($warehouseId) {
+            BatchStockService::consumeOutbound($productId, $warehouseId, $unitId, $quantity, $userId);
+        }
+
         $cogs = FifoCostService::consume($variantId, $operationalBranchId, $unitId, $quantity, $userId, $warehouseId);
 
         return [

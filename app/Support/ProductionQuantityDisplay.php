@@ -41,34 +41,118 @@ class ProductionQuantityDisplay
      */
     public static function breakdownHint(Product $product, float $qty, string $unitId): ?string
     {
+        $rows = self::packagingBreakdown($product, $qty, $unitId);
+        if ($rows === []) {
+            return null;
+        }
+
+        if (count($rows) === 1 && ($rows[0]['unit_id'] ?? null) === $unitId) {
+            return null;
+        }
+
+        return implode(' · ', collect($rows)
+            ->map(fn (array $row) => self::formatQty($row['qty']).' '.$row['label'])
+            ->all());
+    }
+
+    /**
+     * Pecahan kemasan fisik (karton + pack + box + sachet) dari qty.
+     *
+     * @return array<int, array{unit_id: string, label: string, qty: float}>
+     */
+    public static function packagingBreakdown(Product $product, float $qty, string $unitId): array
+    {
         $product->loadMissing(['unitConversions', 'defaultUnit']);
 
         $smallestUnitId = $product->getSmallestUnitId();
-        if (! $smallestUnitId) {
-            return null;
+        if (! $smallestUnitId || $qty <= 0) {
+            return [];
         }
 
         $smallestQty = UnitConversionService::convertQuantity($product, $qty, $unitId, $smallestUnitId);
         if ($smallestQty === null || $smallestQty <= 0) {
-            return null;
+            return [];
         }
 
-        $breakdown = ProductionSimulationService::decomposeSmallestQuantity($product, $smallestQty);
-        if ($breakdown === []) {
-            return null;
+        return ProductionSimulationService::decomposeSmallestQuantity($product, $smallestQty);
+    }
+
+    /**
+     * Qty setara di setiap level rantai satuan (krt / pack / box / sachet).
+     *
+     * @return array<int, array{unit_id: string, label: string, qty: float, is_base: bool}>
+     */
+    public static function qtyLevelBreakdown(Product $product, float $qty, string $unitId): array
+    {
+        $product->loadMissing(['unitConversions', 'defaultUnit']);
+
+        if ($qty <= 0) {
+            return [];
         }
 
-        // Sensor hanya untuk kasus benar-benar identik (mis. qty "1 krt" pecah jadi "1 krt" lagi
-        // — tidak ada info baru). Selain itu SELALU ditampilkan, termasuk saat breakdown cuma
-        // 1 unit (mis. "7 pack" dari qty pecahan krt) — justru itu yang paling dibutuhkan untuk
-        // melihat hasil produksi partial batch yang sebenarnya.
-        if (count($breakdown) === 1 && ($breakdown[0]['unit_id'] ?? null) === $unitId) {
-            return null;
+        $chain = ProductionSimulationService::buildUnitChain($product);
+        if ($chain->isEmpty()) {
+            return [];
         }
 
-        return implode(' · ', collect($breakdown)
-            ->map(fn (array $row) => self::formatQty($row['qty']).' '.$row['label'])
-            ->all());
+        return $chain->map(function (array $row) use ($product, $qty, $unitId) {
+            $targetId = $row['unit']->id;
+            $converted = $targetId === $unitId
+                ? $qty
+                : UnitConversionService::convertQuantity($product, $qty, $unitId, $targetId);
+
+            if ($converted === null) {
+                return null;
+            }
+
+            return [
+                'unit_id' => $targetId,
+                'label' => $row['unit']->symbol ?: $row['unit']->name,
+                'qty' => (float) $converted,
+                'is_base' => $targetId === $unitId,
+            ];
+        })->filter()->values()->all();
+    }
+
+    /**
+     * HPP/unit di setiap level rantai satuan, dari cost per $unitId.
+     *
+     * @return array<int, array{unit_id: string, label: string, unit_cost: float, is_base: bool}>
+     */
+    public static function unitCostLevelBreakdown(Product $product, float $unitCost, string $unitId): array
+    {
+        $product->loadMissing(['unitConversions', 'defaultUnit']);
+
+        if ($unitCost <= 0) {
+            return [];
+        }
+
+        $chain = ProductionSimulationService::buildUnitChain($product);
+        if ($chain->isEmpty()) {
+            return [];
+        }
+
+        return $chain->map(function (array $row) use ($product, $unitCost, $unitId) {
+            $targetId = $row['unit']->id;
+
+            if ($targetId === $unitId) {
+                $cost = $unitCost;
+            } else {
+                // 1 base unit = $factor target units → cost_per_target = cost_per_base / factor
+                $factor = UnitConversionService::convertQuantity($product, 1.0, $unitId, $targetId);
+                if ($factor === null || abs($factor) < 1e-12) {
+                    return null;
+                }
+                $cost = $unitCost / $factor;
+            }
+
+            return [
+                'unit_id' => $targetId,
+                'label' => $row['unit']->symbol ?: $row['unit']->name,
+                'unit_cost' => round($cost, 4),
+                'is_base' => $targetId === $unitId,
+            ];
+        })->filter()->values()->all();
     }
 
     /**

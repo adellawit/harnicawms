@@ -93,4 +93,10 @@ class ProductionOrder extends Model
     {
         return $this->hasMany(ProductionOrderOutput::class, 'production_order_id', 'id');
     }
+
+    public function overheads(): HasMany
+    {
+        return $this->hasMany(ProductionOrderOverhead::class, 'production_order_id', 'id')
+            ->orderBy('sort_order');
+    }
 }

@@ -134,29 +134,42 @@
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
                                 <td class="text-end {{ $displayQty < 0 ? 'text-danger fw-semibold' : '' }}">
-                                    <div>
+                                    <div class="fw-semibold">
                                         {{ format_number($displayQty, 2, true) }}
                                         <small class="text-muted">{{ $item['unit'] }}</small>
                                     </div>
-                                    @if(!empty($item['has_smallest_display']) && ($displayUnitMode ?? 'large') === 'large')
-                                        <small class="text-primary d-block fw-semibold">
+                                    @if(!empty($item['has_smallest_display']) && ($displayUnitMode ?? 'large') === 'large' && (float) ($item['smallest_quantity'] ?? 0) > 0)
+                                        <small class="text-primary d-block">
                                             = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
+                                        </small>
+                                    @endif
+                                    @if(!empty($item['packaging_hint']))
+                                        <small class="text-muted d-block mt-1">
+                                            Breakdown: {{ $item['packaging_hint'] }}
                                         </small>
                                     @endif
                                     @if(!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
                                         <div class="stock-unit-detail mt-1">
+                                            <small class="text-muted d-block fw-semibold">Tersimpan per satuan:</small>
                                             @foreach($item['stock_by_units'] as $unitStock)
                                                 <small class="text-muted d-block">
                                                     {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
-                                                    @if(($displayUnitMode ?? 'large') === 'large' && isset($unitStock['smallest_quantity']) && $unitStock['smallest_quantity'] !== null)
+                                                    @if(
+                                                        ($displayUnitMode ?? 'large') === 'large'
+                                                        && isset($unitStock['smallest_quantity'])
+                                                        && $unitStock['smallest_quantity'] !== null
+                                                        && ($unitStock['unit_id'] ?? null) !== ($item['smallest_unit_id'] ?? null)
+                                                    )
                                                         <span class="text-primary">(= {{ format_number((float) $unitStock['smallest_quantity'], 2, true) }} {{ $unitStock['smallest_unit'] }})</span>
                                                     @endif
                                                 </small>
                                             @endforeach
                                         </div>
                                     @endif
-                                    @if(!empty($item['conversion_hint']))
-                                        <small class="text-muted d-block fst-italic">{{ $item['conversion_hint'] }}</small>
+                                    @if(!empty($item['conversion_chain_hint']))
+                                        <small class="text-muted d-block fst-italic mt-1">{{ $item['conversion_chain_hint'] }}</small>
+                                    @elseif(!empty($item['conversion_hint']))
+                                        <small class="text-muted d-block fst-italic mt-1">{{ $item['conversion_hint'] }}</small>
                                     @endif
                                     @if(!empty($item['has_batch_stocks']) && !empty($item['batch_stocks']))
                                         <div class="stock-batch-detail mt-2">
@@ -165,15 +178,15 @@
                                                     data-bs-toggle="collapse"
                                                     data-bs-target="#batch-{{ $item['product_id'] }}-{{ $item['variant_id'] }}"
                                                     aria-expanded="false">
-                                                <i class="ti ti-packages me-1"></i>{{ count($item['batch_stocks']) }} batch
+                                                <i class="ti ti-packages me-1"></i>{{ count($item['batch_stocks']) }} batch · FEFO
                                             </button>
                                             <div class="collapse mt-2" id="batch-{{ $item['product_id'] }}-{{ $item['variant_id'] }}">
                                                 <table class="table table-sm table-bordered mb-0 stock-batch-table">
                                                     <thead class="table-light">
                                                         <tr>
                                                             <th>Batch</th>
-                                                            <th>Expired</th>
-                                                            <th class="text-end">Qty</th>
+                                                            <th>Expiry</th>
+                                                            <th class="text-end">Stok</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -196,11 +209,24 @@
                                                                 <td class="text-end">
                                                                     {{ format_number((float) $batchRow['quantity'], 2, true) }}
                                                                     <small class="text-muted">{{ $batchRow['unit'] }}</small>
+                                                                    @if(
+                                                                        isset($batchRow['smallest_quantity'])
+                                                                        && $batchRow['smallest_quantity'] !== null
+                                                                        && !empty($batchRow['smallest_unit'])
+                                                                        && abs((float) $batchRow['smallest_quantity'] - (float) $batchRow['quantity']) > 1e-6
+                                                                    )
+                                                                        <div class="text-primary small">
+                                                                            (= {{ format_number((float) $batchRow['smallest_quantity'], 2, true) }} {{ $batchRow['smallest_unit'] }})
+                                                                        </div>
+                                                                    @endif
                                                                 </td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
                                                 </table>
+                                                <small class="text-muted d-block mt-1">
+                                                    Urutan FEFO: expiry paling dekat dipakai dulu saat produksi/outbound.
+                                                </small>
                                             </div>
                                         </div>
                                     @endif

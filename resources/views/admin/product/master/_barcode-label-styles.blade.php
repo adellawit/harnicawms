@@ -92,7 +92,7 @@
 }
 
 .preview-tree__node--level-3 {
-    border: 1.5px dashed #28a745;
+    border: 1.5px dashed #6c757d;
     background: transparent;
 }
 
@@ -110,9 +110,12 @@
 
 .preview-tree__box-grid {
     display: grid;
-    grid-template-columns: repeat(5, 50mm);
+    grid-template-columns: repeat(5, 55mm);
     gap: 1.5mm 2mm;
     justify-content: start;
+    background: transparent;
+    padding: 2mm;
+    border-radius: 4px;
 }
 
 .preview-tree__box-groups-page .preview-tree__node--level-3 {
@@ -177,64 +180,70 @@
 }
 
 .label-item {
-    border: 1px solid #999;
     overflow: hidden;
-    background: #fff;
 }
 
 .label-item--box {
-    width: 50mm;
-    height: 12mm;
-    display: flex;
-    border: 1px solid #000;
+    width: 55mm;
+    height: 9mm;
+    border: 0.35mm solid #000;
     background: transparent;
     box-sizing: border-box;
+    overflow: hidden;
+    padding: 0.5mm;
+}
+
+.label-item--box .label-item__table {
+    width: 100%;
+    height: 7mm;
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .label-item--box .label-item__qr {
-    width: 12mm;
-    height: 12mm;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 7mm;
+    height: 7mm;
+    vertical-align: middle;
+    text-align: center;
+    padding: 0.5mm;
+    box-sizing: border-box;
 }
 
 .label-item--box .label-item__qr img {
-    width: 10mm;
-    height: 10mm;
+    width: 6mm;
+    height: 6mm;
     display: block;
+    margin: 0 auto;
 }
 
 .label-item--box .label-item__content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 0 1.5mm 1mm 1mm;
-    min-width: 0;
+    height: 7mm;
+    vertical-align: middle;
+    text-align: left;
+    padding: 0 0.6mm 0 0.9mm;
 }
 
-.label-item__distributor-name {
-    font-size: 6.5px;
+.label-item--box .label-item__distributed-by {
+    font-size: 4.5pt;
+    font-weight: 400;
+    color: #000;
+    line-height: 1.1;
+    white-space: nowrap;
+    margin: 0;
+    padding: 0;
+}
+
+.label-item--box .label-item__distributor-name {
+    font-size: 6pt;
     font-weight: 700;
     color: #000;
-    line-height: 1.2;
+    line-height: 1.1;
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.label-item__serial {
-    font-size: 6.5px;
-    font-weight: 700;
-    color: #000;
-    font-family: ui-monospace, monospace;
-    letter-spacing: 0.02em;
-    line-height: 1.2;
-    white-space: nowrap;
-    margin-bottom: 0.4mm;
+    margin: 0;
+    padding: 0;
 }
 
 .label-item--karton {
@@ -245,6 +254,8 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+    border: 1px solid #999;
+    background: #fff;
 }
 
 .label-item--karton .label-item__top {
@@ -269,6 +280,8 @@
     height: 30mm;
     padding: 9% 1mm 10%;
     box-sizing: border-box;
+    border: 1px solid #999;
+    background: #fff;
 }
 
 .label-item--pack .label-item__top {

@@ -1,13 +1,12 @@
 <x-app-layout>
-    @section('title', 'Detail Produksi | ')
+    @section('title', 'Production Order Detail | ')
 
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Product'],
-                ['label' => 'Production', 'url' => route('production.index')],
-                ['label' => 'Production In-House', 'url' => route('production.index')],
+                ['label' => 'Production Order', 'url' => route('production.index')],
                 ['label' => $order->order_number, 'active' => true],
             ]"
         />
@@ -17,68 +16,204 @@
 
         @php
             $outputUnit = $order->outputUnit?->symbol ?? $order->outputUnit?->name ?? '';
-            $orderQty = (float) ($order->produced_qty ?: $order->planned_qty);
-            $orderConversionHint = $order->product && $order->output_unit_id
-                ? \App\Support\ProductionQuantityDisplay::conversionSummary($order->product, $orderQty, $order->output_unit_id)
-                : null;
+            $orderQty = (float) $order->produced_qty > 0
+                ? (float) $order->produced_qty
+                : (float) $order->planned_qty;
+            $qtyLevels = $order->product && $order->output_unit_id && $orderQty > 0
+                ? \App\Support\ProductionQuantityDisplay::qtyLevelBreakdown($order->product, $orderQty, $order->output_unit_id)
+                : [];
+            $materialCost = (float) ($order->total_material_cost ?? 0);
+            $overheadCost = (float) ($order->overhead_cost ?? 0);
+            $totalCost = $materialCost + $overheadCost;
+            $unitCost = (float) ($order->output_unit_cost ?? 0);
+            if ($unitCost <= 0 && $orderQty > 0 && $totalCost > 0) {
+                $unitCost = round($totalCost / $orderQty, 4);
+            }
+            $unitCostLevels = $order->product && $order->output_unit_id && $unitCost > 0
+                ? \App\Support\ProductionQuantityDisplay::unitCostLevelBreakdown($order->product, $unitCost, $order->output_unit_id)
+                : [];
+            $statusMap = [
+                'draft' => ['label' => 'Draft', 'tone' => 'secondary'],
+                'in_progress' => ['label' => 'Process', 'tone' => 'info'],
+                'pending_receiving' => ['label' => 'Pending Receiving', 'tone' => 'warning'],
+                'completed' => ['label' => 'Completed', 'tone' => 'success'],
+                'cancelled' => ['label' => 'Cancelled', 'tone' => 'danger'],
+            ];
+            $statusMeta = $statusMap[$order->status] ?? ['label' => ucfirst(str_replace('_', ' ', $order->status)), 'tone' => 'secondary'];
+            $canProcess = $order->status === 'draft';
+            $canReceive = in_array($order->status, ['in_progress', 'pending_receiving'], true);
+            $canEdit = $order->status === 'draft';
         @endphp
 
         <div class="card mb-4">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h5 class="card-title mb-0">{{ $order->order_number }}</h5>
+                        <span class="badge bg-label-{{ $statusMeta['tone'] }}">{{ $statusMeta['label'] }}</span>
+                    </div>
+                    <div class="text-muted">
+                        {{ $order->variant?->display_name ?? $order->product?->name }}
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    @if ($canProcess)
+                        <form method="POST" action="{{ route('production.start', $order->id) }}" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-primary" onclick="return confirm('Set this production order to Process?')">
+                                <i class="ti ti-player-play me-1"></i> Process
+                            </button>
+                        </form>
+                    @endif
+                    @if ($canReceive)
+                        <a href="{{ route('production.receive', $order->id) }}" class="btn btn-primary">
+                            <i class="ti ti-package me-1"></i> Receive
+                        </a>
+                    @endif
+                    @if ($canEdit)
+                        <a href="{{ route('production.edit', $order->id) }}" class="btn btn-label-warning">
+                            <i class="ti ti-pencil me-1"></i> Edit
+                        </a>
+                    @endif
+                    <a href="{{ route('production.index') }}" class="btn btn-outline-secondary">
+                        <i class="ti ti-arrow-left me-1"></i> Back
+                    </a>
+                </div>
+            </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3"><small class="text-muted">No. Produksi</small><div class="fw-medium">{{ $order->order_number }}</div></div>
-                    <div class="col-md-3"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $order->variant?->display_name ?? $order->product?->name }}</div></div>
-                    <div class="col-md-2">
-                        <small class="text-muted">Qty{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
-                        <div class="fw-medium">
-                            {{ rtrim(rtrim(number_format($orderQty, 2), '0'), '.') }}
-                            @if ($outputUnit)<span class="text-muted">{{ $outputUnit }}</span>@endif
-                        </div>
-                        @if ($orderConversionHint)
-                            <small class="text-muted">{{ $orderConversionHint }}</small>
-                        @endif
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">Production Date</small>
+                        <div class="fw-medium">{{ optional($order->production_date)->format('d M Y') ?: '—' }}</div>
                     </div>
-                    <div class="col-md-2"><small class="text-muted">Status</small><div>
-                        @php $map = ['draft'=>'secondary','in_progress'=>'info','pending_receiving'=>'warning','completed'=>'success','cancelled'=>'danger']; @endphp
-                        @php $statusLabels = ['draft'=>'Draft','in_progress'=>'Sedang Dikerjakan','pending_receiving'=>'Menunggu Receiving','completed'=>'Selesai','cancelled'=>'Dibatalkan']; @endphp
-                        <span class="badge bg-label-{{ $map[$order->status] ?? 'secondary' }}">{{ $statusLabels[$order->status] ?? ucfirst($order->status) }}</span>
-                    </div></div>
-                    <div class="col-md-2">
-                        <small class="text-muted">HPP / Unit{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
-                        <div class="fw-medium text-primary">
-                            @if ($order->output_unit_cost > 0)
-                                Rp {{ number_format($order->output_unit_cost, 2) }}
-                            @else
-                                -
-                            @endif
-                        </div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">RM Warehouse</small>
+                        <div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '—' }}</div>
                     </div>
-                    <div class="col-md-3"><small class="text-muted">Gudang Bahan Baku</small><div class="fw-medium">{{ $order->sourceWarehouse?->name ?? '-' }}</div></div>
-                    <div class="col-md-3"><small class="text-muted">Gudang Produk Jadi</small><div class="fw-medium">{{ $order->outputWarehouse?->name ?? '-' }}</div></div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">FG Warehouse</small>
+                        <div class="fw-medium">{{ $order->outputWarehouse?->name ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted d-block">Notes</small>
+                        <div class="fw-medium">{{ $order->notes ?: '—' }}</div>
+                    </div>
                 </div>
-                @if ($order->status === 'draft')
-                    <form method="POST" action="{{ route('production.start', $order->id) }}" class="mt-3">
-                        @csrf
-                        <button class="btn btn-primary"><i class="ti ti-player-play me-1"></i> Mulai Produksi</button>
-                    </form>
-                @elseif ($order->status === 'in_progress')
-                    <form method="POST" action="{{ route('production.finish', $order->id) }}" class="mt-3">
-                        @csrf
-                        <button class="btn btn-success"><i class="ti ti-check me-1"></i> Selesaikan Produksi</button>
-                    </form>
-                @elseif ($order->status === 'pending_receiving')
-                    <a href="{{ route('production.receive', $order->id) }}" class="btn btn-warning mt-3"><i class="ti ti-package-import me-1"></i> Terima Hasil Produksi</a>
-                @endif
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-6 mb-4">
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
                 <div class="card h-100">
-                    <div class="card-header"><h6 class="card-title mb-0">Bahan Baku Dikonsumsi</h6></div>
+                    <div class="card-body">
+                        <small class="text-muted d-block mb-1">Qty{{ $outputUnit ? ' (' . $outputUnit . ')' : '' }}</small>
+                        <h4 class="mb-1">{{ format_number($orderQty, 2, true) }} @if($outputUnit)<small class="text-muted fw-normal">{{ $outputUnit }}</small>@endif</h4>
+                        @if (count($qtyLevels) > 1)
+                            <div class="small text-muted lh-sm mt-2">
+                                @foreach ($qtyLevels as $level)
+                                    @if (! $level['is_base'])
+                                        <div>{{ format_number($level['qty'], 4, true) }} {{ $level['label'] }}</div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <small class="text-muted d-block mb-1">Unit Cost{{ $outputUnit ? ' / ' . $outputUnit : '' }}</small>
+                        <h4 class="mb-1 text-primary">
+                            @if ($unitCost > 0)
+                                Rp {{ format_number($unitCost, 2, true) }}
+                            @else
+                                —
+                            @endif
+                        </h4>
+                        @if (count($unitCostLevels) > 1)
+                            <div class="small text-muted lh-sm mt-2">
+                                @foreach ($unitCostLevels as $level)
+                                    @if (! $level['is_base'])
+                                        <div>Rp {{ format_number($level['unit_cost'], 2, true) }} / {{ $level['label'] }}</div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <small class="text-muted d-block mb-1">Grand Total</small>
+                        <h4 class="mb-1">
+                            @if ($totalCost > 0)
+                                Rp {{ format_number($totalCost, 2, true) }}
+                            @else
+                                —
+                            @endif
+                        </h4>
+                        <div class="small text-muted lh-sm mt-2">
+                            <div>Material: Rp {{ format_number($materialCost, 2, true) }}</div>
+                            <div>Overhead: Rp {{ format_number($overheadCost, 2, true) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if ($order->overheads->isNotEmpty() || $overheadCost > 0)
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Overhead</h6>
+                    <span class="fw-semibold text-primary">Rp {{ format_number($overheadCost, 2, true) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Description</th>
+                                <th class="text-end" style="width:180px;">Amount (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($order->overheads as $overhead)
+                                <tr>
+                                    <td>{{ $overhead->description }}</td>
+                                    <td class="text-end">Rp {{ format_number($overhead->amount, 2, true) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td>Overhead</td>
+                                    <td class="text-end">Rp {{ format_number($overheadCost, 2, true) }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Materials Consumed</h6>
+                        @if ($order->materials->isNotEmpty())
+                            <small class="text-muted">Deducted on submit (BOM × production qty)</small>
+                        @endif
+                    </div>
                     <div class="table-responsive">
-                        <table class="table mb-0">
-                            <thead><tr><th>Bahan</th><th class="text-end">Rencana</th><th class="text-end">Aktual Terpakai</th><th class="text-end">Sisa</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
+                        <table class="table mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Material</th>
+                                    <th class="text-end">Consumed</th>
+                                    <th class="text-end">Unit Cost</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @forelse ($order->materials as $m)
                                     @php
@@ -90,39 +225,53 @@
                                             : null;
                                     @endphp
                                     <tr>
-                                        <td>{{ $m->componentVariant?->display_name ?? $m->componentProduct?->name }}</td>
-                                        @php $sisa = (float) $m->expected_qty - $materialQty; @endphp
-                                        <td class="text-end">{{ rtrim(rtrim(number_format((float) $m->expected_qty, 4), '0'), '.') }} {{ $materialUnit }}</td>
-                                        <td class="text-end">
-                                            <div>
-                                                {{ rtrim(rtrim(number_format($materialQty, 4), '0'), '.') }}
-                                                @if ($materialUnit)<span class="text-muted ms-1">{{ $materialUnit }}</span>@endif
-                                            </div>
+                                        <td>
+                                            <div class="fw-medium">{{ $m->componentVariant?->display_name ?? $m->componentProduct?->name }}</div>
                                             @if ($materialConversionHint)
                                                 <small class="text-muted">{{ $materialConversionHint }}</small>
                                             @endif
                                         </td>
-                                        <td class="text-end {{ $sisa > 0 ? 'text-success' : ($sisa < 0 ? 'text-danger' : '') }}">{{ rtrim(rtrim(number_format($sisa, 4), '0'), '.') }} {{ $materialUnit }}</td>
-                                        <td class="text-end">Rp {{ number_format($m->unit_cost, 2) }}</td>
-                                        <td class="text-end">Rp {{ number_format($m->total_cost, 2) }}</td>
+                                        <td class="text-end">
+                                            {{ format_number($materialQty, 4, true) }}
+                                            @if ($materialUnit)<small class="text-muted">{{ $materialUnit }}</small>@endif
+                                        </td>
+                                        <td class="text-end">Rp {{ format_number($m->unit_cost, 2, true) }}</td>
+                                        <td class="text-end">Rp {{ format_number($m->total_cost, 2, true) }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="text-center text-muted py-3">Belum diproses.</td></tr>
+                                    <tr><td colspan="4" class="text-center text-muted py-4">No materials consumed yet.</td></tr>
                                 @endforelse
                             </tbody>
                             @if ($order->materials->count())
-                            <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total Biaya Bahan</td><td class="text-end">Rp {{ number_format($order->total_material_cost, 2) }}</td></tr></tfoot>
+                                <tfoot class="table-light">
+                                    <tr class="fw-bold">
+                                        <td colspan="3" class="text-end">Total Material Cost</td>
+                                        <td class="text-end">Rp {{ format_number($order->total_material_cost, 2, true) }}</td>
+                                    </tr>
+                                </tfoot>
                             @endif
                         </table>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 mb-4">
+            <div class="col-lg-6">
                 <div class="card h-100">
-                    <div class="card-header"><h6 class="card-title mb-0">Hasil Produksi</h6></div>
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Receive</h6>
+                        @if ($order->outputs->isEmpty() && $canReceive)
+                            <small class="text-muted">Complete Receive to add finished goods to warehouse</small>
+                        @endif
+                    </div>
                     <div class="table-responsive">
-                        <table class="table mb-0">
-                            <thead><tr><th>Produk</th><th class="text-end">Qty</th><th class="text-end">HPP/Unit</th><th class="text-end">Total</th></tr></thead>
+                        <table class="table mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Unit Cost</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @forelse ($order->outputs as $o)
                                     @php
@@ -135,21 +284,34 @@
                                             : null;
                                     @endphp
                                     <tr>
-                                        <td>{{ $o->variant?->display_name ?? $o->product?->name }}</td>
-                                        <td class="text-end">
-                                            <div>
-                                                {{ rtrim(rtrim(number_format($producedQty, 2), '0'), '.') }}
-                                                @if ($producedUnit)<span class="text-muted ms-1">{{ $producedUnit }}</span>@endif
-                                            </div>
+                                        <td>
+                                            <div class="fw-medium">{{ $o->variant?->display_name ?? $o->product?->name }}</div>
                                             @if ($outputConversionHint)
                                                 <small class="text-muted">{{ $outputConversionHint }}</small>
                                             @endif
                                         </td>
-                                        <td class="text-end text-primary fw-medium">Rp {{ number_format($o->unit_cost, 2) }}</td>
-                                        <td class="text-end">Rp {{ number_format($o->total_cost, 2) }}</td>
+                                        <td class="text-end">
+                                            {{ format_number($producedQty, 2, true) }}
+                                            @if ($producedUnit)<small class="text-muted">{{ $producedUnit }}</small>@endif
+                                        </td>
+                                        <td class="text-end text-primary">Rp {{ format_number($o->unit_cost, 2, true) }}</td>
+                                        <td class="text-end">Rp {{ format_number($o->total_cost, 2, true) }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="text-center text-muted py-3">Belum diproses.</td></tr>
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">
+                                            @if ($canReceive)
+                                                Not received yet.
+                                                <div class="mt-2">
+                                                    <a href="{{ route('production.receive', $order->id) }}" class="btn btn-sm btn-primary">
+                                                        <i class="ti ti-package me-1"></i> Receive Now
+                                                    </a>
+                                                </div>
+                                            @else
+                                                No output recorded.
+                                            @endif
+                                        </td>
+                                    </tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -157,7 +319,5 @@
                 </div>
             </div>
         </div>
-
-        <a href="{{ route('production.index') }}" class="btn btn-outline-secondary">Kembali</a>
     </div>
 </x-app-layout>

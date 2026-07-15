@@ -7,12 +7,14 @@ use App\Models\Product;
 use App\Models\ProductBatchStock;
 use App\Models\ProductCategory;
 use App\Models\ProductNature;
+use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantStock;
 use App\Models\ProductVariantPrice;
 use App\Models\Warehouse;
 use App\Services\FifoCostService;
 use App\Services\Product\StockDisplayService;
+use App\Services\UnitConversionService;
 use App\Support\InventoryWarehouseContext;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -245,10 +247,15 @@ class ProductStockController extends Controller
 
         return $rows
             ->groupBy(fn (ProductBatchStock $row) => $row->batch?->product_id)
-            ->map(function ($productRows) use ($today) {
+            ->map(function ($productRows, $productId) use ($today) {
+                $product = Product::with(['unitConversions', 'defaultUnit'])->find($productId);
+                $smallestUnitId = $product?->getSmallestUnitId();
+                $smallestUnit = $smallestUnitId ? ProductUnit::find($smallestUnitId) : null;
+                $smallestLabel = $smallestUnit?->symbol ?: ($smallestUnit?->name ?: '');
+
                 return $productRows
                     ->groupBy(fn (ProductBatchStock $row) => ($row->product_batch_id).'|'.($row->unit_id ?? ''))
-                    ->map(function ($group) use ($today) {
+                    ->map(function ($group) use ($today, $product, $smallestUnitId, $smallestLabel) {
                         /** @var ProductBatchStock $first */
                         $first = $group->first();
                         $batch = $first->batch;
@@ -265,13 +272,25 @@ class ProductStockController extends Controller
                             }
                         }
 
+                        $quantity = $group->sum(fn (ProductBatchStock $r) => (float) $r->quantity);
+                        $unitLabel = $first->unit?->symbol ?: ($first->unit?->name ?: '');
+                        $unitId = $first->unit_id;
+                        $smallestQty = null;
+                        if ($product && $smallestUnitId && $unitId && $unitId !== $smallestUnitId) {
+                            $smallestQty = UnitConversionService::convertQuantity($product, $quantity, $unitId, $smallestUnitId);
+                        } elseif ($unitId && $smallestUnitId && $unitId === $smallestUnitId) {
+                            $smallestQty = $quantity;
+                        }
+
                         return [
                             'batch_number' => $batch?->batch_number ?: '-',
                             'expiry_date' => $expiry?->toDateString(),
                             'expiry_label' => $expiry ? $expiry->format('d/m/Y') : '-',
                             'expiry_status' => $expiryStatus,
-                            'quantity' => $group->sum(fn (ProductBatchStock $r) => (float) $r->quantity),
-                            'unit' => $first->unit?->symbol ?: ($first->unit?->name ?: ''),
+                            'quantity' => $quantity,
+                            'unit' => $unitLabel,
+                            'smallest_quantity' => $smallestQty,
+                            'smallest_unit' => $smallestLabel,
                         ];
                     })
                     ->filter(fn ($row) => $row['quantity'] > 0)
@@ -337,6 +356,9 @@ class ProductStockController extends Controller
             'stock_by_units' => $stockDisplay['stock_by_units'],
             'show_unit_detail' => $stockDisplay['show_unit_detail'],
             'conversion_hint' => $stockDisplay['conversion_hint'],
+            'conversion_chain_hint' => $stockDisplay['conversion_chain_hint'],
+            'packaging_breakdown' => $stockDisplay['packaging_breakdown'],
+            'packaging_hint' => $stockDisplay['packaging_hint'],
             'smallest_quantity' => $stockDisplay['smallest_quantity'],
             'smallest_unit' => $stockDisplay['smallest_unit'],
             'smallest_unit_id' => $stockDisplay['smallest_unit_id'],

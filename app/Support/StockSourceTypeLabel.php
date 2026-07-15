@@ -10,6 +10,7 @@ class StockSourceTypeLabel
         'TransferOut' => 'Transfer Keluar',
         'ProductionOutput' => 'Hasil Produksi',
         'ProductionConsume' => 'Konsumsi Produksi',
+        'ProductionConsumeReverse' => 'Pembalikan Konsumsi Produksi',
         'PurchaseReceive' => 'Penerimaan PO',
         'ReplenishmentReceipt' => 'Penerimaan Replenishment',
         'ReplenishmentReturn' => 'Retur Replenishment',
