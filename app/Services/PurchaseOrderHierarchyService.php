@@ -57,11 +57,11 @@ class PurchaseOrderHierarchyService
             ->where('po_kind', self::KIND_MASTER)
             ->whereNull('deleted_at')
             ->when(! empty($accessibleBranchIds), fn ($q) => $q->whereIn('branch_id', $accessibleBranchIds))
-            ->whereNotIn('status', ['cancelled'])
+            ->whereNotIn('status', ['cancelled', 'draft', 'received'])
             ->orderByDesc('purchase_date')
             ->orderByDesc('created_at')
             ->get()
-            ->filter(fn (ProductPurchaseOrder $master) => self::masterHasRemainingRelease($master))
+            ->filter(fn (ProductPurchaseOrder $master) => self::canCreateSubPurchaseOrder($master))
             ->values();
     }
 
@@ -88,7 +88,9 @@ class PurchaseOrderHierarchyService
             return false;
         }
 
-        if (in_array($purchase->status_key ?? $purchase->status, ['cancelled'], true)) {
+        // RO hanya boleh dibuat setelah CPO keluar dari draft (minimal Process).
+        $status = $purchase->status_key ?? $purchase->status;
+        if (! in_array($status, ['process', 'receiving', 'payment'], true)) {
             return false;
         }
 

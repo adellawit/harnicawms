@@ -37,4 +37,9 @@ class ProductBatchStock extends Model
     {
         return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
 }

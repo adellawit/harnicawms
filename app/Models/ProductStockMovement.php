@@ -68,6 +68,11 @@ class ProductStockMovement extends Model
         return $this->belongsTo(StockMutationType::class, 'stock_mutation_type_id', 'id');
     }
 
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');

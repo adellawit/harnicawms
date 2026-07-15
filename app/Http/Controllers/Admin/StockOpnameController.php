@@ -27,11 +27,12 @@ class StockOpnameController extends Controller
 
     public function indexView(Request $request)
     {
-        $ctx = InventoryWarehouseContext::resolve($request);
+        $ctx = InventoryWarehouseContext::resolve($request, autoSelectDefault: false);
         $branchId = $ctx['filter_branch_id'];
         $warehouseId = $ctx['warehouse_id'];
         $selectedWarehouse = $ctx['warehouse'];
         $warehouses = $ctx['warehouses'];
+        $accessibleWarehouseIds = $warehouses->pluck('id')->all();
         $perPage = $request->get('per_page', 20);
 
         $query = Product::with([
@@ -80,14 +81,30 @@ class StockOpnameController extends Controller
         $variantStocks = collect();
         if ($warehouseId) {
             $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
+                ->whereNull('deleted_at')
                 ->where('warehouse_id', $warehouseId)
                 ->get()
                 ->keyBy('product_variant_id');
-        } elseif ($branchId) {
-            $variantStocks = ProductVariantStock::with('unit:id,name,symbol')
-                ->where('branch_id', $branchId)
-                ->get()
-                ->keyBy('product_variant_id');
+        } else {
+            // Agregat semua gudang yang accessible (default: All Warehouse)
+            $stockQuery = ProductVariantStock::with('unit:id,name,symbol')
+                ->whereNull('deleted_at')
+                ->when(
+                    ! empty($accessibleWarehouseIds),
+                    fn ($q) => $q->whereIn('warehouse_id', $accessibleWarehouseIds),
+                    fn ($q) => $q->when($branchId, fn ($q2) => $q2->where('branch_id', $branchId))
+                );
+
+            $variantStocks = $stockQuery->get()
+                ->groupBy('product_variant_id')
+                ->map(function ($rows) {
+                    $first = $rows->first();
+                    // Clone ringan agar qty agregat tidak menimpa model asli di memory lain
+                    $agg = clone $first;
+                    $agg->quantity = $rows->sum(fn ($row) => (float) $row->quantity);
+
+                    return $agg;
+                });
         }
 
         $productData = [];

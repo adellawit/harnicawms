@@ -16,6 +16,7 @@ class ProductUnitSeeder extends Seeder
         'PACK',
         'BOX',
         'SACHET',
+        'PCS',
     ];
 
     /**
@@ -53,7 +54,7 @@ class ProductUnitSeeder extends Seeder
             $this->command?->info("Satuan lama dihapus permanen: {$deleted} record.");
         }
 
-        $this->command?->info('Satuan aktif: Karton, Pack, Box, Sachet.');
+        $this->command?->info('Satuan aktif: Karton, Pack, Box, Sachet, Pcs.');
     }
 
     private function units(): array
@@ -63,6 +64,7 @@ class ProductUnitSeeder extends Seeder
             ['code' => 'PACK', 'name' => 'Pack', 'symbol' => 'pack'],
             ['code' => 'BOX', 'name' => 'Box', 'symbol' => 'box'],
             ['code' => 'SACHET', 'name' => 'Sachet', 'symbol' => 'sct'],
+            ['code' => 'PCS', 'name' => 'Pcs', 'symbol' => 'pcs'],
         ];
     }
 

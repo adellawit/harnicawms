@@ -137,14 +137,6 @@
                                     <input type="text" name="items[{{ $idx }}][quantity]" class="form-control item-qty number-format" value="{{ format_number($item->quantity, 6, true) }}" required />
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Kode Batch <span class="text-danger">*</span></label>
-                                    <input type="text" name="items[{{ $idx }}][batch_number]" class="form-control item-batch" maxlength="100" value="{{ old('items.'.$idx.'.batch_number', $item->batch_number) }}" required />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Expired <span class="text-danger">*</span></label>
-                                    <input type="text" name="items[{{ $idx }}][expiry_date]" class="form-control flatpickr-date item-expiry" value="{{ old('items.'.$idx.'.expiry_date', $item->expiry_date?->format('d/m/Y')) }}" required />
-                                </div>
-                                <div class="col-md-2">
                                     <label class="form-label">Carton (MC)</label>
                                     <div class="form-control item-mc-display bg-light text-muted">{{ $item->carton_display_label }}</div>
                                 </div>
@@ -386,10 +378,6 @@
                     '<select name="items['+itemCounter+'][unit_id]" class="form-select select2-unit">'+unitOpts+'</select></div>' +
                     '<div class="col-md-2"><label class="form-label">Qty <span class="text-danger">*</span></label>' +
                     '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" required /></div>' +
-                    '<div class="col-md-2"><label class="form-label">Kode Batch <span class="text-danger">*</span></label>' +
-                    '<input type="text" name="items['+itemCounter+'][batch_number]" class="form-control item-batch" maxlength="100" required /></div>' +
-                    '<div class="col-md-2"><label class="form-label">Expired <span class="text-danger">*</span></label>' +
-                    '<input type="text" name="items['+itemCounter+'][expiry_date]" class="form-control flatpickr-date item-expiry" required /></div>' +
                     '<div class="col-md-2"><label class="form-label">Carton (MC)</label>' +
                     '<div class="form-control item-mc-display bg-light text-muted">-</div></div>' +
                     '<div class="col-md-2"><label class="form-label">Unit Price <span class="text-danger">*</span></label>' +
@@ -411,11 +399,6 @@
                     setTimeout(function() { updateMcDisplayForRow($row); }, 200);
                 });
                 initNumberInputs($lastRow);
-                $lastRow.find('.item-expiry').each(function() {
-                    if (!$(this).data('flatpickr')) {
-                        $(this).flatpickr({ dateFormat: 'd/m/Y' });
-                    }
-                });
                 bindItemCalculations($lastRow);
             }
 

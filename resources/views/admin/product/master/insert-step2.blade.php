@@ -50,7 +50,8 @@
                     @if(! empty($conversions))
                         Continue the conversion chain from <strong>{{ $selectedUnit->name ?? 'current unit' }}</strong>
                     @else
-                        Start from default unit <strong>{{ $defaultUnit->name ?? 'default unit' }}</strong> (at least 1 conversion required)
+                        Start from default unit <strong>{{ $defaultUnit->name ?? 'default unit' }}</strong>.
+                        Boleh dilewati jika produk hanya punya 1 satuan (mis. Label/Dus — Pcs saja).
                     @endif
                 </small>
             </div>
@@ -72,6 +73,7 @@
                 <div class="alert alert-info mb-3">
                     <i class="ti ti-info-circle me-1"></i>
                     <strong>Unit Conversions:</strong> Define how your product units relate to each other (e.g., 1 Karton = 30 Pack, 1 Pack = 10 Box → total 300 Box per Karton). Each step is <em>per langkah</em>, bukan total dari Karton.
+                    Jika produk hanya memakai 1 satuan (mis. Pcs), lewati langkah ini dan klik <em>Next</em>.
                 </div>
 
                 <form method="POST" action="{{ route('product.insert.data.step2') }}" class="row g-3">
@@ -174,7 +176,11 @@
                             <i class="ti ti-plus me-1"></i> Add More
                         </button>
                         <button type="button" id="btn-next-step" class="btn btn-primary">
-                            Next: Variants & Prices
+                            @if(empty($conversions))
+                                Next (Skip — Satuan Tunggal)
+                            @else
+                                Next: Variants & Prices
+                            @endif
                         </button>
                     </div>
                 </form>
@@ -311,13 +317,8 @@
                     form.submit();
                 });
 
-                // Next Step button click - check if conversions exist
+                // Next Step: conversions optional (single-unit products like Label/Dus Pcs)
                 $('#btn-next-step').click(function() {
-                    const conversionCount = {{ count($conversions ?? []) }};
-                    if (conversionCount === 0) {
-                        alert('Please add at least one unit conversion before proceeding.');
-                        return;
-                    }
                     window.location.href = '{{ route("product.insert.view.step3") }}';
                 });
 

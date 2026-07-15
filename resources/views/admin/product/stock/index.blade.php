@@ -42,21 +42,28 @@
                 <div>
                     <h5 class="card-title mb-0">Product Stock</h5>
                     @if($selectedWarehouseName)
-                        <small class="text-muted">Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong></small>
+                        <small class="text-muted">
+                            Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong>
+                            @if($selectedWarehouse->warehouse_type_code === 'RAW_MATERIAL')
+                                <span class="badge bg-label-info ms-1">Bahan Baku</span>
+                            @elseif($selectedWarehouse->warehouse_type_code === 'FG')
+                                <span class="badge bg-label-success ms-1">Barang Jadi</span>
+                            @endif
+                        </small>
                     @else
-                        <small class="text-muted">Menampilkan stok agregat semua gudang yang dapat diakses</small>
+                        <small class="text-muted">Agregat semua gudang — gunakan Filter → Gudang untuk memisahkan Bahan Baku vs Barang Jadi</small>
                     @endif
                 </div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Tampilan satuan">
-                        <a href="{{ $largeUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'large' ? 'primary' : 'outline-primary' }}">
+                <div class="d-flex align-items-center gap-2 flex-wrap stock-header-actions">
+                    <div class="btn-group" role="group" aria-label="Tampilan satuan">
+                        <a href="{{ $largeUnitUrl }}" class="btn btn-sm btn-{{ $displayUnitMode === 'large' ? 'primary' : 'outline-primary' }}">
                             Satuan Besar
                         </a>
-                        <a href="{{ $smallUnitUrl }}" class="btn btn-{{ $displayUnitMode === 'small' ? 'primary' : 'outline-primary' }}">
+                        <a href="{{ $smallUnitUrl }}" class="btn btn-sm btn-{{ $displayUnitMode === 'small' ? 'primary' : 'outline-primary' }}">
                             Satuan Kecil
                         </a>
                     </div>
-                    <button type="button" class="btn btn-{{ $isFilter ? 'warning' : 'primary' }} btn-sm" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <button type="button" class="btn btn-sm btn-{{ $isFilter ? 'warning' : 'primary' }}" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="ti ti-filter me-1"></i> Filter
                     </button>
                 </div>
@@ -151,6 +158,52 @@
                                     @if(!empty($item['conversion_hint']))
                                         <small class="text-muted d-block fst-italic">{{ $item['conversion_hint'] }}</small>
                                     @endif
+                                    @if(!empty($item['has_batch_stocks']) && !empty($item['batch_stocks']))
+                                        <div class="stock-batch-detail mt-2">
+                                            <button type="button"
+                                                    class="btn btn-xs btn-label-info btn-sm py-0 px-2 stock-batch-toggle"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#batch-{{ $item['product_id'] }}-{{ $item['variant_id'] }}"
+                                                    aria-expanded="false">
+                                                <i class="ti ti-packages me-1"></i>{{ count($item['batch_stocks']) }} batch
+                                            </button>
+                                            <div class="collapse mt-2" id="batch-{{ $item['product_id'] }}-{{ $item['variant_id'] }}">
+                                                <table class="table table-sm table-bordered mb-0 stock-batch-table">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Batch</th>
+                                                            <th>Expired</th>
+                                                            <th class="text-end">Qty</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($item['batch_stocks'] as $batchRow)
+                                                            <tr>
+                                                                <td>
+                                                                    <code class="small">{{ $batchRow['batch_number'] }}</code>
+                                                                </td>
+                                                                <td>
+                                                                    @if(($batchRow['expiry_status'] ?? 'none') === 'expired')
+                                                                        <span class="badge bg-label-danger">{{ $batchRow['expiry_label'] }}</span>
+                                                                    @elseif(($batchRow['expiry_status'] ?? 'none') === 'near')
+                                                                        <span class="badge bg-label-warning">{{ $batchRow['expiry_label'] }}</span>
+                                                                    @elseif(($batchRow['expiry_status'] ?? 'none') === 'ok')
+                                                                        <span class="badge bg-label-success">{{ $batchRow['expiry_label'] }}</span>
+                                                                    @else
+                                                                        <span class="text-muted">-</span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="text-end">
+                                                                    {{ format_number((float) $batchRow['quantity'], 2, true) }}
+                                                                    <small class="text-muted">{{ $batchRow['unit'] }}</small>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="text-end">
                                     {{ format_number($displayMinStock, 2, true) }}
@@ -204,6 +257,41 @@
             @endif
         </div>
     </div>
+
+    @push('page-css')
+        <style>
+            /* Samakan tinggi & padding tombol Satuan + Filter */
+            .stock-header-actions .btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                height: 32px;
+                padding: 0.4375rem 0.875rem;
+                font-size: 0.8125rem;
+                line-height: 1;
+            }
+
+            .stock-header-actions .btn i {
+                font-size: 0.875rem;
+                line-height: 1;
+            }
+
+            .stock-batch-table {
+                font-size: 0.75rem;
+                min-width: 220px;
+                background: #fff;
+            }
+            .stock-batch-table th,
+            .stock-batch-table td {
+                padding: 0.25rem 0.4rem;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+            .stock-batch-toggle {
+                font-size: 0.72rem;
+            }
+        </style>
+    @endpush
 
     <x-modal id="filterModal" title="Filter">
         <div class="mb-3">

@@ -97,6 +97,7 @@ class ReportStockCardController extends Controller
                 $query = ProductStockMovement::with([
                         'stockMutationType:id,code,name,direction',
                         'variant.variantAttributes.attributeValue',
+                        'unit:id,name,symbol',
                     ])
                     ->where('product_id', $productId)
                     ->where('branch_id', $branchId)

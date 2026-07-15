@@ -57,6 +57,10 @@ class DatabaseSeeder extends Seeder
             // Sync master_data.warehouses dari business_units WAREHOUSE + default per cabang
             WarehouseSeeder::class,
 
+            // Supplier Foredi (Pabrik + Packaging)
+            // Depends on: BusinessUnitSeeder, ParameterSeeder (SUPPLIER)
+            ForediSupplierSeeder::class,
+
             // Foredi Agent & Reseller (+ geocode Alamat Domisili)
             // Depends on: BusinessUnitSeeder (SUHARA-001 / SUHARA-BDG-001)
             ForediPartnerSeeder::class,

@@ -8,14 +8,18 @@ use App\Models\BusinessUnit;
 use App\Models\Parameter;
 use App\Models\ParameterDetail;
 use App\Models\Product;
+use App\Models\ProductBatch;
+use App\Models\ProductBatchStock;
 use App\Models\ProductCostLayer;
 use App\Models\ProductNature;
 use App\Models\ProductPriceList;
+use App\Models\ProductStockMovement;
 use App\Models\ProductUnit;
 use App\Models\ProductUnitConversion;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
+use App\Models\StockMutationType;
 use App\Models\Warehouse;
 use App\Services\Product\ProductStockBootstrapService;
 use Illuminate\Database\Seeder;
@@ -37,10 +41,12 @@ use Illuminate\Support\Facades\DB;
  *   ⇒ 1 Karton FG (1200 sachet) ← 1200 Sachet RM = 4/3 Karton RM
  *
  * Warehouse:
- *   RM → SUHARA-BDG-WH-RM (RAW_MATERIAL)
+ *   RM → SUHARA-BDG-WH-RM (RAW_MATERIAL) — Foredi RM + Label, Plastik, Dus
  *   FG → SUHARA-BDG-WH-PRD (FG), is_sale_item = true
  *
- * Depends on: BusinessUnitSeeder, ProductUnitSeeder (+SACHET), ProductNatureSeeder,
+ * Packaging RM (Label / Plastik / Dus): satuan Pcs saja (1 Pcs).
+ *
+ * Depends on: BusinessUnitSeeder, ProductUnitSeeder (+SACHET, +PCS), ProductNatureSeeder,
  *             ProductParameterSeeder, ProductPriceListSeeder, WarehouseSeeder
  */
 class ForediProductSeeder extends Seeder
@@ -57,6 +63,32 @@ class ForediProductSeeder extends Seeder
 
     private const FG_CODE = 'FOREDI-FG';
 
+    /**
+     * Packaging raw materials — satuan Pcs (tanpa konversi).
+     *
+     * @var list<array{code: string, name: string, sku: string, purchase_per_pcs: float}>
+     */
+    private const PACKAGING_RMS = [
+        [
+            'code' => 'FOREDI-LABEL',
+            'name' => 'Label (Bahan Baku)',
+            'sku' => 'FRD-LABEL-STD',
+            'purchase_per_pcs' => 500.0,
+        ],
+        [
+            'code' => 'FOREDI-PLASTIK',
+            'name' => 'Plastik (Bahan Baku)',
+            'sku' => 'FRD-PLASTIK-STD',
+            'purchase_per_pcs' => 750.0,
+        ],
+        [
+            'code' => 'FOREDI-DUS',
+            'name' => 'Dus (Bahan Baku)',
+            'sku' => 'FRD-DUS-STD',
+            'purchase_per_pcs' => 1500.0,
+        ],
+    ];
+
     /** Initial RM stock: 10 Karton → 9000 Sachet */
     private const RM_INITIAL_KARTON = 10;
 
@@ -65,6 +97,9 @@ class ForediProductSeeder extends Seeder
 
     /** Sample selling price per Karton FG (IDR) */
     private const FG_SELLING_PER_KARTON = 900000.0;
+
+    /** Notes marker for idempotent seed stock movements */
+    private const SEED_MOVEMENT_NOTES = 'Seed - Saldo Awal';
 
     public function run(ProductStockBootstrapService $stockBootstrap): void
     {
@@ -86,12 +121,12 @@ class ForediProductSeeder extends Seeder
         }
 
         $units = ProductUnit::query()
-            ->whereIn('code', ['KARTON', 'PACK', 'BOX', 'SACHET'])
+            ->whereIn('code', ['KARTON', 'PACK', 'BOX', 'SACHET', 'PCS'])
             ->whereNull('deleted_at')
             ->get()
             ->keyBy('code');
 
-        foreach (['KARTON', 'PACK', 'BOX', 'SACHET'] as $code) {
+        foreach (['KARTON', 'PACK', 'BOX', 'SACHET', 'PCS'] as $code) {
             if (! isset($units[$code])) {
                 $this->command?->error("Satuan {$code} belum ada. Jalankan ProductUnitSeeder dulu.");
 
@@ -177,6 +212,8 @@ class ForediProductSeeder extends Seeder
                 unitId: $units['SACHET']->id,
                 quantity: self::RM_INITIAL_KARTON * 30 * 10 * 3, // 10 Karton → 9000 Sachet
                 unitCost: self::RM_PURCHASE_PER_KARTON / (30 * 10 * 3),
+                seedBatchUnitId: $units['KARTON']->id,
+                seedBatchQuantity: (float) self::RM_INITIAL_KARTON,
             );
 
             if ($priceList) {
@@ -191,6 +228,53 @@ class ForediProductSeeder extends Seeder
                     purchasePerDefault: self::RM_PURCHASE_PER_KARTON,
                     sellingPerDefault: null,
                 );
+            }
+
+            // --- Packaging raw materials (Label, Plastik, Dus) — satuan Pcs saja ---
+            foreach (self::PACKAGING_RMS as $pkg) {
+                $pkgProduct = $this->upsertProduct([
+                    'code' => $pkg['code'],
+                    'name' => $pkg['name'],
+                    'description' => $pkg['name'].'. Satuan: Pcs (1 Pcs).',
+                    'company_id' => $company->id,
+                    'branch_id' => $branch->id,
+                    'nature_id' => $natureRm->id,
+                    'item_type_id' => $itemTypeRm,
+                    'product_nature_id' => $productNatureInventory,
+                    'procurement_type_id' => $procurementPurchase,
+                    'default_unit_id' => $units['PCS']->id,
+                    'is_stock_item' => true,
+                    'is_sale_item' => false,
+                    'is_purchase_item' => true,
+                ]);
+
+                // Hapus konversi lama (jika sempat di-seed dengan rantai karton).
+                $this->syncConversionChain($pkgProduct, [], $units);
+
+                $pkgVariant = $this->ensureDefaultVariant($pkgProduct, $pkg['sku']);
+                $stockBootstrap->bootstrap($pkgProduct);
+                $this->ensureStockInWarehouse(
+                    product: $pkgProduct,
+                    variant: $pkgVariant,
+                    warehouse: $whRm,
+                    unitId: $units['PCS']->id,
+                    quantity: 0,
+                    unitCost: null,
+                );
+
+                if ($priceList) {
+                    $this->syncPrices(
+                        variant: $pkgVariant,
+                        companyId: $company->id,
+                        branchId: $branch->id,
+                        priceListId: $priceList->id,
+                        defaultUnitId: $units['PCS']->id,
+                        smallestUnitId: $units['PCS']->id,
+                        factorToSmallest: 1.0,
+                        purchasePerDefault: $pkg['purchase_per_pcs'],
+                        sellingPerDefault: null,
+                    );
+                }
             }
 
             // --- Finished Good: 1 krt = 30 pack = 300 box = 1200 sachet ---
@@ -256,6 +340,9 @@ class ForediProductSeeder extends Seeder
 
         $this->command?->info('Foredi products seeded:');
         $this->command?->line('  RM  FOREDI-RM  1 krt=30 pack=300 box=900 sachet  → '.self::WH_RM_CODE);
+        foreach (self::PACKAGING_RMS as $pkg) {
+            $this->command?->line('  RM  '.$pkg['code'].'  satuan: Pcs (1 Pcs)  → '.self::WH_RM_CODE);
+        }
         $this->command?->line('  FG  FOREDI-FG  1 krt=30 pack=300 box=1200 sachet → '.self::WH_FG_CODE.' (saleable)');
         $this->command?->line('  BOM 1 Box FG ← 4 Sachet RM');
         $this->command?->line('  Stock RM awal: '.self::RM_INITIAL_KARTON.' Karton ('.(self::RM_INITIAL_KARTON * 900).' Sachet) @ '.self::WH_RM_CODE);
@@ -350,24 +437,30 @@ class ForediProductSeeder extends Seeder
         string $unitId,
         float $quantity,
         ?float $unitCost,
+        ?string $seedBatchUnitId = null,
+        ?float $seedBatchQuantity = null,
     ): void {
         $stock = ProductVariantStock::withTrashed()
             ->where('product_variant_id', $variant->id)
             ->where('warehouse_id', $warehouse->id)
             ->first();
 
+        $qtyBefore = $stock ? (float) $stock->quantity : 0.0;
+
         if ($stock) {
+            // Jangan menimpa stok live (mis. sudah ada receive); hanya isi jika kosong.
+            $nextQty = $qtyBefore > 0 ? $qtyBefore : $quantity;
             $stock->fill([
                 'product_id' => $product->id,
                 'company_id' => $product->company_id,
                 'branch_id' => $product->branch_id,
-                'unit_id' => $unitId,
-                'quantity' => $quantity,
+                'unit_id' => $stock->unit_id ?: $unitId,
+                'quantity' => $nextQty,
                 'deleted_at' => null,
             ]);
             $stock->save();
         } else {
-            ProductVariantStock::create([
+            $stock = ProductVariantStock::create([
                 'product_variant_id' => $variant->id,
                 'product_id' => $product->id,
                 'company_id' => $product->company_id,
@@ -399,6 +492,166 @@ class ForediProductSeeder extends Seeder
                 'source_type' => 'SEED',
                 'source_id' => null,
                 'effective_date' => now()->toDateString(),
+            ]);
+        }
+
+        $this->ensureSeedStockMovement(
+            stock: $stock,
+            product: $product,
+            variant: $variant,
+            warehouse: $warehouse,
+            unitId: $unitId,
+            seedQuantity: $quantity,
+        );
+
+        if ($seedBatchUnitId && $seedBatchQuantity !== null) {
+            $this->ensureSeedBatchStock(
+                product: $product,
+                warehouse: $warehouse,
+                unitId: $seedBatchUnitId,
+                quantity: $seedBatchQuantity,
+            );
+        }
+    }
+
+    /**
+     * Catat mutasi INITIAL_BALANCE agar saldo seed masuk histori mutasi (idempotent per variant+warehouse).
+     */
+    private function ensureSeedStockMovement(
+        ProductVariantStock $stock,
+        Product $product,
+        ProductVariant $variant,
+        Warehouse $warehouse,
+        string $unitId,
+        float $seedQuantity,
+    ): void {
+        $existing = ProductStockMovement::withTrashed()
+            ->where('product_variant_id', $variant->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('notes', self::SEED_MOVEMENT_NOTES)
+            ->first();
+
+        if ($seedQuantity <= 0) {
+            if ($existing) {
+                $existing->forceDelete();
+            }
+
+            return;
+        }
+
+        $mutationTypeId = StockMutationType::query()
+            ->where('code', 'INITIAL_BALANCE')
+            ->value('id');
+
+        // Saldo awal harus muncul sebelum receive (jika sudah ada).
+        $createdAt = ProductStockMovement::query()
+            ->where('product_variant_id', $variant->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('notes', '!=', self::SEED_MOVEMENT_NOTES)
+            ->orderBy('created_at')
+            ->value('created_at');
+
+        $seedAt = $createdAt
+            ? \Carbon\Carbon::parse($createdAt)->subSecond()
+            : now();
+
+        $payload = [
+            'product_variant_stock_id' => $stock->id,
+            'product_variant_id' => $variant->id,
+            'product_id' => $product->id,
+            'company_id' => $product->company_id,
+            'branch_id' => $product->branch_id,
+            'warehouse_id' => $warehouse->id,
+            'unit_id' => $unitId,
+            'stock_mutation_type_id' => $mutationTypeId,
+            'type' => 'in',
+            'quantity' => $seedQuantity,
+            'quantity_before' => 0,
+            'quantity_after' => $seedQuantity,
+            'reference_type' => 'SEED',
+            'reference_id' => null,
+            'notes' => self::SEED_MOVEMENT_NOTES,
+            'deleted_at' => null,
+        ];
+
+        if ($existing) {
+            $existing->fill($payload);
+            $existing->save();
+            $movement = $existing;
+        } else {
+            $movement = ProductStockMovement::create($payload);
+        }
+
+        // Pastikan saldo awal kronologis sebelum receive.
+        $movement->timestamps = false;
+        $movement->created_at = $seedAt;
+        $movement->updated_at = $seedAt;
+        $movement->save();
+    }
+
+    /**
+     * Pastikan stok seed punya batch agar tidak muncul sebagai qty "di luar batch".
+     */
+    private function ensureSeedBatchStock(
+        Product $product,
+        Warehouse $warehouse,
+        string $unitId,
+        float $quantity,
+    ): void {
+        $batchNumber = 'SEED-'.$product->code;
+
+        $batch = ProductBatch::withTrashed()
+            ->where('product_id', $product->id)
+            ->where('batch_number', $batchNumber)
+            ->first();
+
+        if ($quantity <= 0) {
+            if ($batch) {
+                ProductBatchStock::query()
+                    ->where('product_batch_id', $batch->id)
+                    ->where('warehouse_id', $warehouse->id)
+                    ->delete();
+                $batch->forceDelete();
+            }
+
+            return;
+        }
+
+        if ($batch) {
+            $batch->fill([
+                'company_id' => $product->company_id,
+                'expiry_date' => null,
+                'deleted_at' => null,
+            ]);
+            $batch->save();
+        } else {
+            $batch = ProductBatch::create([
+                'product_id' => $product->id,
+                'company_id' => $product->company_id,
+                'batch_number' => $batchNumber,
+                'expiry_date' => null,
+            ]);
+        }
+
+        $batchStock = ProductBatchStock::query()
+            ->where('product_batch_id', $batch->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('unit_id', $unitId)
+            ->first();
+
+        if ($batchStock) {
+            $batchStock->fill([
+                'branch_id' => $product->branch_id,
+                'quantity' => $quantity,
+            ]);
+            $batchStock->save();
+        } else {
+            ProductBatchStock::create([
+                'product_batch_id' => $batch->id,
+                'branch_id' => $product->branch_id,
+                'warehouse_id' => $warehouse->id,
+                'unit_id' => $unitId,
+                'quantity' => $quantity,
             ]);
         }
     }

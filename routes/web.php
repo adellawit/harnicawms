@@ -583,6 +583,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/receive/{id}', [PurchaseOrderController::class, 'receiveView'])->name('product.purchase-order.receive.view')->middleware('permission:Purchase Order,is_update');
             Route::post('/receive/data', [PurchaseOrderController::class, 'receiveData'])->name('product.purchase-order.receive.data')->middleware('permission:Purchase Order,is_update');
             Route::get('/receive-detail/{id}', [PurchaseOrderController::class, 'receiveDetailView'])->name('product.purchase-order.receive-detail.view')->middleware('permission:Purchase Order,is_read');
+            Route::get('/receive-detail/{id}/print-batch', [PurchaseOrderController::class, 'receiveBatchPrint'])->name('product.purchase-order.receive-batch.print')->middleware('permission:Purchase Order,is_read');
         });
 
         Route::group(['prefix' => 'purchase-invoice'], function () {

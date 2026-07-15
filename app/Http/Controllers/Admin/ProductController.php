@@ -1419,13 +1419,7 @@ class ProductController extends Controller
                 ->with('success', 'Unit conversion added. Add more or continue.');
         }
 
-        // Check if at least one conversion is added before proceeding
-        $conversions = session()->get('temp_conversions', []);
-        if (empty($conversions)) {
-            return redirect()->route('product.insert.view.step2')
-                ->with('error', 'Please add at least one unit conversion before proceeding.');
-        }
-
+        // Conversions optional: single-unit products (e.g. Label/Dus — Pcs only) may skip.
         return redirect()->route('product.insert.view.step3');
     }
 

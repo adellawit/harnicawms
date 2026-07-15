@@ -24,7 +24,7 @@
             $selectedWarehouseName = $selectedWarehouse?->name ?? null;
             $warehouseOptions = $warehouses ?? collect();
 
-            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch;
+            $isFilter = $filterSku !== '' || $filterProductId !== '' || $filterNatureId !== '' || $filterCategoryId !== '' || $filterVariant !== '' || $filterPerPage != 20 || $filterBranchId !== $defaultBranch || $filterWarehouseId !== '';
         @endphp
 
         <x-page-header
@@ -42,24 +42,13 @@
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <h5 class="card-title mb-0">Stock Opname</h5>
-                    @unless($selectedWarehouseName)
-                        <small class="text-warning">Select a warehouse to view and perform stock opname</small>
-                    @endunless
+                    @if($selectedWarehouseName)
+                        <small class="text-muted">Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong></small>
+                    @else
+                        <small class="text-muted">Menampilkan stok agregat semua gudang — pilih gudang spesifik di Filter sebelum Save Opname</small>
+                    @endif
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <div class="d-flex align-items-center gap-2">
-                        <label for="selectWarehouse" class="form-label mb-0 text-nowrap small text-muted">Warehouse</label>
-                        <select id="selectWarehouse" class="select2-warehouse form-select form-select-sm" data-allow-clear="true" style="min-width: 260px;">
-                            <option value="">-- Select Warehouse --</option>
-                            @foreach($warehouseOptions as $wh)
-                                <option value="{{ $wh->id }}" @if($filterWarehouseId === $wh->id) selected @endif>
-                                    {{ $wh->name }}
-                                    @if($wh->warehouse_type_code) [{{ $wh->warehouse_type_code }}] @endif
-                                    @if($wh->branch) - {{ $wh->branch->name }} @endif
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
                     @if($hasUpdatePermission)
                         <button type="button" class="btn btn-primary btn-sm btn-save">
                             <i class="ti ti-clipboard-check me-1"></i> Save Opname
@@ -196,6 +185,20 @@
 
         <x-modal id="filterModal" title="Filter">
             <div class="mb-3">
+                <label class="form-label">Gudang</label>
+                <select id="selectWarehouse" class="select2-modal form-select" data-allow-clear="true">
+                    <option value="">Semua Gudang (Agregat)</option>
+                    @foreach($warehouseOptions as $wh)
+                        <option value="{{ $wh->id }}" @if($filterWarehouseId === $wh->id) selected @endif>
+                            {{ $wh->name }}
+                            @if($wh->warehouse_type_code) [{{ $wh->warehouse_type_code }}] @endif
+                            @if($wh->branch) - {{ $wh->branch->name }} @endif
+                        </option>
+                    @endforeach
+                </select>
+                <small class="text-muted">Default: semua gudang. Pilih satu gudang sebelum Save Opname.</small>
+            </div>
+            <div class="mb-3">
                 <label class="form-label">Branch (Filter Produk)</label>
                 <select id="selectBranch" class="select2-modal form-select" data-allow-clear="true">
                     <option value="">All Branch</option>
@@ -269,12 +272,6 @@
             $(document).ready(function() {
                 var listUrl = '{{ route("product.stock-opname.index") }}';
 
-                $('#selectWarehouse').select2({
-                    placeholder: '-- Select Warehouse --',
-                    allowClear: true,
-                    width: '100%'
-                });
-
                 function buildListUrl(options) {
                     options = options || {};
                     var params = [];
@@ -309,21 +306,6 @@
                     return listUrl;
                 }
 
-                $('#selectWarehouse').on('change', function() {
-                    var urlParams = new URLSearchParams(window.location.search);
-                    var url = buildListUrl({
-                        warehouseId: $(this).val(),
-                        branchId: urlParams.get('branch_id') || '',
-                        sku: urlParams.get('sku') || '',
-                        productId: urlParams.get('product_id') || '',
-                        natureId: urlParams.get('nature_id') || '',
-                        categoryId: urlParams.get('category_id') || '',
-                        variantSearch: urlParams.get('variant_search') || '',
-                        perPage: urlParams.get('per_page') || '20'
-                    });
-                    window.location = url;
-                });
-
                 $(document).on('click', '.parent-row', function() {
                     var productId = $(this).data('product-id');
                     var icon = $(this).find('.toggle-icon');
@@ -340,9 +322,12 @@
                 $('#filterModal').on('shown.bs.modal', function() {
                     $('.select2-modal').each(function() {
                         if (!$(this).hasClass('select2-hidden-accessible')) {
+                            var placeholder = $(this).attr('id') === 'selectWarehouse'
+                                ? 'Semua Gudang (Agregat)'
+                                : 'All';
                             $(this).select2({
                                 dropdownParent: $('#filterModal'),
-                                placeholder: 'All',
+                                placeholder: placeholder,
                                 allowClear: true,
                                 width: '100%'
                             });
@@ -355,10 +340,7 @@
                 });
 
                 $('#btnResetFilter').on('click', function() {
-                    var warehouseId = $('#selectWarehouse').val();
-                    window.location = warehouseId
-                        ? listUrl + '?warehouse_id=' + encodeURIComponent(warehouseId)
-                        : listUrl;
+                    window.location = listUrl;
                 });
 
                 function parseDisplayNumber(str) {
@@ -395,7 +377,7 @@
                 $('.btn-save').on('click', function() {
                     var warehouseId = $('#selectWarehouse').val();
                     if (!warehouseId) {
-                        showAlert('warning', 'Select a warehouse first.');
+                        showAlert('warning', 'Pilih satu gudang di Filter sebelum Save Opname (tidak bisa simpan di mode Semua Gudang).');
                         return;
                     }
 
