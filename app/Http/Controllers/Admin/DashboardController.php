@@ -137,6 +137,8 @@ class DashboardController extends Controller
             ->orderBy('date')
             ->get();
 
+        $dailySalesTrend = $this->padDailySalesTrend($dailySalesTrend, $today);
+
         // ── MONTHLY TREND (last 6 months) ──
         $monthlySalesTrend = SalesOrder::select(
                 DB::raw("TO_CHAR(sales_date, 'YYYY-MM') as month"),
@@ -149,6 +151,8 @@ class DashboardController extends Controller
             ->groupBy(DB::raw("TO_CHAR(sales_date, 'YYYY-MM')"))
             ->orderBy('month')
             ->get();
+
+        $monthlySalesTrend = $this->padMonthlySalesTrend($monthlySalesTrend, $today);
 
         // ── PAYMENT METHODS ──
         $paymentMethods = DB::table('transaction.sales_order_payments as sop')
@@ -561,6 +565,67 @@ class DashboardController extends Controller
             'avgPurchasePerCustomer' => $avgPurchasePerCustomer,
             'topCustomers' => $topCustomers,
         ];
+    }
+
+    /**
+     * Fill missing days in the last 7-day window so area charts always have a visible series.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function padDailySalesTrend($rows, Carbon $today)
+    {
+        $byDate = [];
+        foreach ($rows as $row) {
+            $date = Carbon::parse($row->date)->toDateString();
+            $byDate[$date] = (object) [
+                'date' => $date,
+                'revenue' => (float) $row->revenue,
+                'transactions' => (int) $row->transactions,
+            ];
+        }
+
+        $padded = collect();
+        for ($i = 6; $i >= 0; $i--) {
+            $date = $today->copy()->subDays($i)->toDateString();
+            $padded->push($byDate[$date] ?? (object) [
+                'date' => $date,
+                'revenue' => 0.0,
+                'transactions' => 0,
+            ]);
+        }
+
+        return $padded;
+    }
+
+    /**
+     * Fill missing months in the last 6-month window so area charts always have a visible series.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function padMonthlySalesTrend($rows, Carbon $today)
+    {
+        $byMonth = [];
+        foreach ($rows as $row) {
+            $byMonth[$row->month] = (object) [
+                'month' => $row->month,
+                'revenue' => (float) $row->revenue,
+                'transactions' => (int) $row->transactions,
+            ];
+        }
+
+        $padded = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $today->copy()->subMonths($i)->format('Y-m');
+            $padded->push($byMonth[$month] ?? (object) [
+                'month' => $month,
+                'revenue' => 0.0,
+                'transactions' => 0,
+            ]);
+        }
+
+        return $padded;
     }
 
     private function emptyDashboardData(): array
