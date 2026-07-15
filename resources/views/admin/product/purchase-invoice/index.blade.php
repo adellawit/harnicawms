@@ -112,7 +112,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="payment_amount">Nominal Pembayaran <span class="text-danger">*</span></label>
-                        <input type="number" id="payment_amount" name="amount" class="form-control" step="0.01" min="0.01" required>
+                        <input type="text" id="payment_amount" name="amount" class="form-control number-format" inputmode="decimal" required>
                         <small class="text-muted">Bisa partial — maksimal sisa tagihan.</small>
                     </div>
                     <div class="mb-3">
@@ -157,11 +157,45 @@
         <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/cleavejs/cleave.js') }}"></script>
     @endpush
     @push('page-js')
         <script src="{{ asset('assets/js/forms-selects.js') }}"></script>
         <script>
             $(document).ready(function() {
+                var paymentAmountCleave = null;
+                var paymentMaxBalance = 0;
+
+                function parseNum(val) {
+                    return parseFloat(String(val || 0).replace(/\./g, '').replace(',', '.')) || 0;
+                }
+
+                function initPaymentAmountCleave(rawValue) {
+                    var el = document.getElementById('payment_amount');
+                    if (!el) return;
+                    if (paymentAmountCleave) {
+                        paymentAmountCleave.destroy();
+                        paymentAmountCleave = null;
+                        $(el).removeData('cleave');
+                    }
+                    paymentAmountCleave = new Cleave(el, {
+                        numeral: true,
+                        numeralThousandsGroupStyle: 'thousand',
+                        numeralDecimalMark: ',',
+                        delimiter: '.',
+                        numeralDecimalScale: 2,
+                    });
+                    paymentAmountCleave.setRawValue(String(rawValue || 0));
+                    $(el).data('cleave', paymentAmountCleave);
+                }
+
+                function getPaymentAmount() {
+                    if (paymentAmountCleave) {
+                        return parseFloat(paymentAmountCleave.getRawValue()) || 0;
+                    }
+                    return parseNum($('#payment_amount').val());
+                }
+
                 var table = $('#table').DataTable({
                     processing: true, serverSide: true, paging: true, scrollX: true,
                     ajax: {
@@ -231,12 +265,13 @@
                 $('#paymentModal').on('show.bs.modal', function(e) {
                     var btn = $(e.relatedTarget);
                     var balance = parseFloat(btn.data('balance-amount') || 0);
+                    paymentMaxBalance = balance;
                     $('#payment-id').val(btn.data('id'));
                     $('#payment-number').text(btn.data('number') || '-');
                     $('#payment-total').text(btn.data('total') || '-');
                     $('#payment-paid').text(btn.data('paid') || '0');
                     $('#payment-balance').text(btn.data('balance') || '-');
-                    $('#payment_amount').attr('max', balance).val(balance > 0 ? balance : '');
+                    initPaymentAmountCleave(balance > 0 ? balance : 0);
                     $('#payment_reference').val('');
                     $('#payment_method').val('');
                     $('#payment_notes').val('');
@@ -253,10 +288,22 @@
                     }
                 });
 
-                $('#paymentForm').on('submit', function() {
+                $('#paymentForm').on('submit', function(e) {
                     if (paymentDatePicker && paymentDatePicker.selectedDates.length) {
                         $('#payment_date').val(paymentDatePicker.formatDate(paymentDatePicker.selectedDates[0], 'd/m/Y'));
                     }
+                    var amount = getPaymentAmount();
+                    if (amount <= 0) {
+                        e.preventDefault();
+                        alert('Nominal pembayaran harus lebih dari 0.');
+                        return;
+                    }
+                    if (paymentMaxBalance > 0 && amount > paymentMaxBalance + 0.000001) {
+                        e.preventDefault();
+                        alert('Nominal melebihi sisa tagihan.');
+                        return;
+                    }
+                    $('#payment_amount').val(amount);
                 });
             });
         </script>

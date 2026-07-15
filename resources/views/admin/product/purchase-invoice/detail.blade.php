@@ -116,6 +116,7 @@
                                 <th>Tgl Faktur</th>
                                 <th class="text-end">Total PO</th>
                                 <th class="text-end">Nominal Invoice</th>
+                                <th>File</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -132,6 +133,15 @@
                                 <td>{{ $item->supplier_invoice_date?->format('d M Y') ?: '-' }}</td>
                                 <td class="text-end">{{ format_number((float) ($item->po_total ?: $item->total), 2, true) }}</td>
                                 <td class="text-end fw-semibold">{{ format_number((float) $item->total, 2, true) }}</td>
+                                <td>
+                                    @if($item->has_attachment)
+                                        <a href="{{ $item->attachment_url }}" target="_blank" rel="noopener">
+                                            <i class="ti ti-paperclip me-1"></i>{{ $item->attachment_name ?: 'Lihat file' }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -139,6 +149,7 @@
                             <tr>
                                 <th colspan="4" class="text-end">Grand Total</th>
                                 <th class="text-end">{{ format_number((float) $kontrabon->total, 2, true) }}</th>
+                                <th></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -197,8 +208,10 @@
                             <div class="col-4"><small class="text-muted d-block">Sisa</small><strong class="text-warning">{{ format_number($kontrabon->balance_amount, 2, true) }}</strong></div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Nominal Pembayaran <span class="text-danger">*</span></label>
-                            <input type="number" name="amount" id="payment_amount" class="form-control" step="0.01" min="0.01" max="{{ $kontrabon->balance_amount }}" value="{{ $kontrabon->balance_amount }}" required>
+                            <label class="form-label" for="payment_amount">Nominal Pembayaran <span class="text-danger">*</span></label>
+                            <input type="text" name="amount" id="payment_amount" class="form-control number-format" inputmode="decimal"
+                                value="{{ format_number((float) $kontrabon->balance_amount, 2, true) }}"
+                                data-max="{{ (float) $kontrabon->balance_amount }}" required>
                             <small class="text-muted">Bisa partial — maksimal sisa tagihan.</small>
                         </div>
                         <div class="mb-3">
@@ -238,10 +251,46 @@
     @endpush
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/cleavejs/cleave.js') }}"></script>
     @endpush
     @push('page-js')
         <script>
-            flatpickr('#payment_date', { dateFormat: 'd/m/Y', disableMobile: true, allowInput: true });
+            (function () {
+                var paymentMaxBalance = parseFloat(@json((float) $kontrabon->balance_amount)) || 0;
+                var paymentDatePicker = flatpickr('#payment_date', { dateFormat: 'd/m/Y', disableMobile: true, allowInput: true });
+
+                function parseNum(val) {
+                    return parseFloat(String(val || 0).replace(/\./g, '').replace(',', '.')) || 0;
+                }
+
+                var amountEl = document.getElementById('payment_amount');
+                var paymentAmountCleave = new Cleave(amountEl, {
+                    numeral: true,
+                    numeralThousandsGroupStyle: 'thousand',
+                    numeralDecimalMark: ',',
+                    delimiter: '.',
+                    numeralDecimalScale: 2,
+                });
+                paymentAmountCleave.setRawValue(String(paymentMaxBalance));
+
+                $('#detailPaymentForm').on('submit', function (e) {
+                    if (paymentDatePicker && paymentDatePicker.selectedDates.length) {
+                        $('#payment_date').val(paymentDatePicker.formatDate(paymentDatePicker.selectedDates[0], 'd/m/Y'));
+                    }
+                    var amount = parseFloat(paymentAmountCleave.getRawValue()) || parseNum($('#payment_amount').val());
+                    if (amount <= 0) {
+                        e.preventDefault();
+                        alert('Nominal pembayaran harus lebih dari 0.');
+                        return;
+                    }
+                    if (paymentMaxBalance > 0 && amount > paymentMaxBalance + 0.000001) {
+                        e.preventDefault();
+                        alert('Nominal melebihi sisa tagihan.');
+                        return;
+                    }
+                    $('#payment_amount').val(amount);
+                });
+            })();
         </script>
     @endpush
 </x-app-layout>

@@ -27,6 +27,9 @@ class PurchaseKontrabonItem extends Model
         'other_cost_amount',
         'total',
         'notes',
+        'attachment_path',
+        'attachment_name',
+        'attachment_mime',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -50,5 +53,19 @@ class PurchaseKontrabonItem extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(ProductPurchaseOrder::class, 'purchase_order_id', 'id');
+    }
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        if (! $this->attachment_path) {
+            return null;
+        }
+
+        return asset('storage/'.$this->attachment_path);
+    }
+
+    public function getHasAttachmentAttribute(): bool
+    {
+        return filled($this->attachment_path);
     }
 }

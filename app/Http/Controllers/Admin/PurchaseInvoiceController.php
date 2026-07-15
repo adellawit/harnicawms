@@ -9,6 +9,8 @@ use App\Services\KontrabonService;
 use App\Support\KontrabonStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\DataTables;
 
 class PurchaseInvoiceController extends Controller
@@ -98,6 +100,8 @@ class PurchaseInvoiceController extends Controller
         $companyId = $user->getCompanyIdForProduct();
 
         try {
+            $items = $this->applyItemAttachments($request, $validated['items']);
+
             $kontrabon = KontrabonService::createKontrabon([
                 'kontrabon_date' => $this->parseDate($validated['kontrabon_date']),
                 'supplier_id' => $validated['supplier_id'],
@@ -105,7 +109,7 @@ class PurchaseInvoiceController extends Controller
                 'branch_id' => $branchId,
                 'notes' => $validated['notes'] ?? null,
                 'submit' => $request->boolean('submit'),
-            ], $validated['items'], $user->id);
+            ], $items, $user->id);
         } catch (\Throwable $e) {
             return back()->withInput()->withErrors(['error' => $e->getMessage()]);
         }
@@ -139,18 +143,20 @@ class PurchaseInvoiceController extends Controller
     public function editData(Request $request)
     {
         $validated = $this->validateKontrabonRequest($request);
-        $kontrabon = PurchaseKontrabon::findOrFail($validated['id']);
+        $kontrabon = PurchaseKontrabon::with('items')->findOrFail($validated['id']);
         $this->authorizeBranch($kontrabon);
         $user = auth('web')->user();
 
         try {
+            $items = $this->applyItemAttachments($request, $validated['items'], $kontrabon);
+
             $kontrabon = KontrabonService::updateKontrabon($kontrabon, [
                 'kontrabon_date' => $this->parseDate($validated['kontrabon_date']),
                 'supplier_id' => $validated['supplier_id'],
                 'branch_id' => $kontrabon->branch_id,
                 'notes' => $validated['notes'] ?? null,
                 'submit' => $request->boolean('submit'),
-            ], $validated['items'], $user->id);
+            ], $items, $user->id);
         } catch (\Throwable $e) {
             return back()->withInput()->withErrors(['error' => $e->getMessage()]);
         }
@@ -234,6 +240,12 @@ class PurchaseInvoiceController extends Controller
     {
         $this->normalizeKontrabonDateInputs($request);
 
+        if ($request->has('amount')) {
+            $request->merge([
+                'amount' => $this->parseNumericInput($request->input('amount')),
+            ]);
+        }
+
         $validated = $request->validate([
             'id' => 'required|uuid|exists:product.purchase_kontrabons,id',
             'payment_date' => 'required|date_format:d/m/Y',
@@ -309,6 +321,7 @@ class PurchaseInvoiceController extends Controller
     protected function validateKontrabonRequest(Request $request): array
     {
         $this->normalizeKontrabonDateInputs($request);
+        $this->normalizeKontrabonAmountInputs($request);
 
         return $request->validate([
             'id' => 'nullable|uuid|exists:product.purchase_kontrabons,id',
@@ -322,7 +335,126 @@ class PurchaseInvoiceController extends Controller
             'items.*.supplier_invoice_number' => 'nullable|string|max:80',
             'items.*.supplier_invoice_date' => 'nullable|date_format:d/m/Y',
             'items.*.notes' => 'nullable|string|max:500',
+            'items.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
+            'items.*.remove_attachment' => 'nullable|boolean',
         ]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    protected function applyItemAttachments(Request $request, array $items, ?PurchaseKontrabon $kontrabon = null): array
+    {
+        $existingByPo = $kontrabon
+            ? $kontrabon->items->keyBy('purchase_order_id')
+            : collect();
+
+        $selectedPoIds = [];
+
+        foreach ($items as $index => $item) {
+            $poId = $item['purchase_order_id'] ?? null;
+            if (! $poId) {
+                continue;
+            }
+
+            $selectedPoIds[$poId] = true;
+            $prev = $existingByPo->get($poId);
+            $file = $request->file("items.{$index}.attachment");
+            $remove = $request->boolean("items.{$index}.remove_attachment");
+
+            if ($file) {
+                if ($prev?->attachment_path) {
+                    $this->deleteAttachmentFile($prev->attachment_path);
+                }
+
+                $stored = $this->storeAttachment($file);
+                $item['attachment_path'] = $stored['path'] ?? null;
+                $item['attachment_name'] = $stored['name'] ?? null;
+                $item['attachment_mime'] = $stored['mime'] ?? null;
+            } elseif ($remove) {
+                if ($prev?->attachment_path) {
+                    $this->deleteAttachmentFile($prev->attachment_path);
+                }
+                $item['attachment_path'] = null;
+                $item['attachment_name'] = null;
+                $item['attachment_mime'] = null;
+            } elseif ($prev?->attachment_path) {
+                $item['attachment_path'] = $prev->attachment_path;
+                $item['attachment_name'] = $prev->attachment_name;
+                $item['attachment_mime'] = $prev->attachment_mime;
+            } else {
+                $item['attachment_path'] = null;
+                $item['attachment_name'] = null;
+                $item['attachment_mime'] = null;
+            }
+
+            $items[$index] = $item;
+        }
+
+        foreach ($existingByPo as $poId => $prev) {
+            if (! isset($selectedPoIds[$poId]) && $prev->attachment_path) {
+                $this->deleteAttachmentFile($prev->attachment_path);
+            }
+        }
+
+        return $items;
+    }
+
+    protected function normalizeKontrabonAmountInputs(Request $request): void
+    {
+        $items = collect($request->input('items', []))
+            ->map(function ($item) {
+                if (array_key_exists('total', $item)) {
+                    $item['total'] = $this->parseNumericInput($item['total']);
+                }
+
+                return $item;
+            })
+            ->all();
+
+        $request->merge(['items' => $items]);
+    }
+
+    protected function parseNumericInput(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        $normalized = str_replace(['.', ' '], ['', ''], (string) $value);
+        $normalized = str_replace(',', '.', $normalized);
+
+        return is_numeric($normalized) ? (float) $normalized : null;
+    }
+
+    /**
+     * @return array{path: string, name: string, mime: string}|null
+     */
+    protected function storeAttachment(?UploadedFile $file): ?array
+    {
+        if (! $file) {
+            return null;
+        }
+
+        $path = $file->store('purchase-invoices/attachments', 'public');
+
+        return [
+            'path' => $path,
+            'name' => $file->getClientOriginalName(),
+            'mime' => $file->getClientMimeType() ?: $file->getMimeType(),
+        ];
+    }
+
+    protected function deleteAttachmentFile(?string $path): void
+    {
+        if ($path && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
     }
 
     protected function normalizeKontrabonDateInputs(Request $request): void
