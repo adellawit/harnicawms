@@ -23,7 +23,8 @@ class ProductQrCodeService
 
     public function inkStyleForUnitLevel(int $unitLevel): string
     {
-        return $unitLevel === 3 ? self::INK_WHITE_TRANSPARENT : self::INK_BLACK;
+        // Semua level (termasuk Box/Level 3): tinta hitam, background transparan
+        return self::INK_BLACK;
     }
 
     public function contentForLabel(string $serial, int $unitLevel): string

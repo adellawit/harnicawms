@@ -93,7 +93,7 @@
 
 .preview-tree__node--level-3 {
     border: 1.5px dashed #28a745;
-    background: #f8fff9;
+    background: transparent;
 }
 
 .preview-tree__cut-line {
@@ -186,6 +186,9 @@
     width: 50mm;
     height: 12mm;
     display: flex;
+    border: 1px solid #000;
+    background: transparent;
+    box-sizing: border-box;
 }
 
 .label-item--box .label-item__qr {

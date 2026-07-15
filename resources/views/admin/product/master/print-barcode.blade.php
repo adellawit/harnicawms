@@ -35,7 +35,7 @@
                                     <ul class="mb-0 mt-1 small">
                                         <li>Level 1 (satuan terbesar / Dus): <code>{{ date('y') }}1000000001</code>, <code>{{ date('y') }}1000000002</code>, ...</li>
                                         <li>Level 2 (Box): <code>{{ date('y') }}2000000001</code>, <code>{{ date('y') }}2000000002</code>, ...</li>
-                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ... — <span class="text-muted">sticker transparan, tinta putih</span></li>
+                                        <li>Level 3 (Pcs): <code>{{ date('y') }}3000000001</code>, <code>{{ date('y') }}3000000002</code>, ... — <span class="text-muted">sticker transparan, tinta hitam</span></li>
                                     </ul>
                                     <span class="small">Setiap level punya penomoran sendiri mulai dari 1. Preview dan PDF diurutkan hierarki: Karton → Pack → Box sesuai nomor seri per level.</span>
                                 </div>
@@ -248,7 +248,7 @@
             }
 
             .preview-grid--level-3 {
-                background: #1a1a1a;
+                background: transparent;
                 padding: 3mm;
                 border-radius: 4px;
             }
@@ -342,7 +342,7 @@
 
             .preview-tree__node--level-3 {
                 border: 1.5px dashed #6c757d;
-                background: #1a1a1a;
+                background: transparent;
             }
 
             .preview-tree__cut-line {
@@ -362,7 +362,7 @@
                 grid-template-columns: repeat(5, 55mm);
                 gap: 1.5mm 2mm;
                 justify-content: start;
-                background: #1a1a1a;
+                background: transparent;
                 padding: 2mm;
                 border-radius: 4px;
             }
@@ -435,7 +435,7 @@
             .label-item--box {
                 width: 55mm;
                 height: 9mm;
-                border: none;
+                border: 0.35mm solid #000;
                 background: transparent;
                 box-sizing: border-box;
                 overflow: hidden;
@@ -475,7 +475,7 @@
             .label-item--box .label-item__distributed-by {
                 font-size: 4.5pt;
                 font-weight: 400;
-                color: #fff;
+                color: #000;
                 line-height: 1.1;
                 white-space: nowrap;
                 margin: 0;
@@ -485,7 +485,7 @@
             .label-item--box .label-item__distributor-name {
                 font-size: 6pt;
                 font-weight: 700;
-                color: #fff;
+                color: #000;
                 line-height: 1.1;
                 text-transform: uppercase;
                 white-space: nowrap;
@@ -855,7 +855,7 @@
 
                     var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
 
-                    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:none;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
+                    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:0.35mm solid #000;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
                         '<table class="label-item__table" cellpadding="0" cellspacing="0" style="width:100%;height:7mm;border-collapse:collapse;table-layout:fixed;">' +
                         '<colgroup><col style="width:7mm"><col></colgroup>' +
                         '<tr style="height:7mm;">' +
@@ -865,8 +865,8 @@
                         '<img src="' + label.qr_data_uri + '" alt="QR" style="width:6mm;height:6mm;display:block;margin:0 auto;">' +
                         '</td></tr></table></td>' +
                         '<td class="label-item__content" valign="middle" style="height:7mm;vertical-align:middle;text-align:left;padding:0 0.6mm 0 0.9mm;">' +
-                        '<div class="label-item__distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#fff;">Distributed by :</div>' +
-                        '<div class="label-item__distributor-name" style="font-size:6pt;font-weight:700;line-height:1.1;margin:0;padding:0;color:#fff;text-transform:uppercase;">' + boxBrandHtml + '</div>' +
+                        '<div class="label-item__distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#000;">Distributed by :</div>' +
+                        '<div class="label-item__distributor-name" style="font-size:6pt;font-weight:700;line-height:1.1;margin:0;padding:0;color:#000;text-transform:uppercase;">' + boxBrandHtml + '</div>' +
                         '</td></tr></table></div>';
                 }
 
