@@ -109,11 +109,18 @@ class MigrateAllCommand extends Command
                 DB::statement("CREATE SCHEMA IF NOT EXISTS {$schema}");
             }
 
-            // Run root migrations
-            $this->call('migrate', ['--force' => $force]);
+            // Root only: --path keeps loadMigrationsFrom subfolders out of this step
+            $this->call('migrate', [
+                '--path' => 'database/migrations',
+                '--force' => $force,
+            ]);
         } else {
             $this->info('Step 1: Running root migrations...');
-            $this->call('migrate', ['--force' => $force]);
+            // Root only: --path keeps loadMigrationsFrom subfolders out of this step
+            $this->call('migrate', [
+                '--path' => 'database/migrations',
+                '--force' => $force,
+            ]);
         }
 
         $this->newLine();
