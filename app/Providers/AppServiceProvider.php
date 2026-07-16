@@ -83,7 +83,8 @@ class AppServiceProvider extends ServiceProvider
         // Usage: @permission('Menu Name', 'is_create') or @permission('Menu Name')
         // Reads from session('permissions') which is built during login from iam_has_accesses table
         Blade::if('permission', function ($menuName, $action = 'is_read') {
-            if (auth()->check() && auth()->user()?->is_super_admin) {
+            // Only Super Admin role bypasses IAM; is_super_admin flag alone must not unlock Settings.
+            if (auth()->check() && strtolower((string) (auth()->user()?->role?->name ?? '')) === 'super admin') {
                 return true;
             }
 

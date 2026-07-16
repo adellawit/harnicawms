@@ -348,6 +348,25 @@
             #selectedPartnerBadge.agent { background: #e8f5e9; color: #2e7d32; }
             #selectedPartnerBadge.reseller { background: #e3f2fd; color: #1565c0; }
             #selectedPartnerBadge.partner-lead { background: #fff8e1; color: #f57f17; }
+            .pos-points-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+                font-size: 0.68rem;
+                font-weight: 700;
+                background: #fff3e0;
+                color: #e65100;
+                border-radius: 0.25rem;
+                padding: 0.15rem 0.4rem;
+                white-space: nowrap;
+            }
+            .pos-redeem-block {
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px dashed #e7e7e7;
+            }
+            .pos-redeem-block label { font-size: 0.75rem; font-weight: 600; color: #677788; }
+            .pos-redeem-block .pos-discount-input-group { gap: 0.35rem; }
 
             /* Cart items list */
             .pos-cart-items {
@@ -1264,18 +1283,47 @@
                 <div class="pos-cart-top">
                     <select id="customerSelect" style="width:100%">
                         <option value="">Walk-in Customer</option>
+                        @forelse($customerSelectGroups ?? [] as $group)
+                        <optgroup label="{{ $group['label'] }}">
+                            @foreach($group['customers'] as $customer)
+                            @php
+                                $role = $customer->partnerRole();
+                                $partnerCode = $customer->agent?->code ?? $customer->reseller?->code;
+                                $shortLabel = $role === 'reseller'
+                                    ? '↳ '.($partnerCode ? $partnerCode.' · ' : '').$customer->name
+                                    : (($partnerCode ? $partnerCode.' · ' : '').$customer->name);
+                            @endphp
+                            <option value="{{ $customer->id }}"
+                                data-partner-role="{{ $role }}"
+                                data-partner-label="{{ $customer->partnerRoleLabel() }}"
+                                data-partner-code="{{ $partnerCode }}"
+                                data-customer-code="{{ $customer->code }}"
+                                data-points-balance="{{ (int) ($customer->points_balance ?? 0) }}"
+                                data-earn-point="{{ $customer->customerGroup?->earn_point ? 1 : 0 }}"
+                                data-point-multiplier="{{ (float) ($customer->customerGroup?->point_multiplier ?? 1) }}"
+                                data-short-label="{{ $shortLabel }}">
+                                {{ $shortLabel }}
+                            </option>
+                            @endforeach
+                        </optgroup>
+                        @empty
                         @forelse($customers ?? collect() as $customer)
                         <option value="{{ $customer->id }}"
                             data-partner-role="{{ $customer->partnerRole() }}"
                             data-partner-label="{{ $customer->partnerRoleLabel() }}"
                             data-partner-code="{{ $customer->agent?->code ?? $customer->reseller?->code }}"
-                            data-customer-code="{{ $customer->code }}">
+                            data-customer-code="{{ $customer->code }}"
+                            data-points-balance="{{ (int) ($customer->points_balance ?? 0) }}"
+                            data-earn-point="{{ $customer->customerGroup?->earn_point ? 1 : 0 }}"
+                            data-point-multiplier="{{ (float) ($customer->customerGroup?->point_multiplier ?? 1) }}">
                             {{ $customer->name }}
                         </option>
                         @empty
                         @endforelse
+                        @endforelse
                     </select>
                     <span id="selectedPartnerBadge"></span>
+                    <span id="selectedPointsBadge" class="pos-points-badge" style="display:none;"></span>
                     <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
@@ -1354,6 +1402,18 @@
                             </div>
                         </div>
                         <div class="pos-discount-display">- <span id="discountDisplay">Rp 0</span></div>
+                    </div>
+                    <div class="pos-redeem-block" id="redeemPointsBlock" style="display:none;">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="mb-0">Redeem Points</label>
+                            <small class="text-muted">Saldo: <span id="pointsBalanceLabel">0</span></small>
+                        </div>
+                        <div class="pos-discount-input-group">
+                            <input type="text" id="redeemPointsInput" value="0" placeholder="0" inputmode="numeric" autocomplete="off">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnRedeemMax" style="border-radius:0.375rem; white-space:nowrap;">Max</button>
+                        </div>
+                        <div class="pos-discount-display text-success">- <span id="redeemDiscountDisplay">Rp 0</span></div>
+                        <small class="text-muted d-block mt-1" id="redeemRateHint"></small>
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>Total</span>
@@ -1540,6 +1600,7 @@
                     allowClear: true,
                     templateResult: function(option) {
                         if (!option.id) {
+                            // optgroup or placeholder
                             return option.text;
                         }
 
@@ -1547,10 +1608,12 @@
                         var role = $option.data('partner-role');
                         var label = $option.data('partner-label');
                         var code = $option.data('partner-code');
-                        var customerCode = $option.data('customer-code');
-                        var name = option.text.trim();
+                        var shortLabel = $option.data('short-label') || option.text.trim();
                         var $wrap = $('<div class="pos-customer-option"></div>');
-                        var $name = $('<span class="pos-customer-name"></span>').text(name + (customerCode ? ' (' + customerCode + ')' : ''));
+                        var $name = $('<span class="pos-customer-name"></span>').text(shortLabel);
+                        if (role === 'reseller') {
+                            $name.css('padding-left', '0.5rem');
+                        }
                         $wrap.append($name);
 
                         if (role && label) {
@@ -1568,11 +1631,12 @@
                         }
 
                         var $option = $(option.element);
-                        var name = option.text.trim();
-                        var customerCode = $option.data('customer-code');
-                        return customerCode ? name + ' (' + customerCode + ')' : name;
+                        return $option.data('short-label') || option.text.trim();
                     }
                 });
+
+                var discountType = 'percent';
+                var redeemValuePerPoint = {{ (int) ($redeemValuePerPoint ?? 0) }};
 
                 function updateSelectedPartnerBadge() {
                     var $selected = $('#customerSelect option:selected');
@@ -1583,21 +1647,114 @@
 
                     if (!role || !label) {
                         $badge.hide().removeClass('agent reseller partner-lead').text('');
-                        return;
+                    } else {
+                        var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                        $badge
+                            .removeClass('agent reseller partner-lead')
+                            .addClass(badgeClass)
+                            .text(label + (code ? ' · ' + code : ''))
+                            .show();
                     }
 
-                    var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
-                    $badge
-                        .removeClass('agent reseller partner-lead')
-                        .addClass(badgeClass)
-                        .text(label + (code ? ' · ' + code : ''))
-                        .show();
+                    updateMembershipPointsUi(true);
+                }
+
+                function getSelectedPointsBalance() {
+                    var $selected = $('#customerSelect option:selected');
+                    if (!$selected.val()) return 0;
+                    return parseInt($selected.data('points-balance'), 10) || 0;
+                }
+
+                function updateMembershipPointsUi(recalcTotals) {
+                    var $selected = $('#customerSelect option:selected');
+                    var $pointsBadge = $('#selectedPointsBadge');
+                    var hasCustomer = !!$selected.val();
+                    var balance = getSelectedPointsBalance();
+
+                    if (!hasCustomer) {
+                        $pointsBadge.hide().text('');
+                        $('#redeemPointsBlock').hide();
+                        $('#redeemPointsInput').val(0);
+                    } else {
+                        $pointsBadge.html('<i class="ti ti-star"></i> ' + balance.toLocaleString('id-ID') + ' poin').show();
+
+                        if (redeemValuePerPoint > 0) {
+                            $('#redeemPointsBlock').show();
+                            $('#pointsBalanceLabel').text(balance.toLocaleString('id-ID'));
+                            $('#redeemRateHint').text('1 poin = Rp ' + redeemValuePerPoint.toLocaleString('id-ID'));
+                        } else {
+                            $('#redeemPointsBlock').hide();
+                            $('#redeemPointsInput').val(0);
+                        }
+                    }
+
+                    if (recalcTotals && typeof updateCartTotals === 'function') {
+                        updateCartTotals();
+                    }
+                }
+
+                function getRedeemPointsRequested() {
+                    return parseInt(String($('#redeemPointsInput').val() || '0').replace(/\D/g, ''), 10) || 0;
+                }
+
+                function calcMaxRedeemPoints(payableBeforeRedeem) {
+                    var balance = getSelectedPointsBalance();
+                    if (redeemValuePerPoint <= 0 || balance <= 0 || payableBeforeRedeem <= 0) return 0;
+                    var byPayable = Math.floor(payableBeforeRedeem / redeemValuePerPoint);
+                    return Math.max(0, Math.min(balance, byPayable));
                 }
 
                 $('#customerSelect').on('change', updateSelectedPartnerBadge);
-                updateSelectedPartnerBadge();
+                // Initial badges (no cart totals yet)
+                (function initCustomerBadges() {
+                    var $selected = $('#customerSelect option:selected');
+                    var $badge = $('#selectedPartnerBadge');
+                    var role = $selected.data('partner-role');
+                    var label = $selected.data('partner-label');
+                    var code = $selected.data('partner-code');
+                    if (!role || !label) {
+                        $badge.hide().removeClass('agent reseller partner-lead').text('');
+                    } else {
+                        var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                        $badge.removeClass('agent reseller partner-lead').addClass(badgeClass)
+                            .text(label + (code ? ' · ' + code : '')).show();
+                    }
+                    updateMembershipPointsUi(false);
+                })();
+
+                $('#btnRedeemMax').on('click', function() {
+                    var subtotalNet = 0;
+                    $cartPaidItems().each(function() {
+                        var $el = $(this);
+                        var inp = $el.find('.quantity-input');
+                        var unitPrice = parseFloat(inp.data('unit-price')) || 0;
+                        var qty = parseInt(inp.val()) || 1;
+                        var lineTotal = unitPrice * qty;
+                        var itemDiscAmt = 0;
+                        if ($el.hasClass('has-discount')) {
+                            var dt = $el.find('.item-disc-type.active').data('type') || 'percent';
+                            var dv = parseDiscValue($el.find('.item-disc-input').val(), dt);
+                            itemDiscAmt = dt === 'percent' ? Math.round(lineTotal * dv / 100) : Math.min(Math.round(dv), lineTotal);
+                        }
+                        subtotalNet += (lineTotal - itemDiscAmt);
+                    });
+                    var taxRate = {{ $taxRate ?? 11 }};
+                    var tax = $('#taxToggle').is(':checked') ? Math.round(subtotalNet * taxRate / 100) : 0;
+                    var discVal = parseDiscValue($('#discountInput').val(), discountType);
+                    var txnDiscAmt = discountType === 'percent'
+                        ? Math.round(subtotalNet * discVal / 100)
+                        : Math.min(Math.round(discVal), subtotalNet);
+                    var payable = Math.max(0, subtotalNet + tax - txnDiscAmt);
+                    $('#redeemPointsInput').val(calcMaxRedeemPoints(payable));
+                    updateCartTotals();
+                });
+
+                $('#redeemPointsInput').on('input', function() {
+                    this.value = String(this.value || '').replace(/\D/g, '');
+                    updateCartTotals();
+                });
+
                 // ── Discount toggle (% / Rp) ─────────────────────────────
-                var discountType = 'percent';
 
                 function parseDiscRaw(val) {
                     return parseInt(String(val || '').replace(/\D/g, ''), 10) || 0;
@@ -1884,6 +2041,7 @@
                     $('.modal-backdrop').remove();
                     $('#paymentModal .pay-denom-cash-pay, #paymentModal .pay-other-btn, #paymentModal .pay-channel-btn').prop('disabled', false);
                     $('#payCashPay').html('Cash');
+                    $('#redeemPointsInput').val(0);
                     clearCart();
                 }
 
@@ -2196,9 +2354,25 @@
                     if (d.promo_free_count > 0) {
                         html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Promo FREE</td><td class="text-end py-1 fw-bold text-success">' + d.promo_free_count + ' item(s)</td></tr>';
                     }
+                    if (d.membership_points_redeemed > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Poin dipakai</td><td class="text-end py-1 fw-bold text-warning">-' + Number(d.membership_points_redeemed).toLocaleString('id-ID') + '</td></tr>';
+                    }
+                    if (d.membership_points_earned > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Poin didapat</td><td class="text-end py-1 fw-bold text-success">+' + Number(d.membership_points_earned).toLocaleString('id-ID') + '</td></tr>';
+                    }
                     html += '</table>';
 
+                    // Sync local customer option balance after redeem/earn
+                    var $opt = $('#customerSelect option:selected');
+                    if ($opt.val()) {
+                        var bal = parseInt($opt.data('points-balance'), 10) || 0;
+                        bal = bal - (parseInt(d.membership_points_redeemed, 10) || 0) + (parseInt(d.membership_points_earned, 10) || 0);
+                        if (bal < 0) bal = 0;
+                        $opt.attr('data-points-balance', bal);
+                    }
+
                     resetPosUiAfterPayment();
+                    updateMembershipPointsUi();
 
                     if (d.sales_number) {
                         $('#posTrxNumber').text(d.sales_number);
@@ -2294,6 +2468,7 @@
                         tax_enabled: $('#taxToggle').is(':checked'),
                         discount_type: discountType,
                         discount_value: parseDiscValue($('#discountInput').val(), discountType),
+                        redeem_points: getRedeemPointsRequested(),
                         amount_paid: amountPaid,
                         notes: null
                     };
@@ -2415,7 +2590,19 @@
                         if (txnDiscAmt > subtotalNet) txnDiscAmt = subtotalNet;
                     }
 
-                    var total = subtotalNet + tax - txnDiscAmt;
+                    var totalBeforeRedeem = subtotalNet + tax - txnDiscAmt;
+                    if (totalBeforeRedeem < 0) totalBeforeRedeem = 0;
+
+                    var redeemPts = getRedeemPointsRequested();
+                    var maxRedeem = calcMaxRedeemPoints(totalBeforeRedeem);
+                    if (redeemPts > maxRedeem) {
+                        redeemPts = maxRedeem;
+                        $('#redeemPointsInput').val(redeemPts);
+                    }
+                    var redeemDiscAmt = redeemValuePerPoint > 0 ? redeemPts * redeemValuePerPoint : 0;
+                    if (redeemDiscAmt > totalBeforeRedeem) redeemDiscAmt = totalBeforeRedeem;
+
+                    var total = totalBeforeRedeem - redeemDiscAmt;
                     if (total < 0) total = 0;
 
                     $('#subtotal').text('Rp ' + subtotalNet.toLocaleString('id-ID'));
@@ -2423,6 +2610,7 @@
                     if (totalItemDisc > 0) { $('#itemDiscRow').show(); } else { $('#itemDiscRow').hide(); }
                     $('#tax').text('Rp ' + tax.toLocaleString('id-ID'));
                     $('#discountDisplay').text('Rp ' + txnDiscAmt.toLocaleString('id-ID'));
+                    $('#redeemDiscountDisplay').text('Rp ' + redeemDiscAmt.toLocaleString('id-ID'));
                     $('#total').text('Rp ' + total.toLocaleString('id-ID'));
 
                     updateCartBadgeOnly();

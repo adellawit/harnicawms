@@ -10,7 +10,7 @@
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Settings', 'url' => 'javascript:void(0);'],
+                ['label' => 'CRM', 'url' => 'javascript:void(0);'],
                 ['label' => 'Membership Configuration', 'url' => route('crm.membership-configuration.index.view')],
                 ['label' => 'Add', 'active' => true]
             ]"
@@ -51,6 +51,11 @@
                         <div class="col-md-6">
                             <label class="form-label" for="points_per_step">Points per Step<span style="color: red">*</span></label>
                             <input type="number" min="1" id="points_per_step" name="points_per_step" class="form-control" placeholder="1" value="{{ old('points_per_step', 1) }}" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="redeem_value_per_point">Redeem Value per Point (Rp)<span style="color: red">*</span></label>
+                            <input type="number" min="1" id="redeem_value_per_point" name="redeem_value_per_point" class="form-control" placeholder="100" value="{{ old('redeem_value_per_point', 100) }}" />
+                            <small class="text-muted">Contoh: 1 poin = Rp 100 diskon</small>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label" for="description">Description</label>

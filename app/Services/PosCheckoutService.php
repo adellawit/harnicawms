@@ -112,7 +112,19 @@ class PosCheckoutService
         $taxEnabled = (bool) $request->tax_enabled;
         $taxAmount = $taxEnabled ? round($subtotalNet * $taxRate / 100, 4) : 0;
 
-        $total = $subtotalNet + $taxAmount - $txnDiscAmt;
+        $totalBeforeRedeem = $subtotalNet + $taxAmount - $txnDiscAmt;
+        if ($totalBeforeRedeem < 0) {
+            $totalBeforeRedeem = 0;
+        }
+
+        $redeem = $this->membershipPointService->normalizeRedeemRequest(
+            $request->customer_id,
+            $branchId,
+            (int) ($request->redeem_points ?? 0),
+            $totalBeforeRedeem
+        );
+
+        $total = round($totalBeforeRedeem - $redeem['discount_amount'], 4);
         if ($total < 0) {
             $total = 0;
         }
@@ -129,6 +141,9 @@ class PosCheckoutService
             'txn_disc_type' => $txnDiscType,
             'txn_disc_val' => $txnDiscVal,
             'promo_free_count' => collect($itemsData)->where('is_promo_free', true)->count(),
+            'redeem_points' => $redeem['points'],
+            'redeem_discount_amount' => $redeem['discount_amount'],
+            'redeem_value_per_point' => $redeem['redeem_value_per_point'],
         ];
     }
 
@@ -184,6 +199,8 @@ class PosCheckoutService
             'item_discount_total' => $totals['total_item_disc'],
             'shipping_amount' => 0,
             'total' => $totals['total'],
+            'membership_points_redeemed' => (int) ($totals['redeem_points'] ?? 0),
+            'membership_redeem_discount_amount' => (float) ($totals['redeem_discount_amount'] ?? 0),
             'paid_at' => $paymentStatus === 'paid' ? now() : null,
             'fulfilled_at' => $status === 'completed' ? now() : null,
             'notes' => $request->notes,
@@ -313,7 +330,14 @@ class PosCheckoutService
                 }
             }
 
-            $this->membershipPointService->awardForPaidOrder($order, $actorId);
+            $this->membershipPointService->redeemForPaidOrder(
+                $order,
+                (int) ($order->membership_points_redeemed ?? 0),
+                (float) ($order->membership_redeem_discount_amount ?? 0),
+                $actorId
+            );
+
+            $this->membershipPointService->awardForPaidOrder($order->fresh(), $actorId);
         });
     }
 

@@ -47,6 +47,26 @@ class UserSeeder extends Seeder
             ]
         );
 
+        // Administrator: full menu access except Settings (+ children). See IamHasAccessSeeder.
+        $administratorRoleId = '08d263b7-2c3b-43f0-a49b-b80d9d4b7685';
+
+        User::updateOrCreate(
+            ['username' => 'admin@harnica.id'],
+            [
+                'employee_id' => null,
+                'role_id' => $administratorRoleId,
+                'current_business_unit_id' => $demoEmployee->business_unit_id,
+                'first_name' => 'Admin',
+                'last_name' => 'Harnica',
+                'username' => 'admin@harnica.id',
+                'email' => 'admin@harnica.id',
+                'password' => 'admin123*#',
+                'is_super_admin' => false,
+                'url_image' => config('app.url') . '/assets/img/ars/avatar/user-default.jpg',
+                'need_update_password' => false,
+            ]
+        );
+
         $employees = DB::table('human_resources.employees')
             ->whereNull('deleted_at')
             ->where('employee_status', 'Active')

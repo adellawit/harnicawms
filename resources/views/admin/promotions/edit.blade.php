@@ -9,7 +9,7 @@
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Product'],
+                ['label' => 'CRM'],
                 ['label' => 'Promotions', 'url' => route('promotions.index')],
                 ['label' => $promo->code, 'url' => route('promotions.show', $promo->id)],
                 ['label' => 'Edit', 'active' => true],

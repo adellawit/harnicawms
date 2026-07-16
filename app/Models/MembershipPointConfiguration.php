@@ -24,6 +24,7 @@ class MembershipPointConfiguration extends Model
         'name',
         'transaction_amount_step',
         'points_per_step',
+        'redeem_value_per_point',
         'is_default',
         'description',
         'created_by',

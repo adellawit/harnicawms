@@ -8,7 +8,7 @@
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Product'],
+                ['label' => 'CRM'],
                 ['label' => 'Promotions', 'active' => true],
             ]"
         />

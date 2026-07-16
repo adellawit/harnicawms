@@ -39,7 +39,7 @@
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Settings', 'url' => 'javascript:void(0);'],
+                ['label' => 'CRM', 'url' => 'javascript:void(0);'],
                 ['label' => 'Membership Configuration', 'active' => true]
             ]"
         />
@@ -193,7 +193,7 @@
                         {
                             data: null,
                             render: function(data, type, row) {
-                                return `${row.points_per_step} point(s) / ${row.transaction_amount_step.toLocaleString('id-ID')}`;
+                                return `${row.points_per_step} / Rp ${Number(row.transaction_amount_step).toLocaleString('id-ID')} · redeem Rp ${Number(row.redeem_value_per_point || 0).toLocaleString('id-ID')}/poin`;
                             }
                         },
                         {

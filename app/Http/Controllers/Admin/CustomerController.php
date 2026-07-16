@@ -78,6 +78,7 @@ class CustomerController extends Controller
                 'customer.customers.email',
                 'customer.customers.phone',
                 'customer.customers.customer_type',
+                'customer.customers.points_balance',
                 'customer.customers.has_app_access',
                 'customer.customers.is_active',
                 'customer.customers.created_at',
