@@ -110,7 +110,7 @@
 
 .preview-tree__box-grid {
     display: grid;
-    grid-template-columns: repeat(5, 55mm);
+    grid-template-columns: repeat(5, 45mm);
     gap: 1.5mm 2mm;
     justify-content: start;
     background: transparent;
@@ -184,7 +184,7 @@
 }
 
 .label-item--box {
-    width: 55mm;
+    width: 45mm;
     height: 9mm;
     border: 0.35mm solid #000;
     background: transparent;

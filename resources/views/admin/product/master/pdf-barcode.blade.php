@@ -18,9 +18,9 @@
             font-family: Arial, Helvetica, DejaVu Sans, sans-serif;
         }
 
-        /* ── Box 55×9mm — sticker transparan, tinta putih (Level 3) ── */
+        /* ── Box 45×9mm — sticker transparan, tinta putih (Level 3) ── */
         .label-box {
-            width: 55mm;
+            width: 45mm;
             height: 9mm;
             border: none;
             padding: 0.5mm;
@@ -382,7 +382,7 @@
         }
 
         table.box-grid td {
-            width: 55mm;
+            width: 45mm;
             height: 9mm;
             padding: 0;
             vertical-align: top;
@@ -401,6 +401,12 @@
             height: 9mm;
             padding: 0;
             vertical-align: top;
+        }
+
+        /* Sel grid mode single khusus label box (45×9mm) — lebih spesifik dari table.sheet td di atas. */
+        table.sheet.sheet--box td {
+            width: 45mm;
+            height: 9mm;
         }
     </style>
 </head>
@@ -527,9 +533,10 @@
     @else
         @php
             $chunk = array_chunk($labels ?? [], $boxCols);
+            $singleLabelType = $labels[0]['label_type'] ?? 'box';
         @endphp
 
-        <table class="sheet">
+        <table class="sheet @if ($singleLabelType === 'box') sheet--box @endif">
             @foreach ($chunk as $rowLabels)
                 <tr>
                     @for ($c = 0; $c < $boxCols; $c++)

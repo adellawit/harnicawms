@@ -62,7 +62,7 @@
         $qrSize = '6mm';
         $qrGap = '0.5mm';
     @endphp
-    <div class="label-box" style="width:55mm;height:9mm;border:0.35mm solid #000;background:transparent;overflow:hidden;box-sizing:border-box;padding:{{ $boxPad }};">
+    <div class="label-box" style="width:45mm;height:9mm;border:0.35mm solid #000;background:transparent;overflow:hidden;box-sizing:border-box;padding:{{ $boxPad }};">
         <table class="label-box__table" cellpadding="0" cellspacing="0" style="width:100%;height:{{ $innerH }};border-collapse:collapse;table-layout:fixed;">
             <colgroup>
                 <col style="width: {{ $qrCol }};">
