@@ -196,20 +196,28 @@
             $(document).ready(function() {
                 var childrenUrl = "{{ url('product/purchase-order/children') }}/";
 
+                function flagOn(v) {
+                    return v === true || v === 1 || v === '1' || v === 'true';
+                }
+
                 function buildActionsHtml(r) {
                     var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
                     html += '<li><a class="dropdown-item" href="{{ url("product/purchase-order/detail") }}/'+r.id+'"><i class="ti ti-eye me-2 text-info"></i>Detail</a></li>';
                     if (!r.deleted_at) {
                         html += '<li><button type="button" class="dropdown-item btn-open-print" data-bs-toggle="modal" data-bs-target="#printModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-printer me-2 text-secondary"></i>Print</button></li>';
                     }
-                    if (!r.deleted_at && r.can_create_sub) {
+                    // Create Sub-PO: hanya CPO yang sudah Process (bukan Draft).
+                    if (!r.deleted_at && flagOn(r.can_create_sub)) {
                         html += '<li><a class="dropdown-item" href="{{ route("product.purchase-order.insert.view") }}?po_kind=sub&parent_id='+r.id+'"><i class="ti ti-git-branch me-2 text-info"></i>Create Sub-PO</a></li>';
+                    }
+                    if (!r.deleted_at && flagOn(r.can_receive)) {
+                        html += '<li><a class="dropdown-item" href="{{ url("product/purchase-order/receive") }}/'+r.id+'"><i class="ti ti-package me-2 text-success"></i>Receive</a></li>';
                     }
                     if (!r.deleted_at && ((r.status_key || r.status) === 'draft') && (r.po_kind || 'standalone') !== 'master') {
                         html += '<li><a class="dropdown-item" href="{{ url("product/purchase-order/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                         html += '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';
                     }
-                    if (!r.deleted_at && r.can_update_status) {
+                    if (!r.deleted_at && flagOn(r.can_update_status)) {
                         html += '<li><button type="button" class="dropdown-item btn-open-status" data-bs-toggle="modal" data-bs-target="#statusModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'" data-status="'+(r.status_key || r.status)+'"><i class="ti ti-refresh me-2 text-primary"></i>Update Status</button></li>';
                     }
                     if (r.deleted_at) {

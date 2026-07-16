@@ -348,6 +348,25 @@
             #selectedPartnerBadge.agent { background: #e8f5e9; color: #2e7d32; }
             #selectedPartnerBadge.reseller { background: #e3f2fd; color: #1565c0; }
             #selectedPartnerBadge.partner-lead { background: #fff8e1; color: #f57f17; }
+            .pos-points-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+                font-size: 0.68rem;
+                font-weight: 700;
+                background: #fff3e0;
+                color: #e65100;
+                border-radius: 0.25rem;
+                padding: 0.15rem 0.4rem;
+                white-space: nowrap;
+            }
+            .pos-redeem-block {
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px dashed #e7e7e7;
+            }
+            .pos-redeem-block label { font-size: 0.75rem; font-weight: 600; color: #677788; }
+            .pos-redeem-block .pos-discount-input-group { gap: 0.35rem; }
 
             /* Cart items list */
             .pos-cart-items {
@@ -388,6 +407,13 @@
                 text-overflow: ellipsis;
             }
             .pos-cart-item .ci-price { font-size: 0.725rem; color: #677788; }
+            .pos-cart-item .ci-qty-unit {
+                font-size: 0.68rem;
+                color: #8592a3;
+                font-weight: 500;
+                white-space: nowrap;
+                min-width: 1.5rem;
+            }
             .pos-cart-item .ci-right { display: flex; align-items: center; gap: 0.375rem; }
             .pos-cart-item .ci-qty {
                 display: flex;
@@ -504,6 +530,50 @@
             }
             .pos-cart-item .ci-disc-btn:hover { background: var(--pos-accent-muted); }
             .pos-cart-item.has-discount .ci-disc-btn { background: var(--pos-accent); color: #fff; }
+
+            .pos-cart-item.is-promo-free {
+                background: #f3faf5;
+                border-color: #b7e4c7;
+            }
+            .pos-cart-item.is-promo-free .ci-name {
+                display: flex;
+                align-items: center;
+                gap: 0.35rem;
+                flex-wrap: wrap;
+            }
+            .pos-cart-item.is-promo-free .ci-promo-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.2rem;
+                font-size: 0.65rem;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                color: #146c2e;
+                background: #d8f3dc;
+                border-radius: 0.25rem;
+                padding: 0.1rem 0.35rem;
+            }
+            .pos-cart-item.is-promo-free .ci-price { color: #146c2e; font-weight: 600; }
+            .pos-cart-item.is-promo-free .ci-qty button,
+            .pos-cart-item.is-promo-free .ci-disc-btn,
+            .pos-cart-item.is-promo-free .ci-delete { display: none !important; }
+            .pos-cart-item.is-promo-free .ci-qty input {
+                border: none;
+                background: transparent;
+                font-weight: 700;
+                color: #146c2e;
+            }
+            .pos-cart-item.is-promo-free .ci-bottom { display: none !important; }
+            #promoHintRow {
+                display: none;
+                font-size: 0.75rem;
+                color: #146c2e;
+                background: #f3faf5;
+                border: 1px dashed #b7e4c7;
+                border-radius: 0.375rem;
+                padding: 0.4rem 0.55rem;
+                margin: 0 0.75rem 0.5rem;
+            }
 
             .pos-empty-cart {
                 text-align: center;
@@ -1213,18 +1283,47 @@
                 <div class="pos-cart-top">
                     <select id="customerSelect" style="width:100%">
                         <option value="">Walk-in Customer</option>
+                        @forelse($customerSelectGroups ?? [] as $group)
+                        <optgroup label="{{ $group['label'] }}">
+                            @foreach($group['customers'] as $customer)
+                            @php
+                                $role = $customer->partnerRole();
+                                $partnerCode = $customer->agent?->code ?? $customer->reseller?->code;
+                                $shortLabel = $role === 'reseller'
+                                    ? '↳ '.($partnerCode ? $partnerCode.' · ' : '').$customer->name
+                                    : (($partnerCode ? $partnerCode.' · ' : '').$customer->name);
+                            @endphp
+                            <option value="{{ $customer->id }}"
+                                data-partner-role="{{ $role }}"
+                                data-partner-label="{{ $customer->partnerRoleLabel() }}"
+                                data-partner-code="{{ $partnerCode }}"
+                                data-customer-code="{{ $customer->code }}"
+                                data-points-balance="{{ (int) ($customer->points_balance ?? 0) }}"
+                                data-earn-point="{{ $customer->customerGroup?->earn_point ? 1 : 0 }}"
+                                data-point-multiplier="{{ (float) ($customer->customerGroup?->point_multiplier ?? 1) }}"
+                                data-short-label="{{ $shortLabel }}">
+                                {{ $shortLabel }}
+                            </option>
+                            @endforeach
+                        </optgroup>
+                        @empty
                         @forelse($customers ?? collect() as $customer)
                         <option value="{{ $customer->id }}"
                             data-partner-role="{{ $customer->partnerRole() }}"
                             data-partner-label="{{ $customer->partnerRoleLabel() }}"
                             data-partner-code="{{ $customer->agent?->code ?? $customer->reseller?->code }}"
-                            data-customer-code="{{ $customer->code }}">
+                            data-customer-code="{{ $customer->code }}"
+                            data-points-balance="{{ (int) ($customer->points_balance ?? 0) }}"
+                            data-earn-point="{{ $customer->customerGroup?->earn_point ? 1 : 0 }}"
+                            data-point-multiplier="{{ (float) ($customer->customerGroup?->point_multiplier ?? 1) }}">
                             {{ $customer->name }}
                         </option>
                         @empty
                         @endforelse
+                        @endforelse
                     </select>
                     <span id="selectedPartnerBadge"></span>
+                    <span id="selectedPointsBadge" class="pos-points-badge" style="display:none;"></span>
                     <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
@@ -1249,6 +1348,7 @@
                                 <input type="text" value="1" class="quantity-input" inputmode="numeric" pattern="[0-9]*" readonly tabindex="-1" aria-label="Quantity">
                                 <button type="button" class="btn-plus">+</button>
                             </div>
+                            <span class="ci-qty-unit"></span>
                             <button type="button" class="ci-disc-btn btn-item-disc" title="Item Discount">
                                 <i class="ti ti-discount-2" style="font-size:0.7rem"></i>
                             </button>
@@ -1267,6 +1367,10 @@
                             <span class="ci-disc-label">- <span class="item-disc-display">Rp 0</span></span>
                         </div>
                     </div>
+                </div>
+                <div id="promoHintRow">
+                    <i class="ti ti-gift me-1"></i>
+                    <span id="promoHintText">Promo applied</span>
                 </div>
 
                 <!-- Footer / Summary -->
@@ -1298,6 +1402,18 @@
                             </div>
                         </div>
                         <div class="pos-discount-display">- <span id="discountDisplay">Rp 0</span></div>
+                    </div>
+                    <div class="pos-redeem-block" id="redeemPointsBlock" style="display:none;">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="mb-0">Redeem Points</label>
+                            <small class="text-muted">Saldo: <span id="pointsBalanceLabel">0</span></small>
+                        </div>
+                        <div class="pos-discount-input-group">
+                            <input type="text" id="redeemPointsInput" value="0" placeholder="0" inputmode="numeric" autocomplete="off">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnRedeemMax" style="border-radius:0.375rem; white-space:nowrap;">Max</button>
+                        </div>
+                        <div class="pos-discount-display text-success">- <span id="redeemDiscountDisplay">Rp 0</span></div>
+                        <small class="text-muted d-block mt-1" id="redeemRateHint"></small>
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>Total</span>
@@ -1484,6 +1600,7 @@
                     allowClear: true,
                     templateResult: function(option) {
                         if (!option.id) {
+                            // optgroup or placeholder
                             return option.text;
                         }
 
@@ -1491,10 +1608,12 @@
                         var role = $option.data('partner-role');
                         var label = $option.data('partner-label');
                         var code = $option.data('partner-code');
-                        var customerCode = $option.data('customer-code');
-                        var name = option.text.trim();
+                        var shortLabel = $option.data('short-label') || option.text.trim();
                         var $wrap = $('<div class="pos-customer-option"></div>');
-                        var $name = $('<span class="pos-customer-name"></span>').text(name + (customerCode ? ' (' + customerCode + ')' : ''));
+                        var $name = $('<span class="pos-customer-name"></span>').text(shortLabel);
+                        if (role === 'reseller') {
+                            $name.css('padding-left', '0.5rem');
+                        }
                         $wrap.append($name);
 
                         if (role && label) {
@@ -1512,11 +1631,12 @@
                         }
 
                         var $option = $(option.element);
-                        var name = option.text.trim();
-                        var customerCode = $option.data('customer-code');
-                        return customerCode ? name + ' (' + customerCode + ')' : name;
+                        return $option.data('short-label') || option.text.trim();
                     }
                 });
+
+                var discountType = 'percent';
+                var redeemValuePerPoint = {{ (int) ($redeemValuePerPoint ?? 0) }};
 
                 function updateSelectedPartnerBadge() {
                     var $selected = $('#customerSelect option:selected');
@@ -1527,21 +1647,114 @@
 
                     if (!role || !label) {
                         $badge.hide().removeClass('agent reseller partner-lead').text('');
-                        return;
+                    } else {
+                        var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                        $badge
+                            .removeClass('agent reseller partner-lead')
+                            .addClass(badgeClass)
+                            .text(label + (code ? ' · ' + code : ''))
+                            .show();
                     }
 
-                    var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
-                    $badge
-                        .removeClass('agent reseller partner-lead')
-                        .addClass(badgeClass)
-                        .text(label + (code ? ' · ' + code : ''))
-                        .show();
+                    updateMembershipPointsUi(true);
+                }
+
+                function getSelectedPointsBalance() {
+                    var $selected = $('#customerSelect option:selected');
+                    if (!$selected.val()) return 0;
+                    return parseInt($selected.data('points-balance'), 10) || 0;
+                }
+
+                function updateMembershipPointsUi(recalcTotals) {
+                    var $selected = $('#customerSelect option:selected');
+                    var $pointsBadge = $('#selectedPointsBadge');
+                    var hasCustomer = !!$selected.val();
+                    var balance = getSelectedPointsBalance();
+
+                    if (!hasCustomer) {
+                        $pointsBadge.hide().text('');
+                        $('#redeemPointsBlock').hide();
+                        $('#redeemPointsInput').val(0);
+                    } else {
+                        $pointsBadge.html('<i class="ti ti-star"></i> ' + balance.toLocaleString('id-ID') + ' poin').show();
+
+                        if (redeemValuePerPoint > 0) {
+                            $('#redeemPointsBlock').show();
+                            $('#pointsBalanceLabel').text(balance.toLocaleString('id-ID'));
+                            $('#redeemRateHint').text('1 poin = Rp ' + redeemValuePerPoint.toLocaleString('id-ID'));
+                        } else {
+                            $('#redeemPointsBlock').hide();
+                            $('#redeemPointsInput').val(0);
+                        }
+                    }
+
+                    if (recalcTotals && typeof updateCartTotals === 'function') {
+                        updateCartTotals();
+                    }
+                }
+
+                function getRedeemPointsRequested() {
+                    return parseInt(String($('#redeemPointsInput').val() || '0').replace(/\D/g, ''), 10) || 0;
+                }
+
+                function calcMaxRedeemPoints(payableBeforeRedeem) {
+                    var balance = getSelectedPointsBalance();
+                    if (redeemValuePerPoint <= 0 || balance <= 0 || payableBeforeRedeem <= 0) return 0;
+                    var byPayable = Math.floor(payableBeforeRedeem / redeemValuePerPoint);
+                    return Math.max(0, Math.min(balance, byPayable));
                 }
 
                 $('#customerSelect').on('change', updateSelectedPartnerBadge);
-                updateSelectedPartnerBadge();
+                // Initial badges (no cart totals yet)
+                (function initCustomerBadges() {
+                    var $selected = $('#customerSelect option:selected');
+                    var $badge = $('#selectedPartnerBadge');
+                    var role = $selected.data('partner-role');
+                    var label = $selected.data('partner-label');
+                    var code = $selected.data('partner-code');
+                    if (!role || !label) {
+                        $badge.hide().removeClass('agent reseller partner-lead').text('');
+                    } else {
+                        var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
+                        $badge.removeClass('agent reseller partner-lead').addClass(badgeClass)
+                            .text(label + (code ? ' · ' + code : '')).show();
+                    }
+                    updateMembershipPointsUi(false);
+                })();
+
+                $('#btnRedeemMax').on('click', function() {
+                    var subtotalNet = 0;
+                    $cartPaidItems().each(function() {
+                        var $el = $(this);
+                        var inp = $el.find('.quantity-input');
+                        var unitPrice = parseFloat(inp.data('unit-price')) || 0;
+                        var qty = parseInt(inp.val()) || 1;
+                        var lineTotal = unitPrice * qty;
+                        var itemDiscAmt = 0;
+                        if ($el.hasClass('has-discount')) {
+                            var dt = $el.find('.item-disc-type.active').data('type') || 'percent';
+                            var dv = parseDiscValue($el.find('.item-disc-input').val(), dt);
+                            itemDiscAmt = dt === 'percent' ? Math.round(lineTotal * dv / 100) : Math.min(Math.round(dv), lineTotal);
+                        }
+                        subtotalNet += (lineTotal - itemDiscAmt);
+                    });
+                    var taxRate = {{ $taxRate ?? 11 }};
+                    var tax = $('#taxToggle').is(':checked') ? Math.round(subtotalNet * taxRate / 100) : 0;
+                    var discVal = parseDiscValue($('#discountInput').val(), discountType);
+                    var txnDiscAmt = discountType === 'percent'
+                        ? Math.round(subtotalNet * discVal / 100)
+                        : Math.min(Math.round(discVal), subtotalNet);
+                    var payable = Math.max(0, subtotalNet + tax - txnDiscAmt);
+                    $('#redeemPointsInput').val(calcMaxRedeemPoints(payable));
+                    updateCartTotals();
+                });
+
+                $('#redeemPointsInput').on('input', function() {
+                    this.value = String(this.value || '').replace(/\D/g, '');
+                    updateCartTotals();
+                });
+
                 // ── Discount toggle (% / Rp) ─────────────────────────────
-                var discountType = 'percent';
 
                 function parseDiscRaw(val) {
                     return parseInt(String(val || '').replace(/\D/g, ''), 10) || 0;
@@ -1689,7 +1902,7 @@
                         if (withPrice.length === 0) { alert('No variants with price for this price list'); return; }
                         if (withPrice.length === 1) {
                             var v = withPrice[0];
-                            addToCart(v.id, v.display_name, v.selling_price, v.image || productImage, v.unit_id);
+                            addToCart(v.id, v.display_name, v.selling_price, v.image || productImage, v.unit_id, v.unit_label);
                             return;
                         }
                         showVariantModal(variants, productImage);
@@ -1714,7 +1927,7 @@
                             var stockClass = v.stock > 10 ? 'stock-ok' : (v.stock > 0 ? 'stock-low' : 'stock-out');
                             html += '<div class="variant-card variant-item" role="button" tabindex="0"';
                             html += ' data-variant-id="'+v.id+'" data-name="'+escapeHtml(v.display_name)+'" data-price="'+v.selling_price+'"';
-                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'">';
+                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'" data-unit-label="'+(v.unit_label||'')+'">';
                             html += '<img src="'+img+'" alt="'+escapeHtml(v.display_name)+'" class="v-img" onerror="this.src=\'https://placehold.co/300x225/f8f9fa/b0b7c3?text=?\'">';
                             html += '<div class="v-body">';
                             html += '<div class="v-name">'+escapeHtml(v.display_name)+'</div>';
@@ -1731,7 +1944,7 @@
                 $(document).on('click', '.variant-item', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    addToCart($(this).data('variant-id'), $(this).data('name'), $(this).data('price'), $(this).data('image'), $(this).data('unit-id'));
+                    addToCart($(this).data('variant-id'), $(this).data('name'), $(this).data('price'), $(this).data('image'), $(this).data('unit-id'), $(this).data('unit-label'));
                     variantModal.hide();
                 });
 
@@ -1741,16 +1954,19 @@
 
                 // ── Cart quantity ─────────────────────────────────────
                 $(document).on('click', '.btn-minus', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     var inp = $(this).siblings('.quantity-input');
                     var val = parseInt(inp.val());
                     if (val > 1) { inp.val(val - 1); updateCartTotals(); }
                 });
                 $(document).on('click', '.btn-plus', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     var inp = $(this).siblings('.quantity-input');
                     inp.val(parseInt(inp.val()) + 1);
                     updateCartTotals();
                 });
                 $(document).on('click', '.btn-delete', function() {
+                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     $(this).closest('.pos-cart-item').remove();
                     updateCartTotals();
                     checkEmptyCart();
@@ -1825,6 +2041,7 @@
                     $('.modal-backdrop').remove();
                     $('#paymentModal .pay-denom-cash-pay, #paymentModal .pay-other-btn, #paymentModal .pay-channel-btn').prop('disabled', false);
                     $('#payCashPay').html('Cash');
+                    $('#redeemPointsInput').val(0);
                     clearCart();
                 }
 
@@ -1935,9 +2152,13 @@
                     return $('#cartItems .pos-cart-item').not('#sampleCartItem');
                 }
 
+                function $cartPaidItems() {
+                    return $cartLineItems().not('.is-promo-free');
+                }
+
                 function getCartItemQty() {
                     var count = 0;
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         count += parseInt($(this).find('.quantity-input').val(), 10) || 0;
                     });
                     return count;
@@ -1945,7 +2166,7 @@
 
                 function collectCartItems() {
                     var items = [];
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         var $el = $(this);
                         var inp = $el.find('.quantity-input');
                         var unitPrice = parseFloat(inp.data('unit-price')) || 0;
@@ -1965,6 +2186,100 @@
                         });
                     });
                     return items;
+                }
+
+                var promoPreviewTimer = null;
+                var promoPreviewXhr = null;
+
+                function clearPromoFreeLines() {
+                    $cartLineItems().filter('.is-promo-free').remove();
+                    $('#promoHintRow').hide();
+                }
+
+                function renderPromoFreeLines(freeItems) {
+                    clearPromoFreeLines();
+                    if (!freeItems || !freeItems.length) {
+                        checkEmptyCart();
+                        return;
+                    }
+
+                    freeItems.forEach(function(row) {
+                        var item = $('#sampleCartItem').clone().removeAttr('id').show();
+                        item.addClass('is-promo-free');
+                        item.attr('data-variant-id', row.variant_id);
+                        item.attr('data-unit-id', row.unit_id || '');
+                        item.attr('data-unit-label', row.unit_label || '');
+                        item.attr('data-promotion-id', row.promotion_id || '');
+                        item.find('.ci-img').attr('src', row.image || 'https://placehold.co/44x44/d8f3dc/146c2e?text=FREE');
+                        item.find('.ci-name').html(
+                            '<span class="ci-promo-badge"><i class="ti ti-gift"></i> FREE' +
+                            (row.promo_code ? ' · ' + row.promo_code : '') +
+                            '</span><span>' + $('<div>').text(row.name || 'Promo item').html() + '</span>'
+                        );
+                        item.find('.ci-price').text('Rp 0' + (row.unit_label ? ' / ' + row.unit_label : ''));
+                        item.find('.ci-qty-unit').text(row.unit_label || '');
+                        item.find('.quantity-input').val(row.quantity).data('unit-price', 0);
+                        $('#cartItems').append(item);
+                    });
+
+                    var totalFreeQty = freeItems.reduce(function(sum, row) {
+                        return sum + (parseFloat(row.quantity) || 0);
+                    }, 0);
+                    $('#promoHintText').text(
+                        'Promo applied: ' + totalFreeQty + ' free item(s) will be fulfilled from configured warehouse.'
+                    );
+                    $('#promoHintRow').show();
+                    checkEmptyCart();
+                }
+
+                function refreshPromoPreview() {
+                    clearTimeout(promoPreviewTimer);
+                    promoPreviewTimer = setTimeout(function() {
+                        var items = collectCartItems();
+                        if (!items.length) {
+                            clearPromoFreeLines();
+                            updateCartBadgeOnly();
+                            return;
+                        }
+
+                        if (promoPreviewXhr) {
+                            promoPreviewXhr.abort();
+                        }
+
+                        promoPreviewXhr = $.ajax({
+                            url: '{{ route("transaction.pos.preview-promo") }}',
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                                'Accept': 'application/json'
+                            },
+                            contentType: 'application/json',
+                            data: JSON.stringify({ items: items }),
+                            success: function(res) {
+                                if (res && res.success) {
+                                    renderPromoFreeLines(res.free_items || []);
+                                    updateCartBadgeOnly();
+                                }
+                            },
+                            error: function(xhr) {
+                                if (xhr.statusText === 'abort') return;
+                                clearPromoFreeLines();
+                                updateCartBadgeOnly();
+                            }
+                        });
+                    }, 280);
+                }
+
+                function updateCartBadgeOnly() {
+                    var paidQty = 0;
+                    var freeQty = 0;
+                    $cartPaidItems().each(function() {
+                        paidQty += parseInt($(this).find('.quantity-input').val(), 10) || 0;
+                    });
+                    $cartLineItems().filter('.is-promo-free').each(function() {
+                        freeQty += parseInt($(this).find('.quantity-input').val(), 10) || 0;
+                    });
+                    $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(paidQty + freeQty);
                 }
 
                 var xenditPollTimer = null;
@@ -2036,9 +2351,28 @@
                     if (d.change_amount > 0) {
                         html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Change</td><td class="text-end py-1 fw-bold text-success">' + formatRp(d.change_amount) + '</td></tr>';
                     }
+                    if (d.promo_free_count > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Promo FREE</td><td class="text-end py-1 fw-bold text-success">' + d.promo_free_count + ' item(s)</td></tr>';
+                    }
+                    if (d.membership_points_redeemed > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Poin dipakai</td><td class="text-end py-1 fw-bold text-warning">-' + Number(d.membership_points_redeemed).toLocaleString('id-ID') + '</td></tr>';
+                    }
+                    if (d.membership_points_earned > 0) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Poin didapat</td><td class="text-end py-1 fw-bold text-success">+' + Number(d.membership_points_earned).toLocaleString('id-ID') + '</td></tr>';
+                    }
                     html += '</table>';
 
+                    // Sync local customer option balance after redeem/earn
+                    var $opt = $('#customerSelect option:selected');
+                    if ($opt.val()) {
+                        var bal = parseInt($opt.data('points-balance'), 10) || 0;
+                        bal = bal - (parseInt(d.membership_points_redeemed, 10) || 0) + (parseInt(d.membership_points_earned, 10) || 0);
+                        if (bal < 0) bal = 0;
+                        $opt.attr('data-points-balance', bal);
+                    }
+
                     resetPosUiAfterPayment();
+                    updateMembershipPointsUi();
 
                     if (d.sales_number) {
                         $('#posTrxNumber').text(d.sales_number);
@@ -2134,6 +2468,7 @@
                         tax_enabled: $('#taxToggle').is(':checked'),
                         discount_type: discountType,
                         discount_value: parseDiscValue($('#discountInput').val(), discountType),
+                        redeem_points: getRedeemPointsRequested(),
                         amount_paid: amountPaid,
                         notes: null
                     };
@@ -2186,9 +2521,9 @@
                 }
 
                 // ── addToCart ──────────────────────────────────────────
-                function addToCart(variantId, name, price, image, unitId) {
+                function addToCart(variantId, name, price, image, unitId, unitLabel) {
                     $('#emptyCart').hide();
-                    var existing = $('#cartItems .pos-cart-item').not('#sampleCartItem').filter('[data-variant-id="'+variantId+'"]');
+                    var existing = $cartPaidItems().filter('[data-variant-id="'+variantId+'"]');
                     if (existing.length > 0) {
                         var inp = existing.find('.quantity-input');
                         inp.val(parseInt(inp.val()) + 1);
@@ -2196,9 +2531,13 @@
                         var item = $('#sampleCartItem').clone().removeAttr('id').show();
                         item.attr('data-variant-id', variantId);
                         item.attr('data-unit-id', unitId || '');
+                        item.attr('data-unit-label', unitLabel || '');
                         item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
                         item.find('.ci-name').text(name);
-                        item.find('.ci-price').text('Rp ' + Number(price).toLocaleString('id-ID'));
+                        item.find('.ci-price').text(
+                            'Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
+                        );
+                        item.find('.ci-qty-unit').text(unitLabel || '');
                         item.find('.quantity-input').data('unit-price', price);
                         $('#cartItems').append(item);
                     }
@@ -2212,7 +2551,7 @@
                 // ── updateCartTotals ──────────────────────────────────
                 function updateCartTotals() {
                     var subtotalGross = 0, subtotalNet = 0, totalItemDisc = 0, itemCount = 0;
-                    $cartLineItems().each(function() {
+                    $cartPaidItems().each(function() {
                         var $el = $(this);
                         var inp = $el.find('.quantity-input');
                         var unitPrice = parseFloat(inp.data('unit-price')) || (parseInt($el.find('.ci-price').text().replace(/\D/g,''))||0);
@@ -2251,16 +2590,31 @@
                         if (txnDiscAmt > subtotalNet) txnDiscAmt = subtotalNet;
                     }
 
-                    var total = subtotalNet + tax - txnDiscAmt;
+                    var totalBeforeRedeem = subtotalNet + tax - txnDiscAmt;
+                    if (totalBeforeRedeem < 0) totalBeforeRedeem = 0;
+
+                    var redeemPts = getRedeemPointsRequested();
+                    var maxRedeem = calcMaxRedeemPoints(totalBeforeRedeem);
+                    if (redeemPts > maxRedeem) {
+                        redeemPts = maxRedeem;
+                        $('#redeemPointsInput').val(redeemPts);
+                    }
+                    var redeemDiscAmt = redeemValuePerPoint > 0 ? redeemPts * redeemValuePerPoint : 0;
+                    if (redeemDiscAmt > totalBeforeRedeem) redeemDiscAmt = totalBeforeRedeem;
+
+                    var total = totalBeforeRedeem - redeemDiscAmt;
                     if (total < 0) total = 0;
 
-                    $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(itemCount);
                     $('#subtotal').text('Rp ' + subtotalNet.toLocaleString('id-ID'));
                     $('#itemDiscTotal').text('Rp ' + totalItemDisc.toLocaleString('id-ID'));
                     if (totalItemDisc > 0) { $('#itemDiscRow').show(); } else { $('#itemDiscRow').hide(); }
                     $('#tax').text('Rp ' + tax.toLocaleString('id-ID'));
                     $('#discountDisplay').text('Rp ' + txnDiscAmt.toLocaleString('id-ID'));
+                    $('#redeemDiscountDisplay').text('Rp ' + redeemDiscAmt.toLocaleString('id-ID'));
                     $('#total').text('Rp ' + total.toLocaleString('id-ID'));
+
+                    updateCartBadgeOnly();
+                    refreshPromoPreview();
                 }
 
                 function checkEmptyCart() {
@@ -2269,6 +2623,7 @@
                         $('#emptyCart').hide();
                     } else {
                         $('#emptyCart').show();
+                        $('#promoHintRow').hide();
                     }
                 }
 

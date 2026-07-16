@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
 use App\Models\ParameterDetail;
 use App\Models\Product;
+use App\Models\ProductBatch;
 use App\Models\ProductPurchaseOrder;
 use App\Models\ProductPurchaseOrderItem;
 use App\Models\ProductPurchaseOrderReceive;
@@ -121,6 +122,29 @@ class PurchaseOrderController extends Controller
     }
 
     /**
+     * Receive tindakan di list: Sub-PO / standalone berstatus process|receiving dengan sisa qty.
+     */
+    protected function purchaseOrderCanReceive(ProductPurchaseOrder $row): bool
+    {
+        if ($row->deleted_at) {
+            return false;
+        }
+
+        if (! PurchaseOrderHierarchyService::canReceive($row)) {
+            return false;
+        }
+
+        $status = $row->status_key ?? $row->status;
+        if (! in_array($status, ['process', 'receiving'], true)) {
+            return false;
+        }
+
+        $row->loadMissing(['items' => fn ($q) => $q->whereNull('deleted_at'), 'items.receiveItems']);
+
+        return $row->items->contains(fn ($item) => $item->quantity_remaining > 0);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function purchaseOrderIndexPayload(ProductPurchaseOrder $row, bool $includeTreeMeta = false): array
@@ -135,8 +159,9 @@ class PurchaseOrderController extends Controller
             'status' => $row->status,
             'status_key' => $row->status_key ?? $row->status,
             'status_badge' => $this->purchaseOrderStatusBadge($row),
-            'can_update_status' => PurchaseOrderStatus::canUpdate($row),
-            'can_create_sub' => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row),
+            'can_update_status' => PurchaseOrderStatus::canUpdate($row) ? 1 : 0,
+            'can_create_sub' => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row) ? 1 : 0,
+            'can_receive' => $this->purchaseOrderCanReceive($row) ? 1 : 0,
             'progress_pct' => PurchaseOrderHierarchyService::receiveProgressPercent($row),
             'progress_display' => PurchaseOrderHierarchyService::receiveProgressHtml($row),
             'total_fmt' => format_number((float) $row->total, 2, true),
@@ -230,8 +255,9 @@ class PurchaseOrderController extends Controller
             ->addIndexColumn()
             ->addColumn('status_badge', fn ($row) => $this->purchaseOrderStatusBadge($row))
             ->addColumn('status_key', fn ($row) => $row->status_key ?? $row->status)
-            ->addColumn('can_update_status', fn ($row) => PurchaseOrderStatus::canUpdate($row))
-            ->addColumn('can_create_sub', fn ($row) => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row))
+            ->addColumn('can_update_status', fn ($row) => PurchaseOrderStatus::canUpdate($row) ? 1 : 0)
+            ->addColumn('can_create_sub', fn ($row) => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row) ? 1 : 0)
+            ->addColumn('can_receive', fn ($row) => $this->purchaseOrderCanReceive($row) ? 1 : 0)
             ->addColumn('po_kind_badge', fn ($row) => $this->purchaseOrderKindBadge($row))
             ->addColumn('parent_number', fn ($row) => $row->parent?->purchase_number ? e($row->parent->purchase_number) : '-')
             ->addColumn('progress_pct', fn ($row) => PurchaseOrderHierarchyService::receiveProgressPercent($row))
@@ -410,8 +436,6 @@ class PurchaseOrderController extends Controller
             'items.*.variant_id' => 'nullable|exists:product.product_variants,id',
             'items.*.unit_id' => 'required|exists:product.product_units,id',
             'items.*.quantity' => 'required|numeric|min:0.000001',
-            'items.*.batch_number' => 'required|string|max:100',
-            'items.*.expiry_date' => 'required|date',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
@@ -432,6 +456,11 @@ class PurchaseOrderController extends Controller
             $parent = ProductPurchaseOrder::with('items')->findOrFail($request->parent_id);
             if (! PurchaseOrderHierarchyService::isMaster($parent)) {
                 return redirect()->back()->withErrors(['parent_id' => 'PO induk tidak valid.'])->withInput();
+            }
+            if (! PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($parent)) {
+                return redirect()->back()
+                    ->withErrors(['parent_id' => 'Sub-PO hanya dapat dibuat dari CPO berstatus Process (bukan Draft).'])
+                    ->withInput();
             }
             if (! in_array($parent->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
                 abort(403, 'Unauthorized.');
@@ -517,8 +546,8 @@ class PurchaseOrderController extends Controller
                     'quantity' => $qty,
                     'carton_qty' => $carton['carton_qty'],
                     'carton_display' => $carton['carton_display'],
-                    'batch_number' => $this->normalizeBatchNumber($item['batch_number'] ?? ''),
-                    'expiry_date' => $item['expiry_date'] ?? null,
+                    'batch_number' => null,
+                    'expiry_date' => null,
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -640,8 +669,6 @@ class PurchaseOrderController extends Controller
             'items.*.variant_id' => 'nullable|exists:product.product_variants,id',
             'items.*.unit_id' => 'required|exists:product.product_units,id',
             'items.*.quantity' => 'required|numeric|min:0.000001',
-            'items.*.batch_number' => 'required|string|max:100',
-            'items.*.expiry_date' => 'required|date',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
@@ -731,8 +758,8 @@ class PurchaseOrderController extends Controller
                     'quantity' => $qty,
                     'carton_qty' => $carton['carton_qty'],
                     'carton_display' => $carton['carton_display'],
-                    'batch_number' => $this->normalizeBatchNumber($item['batch_number'] ?? ''),
-                    'expiry_date' => $item['expiry_date'] ?? null,
+                    'batch_number' => null,
+                    'expiry_date' => null,
                     'unit_price' => $unitPrice,
                     'discount_amount' => $disc,
                     'subtotal' => $itemSubtotal,
@@ -826,7 +853,7 @@ class PurchaseOrderController extends Controller
 
         return Pdf::loadView('admin.product.purchase-order.pdf', compact('purchase', 'showPrices', 'company'))
             ->setPaper('a4', 'portrait')
-            ->download($filename);
+            ->stream($filename);
     }
 
     public function deleteData(Request $request)
@@ -1040,8 +1067,14 @@ class PurchaseOrderController extends Controller
 
         $warehouses = $this->receiveWarehouseOptions($purchase);
         $defaultWarehouseId = $this->defaultReceiveWarehouseId($purchase, $warehouses);
+        $suggestedBatchNumber = $this->generateBatchNumber(now()->format('Y-m-d'));
 
-        return view('admin.product.purchase-order.receive', compact('purchase', 'warehouses', 'defaultWarehouseId'));
+        return view('admin.product.purchase-order.receive', compact(
+            'purchase',
+            'warehouses',
+            'defaultWarehouseId',
+            'suggestedBatchNumber'
+        ));
     }
 
     public function receiveData(Request $request)
@@ -1054,6 +1087,9 @@ class PurchaseOrderController extends Controller
             'items' => 'required|array|min:1',
             'items.*.purchase_order_item_id' => 'required|exists:product.purchase_order_items,id',
             'items.*.quantity_received' => 'required|numeric|min:0',
+            'items.*.batch_number' => 'nullable|string|max:100',
+            'items.*.expiry_date' => 'nullable|string',
+            'items.*.use_batch' => 'nullable|in:0,1',
         ]);
 
         $purchase = ProductPurchaseOrder::with('items.receiveItems')->findOrFail($request->purchase_order_id);
@@ -1087,6 +1123,24 @@ class PurchaseOrderController extends Controller
                 $productName = $poItem->product?->name ?? 'Unknown';
                 return redirect()->back()->withErrors(['error' => "Quantity for {$productName} exceeds remaining ({$remaining})."])->withInput();
             }
+
+            $useBatch = (string) ($item['use_batch'] ?? '0') === '1';
+            if (! $useBatch) {
+                continue;
+            }
+
+            $batchNumber = $this->normalizeBatchNumber($item['batch_number'] ?? '');
+            if ($batchNumber === '' || $this->isSystemGeneratedBatchNumber($batchNumber)) {
+                $batchNumber = $this->generateBatchNumber($request->receive_date);
+            }
+            if ($batchNumber === '') {
+                $productName = $poItem->product?->name ?? 'Unknown';
+                return redirect()->back()->withErrors(['error' => "Kode Batch wajib diisi untuk {$productName}."])->withInput();
+            }
+            if (empty(trim((string) ($item['expiry_date'] ?? '')))) {
+                $productName = $poItem->product?->name ?? 'Unknown';
+                return redirect()->back()->withErrors(['error' => "Tanggal Expired wajib diisi untuk {$productName}."])->withInput();
+            }
         }
 
         $user = auth('web')->user();
@@ -1117,13 +1171,21 @@ class PurchaseOrderController extends Controller
                 $poItem = $purchase->items->firstWhere('id', $item['purchase_order_item_id']);
                 $qtyReceived = (float) $item['quantity_received'];
 
-                $expiryDate = optional($poItem->expiry_date)->toDateString();
+                $useBatch = (string) ($item['use_batch'] ?? '0') === '1';
+                $batchNumber = $useBatch ? $this->normalizeBatchNumber($item['batch_number'] ?? '') : null;
+                if ($useBatch && ($batchNumber === null || $batchNumber === '' || $this->isSystemGeneratedBatchNumber($batchNumber))) {
+                    $batchNumber = $this->generateBatchNumber($request->receive_date);
+                }
+                $expiryDate = $useBatch && ! empty(trim((string) ($item['expiry_date'] ?? '')))
+                    ? HelperController::parseDate($item['expiry_date'])
+                    : null;
+
                 $productBatch = null;
-                if ($poItem->batch_number) {
+                if ($useBatch && $batchNumber) {
                     $productBatch = BatchStockService::receiveInbound(
                         productId: $poItem->product_id,
                         companyId: $companyId,
-                        batchNumber: $poItem->batch_number,
+                        batchNumber: $batchNumber,
                         expiryDate: $expiryDate,
                         warehouseId: $warehouseId,
                         branchId: $stockBranchId,
@@ -1132,11 +1194,20 @@ class PurchaseOrderController extends Controller
                         userId: $user->id,
                     );
 
+                    $poItemUpdates = [
+                        'updated_by' => $user->id,
+                    ];
+                    if (! $poItem->batch_number) {
+                        $poItemUpdates['batch_number'] = $batchNumber;
+                    }
+                    if (! $poItem->expiry_date && $expiryDate) {
+                        $poItemUpdates['expiry_date'] = $expiryDate;
+                    }
                     if (! $poItem->product_batch_id) {
-                        $poItem->update([
-                            'product_batch_id' => $productBatch->id,
-                            'updated_by' => $user->id,
-                        ]);
+                        $poItemUpdates['product_batch_id'] = $productBatch->id;
+                    }
+                    if (count($poItemUpdates) > 1) {
+                        $poItem->update($poItemUpdates);
                     }
                 }
 
@@ -1146,8 +1217,8 @@ class PurchaseOrderController extends Controller
                     'product_id' => $poItem->product_id,
                     'variant_id' => $poItem->variant_id,
                     'unit_id' => $poItem->unit_id,
-                    'batch_number' => $poItem->batch_number,
-                    'expiry_date' => $poItem->expiry_date,
+                    'batch_number' => $batchNumber,
+                    'expiry_date' => $expiryDate,
                     'product_batch_id' => $productBatch?->id,
                     'quantity_received' => $qtyReceived,
                     'notes' => $item['notes'] ?? null,
@@ -1244,8 +1315,16 @@ class PurchaseOrderController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('product.purchase-order.detail.view', $purchase->id)
-                ->with('success', "Receive {$receive->receive_number} saved successfully.");
+
+            $hasBatchLabels = $receive->items()
+                ->whereNotNull('batch_number')
+                ->where('batch_number', '!=', '')
+                ->exists();
+
+            return redirect()
+                ->route('product.purchase-order.receive-detail.view', $receive->id)
+                ->with('success', "Receive {$receive->receive_number} saved successfully.")
+                ->with('print_batch', $hasBatchLabels);
         } catch (\Throwable $e) {
             DB::rollBack();
             throw $e;
@@ -1268,7 +1347,52 @@ class PurchaseOrderController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        return view('admin.product.purchase-order.receive-detail', compact('receive'));
+        $batchItems = $receive->items->filter(
+            fn ($item) => filled(trim((string) ($item->batch_number ?? '')))
+        );
+
+        return view('admin.product.purchase-order.receive-detail', compact('receive', 'batchItems'));
+    }
+
+    public function receiveBatchPrint(Request $request, string $id)
+    {
+        $receive = ProductPurchaseOrderReceive::with([
+            'purchaseOrder',
+            'items.product',
+            'items.unit',
+            'items.variant',
+            'warehouse',
+        ])->findOrFail($id);
+
+        $user = auth('web')->user();
+        if (! in_array($receive->purchaseOrder->branch_id, $user->getAccessibleBusinessUnitIdsForQuery())) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $labels = $receive->items
+            ->filter(fn ($item) => filled(trim((string) ($item->batch_number ?? ''))))
+            ->values();
+
+        if ($labels->isEmpty()) {
+            return redirect()
+                ->route('product.purchase-order.receive-detail.view', $receive->id)
+                ->withErrors(['error' => 'Tidak ada item dengan kode batch untuk dicetak.']);
+        }
+
+        $copies = max(1, min(20, (int) $request->get('copies', 1)));
+
+        $company = BusinessUnit::query()
+            ->whereKey($receive->purchaseOrder->company_id)
+            ->first();
+
+        return Pdf::loadView('admin.product.purchase-order.print-batch-labels', [
+            'receive' => $receive,
+            'labels' => $labels,
+            'copies' => $copies,
+            'company' => $company,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->stream('batch-labels-'.$receive->receive_number.'.pdf');
     }
 
     /**
@@ -1350,5 +1474,54 @@ class PurchaseOrderController extends Controller
     protected function normalizeBatchNumber(?string $batchNumber): string
     {
         return strtoupper(trim((string) $batchNumber));
+    }
+
+    /**
+     * System format: BATCH-{YYMMDD}{seq} e.g. BATCH-26071601
+     * (Batch + Tahun 2 digit + Bulan + Tanggal + nomor unik harian)
+     */
+    protected function isSystemGeneratedBatchNumber(?string $batchNumber): bool
+    {
+        return (bool) preg_match('/^BATCH-\d{8}$/i', trim((string) $batchNumber));
+    }
+
+    /** @var array<string, int> */
+    protected array $batchSequenceCache = [];
+
+    protected function generateBatchNumber(mixed $date = null): string
+    {
+        $carbon = now();
+        $raw = is_string($date) ? trim($date) : null;
+
+        if ($raw) {
+            try {
+                $carbon = \Carbon\Carbon::parse(HelperController::parseDate($raw));
+            } catch (\Throwable) {
+                // keep now()
+            }
+        }
+
+        $dateKey = $carbon->format('ymd'); // e.g. 260716
+        $prefix = 'BATCH-'.$dateKey;
+
+        if (! isset($this->batchSequenceCache[$dateKey])) {
+            $maxSeq = 0;
+
+            $candidates = ProductBatch::withTrashed()
+                ->where('batch_number', 'ilike', $prefix.'%')
+                ->pluck('batch_number');
+
+            foreach ($candidates as $candidate) {
+                if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/i', (string) $candidate, $m)) {
+                    $maxSeq = max($maxSeq, (int) $m[1]);
+                }
+            }
+
+            $this->batchSequenceCache[$dateKey] = $maxSeq;
+        }
+
+        $this->batchSequenceCache[$dateKey]++;
+
+        return $prefix.str_pad((string) $this->batchSequenceCache[$dateKey], 2, '0', STR_PAD_LEFT);
     }
 }

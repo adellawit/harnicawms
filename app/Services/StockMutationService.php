@@ -121,7 +121,8 @@ class StockMutationService
         ?string $referenceId,
         ?string $userId = null,
         ?string $notes = null,
-        ?string $warehouseId = null
+        ?string $warehouseId = null,
+        bool $handleBatch = true
     ): array {
         if ($quantity <= 0) {
             return ['total_cost' => 0.0, 'unit_cost' => 0.0, 'earliest_expiry' => null];
@@ -161,6 +162,11 @@ class StockMutationService
         $stock->save();
 
         self::recordMovement($stock, $productId, $variantId, $companyId, $operationalBranchId, $warehouseId, $unitId, 'out', $quantity, $before, $after, $referenceType, $referenceId, $userId, $notes);
+
+        // Ikuti potong stok batch (FEFO) agar tampilan batch sinkron dengan stok varian.
+        if ($handleBatch && $warehouseId) {
+            BatchStockService::consumeOutbound($productId, $warehouseId, $unitId, $quantity, $userId);
+        }
 
         $cogs = FifoCostService::consume($variantId, $operationalBranchId, $unitId, $quantity, $userId, $warehouseId);
 

@@ -15,6 +15,26 @@ use Yajra\DataTables\DataTables;
 
 class WarehouseController extends Controller
 {
+    protected function generateCode(?string $companyId = null): string
+    {
+        $prefix = 'WH-';
+
+        $query = Warehouse::withTrashed()
+            ->where('code', 'like', $prefix.'%');
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        $last = $query
+            ->orderByRaw('LENGTH(code) DESC, code DESC')
+            ->value('code');
+
+        $seq = $last ? ((int) substr($last, strlen($prefix)) + 1) : 1;
+
+        return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+    }
+
     protected function getAccessibleBusinessUnitIds(): array
     {
         $user = auth('web')->user();
@@ -168,12 +188,23 @@ class WarehouseController extends Controller
         $branches = $this->branchesForCompanies($parentCompanies->pluck('id')->all());
         $provinces = Province::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
         $warehouseTypes = $this->warehouseTypes();
+        $generatedCode = old('code', $this->generateCode());
 
-        return view('admin.business.warehouse.insert', compact('parentCompanies', 'branches', 'provinces', 'warehouseTypes'));
+        return view('admin.business.warehouse.insert', compact(
+            'parentCompanies',
+            'branches',
+            'provinces',
+            'warehouseTypes',
+            'generatedCode'
+        ));
     }
 
     public function insertData(Request $request)
     {
+        if (! $request->filled('code')) {
+            $request->merge(['code' => $this->generateCode($request->input('parent_id'))]);
+        }
+
         $data = $this->validateWarehouse($request);
 
         DB::transaction(function () use ($request, $data) {
@@ -188,6 +219,15 @@ class WarehouseController extends Controller
         });
 
         return redirect()->route('warehouse.index.view')->with('success', 'Gudang berhasil ditambahkan.');
+    }
+
+    public function generateCodeApi(Request $request)
+    {
+        $companyId = $request->query('company_id');
+
+        return response()->json([
+            'code' => $this->generateCode($companyId ?: null),
+        ]);
     }
 
     public function editView(string $id)

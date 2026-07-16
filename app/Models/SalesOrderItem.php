@@ -26,6 +26,10 @@ class SalesOrderItem extends Model
         'discount_value',
         'subtotal',
         'notes',
+        'is_promo_free',
+        'promotion_id',
+        'source_warehouse_id',
+        'parent_item_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -37,6 +41,7 @@ class SalesOrderItem extends Model
         'discount_amount' => 'decimal:4',
         'discount_value' => 'decimal:4',
         'subtotal' => 'decimal:4',
+        'is_promo_free' => 'boolean',
     ];
 
     public function salesOrder(): BelongsTo
@@ -57,5 +62,20 @@ class SalesOrderItem extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id', 'id');
+    }
+
+    public function promotion(): BelongsTo
+    {
+        return $this->belongsTo(Promotion::class, 'promotion_id');
+    }
+
+    public function sourceWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'source_warehouse_id');
+    }
+
+    public function parentItem(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_item_id');
     }
 }

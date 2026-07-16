@@ -1,14 +1,14 @@
 <x-app-layout>
-    @section('title', 'Cetak Barcode Hasil Produksi | ')
+    @section('title', 'Print Production Barcode | ')
 
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
-                ['label' => 'Produksi'],
+                ['label' => 'Product'],
                 ['label' => 'Production Order', 'url' => route('production.index')],
                 ['label' => $order->order_number, 'url' => route('production.show', $order->id)],
-                ['label' => 'Cetak Barcode', 'active' => true],
+                ['label' => 'Print Barcode', 'active' => true],
             ]"
         />
 
@@ -18,38 +18,25 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-4"><small class="text-muted">Produk Jadi</small><div class="fw-medium">{{ $order->variant?->display_name ?? $order->product?->name }}</div></div>
-                    <div class="col-md-4"><small class="text-muted">Qty Diterima</small><div class="fw-medium">{{ $quantity }} {{ $unit->symbol ?: $unit->name }}</div></div>
+                    <div class="col-md-4"><small class="text-muted">Finished Good</small><div class="fw-medium">{{ $order->variant?->display_name ?? $order->product?->name }}</div></div>
+                    <div class="col-md-4"><small class="text-muted">Received Qty</small><div class="fw-medium">{{ $quantity }} {{ $unit->symbol ?: $unit->name }}</div></div>
                 </div>
-
-                @if ($showSmallestUnitToggle)
-                    <div class="form-check mt-3">
-                        <input class="form-check-input" type="checkbox" id="includeSmallestUnit">
-                        <label class="form-check-label" for="includeSmallestUnit">
-                            Cetak barcode sampai ke satuan terkecil ({{ $smallestUnit->symbol ?: $smallestUnit->name }})
-                        </label>
-                        <div class="form-text">
-                            Secara default, satuan terkecil ({{ $smallestUnit->symbol ?: $smallestUnit->name }}) tidak dicetak barcode-nya sendiri — hanya kemasan di atasnya.
-                        </div>
-                    </div>
-                @endif
             </div>
         </div>
 
         <div class="card mb-4" id="previewCard">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h5 class="card-title mb-0">Preview Label</h5>
-                    <small class="text-muted" id="previewMeta">Memuat preview...</small>
+                    <h5 class="card-title mb-0">Label Preview</h5>
+                    <small class="text-muted" id="previewMeta">Loading preview...</small>
                 </div>
                 <span class="badge bg-label-primary" id="previewRange"></span>
             </div>
             <div class="card-body">
                 <div id="previewLoading" class="text-center text-muted py-5">
-                    <span class="spinner-border spinner-border-sm me-1"></span> Memuat preview barcode...
+                    <span class="spinner-border spinner-border-sm me-1"></span> Loading barcode preview...
                 </div>
                 <div class="preview-grid" id="previewGrid"></div>
-                <p class="text-muted small mb-0 mt-3 d-none" id="previewMore"></p>
             </div>
         </div>
 
@@ -59,14 +46,16 @@
             <input type="hidden" name="unit_id" value="{{ $unit->id }}">
             <input type="hidden" name="variant_id" value="{{ $order->product_variant_id }}">
             <input type="hidden" name="print_mode" value="hierarchy">
-            <input type="hidden" name="include_smallest_unit" id="includeSmallestUnitField" value="0">
+            <input type="hidden" name="include_smallest_unit" value="0">
+            <input type="hidden" name="source_type" value="production_order">
+            <input type="hidden" name="source_id" value="{{ $order->id }}">
             <input type="hidden" name="batch_id" id="batch_id" value="">
 
             <div class="d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary" id="btnPdf" disabled>
                     <i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A3)
                 </button>
-                <a href="{{ route('production.show', $order->id) }}" class="btn btn-label-secondary">Kembali ke Production Order</a>
+                <a href="{{ route('production.show', $order->id) }}" class="btn btn-label-secondary">Back to Production Order</a>
             </div>
         </form>
     </div>
@@ -85,20 +74,15 @@
                 var distributorName = @json($distributorName);
                 var productName = @json($order->product?->name);
                 var harnicaLogoUrl = @json(asset('assets/img/harnica/logo.png'));
+                var productionOrderId = @json($order->id);
 
                 @include('admin.product.master._barcode-tree-renderer')
 
-                function includeSmallestUnit() {
-                    return $('#includeSmallestUnit').is(':checked') ? 1 : 0;
-                }
-
                 function loadPreview() {
-                    $('#includeSmallestUnitField').val(includeSmallestUnit());
                     $('#batch_id').val('');
                     $('#btnPdf').prop('disabled', true);
                     $('#previewLoading').removeClass('d-none');
                     $('#previewGrid').empty();
-                    $('#previewMore').addClass('d-none').text('');
 
                     $.ajax({
                         url: previewUrl,
@@ -109,7 +93,9 @@
                             unit_id: @json($unit->id),
                             variant_id: @json($order->product_variant_id),
                             print_mode: 'hierarchy',
-                            include_smallest_unit: includeSmallestUnit()
+                            include_smallest_unit: 0,
+                            source_type: 'production_order',
+                            source_id: productionOrderId
                         },
                         success: function (res) {
                             $('#previewLoading').addClass('d-none');
@@ -121,20 +107,15 @@
                                 return row.label + ': ' + row.qty;
                             }).join(' · ');
 
-                            $('#previewMeta').text(breakdownText + ' | Menampilkan ' + res.displayed + ' dari ' + res.total + ' label');
+                            var lockedNote = res.serials_locked ? ' | Nomor terkunci ke receive ini' : '';
+                            $('#previewMeta').text(breakdownText + ' | Menampilkan ' + res.displayed + ' dari ' + res.total + ' label' + lockedNote);
                             $('#previewRange').text('Total ' + res.total + ' label');
 
                             renderHierarchyTreePreview(res.tree || []);
-
-                            if (res.hidden && res.hidden > 0) {
-                                $('#previewMore').removeClass('d-none').text(
-                                    '... dan ' + res.hidden + ' label lainnya akan disertakan di PDF (urutan Karton → Pack → Box sesuai nomor seri).'
-                                );
-                            }
                         },
                         error: function (xhr) {
                             $('#previewLoading').addClass('d-none');
-                            var msg = xhr.responseJSON?.message || 'Gagal memuat preview barcode.';
+                            var msg = xhr.responseJSON?.message || 'Failed to load barcode preview.';
                             $('#previewMeta').text('');
                             $('#previewGrid').html('<div class="alert alert-danger mb-0">' + $('<div>').text(msg).html() + '</div>');
                         }
@@ -162,10 +143,10 @@
 
                     setTimeout(function () {
                         $btn.prop('disabled', false).html('<i class="ti ti-file-type-pdf me-1"></i> Save to PDF (A3)');
+                        // Refresh preview agar batch baru memakai nomor yang sama (sudah terkunci).
+                        loadPreview();
                     }, 3000);
                 });
-
-                $('#includeSmallestUnit').on('change', loadPreview);
 
                 loadPreview();
             });

@@ -89,8 +89,12 @@
 
                         <div class="col-12"><hr class="my-2"><h6 class="text-muted mb-2">Address</h6></div>
                         <div class="col-12">
-                            <label class="form-label" for="address">Address</label>
-                            <textarea id="address" name="address" class="form-control" rows="2" placeholder="Street, building, floor">{{ old('address') }}</textarea>
+                            <label class="form-label" for="address_ktp">Alamat KTP</label>
+                            <textarea id="address_ktp" name="address_ktp" class="form-control" rows="2" placeholder="Alamat sesuai KTP">{{ old('address_ktp') }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="address_shipping">Alamat Pengiriman</label>
+                            <textarea id="address_shipping" name="address_shipping" class="form-control" rows="2" placeholder="Alamat domisili / pengiriman barang">{{ old('address_shipping') }}</textarea>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label" for="city">City</label>

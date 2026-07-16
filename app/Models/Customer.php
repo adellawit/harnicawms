@@ -43,6 +43,8 @@ class Customer extends Authenticatable
         'email',
         'phone',
         'mobile',
+        'address_ktp',
+        'address_shipping',
         'address',
         'city',
         'province',
@@ -100,7 +102,9 @@ class Customer extends Authenticatable
 
     public function latestPartnerApplication(): HasOne
     {
-        return $this->hasOne(PartnerApplication::class, 'customer_id', 'id')->latestOfMany();
+        // Avoid latestOfMany() — PostgreSQL cannot MAX(uuid) (Laravel uses id as tie-breaker).
+        return $this->hasOne(PartnerApplication::class, 'customer_id', 'id')
+            ->orderByDesc('created_at');
     }
 
     public function isPartnerAgent(): bool

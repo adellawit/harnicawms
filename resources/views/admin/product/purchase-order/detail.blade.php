@@ -41,7 +41,7 @@
                         $hasRemaining = $purchase->items->contains(fn ($item) => $item->quantity_remaining > 0);
                         $canCreateSub = $isMasterPo
                             && !$purchase->trashed()
-                            && \App\Services\PurchaseOrderHierarchyService::masterHasRemainingRelease($purchase);
+                            && \App\Services\PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($purchase);
                     @endphp
 
                     <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pdfModal">
@@ -361,6 +361,11 @@
                                     <a href="{{ route('product.purchase-order.receive-detail.view', $rcv->id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="ti ti-eye"></i>
                                     </a>
+                                    @if($rcv->items->contains(fn ($ri) => filled(trim((string) ($ri->batch_number ?? '')))))
+                                        <a href="{{ route('product.purchase-order.receive-batch.print', $rcv->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Batch Labels">
+                                            <i class="ti ti-printer"></i>
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach

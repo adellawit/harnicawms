@@ -45,6 +45,7 @@
                             <th>Contact</th>
                             <th>Email</th>
                             <th>Phone</th>
+                            <th>Poin</th>
                             <th>Type</th>
                             <th>Partner</th>
                             <th>App Access</th>
@@ -139,6 +140,7 @@
                         { data: 'contact_person', orderable: false, searchable: true, render: d => d || '-' },
                         { data: 'email', orderable: false, searchable: true, render: d => d || '-' },
                         { data: 'phone', orderable: false, searchable: true, render: d => d || '-' },
+                        { data: 'points_balance', orderable: true, searchable: false, className: 'text-end', render: d => Number(d || 0).toLocaleString('id-ID') },
                         { data: 'customer_type', orderable: true, searchable: false, render: d => renderCustomerType(d) },
                         { data: 'partner_role', orderable: false, searchable: false, render: (d, t, r) => renderPartnerRole(d, r) },
                         { data: 'has_app_access', orderable: true, searchable: false, render: d => d ? '<span class="badge bg-label-success">Yes</span>' : '<span class="badge bg-label-secondary">No</span>' },

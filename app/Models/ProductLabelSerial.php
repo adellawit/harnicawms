@@ -23,7 +23,11 @@ class ProductLabelSerial extends Model
         'unit_id',
         'unit_level',
         'printed_by',
+        'source_type',
+        'source_id',
     ];
+
+    public const SOURCE_PRODUCTION_ORDER = 'production_order';
 
     public function product(): BelongsTo
     {

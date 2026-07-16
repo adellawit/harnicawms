@@ -1,8 +1,10 @@
 @php
-    /** @var \App\Models\BusinessUnit|null $warehouse */
+    /** @var \App\Models\Warehouse|\App\Models\BusinessUnit|null $warehouse */
     $warehouse = $warehouse ?? null;
     $linkedBranchIds = $linkedBranchIds ?? old('branch_ids', []);
     $defaultBranchId = $defaultBranchId ?? old('default_branch_id');
+    $isEdit = ! empty($warehouse?->id);
+    $codeValue = old('code', $isEdit ? $warehouse?->code : ($generatedCode ?? ''));
 @endphp
 
 <div class="accordion" id="warehouseAccordion">
@@ -17,10 +19,10 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Company <span class="text-danger">*</span></label>
-                        <select name="parent_id" class="select2 form-select" required>
+                        <select name="parent_id" id="warehouse_company_id" class="select2 form-select" required>
                             <option value="">Select company</option>
                             @foreach ($parentCompanies as $company)
-                                <option value="{{ $company->id }}" @selected(old('parent_id', $warehouse?->parent_id) === $company->id)>
+                                <option value="{{ $company->id }}" @selected(old('parent_id', $warehouse?->company_id ?? $warehouse?->parent_id) === $company->id)>
                                     {{ $company->name }}
                                 </option>
                             @endforeach
@@ -29,7 +31,18 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Warehouse Code <span class="text-danger">*</span></label>
-                        <input type="text" name="code" class="form-control" placeholder="WH-001" value="{{ old('code', $warehouse?->code) }}" required>
+                        @if ($isEdit)
+                            <input type="text" name="code" id="warehouse_code" class="form-control" value="{{ $codeValue }}" readonly>
+                            <div class="form-text">Kode digenerate sistem dan tidak dapat diubah.</div>
+                        @else
+                            <div class="input-group">
+                                <input type="text" name="code" id="warehouse_code" class="form-control" value="{{ $codeValue }}" readonly required>
+                                <button type="button" class="btn btn-outline-secondary" id="btn_regenerate_warehouse_code" title="Regenerate Code">
+                                    <i class="ti ti-refresh"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Otomatis digenerate oleh sistem (WH-00001, …).</div>
+                        @endif
                         @error('code')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">

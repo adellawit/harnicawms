@@ -51,49 +51,158 @@
 .pnm-legend__dot--agent { background: var(--brand-primary); box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb), 0.2); }
 .pnm-legend__dot--reseller { background: var(--brand-secondary); box-shadow: 0 0 0 3px rgba(var(--brand-secondary-rgb), 0.2); }
 
+.pnm-legend__area {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--brand-primary);
+    background: rgba(var(--brand-primary-rgb), 0.18);
+    flex-shrink: 0;
+}
+
+/* Keep markers readable on dark satellite tiles */
+.pnm-marker {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.pnm-marker-tooltip {
+    background: rgba(20, 28, 36, 0.92) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.pnm-marker-tooltip::before {
+    border-top-color: rgba(20, 28, 36, 0.92) !important;
+}
+
+.leaflet-control-layers {
+    border-radius: 10px !important;
+    overflow: hidden;
+    border: none !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
 .pnm-group {
-    border: 1px solid rgba(67, 89, 113, 0.1);
+    border: 1px solid rgba(67, 89, 113, 0.12);
     border-radius: 10px;
     overflow: hidden;
+    background: #fff;
 }
 
 .pnm-group__head {
-    padding: 0.55rem 0.75rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    background: rgba(var(--brand-primary-rgb), 0.06);
-    border-bottom: 1px solid rgba(67, 89, 113, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border: 0;
+    background: rgba(var(--brand-primary-rgb), 0.07);
     color: #566a7f;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+}
+
+.pnm-group__head:hover {
+    background: rgba(var(--brand-primary-rgb), 0.11);
+}
+
+.pnm-group__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: #435971;
+    padding-right: 1.25rem;
+}
+
+.pnm-group__name {
+    line-height: 1.25;
+}
+
+.pnm-group__meta {
+    font-size: 0.75rem;
+    color: #8592a3;
+    line-height: 1.35;
+}
+
+.pnm-group__code {
+    font-weight: 600;
+    color: #697a8d;
+}
+
+.pnm-group__sep {
+    margin: 0 0.15rem;
+    opacity: 0.7;
+}
+
+.pnm-group__chevron {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    color: #a1acb8;
+    transition: transform 0.15s ease;
+}
+
+.pnm-group.is-open .pnm-group__chevron {
+    transform: rotate(180deg);
 }
 
 .pnm-group__list {
     list-style: none;
     margin: 0;
     padding: 0.35rem 0;
+    border-top: 1px solid rgba(67, 89, 113, 0.08);
+    background: #fff;
+}
+
+.pnm-group__list[hidden] {
+    display: none !important;
 }
 
 .pnm-group__list li {
-    padding: 0.35rem 0.75rem;
+    padding: 0.45rem 0.85rem;
     font-size: 0.8125rem;
     color: #697a8d;
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .pnm-group__list li::before {
     content: "";
     width: 6px;
     height: 6px;
+    margin-top: 0.4rem;
     border-radius: 50%;
     background: var(--brand-secondary);
     flex-shrink: 0;
 }
 
-.pnm-coords {
-    font-size: 0.75rem;
+.pnm-reseller {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.pnm-reseller__name {
+    font-weight: 560;
+    color: #566a7f;
+}
+
+.pnm-reseller__meta {
+    font-size: 0.72rem;
     color: #a1acb8;
-    font-family: ui-monospace, monospace;
+}
+
+.pnm-coords {
+    font-size: 0.72rem;
+    color: #a1acb8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .pnm-marker-wrap {
@@ -112,11 +221,9 @@
     font-size: 11px;
     font-weight: 700;
     border: 2px solid #fff;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-    cursor: grab;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.35);
+    cursor: pointer;
 }
-
-.pnm-marker:active { cursor: grabbing; }
 
 .pnm-marker--agent { background: linear-gradient(145deg, var(--brand-primary), var(--brand-primary-600)); }
 .pnm-marker--reseller { background: linear-gradient(145deg, var(--brand-secondary), var(--brand-secondary-600)); width: 28px; height: 28px; font-size: 10px; }

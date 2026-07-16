@@ -84,20 +84,30 @@ class ProductStockBootstrapService
     {
         $typeCode = $this->resolveWarehouseTypeCode($product);
 
-        if ($typeCode) {
-            $warehouse = Warehouse::inventoryActive()
-                ->where('branch_id', $branchId)
-                ->where('warehouse_type_code', $typeCode)
-                ->orderByDesc('is_default')
-                ->orderBy('code')
-                ->first();
-
-            if ($warehouse) {
-                return $warehouse;
-            }
+        // Service/bundle: tidak punya stok gudang
+        if ($typeCode === null) {
+            return null;
         }
 
-        return WmsContext::defaultWarehouse($branchId);
+        $warehouse = Warehouse::inventoryActive()
+            ->where('branch_id', $branchId)
+            ->where('warehouse_type_code', $typeCode)
+            ->orderByDesc('is_default')
+            ->orderBy('code')
+            ->first();
+
+        if ($warehouse) {
+            return $warehouse;
+        }
+
+        // Fallback hanya jika gudang default branch bertipe sama —
+        // jangan campur FG ke RAW_MATERIAL (atau sebaliknya).
+        $default = WmsContext::defaultWarehouse($branchId);
+        if ($default && $default->warehouse_type_code === $typeCode) {
+            return $default;
+        }
+
+        return null;
     }
 
     protected function resolveWarehouseTypeCode(Product $product): ?string

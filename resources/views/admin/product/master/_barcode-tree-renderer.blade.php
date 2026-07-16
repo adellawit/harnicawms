@@ -42,12 +42,19 @@ function renderPreviewLabel(label, distName) {
 
     var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
 
-    return '<div class="label-item label-item--box">' +
-        '<div class="label-item__qr"><img src="' + label.qr_data_uri + '" alt="QR"></div>' +
-        '<div class="label-item__content">' +
-        '<div class="label-item__serial">' + label.serial + '</div>' +
-        '<div class="label-item__distributor-name">' + boxBrandHtml + '</div>' +
-        '</div></div>';
+    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:0.35mm solid #000;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
+        '<table class="label-item__table" cellpadding="0" cellspacing="0" style="width:100%;height:7mm;border-collapse:collapse;table-layout:fixed;">' +
+        '<colgroup><col style="width:7mm"><col></colgroup>' +
+        '<tr style="height:7mm;">' +
+        '<td class="label-item__qr" valign="middle" align="center" style="width:7mm;height:7mm;padding:0.5mm;box-sizing:border-box;vertical-align:middle;text-align:center;">' +
+        '<table cellpadding="0" cellspacing="0" style="width:100%;height:100%;border-collapse:collapse;"><tr>' +
+        '<td align="center" valign="middle" style="width:100%;height:100%;padding:0;text-align:center;vertical-align:middle;">' +
+        '<img src="' + label.qr_data_uri + '" alt="QR" style="width:6mm;height:6mm;display:block;margin:0 auto;">' +
+        '</td></tr></table></td>' +
+        '<td class="label-item__content" valign="middle" style="height:7mm;vertical-align:middle;text-align:left;padding:0 0.6mm 0 0.9mm;">' +
+        '<div class="label-item__distributed-by" style="font-size:4.5pt;line-height:1.1;margin:0;padding:0;color:#000;">Distributed by :</div>' +
+        '<div class="label-item__distributor-name" style="font-size:6pt;font-weight:700;line-height:1.1;margin:0;padding:0;color:#000;text-transform:uppercase;">' + boxBrandHtml + '</div>' +
+        '</td></tr></table></div>';
 }
 
 function renderHierarchyTreePreview(tree) {

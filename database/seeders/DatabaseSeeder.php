@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             IamAccessSeeder::class,
             IamHasAccessSeeder::class,
             TrainingAccessSeeder::class,
+            MarketingAccessSeeder::class,
 
             // Product reference data
             StockMutationTypeSeeder::class,
@@ -55,6 +56,19 @@ class DatabaseSeeder extends Seeder
 
             // Sync master_data.warehouses dari business_units WAREHOUSE + default per cabang
             WarehouseSeeder::class,
+
+            // Supplier Foredi (Pabrik + Packaging)
+            // Depends on: BusinessUnitSeeder, ParameterSeeder (SUPPLIER)
+            ForediSupplierSeeder::class,
+
+            // Foredi Agent & Reseller (+ geocode Alamat Domisili)
+            // Depends on: BusinessUnitSeeder (SUHARA-001 / SUHARA-BDG-001)
+            ForediPartnerSeeder::class,
+
+            // Foredi RM + FG (conversions, BOM 3→4 sachet/box, stock RM/FG warehouses)
+            // Depends on: ProductUnitSeeder (+SACHET), ProductNatureSeeder, ProductParameterSeeder,
+            //             ProductPriceListSeeder, WarehouseSeeder, BusinessUnitSeeder
+            ForediProductSeeder::class,
         ]);
     }
 }

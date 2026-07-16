@@ -44,6 +44,8 @@ class SalesOrder extends Model
         'shipping_amount',
         'total',
         'membership_points_earned',
+        'membership_points_redeemed',
+        'membership_redeem_discount_amount',
         'membership_configuration_id',
         'notes',
         'reference',
@@ -67,6 +69,8 @@ class SalesOrder extends Model
         'shipping_amount' => 'decimal:4',
         'total' => 'decimal:4',
         'membership_points_earned' => 'integer',
+        'membership_points_redeemed' => 'integer',
+        'membership_redeem_discount_amount' => 'decimal:4',
     ];
 
     public function items(): HasMany

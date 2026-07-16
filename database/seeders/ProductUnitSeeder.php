@@ -15,10 +15,12 @@ class ProductUnitSeeder extends Seeder
         'KARTON',
         'PACK',
         'BOX',
+        'SACHET',
+        'PCS',
     ];
 
     /**
-     * Hapus satuan lama (hard delete), lalu seed hanya Karton, Pack, Box.
+     * Hapus satuan lama (hard delete), lalu seed Karton, Pack, Box, Sachet.
      */
     public function run(): void
     {
@@ -52,7 +54,7 @@ class ProductUnitSeeder extends Seeder
             $this->command?->info("Satuan lama dihapus permanen: {$deleted} record.");
         }
 
-        $this->command?->info('Satuan aktif: Karton, Pack, Box.');
+        $this->command?->info('Satuan aktif: Karton, Pack, Box, Sachet, Pcs.');
     }
 
     private function units(): array
@@ -61,6 +63,8 @@ class ProductUnitSeeder extends Seeder
             ['code' => 'KARTON', 'name' => 'Karton', 'symbol' => 'krt'],
             ['code' => 'PACK', 'name' => 'Pack', 'symbol' => 'pack'],
             ['code' => 'BOX', 'name' => 'Box', 'symbol' => 'box'],
+            ['code' => 'SACHET', 'name' => 'Sachet', 'symbol' => 'sct'],
+            ['code' => 'PCS', 'name' => 'Pcs', 'symbol' => 'pcs'],
         ];
     }
 

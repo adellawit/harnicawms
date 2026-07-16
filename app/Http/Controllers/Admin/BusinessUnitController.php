@@ -81,10 +81,15 @@ class BusinessUnitController extends Controller
                         ->with(['children' => function ($q) {
                             $q->whereNull('deleted_at')
                                 ->orderBy('name')
-                                ->with(['children' => function ($q2) {
-                                    $q2->whereNull('deleted_at')
-                                        ->orderBy('name');
-                                }]);
+                                ->with([
+                                    'children' => function ($q2) {
+                                        $q2->whereNull('deleted_at')
+                                            ->where('type_code', '!=', 'WAREHOUSE')
+                                            ->orderBy('name');
+                                    },
+                                    'ownedWarehouses' => fn ($q2) => $q2->whereNull('deleted_at')->orderBy('code'),
+                                    'assignedWarehouses' => fn ($q2) => $q2->whereNull('deleted_at')->orderBy('code'),
+                                ]);
                         }]);
                 } else {
                     $query->whereRaw('1=0');
@@ -98,10 +103,15 @@ class BusinessUnitController extends Controller
                 ->with(['children' => function ($q) {
                     $q->whereNull('deleted_at')
                         ->orderBy('name')
-                        ->with(['children' => function ($q2) {
-                            $q2->whereNull('deleted_at')
-                                ->orderBy('name');
-                        }]);
+                        ->with([
+                            'children' => function ($q2) {
+                                $q2->whereNull('deleted_at')
+                                    ->where('type_code', '!=', 'WAREHOUSE')
+                                    ->orderBy('name');
+                            },
+                            'ownedWarehouses' => fn ($q2) => $q2->whereNull('deleted_at')->orderBy('code'),
+                            'assignedWarehouses' => fn ($q2) => $q2->whereNull('deleted_at')->orderBy('code'),
+                        ]);
                 }]);
         }
 

@@ -91,6 +91,33 @@
                     <small class="text-muted" id="matFileHint"></small></div>
                 <div class="mb-3 d-none" id="matYoutubeWrap"><label class="form-label">URL YouTube</label>
                     <input type="text" name="youtube_url" id="matYoutube" class="form-control" placeholder="https://youtu.be/..."></div>
+                <div class="mb-3">
+                    <label class="form-label d-block">Sumber</label>
+                    <div class="form-check form-check-inline">
+                        <input type="radio" name="mat_source" id="srcUpload" class="form-check-input" value="upload" checked onchange="onMatSourceChange()">
+                        <label class="form-check-label" for="srcUpload">Upload / Link</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input type="radio" name="mat_source" id="srcLibrary" class="form-check-input" value="library" onchange="onMatSourceChange()">
+                        <label class="form-check-label" for="srcLibrary">Pilih dari Pustaka</label>
+                    </div>
+                </div>
+                <div class="mb-3 d-none" id="matLibraryWrap">
+                    <label class="form-label">Aset Pustaka</label>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <select id="matLibType" class="form-select" onchange="loadLibraryAssets()">
+                                <option value="image">Gambar</option>
+                                <option value="pdf">PDF</option>
+                                <option value="video">Video</option>
+                            </select>
+                        </div>
+                        <div class="col-7">
+                            <select name="marketing_asset_id" id="matLibAsset" class="form-select" disabled></select>
+                        </div>
+                    </div>
+                    <small class="text-muted">Hanya aset ber-scope Training & berstatus aktif.</small>
+                </div>
                 <div class="mb-3"><label class="form-label">Estimasi menit <span class="text-muted small">(opsional)</span></label>
                     <input type="number" name="estimated_minutes" id="matMinutes" class="form-control" min="0" placeholder="mis. 5"></div>
                 <div class="mb-3"><label class="form-label">Urutan</label><input type="number" name="sort_order" id="matSort" class="form-control" value="0" min="0"></div>
@@ -103,6 +130,7 @@
     <script>
         const courseId = "{{ $course->id }}";
         const modulesBase = "{{ url('training/courses/'.$course->id.'/modules') }}";
+        const assetPickerUrl = "{{ route('marketing.assets.picker') }}";
 
         function fillModule(m) {
             const isEdit = !!m.id;
@@ -121,6 +149,43 @@
             document.getElementById('matFileHint').textContent = t === 'pdf' ? 'Format .pdf' : (t === 'image' ? 'Format .jpg/.png/.webp' : '');
         }
 
+        function toggleMatSource() {
+            const lib = document.getElementById('srcLibrary').checked;
+            document.getElementById('matLibraryWrap').classList.toggle('d-none', !lib);
+            // Hide/disable upload-mode fields when using the library.
+            document.getElementById('matType').closest('.mb-3').classList.toggle('d-none', lib);
+            document.getElementById('matFileWrap').classList.toggle('d-none', lib || document.getElementById('matType').value === 'youtube');
+            document.getElementById('matYoutubeWrap').classList.toggle('d-none', lib || document.getElementById('matType').value !== 'youtube');
+            document.getElementById('matType').disabled = lib;
+            document.getElementById('matFile').disabled = lib;
+            document.getElementById('matYoutube').disabled = lib;
+            const libSel = document.getElementById('matLibAsset');
+            libSel.disabled = !lib;
+        }
+
+        function onMatSourceChange() {
+            toggleMatSource();
+            if (document.getElementById('srcLibrary').checked) loadLibraryAssets();
+        }
+
+        function loadLibraryAssets(preselectId) {
+            const type = document.getElementById('matLibType').value;
+            const sel = document.getElementById('matLibAsset');
+            sel.innerHTML = '<option value="">memuat…</option>';
+            fetch(assetPickerUrl + '?asset_type=' + encodeURIComponent(type), { headers: { 'Accept': 'application/json' } })
+                .then(r => r.json())
+                .then(d => {
+                    sel.innerHTML = '';
+                    if (!d.assets || d.assets.length === 0) { sel.innerHTML = '<option value="">(tidak ada aset)</option>'; return; }
+                    d.assets.forEach(a => {
+                        const o = document.createElement('option');
+                        o.value = a.id; o.textContent = a.title;
+                        sel.appendChild(o);
+                    });
+                    if (preselectId) sel.value = preselectId;
+                });
+        }
+
         function fillMaterial(mat) {
             const isEdit = !!mat.id;
             const moduleId = mat.module_id;
@@ -137,6 +202,16 @@
             document.getElementById('matSort').value = mat.sort_order ?? 0;
             document.getElementById('matFile').value = '';
             toggleMatFields();
+            if (mat.marketing_asset_id) {
+                document.getElementById('srcLibrary').checked = true;
+                document.getElementById('matLibType').value = mat.type;
+                toggleMatSource();
+                loadLibraryAssets(mat.marketing_asset_id);
+            } else {
+                document.getElementById('srcUpload').checked = true;
+                document.getElementById('matLibAsset').innerHTML = '';
+                toggleMatSource();
+            }
         }
     </script>
     @endpush

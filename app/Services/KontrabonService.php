@@ -9,6 +9,7 @@ use App\Models\PurchaseKontrabonPayment;
 use App\Models\Supplier;
 use App\Support\KontrabonStatus;
 use App\Support\PurchaseOrderStatus;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -212,7 +213,7 @@ class KontrabonService
             );
             $totals = self::sumItemTotals($normalizedItems);
 
-            $kontrabon->update([
+            $updateData = [
                 'kontrabon_date' => $payload['kontrabon_date'],
                 'supplier_id' => $supplier->id,
                 'supplier_name' => $supplier->name,
@@ -222,7 +223,9 @@ class KontrabonService
                 'discount_amount' => $totals['discount_amount'],
                 'total' => $totals['total'],
                 'updated_by' => $userId,
-            ]);
+            ];
+
+            $kontrabon->update($updateData);
 
             $kontrabon->items()->delete();
             self::syncItems($kontrabon, $normalizedItems, $userId);
@@ -430,13 +433,16 @@ class KontrabonService
                 'purchase_order_id' => $purchase->id,
                 'po_total' => $poTotal,
                 'supplier_invoice_number' => trim((string) ($row['supplier_invoice_number'] ?? '')),
-                'supplier_invoice_date' => $row['supplier_invoice_date'] ?? null,
+                'supplier_invoice_date' => self::toDatabaseDate($row['supplier_invoice_date'] ?? null),
                 'subtotal' => round($amounts['subtotal'] * $ratio, 4),
                 'tax_amount' => round($amounts['tax_amount'] * $ratio, 4),
                 'discount_amount' => round($amounts['discount_amount'] * $ratio, 4),
                 'other_cost_amount' => round($amounts['other_cost_amount'] * $ratio, 4),
                 'total' => round($invoiceTotal, 4),
                 'notes' => $row['notes'] ?? null,
+                'attachment_path' => $row['attachment_path'] ?? null,
+                'attachment_name' => $row['attachment_name'] ?? null,
+                'attachment_mime' => $row['attachment_mime'] ?? null,
             ];
             $usedPoIds[$poId] = true;
         }
@@ -466,9 +472,44 @@ class KontrabonService
                 'other_cost_amount' => $row['other_cost_amount'],
                 'total' => $row['total'],
                 'notes' => $row['notes'] ?? null,
+                'attachment_path' => $row['attachment_path'] ?? null,
+                'attachment_name' => $row['attachment_name'] ?? null,
+                'attachment_mime' => $row['attachment_mime'] ?? null,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
+        }
+    }
+
+    /**
+     * Convert display/request date (d/m/Y) to DB date (Y-m-d).
+     */
+    protected static function toDatabaseDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance(\DateTimeImmutable::createFromInterface($value))->format('Y-m-d');
+        }
+
+        $value = trim((string) $value);
+
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'Y/m/d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d');
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
         }
     }
 

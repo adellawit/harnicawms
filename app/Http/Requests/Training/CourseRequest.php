@@ -21,6 +21,7 @@ class CourseRequest extends FormRequest
             // fn ($attr, $value, $fail) => \App\Models\Training\Category::whereKey($value)->exists() ?: $fail('Kategori tidak valid.')
             'description' => ['nullable', 'string'],
             'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'thumbnail_asset_id' => ['nullable', 'string', \Illuminate\Validation\Rule::exists('pgsql.marketing.assets', 'id')],
             'status' => ['required', Rule::in(['draft', 'published'])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];

@@ -267,6 +267,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/data', [WarehouseController::class, 'indexData'])->name('warehouse.index.data');
             Route::get('/insert', [WarehouseController::class, 'insertView'])->name('warehouse.insert.view')->middleware('permission:Warehouse,is_create');
             Route::post('/insert/data', [WarehouseController::class, 'insertData'])->name('warehouse.insert.data')->middleware('permission:Warehouse,is_create');
+            Route::get('/generate-code', [WarehouseController::class, 'generateCodeApi'])->name('warehouse.generate.code')->middleware('permission:Warehouse,is_create');
             Route::get('/edit/{id}', [WarehouseController::class, 'editView'])->name('warehouse.edit.view')->middleware('permission:Warehouse,is_update');
             Route::post('/edit/data', [WarehouseController::class, 'editData'])->name('warehouse.edit.data')->middleware('permission:Warehouse,is_update');
             Route::post('/delete', [WarehouseController::class, 'deleteData'])->name('warehouse.delete.data')->middleware('permission:Warehouse,is_delete');
@@ -582,6 +583,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/receive/{id}', [PurchaseOrderController::class, 'receiveView'])->name('product.purchase-order.receive.view')->middleware('permission:Purchase Order,is_update');
             Route::post('/receive/data', [PurchaseOrderController::class, 'receiveData'])->name('product.purchase-order.receive.data')->middleware('permission:Purchase Order,is_update');
             Route::get('/receive-detail/{id}', [PurchaseOrderController::class, 'receiveDetailView'])->name('product.purchase-order.receive-detail.view')->middleware('permission:Purchase Order,is_read');
+            Route::get('/receive-detail/{id}/print-batch', [PurchaseOrderController::class, 'receiveBatchPrint'])->name('product.purchase-order.receive-batch.print')->middleware('permission:Purchase Order,is_read');
         });
 
         Route::group(['prefix' => 'purchase-invoice'], function () {
@@ -728,6 +730,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/data', [TransactionController::class, 'indexData'])->name('transaction.index.data');
         Route::get('/pos', [POSController::class, 'indexView'])->name('transaction.pos');
         Route::get('/pos/product-variants', [POSController::class, 'getProductVariants'])->name('transaction.pos.product-variants');
+        Route::post('/pos/preview-promo', [POSController::class, 'previewPromo'])->name('transaction.pos.preview-promo');
         Route::post('/pos/payment', [POSController::class, 'processPayment'])->name('transaction.pos.payment');
             Route::get('/pos/payment/{orderId}/status', [POSController::class, 'paymentStatus'])->name('transaction.pos.payment.status');
             Route::post('/pos/payment/{orderId}/sync', [POSController::class, 'syncPaymentStatus'])->name('transaction.pos.payment.sync');
@@ -789,3 +792,4 @@ require __DIR__ . '/customer.php';
 
 require __DIR__ . '/distribution.php';
 require __DIR__ . '/training.php';
+require __DIR__ . '/marketing.php';

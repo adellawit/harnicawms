@@ -24,6 +24,7 @@ return new class extends Migration
             ['code' => 'WIP', 'name' => 'Gudang WIP', 'description' => 'Work in progress / proses', 'sort_order' => 20],
             ['code' => 'PRODUCTION', 'name' => 'Gudang Produksi', 'description' => 'Area produksi / manufaktur', 'sort_order' => 30],
             ['code' => 'FG', 'name' => 'Gudang Barang Jadi', 'description' => 'Finished goods', 'sort_order' => 40],
+            ['code' => 'MARKETING', 'name' => 'Gudang Marketing', 'description' => 'Stok untuk keperluan marketing / sampel / kampanye', 'sort_order' => 45],
             ['code' => 'GENERAL', 'name' => 'Gudang Umum', 'description' => 'Gudang serbaguna / default cabang', 'sort_order' => 50],
             ['code' => 'TRANSIT', 'name' => 'Gudang Transit', 'description' => 'Stok dalam perjalanan', 'sort_order' => 60],
             ['code' => 'QUARANTINE', 'name' => 'Gudang QC / Hold', 'description' => 'Karantina / quality hold', 'sort_order' => 70],

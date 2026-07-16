@@ -2,6 +2,7 @@
 
 namespace App\Services\Product;
 
+use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
@@ -216,7 +217,8 @@ class ProductSearchService
      *   display_name: string,
      *   selling_price: float,
      *   stock: int,
-     *   unit_id: ?string
+     *   unit_id: ?string,
+     *   unit_label: ?string
      * }|null
      */
     public function mapVariantForPos(ProductVariant $variant, string $branchId, string $priceListId): ?array
@@ -226,6 +228,11 @@ class ProductSearchService
         }
 
         $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
+        $unitLabel = null;
+        if ($pricing['unit_id']) {
+            $unit = ProductUnit::query()->find($pricing['unit_id'], ['id', 'symbol', 'name']);
+            $unitLabel = $unit?->symbol ?: ($unit?->name ?: null);
+        }
 
         return [
             'id' => $variant->id,
@@ -234,6 +241,7 @@ class ProductSearchService
             'selling_price' => $pricing['selling_price'],
             'stock' => (int) $pricing['stock'],
             'unit_id' => $pricing['unit_id'],
+            'unit_label' => $unitLabel,
         ];
     }
 

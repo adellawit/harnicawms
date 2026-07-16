@@ -67,8 +67,8 @@ class POSController extends Controller
         // Customers (from customer.customers, filter by branch via customer_group)
         $customers = Customer::with([
             'customerGroup',
-            'agent:id,customer_id,code,status',
-            'reseller:id,customer_id,code,status,agent_id',
+            'agent:id,customer_id,code,name,status',
+            'reseller:id,customer_id,code,name,status,agent_id',
             'reseller.agent:id,code,name',
         ])
             ->whereNull('deleted_at')
@@ -77,9 +77,13 @@ class POSController extends Controller
                 $q->whereHas('customerGroup', fn ($cg) => $cg->where('branch_id', $branchId));
             })
             ->orderBy('name')
-            ->get(['id', 'code', 'name', 'customer_group_id', 'customer_type']);
+            ->get(['id', 'code', 'name', 'customer_group_id', 'customer_type', 'points_balance']);
 
-        // Product parents (no price/stock on card - fetched on variant selection)
+        $customerSelectGroups = $this->buildPosCustomerSelectGroups($customers);
+        $membershipConfig = app(\App\Services\MembershipPointService::class)->resolveDefaultConfig($branchId);
+        $redeemValuePerPoint = (int) ($membershipConfig?->redeem_value_per_point ?? 0);
+        $earnAmountStep = (int) ($membershipConfig?->transaction_amount_step ?? 0);
+        $earnPointsPerStep = (int) ($membershipConfig?->points_per_step ?? 0);
         $products = Product::with('nature')
             ->withCount('variants')
             ->saleItems()
@@ -123,7 +127,11 @@ class POSController extends Controller
             'defaultPriceListId' => $defaultPriceListId,
             'methodPayments' => $methodPayments,
             'customers' => $customers,
+            'customerSelectGroups' => $customerSelectGroups,
             'taxRate' => 11,
+            'redeemValuePerPoint' => $redeemValuePerPoint,
+            'earnAmountStep' => $earnAmountStep,
+            'earnPointsPerStep' => $earnPointsPerStep,
             'xenditEnabled' => $this->xendit->isPaymentGatewayReady(),
             'xenditMethodCodes' => $xenditMethodCodes,
             'xenditActiveChannels' => $xenditActiveChannels,
@@ -175,6 +183,88 @@ class POSController extends Controller
         }
 
         return response()->json(['variants' => $result]);
+    }
+
+    /**
+     * Preview free promo lines for current POS cart (live UI).
+     */
+    public function previewPromo(Request $request)
+    {
+        $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.variant_id' => ['required', 'string'],
+            'items.*.unit_id' => ['required', 'string'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.000001'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $branchId = $this->getBranchId();
+        $companyId = $this->getCompanyId() ?: optional(WmsContext::distributor())->id;
+        $orderWarehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+
+        $itemsData = [];
+        foreach ($request->items as $item) {
+            $variant = ProductVariant::with('product')->find($item['variant_id']);
+            if (! $variant) {
+                continue;
+            }
+
+            $itemsData[] = [
+                'product_id' => $variant->product_id,
+                'product_variant_id' => $variant->id,
+                'unit_id' => $item['unit_id'],
+                'quantity' => (float) $item['quantity'],
+                'unit_price' => (float) ($item['unit_price'] ?? 0),
+                'discount_type' => 'percent',
+                'discount_value' => 0,
+                'discount_amount' => 0,
+                'subtotal' => 0,
+                'is_promo_free' => false,
+            ];
+        }
+
+        if ($itemsData === []) {
+            return response()->json(['success' => true, 'free_items' => []]);
+        }
+
+        $expanded = \App\Services\Promotion\PromotionEngineService::applyToCartLines(
+            $itemsData,
+            $companyId,
+            $branchId,
+            $orderWarehouseId
+        );
+
+        $freeItems = collect($expanded)
+            ->filter(fn ($row) => ! empty($row['is_promo_free']))
+            ->map(function (array $row) {
+                $variant = ProductVariant::with(['product.defaultUnit'])->find($row['product_variant_id']);
+                $unit = $row['unit_id']
+                    ? \App\Models\ProductUnit::query()->find($row['unit_id'], ['id', 'symbol', 'name'])
+                    : ($variant?->product?->defaultUnit);
+
+                return [
+                    'variant_id' => $row['product_variant_id'],
+                    'product_id' => $row['product_id'],
+                    'unit_id' => $row['unit_id'],
+                    'unit_label' => $unit?->symbol ?: ($unit?->name ?: null),
+                    'quantity' => (float) $row['quantity'],
+                    'name' => $variant?->display_name
+                        ?? $variant?->product?->name
+                        ?? 'Promo item',
+                    'image' => $variant?->image ?? $variant?->product?->image,
+                    'promo_code' => $row['promo_code'] ?? null,
+                    'promotion_id' => $row['promotion_id'] ?? null,
+                    'notes' => $row['notes'] ?? 'Free promo item',
+                    'source_warehouse_id' => $row['source_warehouse_id'] ?? null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'free_items' => $freeItems,
+            'free_count' => $freeItems->count(),
+        ]);
     }
 
     /**
@@ -379,6 +469,8 @@ class POSController extends Controller
 
             DB::commit();
 
+            $order->refresh();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Transaction completed successfully',
@@ -387,6 +479,10 @@ class POSController extends Controller
                     'total' => (float) $order->total,
                     'amount_paid' => $amountPaid,
                     'change_amount' => $changeAmount,
+                    'promo_free_count' => (int) ($totals['promo_free_count'] ?? 0),
+                    'membership_points_earned' => (int) ($order->membership_points_earned ?? 0),
+                    'membership_points_redeemed' => (int) ($order->membership_points_redeemed ?? 0),
+                    'membership_redeem_discount_amount' => (float) ($order->membership_redeem_discount_amount ?? 0),
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -534,5 +630,70 @@ class POSController extends Controller
         }
 
         return sprintf('%s-%s-%04d', $prefix, $dateKey, $seq);
+    }
+
+    /**
+     * Group POS customers as: Agent A → resellers under A, Agent B → resellers under B, then others.
+     *
+     * @param  \Illuminate\Support\Collection<int, Customer>  $customers
+     * @return list<array{label: string, customers: list<Customer>}>
+     */
+    protected function buildPosCustomerSelectGroups($customers): array
+    {
+        $agents = $customers->filter(fn (Customer $c) => $c->agent !== null)
+            ->sortBy(fn (Customer $c) => $c->agent->code ?? $c->name)
+            ->values();
+
+        $resellers = $customers->filter(fn (Customer $c) => $c->reseller !== null)->values();
+        $others = $customers->filter(fn (Customer $c) => $c->agent === null && $c->reseller === null)
+            ->sortBy('name')
+            ->values();
+
+        $groupedAgentIds = [];
+        $groups = [];
+
+        foreach ($agents as $agentCustomer) {
+            $agentId = $agentCustomer->agent->id;
+            $groupedAgentIds[] = $agentId;
+
+            $childResellers = $resellers
+                ->filter(fn (Customer $c) => $c->reseller?->agent_id === $agentId)
+                ->sortBy(fn (Customer $c) => $c->reseller->code ?? $c->name)
+                ->values();
+
+            $groupCustomers = collect([$agentCustomer])->merge($childResellers)->all();
+
+            $groups[] = [
+                'label' => 'Agent '.($agentCustomer->agent->code ?: $agentCustomer->name),
+                'customers' => $groupCustomers,
+            ];
+        }
+
+        $orphanResellers = $resellers
+            ->filter(fn (Customer $c) => ! in_array($c->reseller?->agent_id, $groupedAgentIds, true))
+            ->groupBy(fn (Customer $c) => $c->reseller?->agent_id ?: 'unknown');
+
+        foreach ($orphanResellers as $agentId => $rows) {
+            $sorted = $rows->sortBy(fn (Customer $c) => $c->reseller->code ?? $c->name)->values();
+            $agentCode = $sorted->first()?->reseller?->agent?->code;
+            $agentName = $sorted->first()?->reseller?->agent?->name;
+            $label = $agentCode
+                ? 'Agent '.$agentCode.($agentName ? ' · '.$agentName : '')
+                : 'Reseller';
+
+            $groups[] = [
+                'label' => $label,
+                'customers' => $sorted->all(),
+            ];
+        }
+
+        if ($others->isNotEmpty()) {
+            $groups[] = [
+                'label' => 'Other Customers',
+                'customers' => $others->all(),
+            ];
+        }
+
+        return $groups;
     }
 }

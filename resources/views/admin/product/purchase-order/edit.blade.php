@@ -99,7 +99,10 @@
                     </div>
                     <div id="itemsContainer">
                         @foreach($purchase->items as $idx => $item)
-                        @php $itemHasVariants = $products->firstWhere('id', $item->product_id)?->variants->count() > 0; @endphp
+                        @php
+                            $productRow = collect($products)->firstWhere('id', $item->product_id);
+                            $itemHasVariants = collect(data_get($productRow, 'variants', []))->isNotEmpty();
+                        @endphp
                         <div class="detail-row" data-index="{{ $idx }}" data-variant-id="{{ $item->variant_id }}">
                             <div class="detail-row-header">
                                 <span class="detail-row-number">Item #{{ $idx + 1 }}</span>
@@ -111,7 +114,7 @@
                                     <select name="items[{{ $idx }}][product_id]" class="form-select select2-product" data-index="{{ $idx }}" required>
                                         <option value="">-- Select --</option>
                                         @foreach($products as $product)
-                                            <option value="{{ $product->id }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product->id ? 'selected' : '' }}>{{ $product->name }}{{ $product->code ? ' ('.$product->code.')' : '' }}</option>
+                                            <option value="{{ $product['id'] }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product['id'] ? 'selected' : '' }}>{{ $product['name'] }}{{ !empty($product['code']) ? ' ('.$product['code'].')' : '' }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -132,14 +135,6 @@
                                 <div class="col-md-2">
                                     <label class="form-label">Qty <span class="text-danger">*</span></label>
                                     <input type="text" name="items[{{ $idx }}][quantity]" class="form-control item-qty number-format" value="{{ format_number($item->quantity, 6, true) }}" required />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Kode Batch <span class="text-danger">*</span></label>
-                                    <input type="text" name="items[{{ $idx }}][batch_number]" class="form-control item-batch" maxlength="100" value="{{ old('items.'.$idx.'.batch_number', $item->batch_number) }}" required />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Expired <span class="text-danger">*</span></label>
-                                    <input type="text" name="items[{{ $idx }}][expiry_date]" class="form-control flatpickr-date item-expiry" value="{{ old('items.'.$idx.'.expiry_date', $item->expiry_date?->format('d/m/Y')) }}" required />
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label">Carton (MC)</label>
@@ -383,10 +378,6 @@
                     '<select name="items['+itemCounter+'][unit_id]" class="form-select select2-unit">'+unitOpts+'</select></div>' +
                     '<div class="col-md-2"><label class="form-label">Qty <span class="text-danger">*</span></label>' +
                     '<input type="text" name="items['+itemCounter+'][quantity]" class="form-control item-qty number-format" required /></div>' +
-                    '<div class="col-md-2"><label class="form-label">Kode Batch <span class="text-danger">*</span></label>' +
-                    '<input type="text" name="items['+itemCounter+'][batch_number]" class="form-control item-batch" maxlength="100" required /></div>' +
-                    '<div class="col-md-2"><label class="form-label">Expired <span class="text-danger">*</span></label>' +
-                    '<input type="text" name="items['+itemCounter+'][expiry_date]" class="form-control flatpickr-date item-expiry" required /></div>' +
                     '<div class="col-md-2"><label class="form-label">Carton (MC)</label>' +
                     '<div class="form-control item-mc-display bg-light text-muted">-</div></div>' +
                     '<div class="col-md-2"><label class="form-label">Unit Price <span class="text-danger">*</span></label>' +
@@ -408,11 +399,6 @@
                     setTimeout(function() { updateMcDisplayForRow($row); }, 200);
                 });
                 initNumberInputs($lastRow);
-                $lastRow.find('.item-expiry').each(function() {
-                    if (!$(this).data('flatpickr')) {
-                        $(this).flatpickr({ dateFormat: 'd/m/Y' });
-                    }
-                });
                 bindItemCalculations($lastRow);
             }
 

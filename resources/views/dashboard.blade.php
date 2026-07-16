@@ -583,111 +583,128 @@
             tooltip: { theme: 'light' },
         };
 
-        const fmtRp = (v) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(v));
+        const fmtRp = (v) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(Number(v) || 0));
+
+        function renderChart(selector, options) {
+            var el = document.querySelector(selector);
+            if (!el || typeof ApexCharts === 'undefined') {
+                return null;
+            }
+            try {
+                var chart = new ApexCharts(el, options);
+                chart.render();
+                return chart;
+            } catch (err) {
+                console.error('Dashboard chart failed:', selector, err);
+                return null;
+            }
+        }
 
         // ── Executive: Monthly Sales Trend (Area) ──
         const monthlyData = @json($monthlySalesTrend);
-        new ApexCharts(document.querySelector('#chart-executive-sales'), {
+        renderChart('#chart-executive-sales', {
             ...baseOpts,
             chart: { ...baseOpts.chart, type: 'area', height: 280 },
-            series: [{ name: 'Revenue', data: monthlyData.map(d => Math.round(d.revenue)) }],
+            series: [{ name: 'Revenue', data: monthlyData.map(d => Math.round(Number(d.revenue) || 0)) }],
             xaxis: { categories: monthlyData.map(d => d.month) },
             yaxis: { labels: { formatter: fmtRp } },
             stroke: { curve: 'smooth', width: 2 },
+            markers: { size: 4, hover: { size: 6 } },
             fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.1 } },
             dataLabels: { enabled: false },
-        }).render();
+        });
 
         // ── Executive: Outlet Performance (Bar) ──
         const outletData = @json($salesPerOutlet);
-        new ApexCharts(document.querySelector('#chart-executive-outlet'), {
+        renderChart('#chart-executive-outlet', {
             ...baseOpts,
             chart: { ...baseOpts.chart, type: 'bar', height: 280 },
-            series: [{ name: 'Revenue', data: outletData.map(d => Math.round(d.revenue)) }],
+            series: [{ name: 'Revenue', data: outletData.map(d => Math.round(Number(d.revenue) || 0)) }],
             xaxis: { categories: outletData.map(d => d.name) },
             yaxis: { labels: { formatter: fmtRp } },
             plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
             dataLabels: { enabled: false },
-        }).render();
+        });
 
         // ── Sales: Daily Trend (Area) ──
         const dailyData = @json($dailySalesTrend);
-        new ApexCharts(document.querySelector('#chart-sales-daily'), {
+        renderChart('#chart-sales-daily', {
             ...baseOpts,
             chart: { ...baseOpts.chart, type: 'area', height: 280 },
             series: [
-                { name: 'Revenue', data: dailyData.map(d => Math.round(d.revenue)) },
-                { name: 'Transactions', data: dailyData.map(d => d.transactions) },
+                { name: 'Revenue', data: dailyData.map(d => Math.round(Number(d.revenue) || 0)) },
+                { name: 'Transactions', data: dailyData.map(d => Number(d.transactions) || 0) },
             ],
             xaxis: { categories: dailyData.map(d => d.date) },
             yaxis: [
                 { title: { text: 'Revenue' }, labels: { formatter: fmtRp } },
-                { opposite: true, title: { text: 'Transactions' } },
+                { opposite: true, title: { text: 'Transactions' }, labels: { formatter: (v) => Math.round(Number(v) || 0) } },
             ],
             stroke: { curve: 'smooth', width: 2 },
+            markers: { size: 4, hover: { size: 6 } },
             fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05 } },
             dataLabels: { enabled: false },
-        }).render();
+        });
 
         // ── Sales: Payment Methods (Donut) ──
         const payData = @json($paymentMethods);
         if (payData.length > 0) {
-            new ApexCharts(document.querySelector('#chart-sales-payment'), {
+            renderChart('#chart-sales-payment', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'donut', height: 280 },
-                series: payData.map(d => Math.round(d.total)),
+                series: payData.map(d => Math.round(Number(d.total) || 0)),
                 labels: payData.map(d => d.name),
                 legend: { position: 'bottom', fontSize: '12px' },
                 dataLabels: { enabled: true, formatter: (v) => v.toFixed(1) + '%' },
-            }).render();
+            });
         }
 
         // ── Sales: Per Outlet (Horizontal Bar) ──
         if (outletData.length > 0) {
-            new ApexCharts(document.querySelector('#chart-sales-outlet'), {
+            renderChart('#chart-sales-outlet', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'bar', height: 240 },
-                series: [{ name: 'Revenue', data: outletData.map(d => Math.round(d.revenue)) }],
+                series: [{ name: 'Revenue', data: outletData.map(d => Math.round(Number(d.revenue) || 0)) }],
                 xaxis: { categories: outletData.map(d => d.name) },
                 yaxis: { labels: { formatter: fmtRp } },
                 plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
                 dataLabels: { enabled: false },
-            }).render();
+            });
         }
 
         // ── Inventory: Stock by Category (Bar) ──
         const catStock = @json($stockByCategory);
         if (catStock.length > 0) {
-            new ApexCharts(document.querySelector('#chart-inventory-category'), {
+            renderChart('#chart-inventory-category', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'bar', height: 280 },
-                series: [{ name: 'Qty', data: catStock.map(d => Math.round(d.qty)) }],
+                series: [{ name: 'Qty', data: catStock.map(d => Math.round(Number(d.qty) || 0)) }],
                 xaxis: { categories: catStock.map(d => d.category) },
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
                 colors: ['#03c3ec'],
-            }).render();
+            });
         }
 
         // ── Procurement: PO by Status (Donut) ──
         const poStatus = @json($poByStatus);
         if (poStatus.length > 0) {
-            new ApexCharts(document.querySelector('#chart-procurement-status'), {
+            renderChart('#chart-procurement-status', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'donut', height: 280 },
-                series: poStatus.map(d => d.count),
+                series: poStatus.map(d => Number(d.count) || 0),
                 labels: poStatus.map(d => d.status.charAt(0).toUpperCase() + d.status.slice(1)),
                 legend: { position: 'bottom', fontSize: '12px' },
-            }).render();
+            });
         }
 
         // ── WMS: Inbound vs Outbound (Grouped Bar) ──
         const wmsData = @json($wmsWeeklyTrend);
         const wmsDates = [...new Set(wmsData.map(d => d.date))].sort();
-        const wmsIn = wmsDates.map(dt => { const r = wmsData.find(d => d.date === dt && d.type === 'in'); return r ? Math.round(r.qty) : 0; });
-        const wmsOut = wmsDates.map(dt => { const r = wmsData.find(d => d.date === dt && d.type === 'out'); return r ? Math.round(r.qty) : 0; });
+        const wmsIn = wmsDates.map(dt => { const r = wmsData.find(d => d.date === dt && d.type === 'in'); return r ? Math.round(Number(r.qty) || 0) : 0; });
+        const wmsOut = wmsDates.map(dt => { const r = wmsData.find(d => d.date === dt && d.type === 'out'); return r ? Math.round(Number(r.qty) || 0) : 0; });
         if (wmsDates.length > 0) {
-            new ApexCharts(document.querySelector('#chart-wms-inout'), {
+            renderChart('#chart-wms-inout', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'bar', height: 280 },
                 series: [{ name: 'Inbound', data: wmsIn }, { name: 'Outbound', data: wmsOut }],
@@ -695,38 +712,38 @@
                 plotOptions: { bar: { borderRadius: 3, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
                 colors: ['#71dd37', '#696cff'],
-            }).render();
+            });
         }
 
         // ── Outlet: Hourly Sales (Bar) ──
         const hourlyData = @json($hourlySales);
         if (hourlyData.length > 0) {
-            new ApexCharts(document.querySelector('#chart-outlet-hourly'), {
+            renderChart('#chart-outlet-hourly', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'bar', height: 280 },
-                series: [{ name: 'Revenue', data: hourlyData.map(d => Math.round(d.revenue)) }],
-                xaxis: { categories: hourlyData.map(d => String(Math.round(d.hour)).padStart(2, '0') + ':00') },
+                series: [{ name: 'Revenue', data: hourlyData.map(d => Math.round(Number(d.revenue) || 0)) }],
+                xaxis: { categories: hourlyData.map(d => String(Math.round(Number(d.hour) || 0)).padStart(2, '0') + ':00') },
                 yaxis: { labels: { formatter: fmtRp } },
                 plotOptions: { bar: { borderRadius: 3, columnWidth: '60%' } },
                 dataLabels: { enabled: false },
                 colors: ['#ffab00'],
-            }).render();
+            });
         }
 
         // ── Finance: Revenue vs COGS (Grouped Bar Monthly) ──
         if (monthlyData.length > 0) {
-            new ApexCharts(document.querySelector('#chart-finance-revenue'), {
+            renderChart('#chart-finance-revenue', {
                 ...baseOpts,
                 chart: { ...baseOpts.chart, type: 'bar', height: 280 },
                 series: [
-                    { name: 'Revenue', data: monthlyData.map(d => Math.round(d.revenue)) },
+                    { name: 'Revenue', data: monthlyData.map(d => Math.round(Number(d.revenue) || 0)) },
                 ],
                 xaxis: { categories: monthlyData.map(d => d.month) },
                 yaxis: { labels: { formatter: fmtRp } },
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 colors: ['#71dd37'],
-            }).render();
+            });
         }
     });
     </script>

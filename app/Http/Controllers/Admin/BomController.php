@@ -37,7 +37,35 @@ class BomController extends Controller
             ->get()
             ->keyBy('product_variant_id');
 
-        return view('admin.bom.index', compact('variants', 'boms'));
+        $companyId = optional(WmsContext::distributor())->id;
+        [$wipId, $wipBranchId] = $this->resolveWipContext($companyId);
+
+        $bomCostSummaries = [];
+        foreach ($boms as $variantId => $bom) {
+            $totalOld = 0.0;
+            $totalNew = 0.0;
+
+            foreach ($bom->items as $item) {
+                $qty = (float) $item->quantity;
+                $oldUnitCost = (float) ($item->last_unit_cost ?? 0);
+                $newUnitCost = FifoCostService::currentUnitCost(
+                    $item->component_variant_id,
+                    $wipBranchId,
+                    $item->unit_id,
+                    $wipId
+                );
+                $totalOld += $oldUnitCost * $qty;
+                $totalNew += $newUnitCost * $qty;
+            }
+
+            $bomCostSummaries[$variantId] = [
+                'hpp_old' => $totalOld,
+                'hpp_new' => $totalNew,
+                'diff' => $totalNew - $totalOld,
+            ];
+        }
+
+        return view('admin.bom.index', compact('variants', 'boms', 'bomCostSummaries'));
     }
 
     public function create(Request $request)
@@ -76,7 +104,7 @@ class BomController extends Controller
         // Cegah resep ganda untuk produk yang sama
         if (BillOfMaterial::where('product_variant_id', $outputVariant->id)->exists()) {
             return redirect()->route('bom.index')
-                ->with('error', 'Produk ini sudah memiliki resep (BOM). Silakan edit resep yang sudah ada.');
+                ->with('error', 'This product already has a BOM. Please edit the existing recipe.');
         }
 
         [$wipId, $wipBranchId] = $this->resolveWipContext($companyId);
@@ -98,7 +126,7 @@ class BomController extends Controller
             $this->syncItems($bom, $data['components'], $userId, $wipBranchId, $wipId);
         });
 
-        return redirect()->route('bom.index')->with('success', 'Resep (BOM) berhasil dibuat.');
+        return redirect()->route('bom.index')->with('success', 'BOM created successfully.');
     }
 
     public function edit(string $id)
@@ -144,7 +172,7 @@ class BomController extends Controller
             $this->syncItems($bom, $data['components'], $userId, $wipBranchId, $wipId);
         });
 
-        return redirect()->route('bom.index')->with('success', 'Resep (BOM) berhasil diperbarui.');
+        return redirect()->route('bom.index')->with('success', 'BOM updated successfully.');
     }
 
     /**
@@ -243,19 +271,23 @@ class BomController extends Controller
 
         [$wipId, $wipBranchId] = $this->resolveWipContext($bom->company_id);
 
-        // Biaya per komponen: HPP layer FEFO dikonversi ke satuan BOM item
+        // Biaya per komponen: HPP Old (snapshot BOM) vs HPP New (FIFO terkini)
         $itemCosts = $bom->items->mapWithKeys(function ($item) use ($wipId, $wipBranchId) {
+            $oldUnitCost = (float) ($item->last_unit_cost ?? 0);
             $unitCost = FifoCostService::currentUnitCost(
                 $item->component_variant_id,
                 $wipBranchId,
                 $item->unit_id,
                 $wipId
             );
+            $qty = (float) $item->quantity;
 
             return [
                 $item->id => [
+                    'old_unit_cost' => $oldUnitCost,
                     'unit_cost' => $unitCost,
-                    'line_total' => $unitCost * (float) $item->quantity,
+                    'old_line_total' => $oldUnitCost * $qty,
+                    'line_total' => $unitCost * $qty,
                 ],
             ];
         });
@@ -270,6 +302,6 @@ class BomController extends Controller
         $bom = BillOfMaterial::findOrFail($id);
         $bom->delete();
 
-        return redirect()->route('bom.index')->with('success', 'BOM dihapus.');
+        return redirect()->route('bom.index')->with('success', 'BOM deleted successfully.');
     }
 }

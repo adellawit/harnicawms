@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Training;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Training\MaterialRequest;
 use App\Http\Requests\Training\ModuleRequest;
+use App\Models\Marketing\Asset;
 use App\Models\Training\Course;
 use App\Models\Training\CourseMaterial;
 use App\Models\Training\CourseModule;
@@ -61,6 +62,26 @@ class CourseContentController extends Controller
     public function storeMaterial(MaterialRequest $request, string $courseId, string $moduleId)
     {
         $module = CourseModule::where('course_id', $courseId)->findOrFail($moduleId);
+
+        if ($request->filled('marketing_asset_id')) {
+            $asset = Asset::active()->usableInTraining()
+                ->whereIn('type', ['image', 'pdf', 'video'])
+                ->findOrFail($request->input('marketing_asset_id'));
+
+            CourseMaterial::create([
+                'module_id' => $module->id,
+                'company_id' => $module->company_id,
+                'title' => $request->string('title'),
+                'type' => $asset->type, // image | pdf | video
+                'marketing_asset_id' => $asset->id,
+                'estimated_minutes' => $request->filled('estimated_minutes') ? (int) $request->input('estimated_minutes') : null,
+                'sort_order' => (int) $request->input('sort_order', 0),
+                'created_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Materi (dari pustaka) ditambahkan.');
+        }
+
         $data = $this->materialPayload($request);
         $data['module_id'] = $module->id;
         $data['company_id'] = $module->company_id;
@@ -78,8 +99,33 @@ class CourseContentController extends Controller
     public function updateMaterial(MaterialRequest $request, string $courseId, string $moduleId, string $materialId)
     {
         $material = CourseMaterial::where('module_id', $moduleId)->findOrFail($materialId);
+
+        if ($request->filled('marketing_asset_id')) {
+            $asset = Asset::active()->usableInTraining()
+                ->whereIn('type', ['image', 'pdf', 'video'])
+                ->findOrFail($request->input('marketing_asset_id'));
+
+            // Switching to an asset-backed material: drop any local file.
+            if ($material->file_path) {
+                Storage::disk('public')->delete($material->file_path);
+            }
+            $material->update([
+                'title' => $request->string('title'),
+                'type' => $asset->type,
+                'marketing_asset_id' => $asset->id,
+                'file_path' => null,
+                'youtube_url' => null,
+                'estimated_minutes' => $request->filled('estimated_minutes') ? (int) $request->input('estimated_minutes') : null,
+                'sort_order' => (int) $request->input('sort_order', 0),
+                'updated_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Materi diperbarui (dari pustaka).');
+        }
+
         $data = $this->materialPayload($request);
         $data['updated_by'] = Auth::id();
+        $data['marketing_asset_id'] = null; // reverting to a local material
 
         if ($request->hasFile('file')) {
             if ($material->file_path) {
@@ -88,7 +134,6 @@ class CourseContentController extends Controller
             $data['file_path'] = $request->file('file')->store('training/materials', 'public');
         }
 
-        // Clear the field that does not belong to the chosen type.
         if ($data['type'] === 'youtube') {
             $data['file_path'] = null;
         } else {

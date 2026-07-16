@@ -126,6 +126,7 @@
                             <th>Variant</th>
                             <th>Mutation Type</th>
                             <th>Notes</th>
+                            <th style="width:80px">Satuan</th>
                             <th class="text-end" style="width:130px">In</th>
                             <th class="text-end" style="width:130px">Out</th>
                             <th class="text-end" style="width:140px">Balance</th>
@@ -136,9 +137,15 @@
                         <tr class="table-secondary">
                             <td></td>
                             <td colspan="4"><strong>Opening Balance</strong></td>
+                            <td><small class="text-muted">{{ $unitLabel ?: '-' }}</small></td>
                             <td></td>
                             <td></td>
-                            <td class="text-end"><strong>{{ format_number($openingBalance, 2, true) }}</strong></td>
+                            <td class="text-end">
+                                <strong>{{ format_number($openingBalance, 2, true) }}</strong>
+                                @if($unitLabel)
+                                    <small class="text-muted">{{ $unitLabel }}</small>
+                                @endif
+                            </td>
                         </tr>
                         @forelse($movements as $i => $mv)
                             @php
@@ -148,6 +155,9 @@
                                     : $mv->type === 'in';
                                 $isOut = !$isIn;
                                 $runningBalance = (float) $mv->quantity_after;
+                                $rowUnit = $mv->unit
+                                    ? ($mv->unit->symbol ?: $mv->unit->name)
+                                    : $unitLabel;
 
                                 $variantLabel = '-';
                                 if ($mv->variant) {
@@ -169,21 +179,44 @@
                                     @endif
                                 </td>
                                 <td>{{ $mv->notes ?: '-' }}</td>
-                                <td class="text-end text-success">{{ $isIn ? format_number($qty, 2, true) : '' }}</td>
-                                <td class="text-end text-danger">{{ $isOut ? format_number($qty, 2, true) : '' }}</td>
-                                <td class="text-end"><strong>{{ format_number($runningBalance, 2, true) }}</strong></td>
+                                <td><small class="text-muted">{{ $rowUnit ?: '-' }}</small></td>
+                                <td class="text-end text-success">
+                                    @if($isIn)
+                                        {{ format_number($qty, 2, true) }}
+                                        @if($rowUnit)<small class="text-muted">{{ $rowUnit }}</small>@endif
+                                    @endif
+                                </td>
+                                <td class="text-end text-danger">
+                                    @if($isOut)
+                                        {{ format_number($qty, 2, true) }}
+                                        @if($rowUnit)<small class="text-muted">{{ $rowUnit }}</small>@endif
+                                    @endif
+                                </td>
+                                <td class="text-end">
+                                    <strong>{{ format_number($runningBalance, 2, true) }}</strong>
+                                    @if($rowUnit)<small class="text-muted">{{ $rowUnit }}</small>@endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-center text-muted py-4">No stock movements found.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">No stock movements found.</td></tr>
                         @endforelse
                     </tbody>
                     @if($movements->isNotEmpty())
                     <tfoot class="table-dark">
                         <tr>
-                            <td colspan="5" class="text-end"><strong>Total</strong></td>
-                            <td class="text-end"><strong>{{ format_number($totalIn, 2, true) }}</strong></td>
-                            <td class="text-end"><strong>{{ format_number($totalOut, 2, true) }}</strong></td>
-                            <td class="text-end"><strong>{{ format_number($closingBalance, 2, true) }}</strong></td>
+                            <td colspan="6" class="text-end"><strong>Total</strong></td>
+                            <td class="text-end">
+                                <strong>{{ format_number($totalIn, 2, true) }}</strong>
+                                @if($unitLabel)<small>{{ $unitLabel }}</small>@endif
+                            </td>
+                            <td class="text-end">
+                                <strong>{{ format_number($totalOut, 2, true) }}</strong>
+                                @if($unitLabel)<small>{{ $unitLabel }}</small>@endif
+                            </td>
+                            <td class="text-end">
+                                <strong>{{ format_number($closingBalance, 2, true) }}</strong>
+                                @if($unitLabel)<small>{{ $unitLabel }}</small>@endif
+                            </td>
                         </tr>
                     </tfoot>
                     @endif
