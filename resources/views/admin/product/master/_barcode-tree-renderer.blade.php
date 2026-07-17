@@ -42,7 +42,7 @@ function renderPreviewLabel(label, distName) {
 
     var boxBrandHtml = $('<div>').text(formatBoxBrandLabel(distName)).html();
 
-    return '<div class="label-item label-item--box" style="width:55mm;height:9mm;border:0.35mm solid #000;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
+    return '<div class="label-item label-item--box" style="width:45mm;height:9mm;border:0.35mm solid #000;background:transparent;box-sizing:border-box;overflow:hidden;padding:0.5mm;">' +
         '<table class="label-item__table" cellpadding="0" cellspacing="0" style="width:100%;height:7mm;border-collapse:collapse;table-layout:fixed;">' +
         '<colgroup><col style="width:7mm"><col></colgroup>' +
         '<tr style="height:7mm;">' +
