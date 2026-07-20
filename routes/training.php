@@ -17,14 +17,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // === Management (Administrator / Marketing) ===
     Route::prefix('training')->name('training.')->group(function () {
         Route::prefix('categories')->name('categories.')->group(function () {
-            Route::get('/', [CategoryController::class, 'index'])->name('index')->middleware('permission:Training Academy,is_read');
+            Route::get('/', [CategoryController::class, 'index'])->name('index')->middleware('permission:Training Academy,is_create');
             Route::post('/', [CategoryController::class, 'store'])->name('store')->middleware('permission:Training Academy,is_create');
             Route::put('/{id}', [CategoryController::class, 'update'])->name('update')->middleware('permission:Training Academy,is_update');
             Route::delete('/{id}', [CategoryController::class, 'destroy'])->name('destroy')->middleware('permission:Training Academy,is_delete');
         });
 
         Route::prefix('courses')->name('courses.')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Admin\Training\CourseController::class, 'index'])->name('index')->middleware('permission:Training Academy,is_read');
+            Route::get('/', [\App\Http\Controllers\Admin\Training\CourseController::class, 'index'])->name('index')->middleware('permission:Training Academy,is_create');
             Route::get('/create', [\App\Http\Controllers\Admin\Training\CourseController::class, 'create'])->name('create')->middleware('permission:Training Academy,is_create');
             Route::post('/', [\App\Http\Controllers\Admin\Training\CourseController::class, 'store'])->name('store')->middleware('permission:Training Academy,is_create');
             Route::get('/{id}/edit', [\App\Http\Controllers\Admin\Training\CourseController::class, 'edit'])->name('edit')->middleware('permission:Training Academy,is_update');
@@ -33,7 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/{id}/publish', [\App\Http\Controllers\Admin\Training\CourseController::class, 'publish'])->name('publish')->middleware('permission:Training Academy,is_update');
         });
 
-        Route::get('/courses/{course}/content', [CourseContentController::class, 'content'])->name('courses.content')->middleware('permission:Training Academy,is_read');
+        Route::get('/courses/{course}/content', [CourseContentController::class, 'content'])->name('courses.content')->middleware('permission:Training Academy,is_create');
 
         Route::prefix('courses/{course}/modules')->name('modules.')->group(function () {
             Route::post('/', [CourseContentController::class, 'storeModule'])->name('store')->middleware('permission:Training Academy,is_create');
@@ -45,15 +45,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{module}/materials/{material}', [CourseContentController::class, 'destroyMaterial'])->name('materials.destroy')->middleware('permission:Training Academy,is_delete');
         });
 
-        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index')->middleware('permission:Training Academy,is_read');
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index')->middleware('permission:Training Academy,is_create');
+
+        Route::get('/academy', function () {
+            $trainingPerms = session('permissions', [])['Training Academy'] ?? [];
+            if ((int) ($trainingPerms['is_create'] ?? 0) === 1) {
+                return redirect()->route('training.courses.index');
+            }
+
+            return redirect()->route('academy.dashboard');
+        })->name('academy.home')->middleware('permission:Training Academy,is_read');
+
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\Training\AcademySettingController::class, 'edit'])->name('edit')->middleware('permission:Training Academy,is_update');
+            Route::post('/', [\App\Http\Controllers\Admin\Training\AcademySettingController::class, 'update'])->name('update')->middleware('permission:Training Academy,is_update');
+        });
     });
 
     // === Learner (Agent) ===
     Route::prefix('academy')->name('academy.')->group(function () {
-        Route::get('/', [AcademyController::class, 'dashboard'])->name('dashboard')->middleware('permission:Academy,is_read');
-        Route::get('/courses/{course}', [AcademyController::class, 'course'])->name('courses.show')->middleware('permission:Academy,is_read');
-        Route::get('/materials/{material}', [AcademyController::class, 'material'])->name('materials.show')->middleware('permission:Academy,is_read');
-        Route::post('/materials/{material}/complete', [AcademyController::class, 'complete'])->name('materials.complete')->middleware('permission:Academy,is_read');
+        Route::get('/', [AcademyController::class, 'dashboard'])->name('dashboard')->middleware('permission:Training Academy,is_read');
+        Route::get('/courses/{course}', [AcademyController::class, 'course'])->name('courses.show')->middleware('permission:Training Academy,is_read');
+        Route::get('/materials/{material}', [AcademyController::class, 'material'])->name('materials.show')->middleware('permission:Training Academy,is_read');
+        Route::post('/materials/{material}/complete', [AcademyController::class, 'complete'])->name('materials.complete')->middleware('permission:Training Academy,is_read');
     });
 
 });
