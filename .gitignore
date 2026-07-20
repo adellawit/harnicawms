@@ -19,6 +19,7 @@ yarn-error.log
 /.idea
 /.nova
 /.vscode
+/.cursorrules
 /.zed
 .DS_Store
 /.claude/
