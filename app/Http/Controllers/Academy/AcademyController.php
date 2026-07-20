@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Academy;
 
 use App\Http\Controllers\Controller;
+use App\Models\Training\AcademySetting;
 use App\Models\Training\Course;
 use App\Models\Training\CourseAccess;
 use App\Models\Training\CourseMaterial;
@@ -47,7 +48,9 @@ class AcademyController extends Controller
             }
         }
 
-        return view('academy.dashboard', compact('courses', 'progressByCourse', 'stats', 'continue'));
+        $showProgress = AcademySetting::current()->show_progress_percentage;
+
+        return view('academy.dashboard', compact('courses', 'progressByCourse', 'stats', 'continue', 'showProgress'));
     }
 
     public function course(string $courseId)
@@ -58,7 +61,9 @@ class AcademyController extends Controller
         $completedIds = array_flip($this->progress->completedMaterialIds($userId));
         $progress = $this->progress->courseProgress($course, array_keys($completedIds));
 
-        return view('academy.course', compact('course', 'progress', 'completedIds'));
+        $showProgress = AcademySetting::current()->show_progress_percentage;
+
+        return view('academy.course', compact('course', 'progress', 'completedIds', 'showProgress'));
     }
 
     public function material(string $materialId)

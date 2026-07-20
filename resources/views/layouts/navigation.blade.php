@@ -77,6 +77,12 @@
             $allMenuItems = $flattenMenus($sidebars);
 
             $checkMenuActive = function ($menu) use ($allMenuItems) {
+                if (($menu->code ?? '') === 'training-academy' && ! request()->is('training/settings*')) {
+                    if (request()->is('training/*') || request()->is('academy') || request()->is('academy/*')) {
+                        return true;
+                    }
+                }
+
                 if ($menu->route_name && Route::has($menu->route_name)) {
                     if (request()->routeIs($menu->route_name) || request()->routeIs($menu->route_name . '.*')) {
                         return true;

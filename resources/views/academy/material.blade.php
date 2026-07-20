@@ -3,7 +3,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Academy', 'url' => route('academy.dashboard')],
+            ['label' => 'Training Academy', 'url' => route('academy.dashboard')],
             ['label' => $course->title, 'url' => route('academy.courses.show', $course->id)],
             ['label' => $material->title, 'active' => true],
         ]" />

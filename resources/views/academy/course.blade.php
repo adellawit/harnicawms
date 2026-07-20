@@ -3,7 +3,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Academy', 'url' => route('academy.dashboard')],
+            ['label' => 'Training Academy', 'url' => route('academy.dashboard')],
             ['label' => $course->title, 'active' => true],
         ]" />
 
@@ -11,9 +11,11 @@
             @if ($course->category)<span class="badge bg-label-secondary mb-2">{{ $course->category->name }}</span>@endif
             <h4 class="mb-1">{{ $course->title }}</h4>
             @if ($course->description)<p class="text-muted">{{ $course->description }}</p>@endif
+            @if($showProgress)
             <div class="progress mb-2" style="height:8px; max-width:600px"><div class="progress-bar bg-success" style="width: {{ $progress['percent'] }}%"></div></div>
             <small class="text-muted">{{ $progress['completed_count'] }}/{{ $progress['total_materials'] }} materi · {{ $progress['percent'] }}% selesai
                 @if($progress['has_minutes']) · {{ $progress['minutes_remaining'] }} menit tersisa @endif</small>
+            @endif
         </div></div>
 
         @forelse ($course->modules as $module)

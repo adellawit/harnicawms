@@ -3,7 +3,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header :breadcrumbs="[
             ['label' => 'Home', 'url' => route('dashboard')],
-            ['label' => 'Academy', 'active' => true],
+            ['label' => 'Training Academy', 'active' => true],
         ]" />
 
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -11,6 +11,7 @@
         </div>
 
         {{-- Header stats --}}
+        @if($showProgress)
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="card h-100"><div class="card-body d-flex justify-content-between align-items-center">
@@ -30,6 +31,7 @@
                 </div></div>
             </div>
         </div>
+        @endif
 
         {{-- Sedang Dipelajari --}}
         @if ($continue)
@@ -40,8 +42,10 @@
                     <div class="flex-grow-1">
                         <strong>{{ $continue['course']->title }}</strong>
                         <div class="text-muted small mb-2">{{ $continue['course']->category?->name }}</div>
+                        @if($showProgress)
                         <div class="progress" style="height:8px; max-width:600px"><div class="progress-bar bg-success" style="width: {{ $cp['percent'] }}%"></div></div>
                         <small class="text-muted">{{ $cp['percent'] }}% selesai @if($cp['has_minutes']) · {{ $cp['minutes_remaining'] }} menit tersisa @endif</small>
+                        @endif
                     </div>
                     <a href="{{ $continue['access']->last_material_id
                         ? route('academy.materials.show', $continue['access']->last_material_id)
@@ -68,8 +72,10 @@
                             @if ($course->category)<span class="badge bg-label-secondary mb-2"><i class="ti ti-tag me-1"></i>{{ $course->category->name }}</span>@endif
                             <h6 class="mb-1">{{ $course->title }}</h6>
                             <small class="text-muted d-block mb-2">{{ $p['modules_total'] }} modul</small>
+                            @if($showProgress)
                             <div class="progress mb-2" style="height:6px"><div class="progress-bar bg-success" style="width: {{ $p['percent'] }}%"></div></div>
                             <small class="text-muted">{{ $p['percent'] }}% selesai</small>
+                            @endif
                         </div>
                         <div class="card-footer">
                             <a href="{{ route('academy.courses.show', $course->id) }}" class="btn btn-sm w-100 btn-{{ $p['percent'] === 0 ? 'primary' : ($p['percent'] >= 100 ? 'outline-secondary' : 'success') }}">
