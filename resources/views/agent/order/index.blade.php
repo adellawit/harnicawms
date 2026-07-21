@@ -25,7 +25,7 @@
 
     <div class="row g-2 g-sm-3" id="productGrid">
         @forelse ($products as $product)
-            <div class="col-6 col-sm-4 col-lg-3">
+            <div class="col-6 col-md-4 col-xl-3">
                 <div class="card shop-product-card h-100" data-product-id="{{ $product['id'] }}"
                     data-product-name="{{ $product['name'] }}">
                     <div class="thumb">

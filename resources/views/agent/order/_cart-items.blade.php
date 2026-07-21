@@ -15,12 +15,18 @@
                 <div class="text-muted small">{{ $item['variant_name'] }}</div>
                 <div class="text-primary small fw-bold mt-1">
                     Rp {{ number_format($item['unit_price'], 0, ',', '.') }}
+                    @if (!empty($item['unit_label']))
+                        <span class="text-muted fw-normal">/ {{ $item['unit_label'] }}</span>
+                    @endif
                 </div>
                 <div class="d-flex align-items-center gap-1 mt-2">
                     <button type="button" class="btn btn-xs btn-outline-secondary btn-cart-qty" data-delta="-1">−</button>
                     <input type="number" class="form-control form-control-sm text-center cart-qty-input"
                         style="width: 3rem;" min="1" max="{{ $item['stock'] ?: 999 }}"
                         value="{{ (int) $item['quantity'] }}">
+                    @if (!empty($item['unit_label']))
+                        <span class="small text-muted">{{ $item['unit_label'] }}</span>
+                    @endif
                     <button type="button" class="btn btn-xs btn-outline-secondary btn-cart-qty" data-delta="1">+</button>
                     <button type="button" class="btn btn-sm btn-link text-danger ms-auto btn-cart-remove p-0">
                         <i class="ti ti-trash"></i>

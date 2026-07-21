@@ -20,16 +20,18 @@
     <link rel="stylesheet" href="{{ asset('assets/css/shop.css') }}" />
     @stack('styles')
 </head>
-<body class="shop-body {{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }} @yield('shop_body_class')">
+<body class="shop-body agent-order-body {{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }} @yield('shop_body_class')">
     <nav class="navbar navbar-expand bg-white border-bottom sticky-top shop-nav">
         <div class="container shop-main">
-            <a class="navbar-brand fw-bold mb-0 d-flex align-items-center gap-2" href="{{ route('agent-order.index') }}">
+            <a class="navbar-brand fw-bold mb-0 d-flex align-items-center gap-2" href="{{ route('agent-order.index') }}"
+                aria-label="Order ke Distributor">
                 @if (!empty($appTheme['logo_url']))
                     <img src="{{ $appTheme['logo_url'] }}" alt="{{ $shopCompanyName ?? config('app.name') }}"
                          data-brand-logo="{{ $appTheme['logo_url'] }}"
                          style="height: 28px; width: auto; max-width: 120px; object-fit: contain;">
+                @else
+                    <span>Order Agen</span>
                 @endif
-                <span>Order ke Distributor</span>
             </a>
             @auth('customer')
                 @php

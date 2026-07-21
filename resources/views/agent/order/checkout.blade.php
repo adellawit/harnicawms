@@ -11,23 +11,23 @@
         <h1 class="shop-page-title mb-0">Checkout</h1>
     </header>
 
-    <div class="row g-3 g-lg-4 shop-checkout-layout">
-        <div class="col-lg-7">
+    <div class="row g-3 g-md-4 shop-checkout-layout">
+        <div class="col-md-7">
             <div class="card border-0 shadow-sm shop-checkout-card">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                     <h2 class="h6 mb-0 fw-semibold">Ringkasan pesanan</h2>
                     <span class="badge bg-label-secondary">{{ $summary['item_count'] }} item</span>
                 </div>
                 <ul class="list-group list-group-flush" id="checkoutItemsList">
-                    @include('customer.shop._checkout-items', ['cart' => $cart])
+                    @include('agent.order._checkout-items', ['cart' => $cart])
                 </ul>
-                <div class="card-body border-top shop-checkout-summary d-none d-lg-block" id="checkoutSummary">
+                <div class="card-body border-top shop-checkout-summary d-none d-md-block" id="checkoutSummary">
                     @include('agent.order._checkout-summary', ['summary' => $summary, 'shippingAmount' => $shipping['amount']])
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-5">
+        <div class="col-md-5">
             <div class="card border-0 shadow-sm shop-checkout-card mb-3">
                 <div class="card-header bg-white py-3">
                     <h2 class="h6 mb-0 fw-semibold"><i class="ti ti-truck-delivery me-1"></i>Pengiriman</h2>
@@ -91,7 +91,7 @@
 
                         <input type="hidden" name="xendit_channel" id="xenditChannel" value="">
 
-                        <button type="submit" class="btn btn-primary w-100 mt-3 d-none d-lg-flex align-items-center justify-content-center"
+                        <button type="submit" class="btn btn-primary w-100 mt-3 d-none d-md-flex align-items-center justify-content-center"
                             id="btnPlaceOrderDesktop" @disabled(! $hasPaymentOptions)>
                             <i class="ti ti-shopping-cart-check me-1"></i> Checkout
                         </button>
@@ -99,7 +99,7 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm shop-checkout-card d-lg-none mt-3">
+            <div class="card border-0 shadow-sm shop-checkout-card d-md-none mt-3">
                 <div class="card-body py-3" id="checkoutSummaryMobile">
                     @include('agent.order._checkout-summary', ['summary' => $summary, 'shippingAmount' => $shipping['amount']])
                 </div>
@@ -111,7 +111,7 @@
         </div>
     </div>
 
-    <div class="shop-checkout-bar d-lg-none" id="shopCheckoutBar">
+    <div class="shop-checkout-bar d-md-none" id="shopCheckoutBar">
         <div class="shop-checkout-bar-inner">
             <div class="shop-checkout-bar-total min-w-0">
                 <div class="small text-muted">Total</div>

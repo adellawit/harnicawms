@@ -3,6 +3,7 @@
 namespace App\Services\Shop;
 
 use App\Models\Product;
+use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
@@ -55,7 +56,7 @@ class ShopCartService
         $branchId = $this->context->branchId();
         $companyId = $this->context->companyId();
 
-        $variant = ProductVariant::with('product')
+        $variant = ProductVariant::with(['product.defaultUnit'])
             ->where('id', $variantId)
             ->where('is_active', true)
             ->whereNull('deleted_at')
@@ -126,11 +127,14 @@ class ShopCartService
             throw new \InvalidArgumentException('Jumlah melebihi stok tersedia ('.$stock.').');
         }
 
+        $unitLabel = $this->resolveUnitLabel($unitId, $product);
+
         $line = [
             'cart_key' => $key,
             'variant_id' => $variant->id,
             'product_id' => $product->id,
             'unit_id' => $unitId,
+            'unit_label' => $unitLabel,
             'quantity' => $newQty,
             'unit_price' => $unitPrice,
             'product_name' => $product->name,
@@ -248,5 +252,18 @@ class ShopCartService
             'discount_type' => 'percent',
             'discount_value' => 0,
         ]);
+    }
+
+    protected function resolveUnitLabel(string $unitId, Product $product): ?string
+    {
+        $unit = $product->default_unit_id === $unitId
+            ? $product->defaultUnit
+            : ProductUnit::find($unitId);
+
+        if (! $unit) {
+            return null;
+        }
+
+        return $unit->symbol ?: ($unit->name ?: $unit->code);
     }
 }

@@ -47,8 +47,8 @@
                 res.variants.forEach(function (v) {
                     html += '<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center btn-add-variant" data-variant-id="' + v.id + '">';
                     html += '<div><div class="fw-semibold">' + (v.display_name || v.sku) + '</div>';
-                    html += '<small class="text-muted">' + (v.sku || '') + (v.is_stock_item ? ' · Stok ' + v.stock : '') + '</small></div>';
-                    html += '<span class="fw-bold text-primary">' + fmtRp(v.selling_price) + '</span></button>';
+                    html += '<small class="text-muted">' + (v.sku || '') + (v.is_stock_item ? ' · Stok ' + v.stock : '') + (v.unit_label ? ' · ' + v.unit_label : '') + '</small></div>';
+                    html += '<span class="fw-bold text-primary text-end">' + fmtRp(v.selling_price) + (v.unit_label ? '<small class="d-block text-muted fw-normal">/ ' + v.unit_label + '</small>' : '') + '</span></button>';
                 });
                 html += '</div>';
                 $('#variantModalBody').html(html);

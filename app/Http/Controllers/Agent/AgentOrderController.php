@@ -113,12 +113,15 @@ class AgentOrderController extends Controller
         $branchId = $ctx->branchId();
         $priceListId = $ctx->priceListId();
 
-        $product = Product::when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+        $product = Product::with('defaultUnit')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->saleItems()
             ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
             ->findOrFail($request->product_id);
 
         $defaultUnitId = $product->default_unit_id;
+        $unitLabel = $product->defaultUnit?->symbol
+            ?: ($product->defaultUnit?->name ?: $product->defaultUnit?->code);
 
         $variants = ProductVariant::where('product_id', $product->id)
             ->whereNull('deleted_at')
@@ -169,6 +172,7 @@ class AgentOrderController extends Controller
                 'selling_price' => $sellingPrice,
                 'stock' => $stock,
                 'unit_id' => $unitId,
+                'unit_label' => $unitLabel,
                 'is_stock_item' => (bool) $product->is_stock_item,
             ];
         }
@@ -413,7 +417,7 @@ class AgentOrderController extends Controller
 
     public function orderShow(string $orderId, Request $request): View
     {
-        $order = SalesOrder::with(['items.product', 'items.variant', 'payments.methodPayment'])
+        $order = SalesOrder::with(['items.product', 'items.variant', 'items.unit', 'payments.methodPayment'])
             ->findOrFail($orderId);
 
         $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);

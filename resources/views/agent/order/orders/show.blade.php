@@ -54,6 +54,12 @@
                         <span class="shop-order-detail-item-name">
                             <span class="shop-order-detail-qty">{{ (int) $item->quantity }}×</span>
                             {{ $item->product?->name ?? $item->variant?->display_name ?? 'Item' }}
+                            @php
+                                $unitLabel = $item->unit?->symbol ?: ($item->unit?->name ?: $item->unit?->code);
+                            @endphp
+                            @if ($unitLabel)
+                                <span class="text-muted fw-normal">{{ $unitLabel }}</span>
+                            @endif
                         </span>
                         <span class="shop-order-detail-item-price">
                             Rp {{ number_format($item->subtotal, 0, ',', '.') }}
