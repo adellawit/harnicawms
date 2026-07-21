@@ -22,12 +22,48 @@
                     @include('customer.shop._checkout-items', ['cart' => $cart])
                 </ul>
                 <div class="card-body border-top shop-checkout-summary d-none d-lg-block" id="checkoutSummary">
-                    @include('customer.shop._checkout-summary', ['summary' => $summary])
+                    @include('agent.order._checkout-summary', ['summary' => $summary, 'shippingAmount' => $shipping['amount']])
                 </div>
             </div>
         </div>
 
         <div class="col-lg-5">
+            <div class="card border-0 shadow-sm shop-checkout-card mb-3">
+                <div class="card-header bg-white py-3">
+                    <h2 class="h6 mb-0 fw-semibold"><i class="ti ti-truck-delivery me-1"></i>Pengiriman</h2>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="py-3 border-bottom mb-3">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div class="flex-grow-1">
+                                <div class="small text-muted">Dikirim dari</div>
+                                <div class="fw-semibold">{{ $shipping['origin_city'] ?: '-' }}</div>
+                                @if ($shipping['origin_province'])
+                                    <div class="small text-muted">{{ $shipping['origin_province'] }}</div>
+                                @endif
+                            </div>
+                            <i class="ti ti-arrow-right text-muted flex-shrink-0"></i>
+                            <div class="flex-grow-1 text-end">
+                                <div class="small text-muted">Agen penerima</div>
+                                <div class="fw-semibold">{{ $shipping['destination_name'] ?: '-' }}</div>
+                                @if ($shipping['destination_city'])
+                                    <div class="small text-muted">{{ $shipping['destination_city'] }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    @unless ($shipping['destination_city'])
+                        <div class="alert alert-warning small py-2 mb-3">
+                            Kota agen belum diatur pada data master. Hubungi admin untuk melengkapi.
+                        </div>
+                    @endunless
+
+                    <div class="small text-muted mb-1">Alamat pengiriman</div>
+                    <div>{{ $shipping['address'] ?: '-' }}</div>
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm shop-checkout-card shop-checkout-payment-card">
                 <div class="card-header bg-white py-3">
                     <h2 class="h6 mb-0 fw-semibold">Pembayaran</h2>
@@ -65,7 +101,7 @@
 
             <div class="card border-0 shadow-sm shop-checkout-card d-lg-none mt-3">
                 <div class="card-body py-3" id="checkoutSummaryMobile">
-                    @include('customer.shop._checkout-summary', ['summary' => $summary])
+                    @include('agent.order._checkout-summary', ['summary' => $summary, 'shippingAmount' => $shipping['amount']])
                 </div>
             </div>
 

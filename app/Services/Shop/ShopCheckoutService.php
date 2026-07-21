@@ -44,7 +44,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null, string $orderType = 'web'): array
+    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null, string $orderType = 'web', ?string $shippingAddress = null): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -89,7 +89,8 @@ class ShopCheckoutService
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
-                'customer_address' => $customer->address,
+                'customer_address' => $shippingAddress ?: $customer->address,
+                'shipping_amount' => 0,
             ]);
 
             $payment = SalesOrderPayment::create([
@@ -166,7 +167,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web'): array
+    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -195,7 +196,8 @@ class ShopCheckoutService
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
-                'customer_address' => $customer->address,
+                'customer_address' => $shippingAddress ?: $customer->address,
+                'shipping_amount' => 0,
             ]);
 
             SalesOrderPayment::create([

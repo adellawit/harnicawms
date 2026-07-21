@@ -1,5 +1,5 @@
 <x-guest-layout>
-    @section('title', 'Customer Login | ')
+    @section('title', (($portal ?? 'shop') === 'agent' ? 'Agent Login' : 'Customer Login') . ' | ')
 
     @push('page-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/page-auth.css') }}">
@@ -67,13 +67,11 @@
                     </button>
                 </form>
 
+                @if (($portal ?? 'shop') !== 'agent')
                 <p class="text-center text-muted small mt-4 mb-0">
-                    @if (($portal ?? 'shop') === 'agent')
-                        Bukan agen? <a href="{{ route('customer.login') }}">Login toko customer</a>
-                    @else
-                        Staff? <a href="{{ route('login') }}">Login admin</a>
-                    @endif
+                    Staff? <a href="{{ route('login') }}">Login admin</a>
                 </p>
+                @endif
             </div>
         </div>
     </div>

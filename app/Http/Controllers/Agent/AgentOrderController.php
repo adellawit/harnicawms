@@ -39,6 +39,14 @@ class AgentOrderController extends Controller
         return app(ShopCheckoutService::class, ['context' => $this->context()]);
     }
 
+    protected function resolveShippingAddress(): ?string
+    {
+        $customer = $this->context()->customer();
+        $agent = $customer->agent;
+
+        return $customer->address_shipping ?: ($customer->address ?: $agent?->address);
+    }
+
     public function index(Request $request): View|RedirectResponse
     {
         $ctx = $this->context();
@@ -248,29 +256,33 @@ class AgentOrderController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $xendit = app(XenditService::class);
-        $pgMethods = $methodPayments->filter(fn ($m) => $xendit->usesXenditForMethod($m->code, $m));
-        $standardMethods = $methodPayments->filter(fn ($m) => ! $m->uses_payment_gateway);
-        $codMethod = $methodPayments->first(fn ($m) => strtoupper($m->code) === 'COD');
-        $xenditChannelGroups = $xendit->isPaymentGatewayReady()
-            ? $xendit->buildPaymentChannelGroups($pgMethods)
-            : [];
+        $cashMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
 
-        $codIcon = $codMethod
-            ? $xendit->channelIconUrl($codMethod->code, $codMethod->name)
-            : null;
+        $customer = $ctx->customer();
+        $agent = $customer->agent;
+        $originUnit = $ctx->branch();
+
+        $shipping = [
+            'origin_city' => $originUnit?->city,
+            'origin_province' => $originUnit?->province,
+            'origin_name' => $originUnit?->brand_name ?: $originUnit?->name,
+            'destination_city' => $agent?->city,
+            'destination_province' => $agent?->province,
+            'destination_name' => $agent?->name ?: $customer->name,
+            'address' => $this->resolveShippingAddress(),
+            'amount' => 0,
+        ];
 
         return view('agent.order.checkout', [
-            'customer' => $ctx->customer(),
+            'customer' => $customer,
             'cart' => $cart->get(),
             'summary' => $cart->summarize(),
-            'codMethod' => $codMethod,
-            'codIcon' => $codIcon,
-            'xenditChannelGroups' => $xenditChannelGroups,
-            'standardMethods' => $standardMethods,
-            'hasPaymentOptions' => $codMethod !== null
-                || count($xenditChannelGroups) > 0
-                || $standardMethods->isNotEmpty(),
+            'shipping' => $shipping,
+            'codMethod' => null,
+            'codIcon' => null,
+            'xenditChannelGroups' => [],
+            'standardMethods' => $cashMethods,
+            'hasPaymentOptions' => $cashMethods->isNotEmpty(),
         ]);
     }
 
@@ -284,7 +296,7 @@ class AgentOrderController extends Controller
 
         $cartService = $this->cart();
         if ($cartService->count() < 1) {
-            return response()->json(['success' => false, 'message' => 'Keranjang kosong'], 422);
+            return redirect()->route('agent-order.index')->with('error', 'Keranjang kosong.');
         }
 
         $checkoutRequest = $cartService->toCheckoutRequest();
@@ -298,37 +310,35 @@ class AgentOrderController extends Controller
 
         try {
             if ($xendit->usesXenditForMethod($method->code, $method)) {
-                if (! $xendit->isConfigured()) {
-                    return response()->json(['success' => false, 'message' => 'Payment gateway belum dikonfigurasi'], 422);
-                }
-
-                $result = $checkout->processXendit(
-                    $checkoutRequest,
-                    $request->payment_method_id,
-                    $request->xendit_channel,
-                    self::ORDER_TYPE,
-                );
-                $cartService->clear();
-
-                if ($request->expectsJson()) {
-                    return response()->json(['success' => true, 'redirect' => $result['invoice_url'], 'data' => $result]);
-                }
-
-                return redirect()->away($result['invoice_url']);
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', 'Metode pembayaran online belum tersedia untuk order agent.');
             }
 
-            if (strtoupper($method->code) === 'COD') {
-                $result = $checkout->processCod($checkoutRequest, $request->payment_method_id, self::ORDER_TYPE);
+            if ($this->isCashPaymentMethod($method)) {
+                $result = $checkout->processCod(
+                    $checkoutRequest,
+                    $request->payment_method_id,
+                    self::ORDER_TYPE,
+                    $this->resolveShippingAddress(),
+                );
                 $cartService->clear();
 
                 return redirect()
                     ->route('agent-order.orders.show', $result['order_id'])
-                    ->with('success', 'Pesanan COD berhasil dibuat. Nomor: '.$result['sales_number']);
+                    ->with('success', 'Pesanan berhasil dibuat. Nomor: '.$result['sales_number']);
             }
 
-            return response()->json(['success' => false, 'message' => 'Metode pembayaran tidak didukung'], 422);
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Metode pembayaran tidak didukung.');
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
         }
     }
 
@@ -423,5 +433,11 @@ class AgentOrderController extends Controller
             ->where('price_list_id', $priceListId)
             ->whereNull('deleted_at')
             ->min('selling_price');
+    }
+
+    protected function isCashPaymentMethod(MethodPayment $method): bool
+    {
+        return ! $method->uses_payment_gateway
+            && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
     }
 }

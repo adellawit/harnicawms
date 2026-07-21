@@ -240,6 +240,8 @@ class ShopCartService
         return Request::create('/', 'POST', [
             'price_list_id' => $cart['price_list_id'] ?? $this->context->priceListId(),
             'customer_id' => $this->context->customer()->id,
+            'branch_id' => $this->context->branchId(),
+            'company_id' => $this->context->companyId(),
             'items' => $items,
             'tax_rate' => $summary['tax_rate'],
             'tax_enabled' => $summary['tax_enabled'],

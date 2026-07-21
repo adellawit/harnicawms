@@ -65,6 +65,10 @@
 
         <div class="card border-0 shadow-sm shop-order-card shop-order-detail-summary">
             <div class="card-body py-3">
+                <div class="mb-3 pb-3 border-bottom">
+                    <div class="small text-muted">Alamat pengiriman</div>
+                    <div>{{ $order->customer_address ?: '-' }}</div>
+                </div>
                 <div class="d-flex justify-content-between mb-2 small">
                     <span class="text-muted">Subtotal</span>
                     <span>Rp {{ number_format($order->subtotal, 0, ',', '.') }}</span>
@@ -75,6 +79,10 @@
                         <span>Rp {{ number_format($order->tax_amount, 0, ',', '.') }}</span>
                     </div>
                 @endif
+                <div class="d-flex justify-content-between mb-2 small text-muted">
+                    <span>Ongkos Kirim</span>
+                    <span>Rp {{ number_format($order->shipping_amount ?? 0, 0, ',', '.') }}</span>
+                </div>
                 <div class="d-flex justify-content-between fw-bold shop-order-detail-total border-top pt-2 mt-2">
                     <span>Total</span>
                     <span class="text-primary">Rp {{ number_format($order->total, 0, ',', '.') }}</span>

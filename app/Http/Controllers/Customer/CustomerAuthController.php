@@ -92,7 +92,7 @@ class CustomerAuthController extends Controller
 
         return [
             'portal' => $portal,
-            'loginTitle' => $portal === 'agent' ? 'Agent Sign in' : 'Customer Sign in',
+            'loginTitle' => $portal === 'agent' ? 'Agent Login' : 'Customer Sign in',
             'loginSubtitle' => $portal === 'agent'
                 ? 'Order ke Distributor'
                 : config('shop.default_company_name', 'WWW'),
