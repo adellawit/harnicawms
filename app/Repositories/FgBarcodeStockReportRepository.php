@@ -17,6 +17,7 @@ class FgBarcodeStockReportRepository
         return $this->summaryQuery($filters)
             ->orderBy('product_name')
             ->orderBy('variant_sku')
+            ->orderBy('unit_sort_level')
             ->orderBy('unit_name')
             ->paginate($perPage)
             ->withQueryString();
@@ -30,6 +31,7 @@ class FgBarcodeStockReportRepository
         return $this->summaryQuery($filters)
             ->orderBy('product_name')
             ->orderBy('variant_sku')
+            ->orderBy('unit_sort_level')
             ->orderBy('unit_name')
             ->get();
     }
@@ -40,6 +42,7 @@ class FgBarcodeStockReportRepository
     public function serialRows(array $filters): Collection
     {
         return $this->serialQuery($filters)
+            ->orderBy('pls.unit_level')
             ->orderBy('pls.serial_number')
             ->get();
     }
@@ -50,6 +53,7 @@ class FgBarcodeStockReportRepository
     public function paginateSerials(array $filters, int $perPage): LengthAwarePaginator
     {
         return $this->serialQuery($filters)
+            ->orderBy('pls.unit_level')
             ->orderBy('pls.serial_number')
             ->paginate($perPage)
             ->withQueryString();
@@ -162,7 +166,17 @@ class FgBarcodeStockReportRepository
                     WHEN COALESCE(r.serial_ready, 0) = COALESCE(s.stock_qty, 0) THEN 'ok'
                     WHEN COALESCE(r.serial_ready, 0) > COALESCE(s.stock_qty, 0) THEN 'surplus'
                     ELSE 'shortage'
-                END AS status
+                END AS status,
+                CASE
+                    WHEN k.unit_id IS NOT DISTINCT FROM p.default_unit_id THEN 0
+                    ELSE COALESCE((
+                        SELECT MIN(puc.conversion_level)
+                        FROM product.product_unit_conversions puc
+                        WHERE puc.product_id = p.id
+                          AND puc.deleted_at IS NULL
+                          AND puc.to_unit_id = k.unit_id
+                    ), 9999)
+                END AS unit_sort_level
             FROM keys k
             LEFT JOIN ready r
                 ON r.product_id = k.product_id
@@ -172,7 +186,11 @@ class FgBarcodeStockReportRepository
                 ON s.product_id = k.product_id
                AND s.unit_id = k.unit_id
                AND s.product_variant_id IS NOT DISTINCT FROM k.product_variant_id
-            LEFT JOIN product.products p ON p.id = k.product_id
+            INNER JOIN product.products p ON p.id = k.product_id
+            INNER JOIN product.product_natures pn
+                ON pn.id = p.nature_id
+               AND pn.code = 'FINISHED_GOOD'
+               AND pn.deleted_at IS NULL
             LEFT JOIN product.product_variants pv ON pv.id = k.product_variant_id
             LEFT JOIN product.product_units pu ON pu.id = k.unit_id
             LEFT JOIN master_data.warehouses w ON w.id = COALESCE(s.warehouse_id, ?)
@@ -199,7 +217,12 @@ class FgBarcodeStockReportRepository
     private function serialQuery(array $filters): Builder
     {
         return DB::table('product.product_label_serials as pls')
-            ->leftJoin('product.products as p', 'p.id', '=', 'pls.product_id')
+            ->join('product.products as p', 'p.id', '=', 'pls.product_id')
+            ->join('product.product_natures as pn', function ($join): void {
+                $join->on('pn.id', '=', 'p.nature_id')
+                    ->where('pn.code', 'FINISHED_GOOD')
+                    ->whereNull('pn.deleted_at');
+            })
             ->leftJoin('product.product_variants as pv', 'pv.id', '=', 'pls.product_variant_id')
             ->leftJoin('product.product_units as pu', 'pu.id', '=', 'pls.unit_id')
             ->whereNotExists(function ($query): void {

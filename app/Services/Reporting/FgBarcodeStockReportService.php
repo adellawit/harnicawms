@@ -105,9 +105,11 @@ class FgBarcodeStockReportService
         return [
             'warehouses' => $warehouses,
             'products' => Product::whereNull('deleted_at')
+                ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
             'variants' => ProductVariant::whereNull('deleted_at')
+                ->whereHas('product.nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
                 ->when(
                     $filters['product_id'] ?? null,
                     fn ($query, string $productId) => $query->where('product_id', $productId)
