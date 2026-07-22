@@ -141,7 +141,7 @@ class PartnerApplicationService
     {
         $application->followups()->create([
             'followup_by' => $userId,
-            'followup_type' => $data['followup_type'] ?? 'manual',
+            'followup_type' => $data['followup_type'] ?? null,
             'status' => $data['status'] ?? 'open',
             'notes' => $data['notes'] ?? null,
             'next_followup_at' => $data['next_followup_at'] ?? null,

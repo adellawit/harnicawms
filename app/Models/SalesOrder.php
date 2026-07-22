@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SalesOrder extends Model
@@ -13,6 +14,7 @@ class SalesOrder extends Model
     use HasUuids, SoftDeletes;
 
     protected $connection = 'pgsql';
+
     protected $table = 'transaction.sales_orders';
 
     protected $fillable = [
@@ -81,6 +83,11 @@ class SalesOrder extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SalesOrderPayment::class, 'sales_order_id', 'id');
+    }
+
+    public function barcodeDispatch(): HasOne
+    {
+        return $this->hasOne(SalesOrderBarcodeDispatch::class);
     }
 
     public function paymentGatewayCallbacks(): HasMany

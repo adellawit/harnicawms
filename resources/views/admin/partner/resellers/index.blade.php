@@ -10,7 +10,12 @@
         ]" />
 
         <div class="card">
-            <div class="card-header"><h5 class="card-title mb-0">Partner Resellers</h5></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Partner Resellers</h5>
+                <a href="{{ route('partner.resellers.mapping.index') }}" class="btn btn-sm btn-primary">
+                    <i class="ti ti-link me-1"></i>Reseller Mapping
+                </a>
+            </div>
             <div class="table-responsive">
                 <table class="table">
                     <thead><tr><th>Kode</th><th>Nama</th><th>Agent</th><th>Kontak</th><th>Status</th><th></th></tr></thead>

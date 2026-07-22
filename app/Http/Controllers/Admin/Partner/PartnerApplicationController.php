@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Admin\Partner;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\HelperController;
 use App\Http\Requests\Partner\StorePartnerApplicationRequest;
 use App\Http\Requests\Partner\UpdatePartnerApplicationRequest;
 use App\Models\Partner\Agent;
 use App\Models\Partner\PartnerApplication;
+use App\Models\Partner\PartnerApplicationDocument;
 use App\Services\Partner\PartnerApplicationService;
 use App\Services\Partner\PartnerConversionService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PartnerApplicationController extends Controller
 {
@@ -65,7 +69,7 @@ class PartnerApplicationController extends Controller
 
     private function partnerFormPath(string $filename): string
     {
-        return public_path('downloads/partner/' . $filename);
+        return public_path('downloads/partner/'.$filename);
     }
 
     public function index(Request $request)
@@ -157,17 +161,50 @@ class PartnerApplicationController extends Controller
         return view('admin.partner.applications.show', compact('application', 'agents'));
     }
 
+    public function downloadDocument(string $id, string $documentId): StreamedResponse
+    {
+        $application = PartnerApplication::findOrFail($id);
+        $this->authorizeAgentApplication($application);
+
+        $document = PartnerApplicationDocument::query()
+            ->where('application_id', $application->id)
+            ->whereKey($documentId)
+            ->firstOrFail();
+
+        abort_unless(
+            Storage::disk('public')->exists($document->file_path),
+            404,
+            'File dokumen tidak ditemukan di storage.'
+        );
+
+        return Storage::disk('public')->response(
+            $document->file_path,
+            $document->original_name ?: basename($document->file_path)
+        );
+    }
+
     public function followup(Request $request, string $id)
     {
         $application = PartnerApplication::findOrFail($id);
         $this->authorizeAgentApplication($application);
+
+        if ($application->status === 'converted') {
+            return back()->with('error', 'Follow-up tidak tersedia untuk application yang sudah dikonversi.');
+        }
+
         $data = $request->validate([
             'followup_type' => ['nullable', 'string', 'max:50'],
             'status' => ['nullable', 'string', 'max:30'],
             'application_status' => ['nullable', Rule::in(['submitted', 'in_review', 'assigned', 'qualified', 'rejected'])],
             'notes' => ['required', 'string'],
-            'next_followup_at' => ['nullable', 'date'],
+            'next_followup_at' => ['nullable', 'string', 'max:20'],
         ]);
+
+        if (! empty($data['next_followup_at'])) {
+            $data['next_followup_at'] = HelperController::parseDate($data['next_followup_at']);
+        } else {
+            $data['next_followup_at'] = null;
+        }
 
         $this->applicationService->addFollowup($application, $data, Auth::id());
 
@@ -194,26 +231,30 @@ class PartnerApplicationController extends Controller
         $payload = $request->validate([
             'code' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
-            'invoice_number' => ['nullable', 'string', 'max:80'],
-            'payment_reference' => ['nullable', 'string', 'max:120'],
-            'payment_status' => ['nullable', Rule::in(['unpaid', 'partial', 'paid'])],
-            'lines' => ['nullable', 'array'],
-            'lines.*.variant_id' => ['nullable', 'string'],
-            'lines.*.qty' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $payload['initial_purchase'] = [
-            'invoice_number' => $payload['invoice_number'] ?? null,
-            'payment_reference' => $payload['payment_reference'] ?? null,
-            'payment_status' => $payload['payment_status'] ?? 'unpaid',
-            'lines' => $payload['lines'] ?? [],
-        ];
-
+        // Initial purchase & invoice are completed at POS after convert.
         $agent = $this->conversionService->convertAgent($application, $payload, Auth::id());
 
-        return redirect()->route('partner.agents.show', $agent->id)
-            ->with('success', 'Application berhasil dikonversi menjadi Agent.');
+        session([
+            'partner_agent_conversion' => [
+                'agent_id' => $agent->id,
+                'agent_code' => $agent->code,
+                'agent_name' => $agent->name,
+                'customer_id' => $agent->customer_id,
+                'application_id' => $application->id,
+            ],
+        ]);
+
+        return redirect()
+            ->route('transaction.pos', [
+                'customer_id' => $agent->customer_id,
+                'from' => 'agent-conversion',
+            ])
+            ->with(
+                'success',
+                'Agent dibuat. Selesaikan pembayaran awal di POS. Kode Agent dan invoice akan muncul setelah pembayaran lunas.'
+            );
     }
 
     public function convertReseller(Request $request, string $id)
