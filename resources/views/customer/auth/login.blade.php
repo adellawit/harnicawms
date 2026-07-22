@@ -1,5 +1,5 @@
 <x-guest-layout>
-    @section('title', 'Customer Login | ')
+    @section('title', (($portal ?? 'shop') === 'agent' ? 'Agent Login' : 'Customer Login') . ' | ')
 
     @push('page-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/page-auth.css') }}">
@@ -16,8 +16,8 @@
         <div class="auth-card-container">
             <div class="login-card">
                 <div class="login-header">
-                    <h3>Customer Sign in</h3>
-                    <p>{{ config('shop.default_company_name', 'WWW') }}</p>
+                    <h3>{{ $loginTitle ?? 'Customer Sign in' }}</h3>
+                    <p>{{ $loginSubtitle ?? config('shop.default_company_name', 'WWW') }}</p>
                 </div>
 
                 @error('email')
@@ -36,7 +36,7 @@
                     </div>
                 @enderror
 
-                <form method="POST" action="{{ route('customer.login.store') }}">
+                <form method="POST" action="{{ $loginAction ?? route('customer.login.store') }}">
                     @csrf
 
                     <div class="form-floating-custom">
@@ -67,9 +67,11 @@
                     </button>
                 </form>
 
+                @if (($portal ?? 'shop') !== 'agent')
                 <p class="text-center text-muted small mt-4 mb-0">
                     Staff? <a href="{{ route('login') }}">Login admin</a>
                 </p>
+                @endif
             </div>
         </div>
     </div>

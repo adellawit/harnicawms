@@ -73,7 +73,7 @@ class PosCheckoutService
         }
 
         $branchId = $this->resolveBranchId($request);
-        $companyId = optional(WmsContext::distributor())->id;
+        $companyId = $request->company_id ?: optional(WmsContext::distributor())->id;
         $orderWarehouseId = $branchId
             ? optional(WmsContext::defaultWarehouse($branchId))->id
             : null;
