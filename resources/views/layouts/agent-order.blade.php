@@ -23,8 +23,8 @@
 <body class="shop-body agent-order-body {{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }} @yield('shop_body_class')">
     <nav class="navbar navbar-expand bg-white border-bottom sticky-top shop-nav">
         <div class="container shop-main">
-            <a class="navbar-brand fw-bold mb-0 d-flex align-items-center gap-2" href="{{ route('agent-order.index') }}"
-                aria-label="Order ke Distributor">
+            <a class="navbar-brand fw-bold mb-0 d-flex align-items-center gap-2" href="{{ route('agent-order.dashboard') }}"
+                aria-label="Beranda portal agen">
                 @if (!empty($appTheme['logo_url']))
                     <img src="{{ $appTheme['logo_url'] }}" alt="{{ $shopCompanyName ?? config('app.name') }}"
                          data-brand-logo="{{ $appTheme['logo_url'] }}"
@@ -94,7 +94,7 @@
         @yield('content')
     </main>
 
-    <footer class="shop-footer border-top mt-5">
+    <footer class="shop-footer border-top">
         <div class="container shop-main py-4">
             <div class="row g-4">
                 <div class="col-md-4">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Agent;
 use App\Http\Controllers\Controller;
 use App\Models\Marketing\Asset;
 use App\Models\MethodPayment;
+use App\Models\Partner\Reseller;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
@@ -117,6 +118,36 @@ class AgentOrderController extends Controller
             'resellers' => $resellers,
             'assets' => $assets,
             'courses' => $courses,
+        ]);
+    }
+
+    public function resellers(Request $request): View
+    {
+        $customer = $this->context()->customer();
+        $agent = $customer->agent;
+
+        $query = $agent
+            ? $agent->resellers()->getQuery()
+            : Reseller::query()->whereRaw('1 = 0');
+
+        $status = $request->get('status');
+        if (in_array($status, ['active', 'inactive'], true)) {
+            $query->where('status', $status);
+        } else {
+            $status = null;
+        }
+
+        $search = trim((string) $request->get('q', ''));
+        if ($search !== '') {
+            $query->where(fn ($q) => $q->where('name', 'ilike', "%{$search}%")->orWhere('code', 'ilike', "%{$search}%"));
+        }
+
+        $resellers = $query->orderBy('name')->paginate(20)->withQueryString();
+
+        return view('agent.order.resellers', [
+            'resellers' => $resellers,
+            'activeStatus' => $status ?? 'all',
+            'search' => $search,
         ]);
     }
 

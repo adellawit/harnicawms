@@ -169,7 +169,7 @@
     <section class="mb-4">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Reseller Saya</h2>
-            <button type="button" class="btn btn-link btn-sm p-0 text-muted disabled text-decoration-none" disabled title="Segera hadir">Semua reseller →</button>
+            <a href="{{ route('agent-order.resellers') }}" class="small text-primary text-decoration-none">Semua reseller →</a>
         </div>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">

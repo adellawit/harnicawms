@@ -51,7 +51,7 @@ class CustomerAuthController extends Controller
         $request->session()->regenerate();
 
         $defaultRedirect = $portal === 'agent'
-            ? route('agent-order.index')
+            ? route('agent-order.dashboard')
             : route('customer.shop');
 
         return redirect()->intended($defaultRedirect);

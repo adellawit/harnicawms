@@ -1072,6 +1072,20 @@ a.agent-dashboard-nav-card:hover {
 
 .shop-footer {
     background: #fff;
+}
+
+/* Agent portal — footer menempel di bawah saat konten pendek */
+.agent-order-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.agent-order-body .shop-main-content {
+    flex: 1 0 auto;
+}
+
+.agent-order-body .shop-footer {
+    flex-shrink: 0;
     margin-top: auto;
 }
 
