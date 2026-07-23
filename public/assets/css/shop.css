@@ -1079,3 +1079,23 @@ a.agent-dashboard-nav-card:hover {
     border-radius: 999px;
     white-space: nowrap;
 }
+
+/* Order history row thumbnail */
+.shop-order-thumb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #f0f2f5;
+    overflow: hidden;
+    color: #9ca3af;
+    font-size: 1.125rem;
+}
+
+.shop-order-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

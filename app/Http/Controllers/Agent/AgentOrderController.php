@@ -546,20 +546,37 @@ class AgentOrderController extends Controller
         ]);
     }
 
-    public function orders(): View
+    public function orders(Request $request): View
     {
         $customer = auth('customer')->user();
 
-        $orders = SalesOrder::query()
+        $filterMap = [
+            'pending' => ['status', 'pending'],
+            'completed' => ['status', 'completed'],
+            'unpaid' => ['payment_status', 'unpaid'],
+            'cancelled' => ['status', 'cancelled'],
+        ];
+        $activeFilter = $request->get('filter');
+        $activeFilter = array_key_exists($activeFilter, $filterMap) ? $activeFilter : 'all';
+
+        $query = SalesOrder::query()
             ->where('order_type', self::ORDER_TYPE)
             ->where('customer_id', $customer->id)
-            ->with('payments.methodPayment')
-            ->orderByDesc('created_at')
-            ->paginate(15);
+            ->withCount('items')
+            ->with(['items' => fn ($q) => $q->with('product')->limit(1), 'methodPayment', 'payments.methodPayment'])
+            ->orderByDesc('created_at');
+
+        if ($activeFilter !== 'all') {
+            [$col, $val] = $filterMap[$activeFilter];
+            $query->where($col, $val);
+        }
+
+        $orders = $query->paginate(15);
 
         return view('agent.order.orders.index', [
             'customer' => $customer,
             'orders' => $orders,
+            'activeFilter' => $activeFilter,
         ]);
     }
 
