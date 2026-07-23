@@ -67,27 +67,39 @@
 
     {{-- 4. Kartu navigasi --}}
     <div class="row g-2 g-md-3 mb-4">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <a href="{{ route('agent-order.index') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-building-store"></i></span>
-                    <div>
+                    <div class="min-w-0">
                         <div class="fw-semibold">Order ke Distributor</div>
                         <div class="small text-muted">Katalog produk jadi</div>
                     </div>
-                    <i class="ti ti-chevron-right ms-auto text-muted"></i>
+                    <i class="ti ti-chevron-right ms-auto text-muted flex-shrink-0"></i>
                 </div>
             </a>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+            <a href="{{ route('agent-order.materials') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <span class="agent-dashboard-nav-icon bg-label-info"><i class="ti ti-photo"></i></span>
+                    <div class="min-w-0">
+                        <div class="fw-semibold">Materi Pemasaran</div>
+                        <div class="small text-muted">Brosur, poster, template WA, video</div>
+                    </div>
+                    <i class="ti ti-chevron-right ms-auto text-muted flex-shrink-0"></i>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
             <a href="{{ route('agent-order.training') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <span class="agent-dashboard-nav-icon bg-label-secondary"><i class="ti ti-school"></i></span>
-                    <div class="flex-grow-1 min-w-0">
+                    <div class="min-w-0">
                         <div class="fw-semibold">Pelatihan</div>
                         <div class="small text-muted">Materi pelatihan untuk agen</div>
                     </div>
-                    <i class="ti ti-chevron-right ms-auto text-muted"></i>
+                    <i class="ti ti-chevron-right ms-auto text-muted flex-shrink-0"></i>
                 </div>
             </a>
         </div>
@@ -210,7 +222,36 @@
         </div>
     </section>
 
-    {{-- 8. Pelatihan --}}
+    {{-- 8. Materi pemasaran --}}
+    <section class="mb-4">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <h2 class="h6 fw-semibold mb-0">Materi pemasaran</h2>
+            <a href="{{ route('agent-order.materials') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
+        </div>
+        <div class="card border-0 shadow-sm shop-order-card">
+            <div class="list-group list-group-flush">
+                @forelse ($marketingAssets as $asset)
+                    <div class="list-group-item agent-dashboard-asset-row">
+                        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-2">
+                            <div class="min-w-0">
+                                @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
+                                <span class="fw-semibold ms-1">{{ $asset->title }}</span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 flex-shrink-0">
+                                @include('agent.order.partials._marketing-asset-actions', ['asset' => $asset])
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="list-group-item text-center text-muted py-4">
+                        Belum ada materi.
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    </section>
+
+    {{-- 9. Pelatihan --}}
     <section class="mb-2">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Pelatihan</h2>
@@ -242,4 +283,6 @@
             @endforelse
         </div>
     </section>
+
+    @include('agent.order.partials._marketing-asset-copy-script')
 @endsection

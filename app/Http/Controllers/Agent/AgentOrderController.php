@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\Marketing\Asset;
+use App\Models\Marketing\Category;
 use App\Models\MethodPayment;
 use App\Models\Partner\Reseller;
 use App\Models\Product;
@@ -89,6 +91,14 @@ class AgentOrderController extends Controller
             ? $agent->resellers()->latest('created_at')->limit(4)->get()
             : collect();
 
+        $marketingAssets = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->with('category')
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+
         $courses = Course::query()
             ->published()
             ->latest('created_at')
@@ -109,6 +119,7 @@ class AgentOrderController extends Controller
             'activeOrders' => $activeOrders,
             'lastOrder' => $lastOrder,
             'resellers' => $resellers,
+            'marketingAssets' => $marketingAssets,
             'courses' => $courses,
         ]);
     }
@@ -165,6 +176,40 @@ class AgentOrderController extends Controller
             ->findOrFail($courseId);
 
         return view('agent.order.training.show', ['course' => $course]);
+    }
+
+    public function materials(Request $request): View
+    {
+        $query = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->with('category')
+            ->latest('created_at');
+
+        $categoryId = $request->get('category_id');
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $type = $request->get('type');
+        if (in_array($type, ['image', 'pdf', 'video', 'text'], true)) {
+            $query->where('type', $type);
+        } else {
+            $type = null;
+        }
+
+        $assets = $query->paginate(24)->withQueryString();
+
+        $categories = Category::whereHas('assets', fn ($q) => $q->active()->where('usable_in_marketing', true))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('agent.order.materials', [
+            'assets' => $assets,
+            'categories' => $categories,
+            'activeCategoryId' => $categoryId,
+            'activeType' => $type,
+        ]);
     }
 
     public function reorder(string $order): RedirectResponse

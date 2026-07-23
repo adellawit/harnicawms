@@ -1055,6 +1055,25 @@ a.agent-training-course-card:hover {
     border-bottom: 0 !important;
 }
 
+.agent-marketing-asset-card {
+    overflow: hidden;
+}
+
+.agent-marketing-asset-thumb {
+    overflow: hidden;
+    background: #f0f2f5;
+}
+
+.agent-marketing-asset-thumb img,
+.agent-marketing-asset-thumb-placeholder {
+    height: 140px;
+    object-fit: cover;
+}
+
+.agent-marketing-asset-thumb-placeholder {
+    width: 100%;
+}
+
 @media (min-width: 768px) {
     .agent-dashboard-stat-value {
         font-size: 1.5rem;
