@@ -50,7 +50,7 @@
                         <i class="ti ti-layout-grid"></i>
                         <span class="d-none d-md-inline ms-1">Katalog</span>
                     </a>
-                    <button type="button" class="shop-nav-circle shop-nav-cart border-0 bg-transparent"
+                    <button type="button" class="shop-nav-circle shop-nav-cart"
                         id="navCartBtn" title="Keranjang" aria-label="Keranjang"
                         data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
                         <i class="ti ti-shopping-cart"></i>
