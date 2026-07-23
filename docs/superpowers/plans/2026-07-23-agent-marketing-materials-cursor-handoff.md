@@ -123,14 +123,19 @@ document.addEventListener('click', function (e) {
 
 Verifikasi: `php artisan view:cache` sukses, lalu `view:clear`.
 
-## Langkah 4 — Aktifkan tautan Materi Pemasaran di dashboard
+## Langkah 4 — TAMBAHKAN section "Materi Pemasaran" ke dashboard
 
-Di `resources/views/agent/order/dashboard.blade.php`, ganti placeholder "Segera hadir" pada bagian **Materi Pemasaran** menjadi tautan asli ke `route('agent-order.materials')`:
-- Kartu nav "Materi Pemasaran" → `href="{{ route('agent-order.materials') }}"`.
-- Section "Materi pemasaran" tautan "Lihat semua →" → `route('agent-order.materials')`.
-- Tombol per-item Unduh/Salin/Buka di section dashboard boleh diarahkan ke halaman ini (atau diberi aksi sesuai tipe seperti di Langkah 3) — minimal jadikan tautan ke `agent-order.materials`.
+**PENTING:** dashboard saat ini BELUM punya section/kartu "Materi Pemasaran" (dulu sempat dihilangkan karena dikira redundan dengan Pelatihan — ternyata BEDA). Jadi di slice ini section itu perlu **DITAMBAHKAN kembali**, bukan sekadar mengganti tautan.
 
-**JANGAN sentuh**: bagian "Pelatihan" (slice 5b) & "Semua reseller" (slice 5a).
+Di `resources/views/agent/order/dashboard.blade.php`:
+
+1. **Kartu nav "Materi Pemasaran"** — tambahkan kartu navigasi (sejajar/berdampingan dengan kartu "Pelatihan" & "Order ke Distributor" yang sudah ada), mengarah ke `route('agent-order.materials')`, judul "Materi Pemasaran", subjudul "Brosur, poster, template WA, video". Tiru gaya `agent-dashboard-nav-card` yang sudah dipakai kartu Pelatihan.
+
+2. **Section "Materi pemasaran"** — tambahkan section (mis. setelah "Reseller Saya", sebelum/berdampingan "Pelatihan", sesuai mockup) dengan header "Materi pemasaran" + tautan "Lihat semua →" ke `route('agent-order.materials')`. Isi: 4 aset teratas dari `Marketing\Asset::active()->where('usable_in_marketing', true)->latest()->limit(4)->get()` — **controller `dashboard()` perlu menambah variabel ini** (mis. `$marketingAssets`) dan mengirimnya ke view. Tiap kartu: badge tipe + `title` + aksi sesuai tipe (Unduh/Buka/Salin, sama seperti Langkah 3). Empty state "Belum ada materi." bila kosong (kondisi sekarang: 0 aset).
+
+Bila menambah data ke `dashboard()`, pastikan null-safe dan JANGAN ubah section lain.
+
+**JANGAN sentuh**: bagian "Pelatihan" (slice 5b) & "Reseller Saya"/"Semua reseller" (slice 5a) — keduanya sudah benar.
 
 ## Verifikasi akhir
 
@@ -142,7 +147,7 @@ php artisan view:cache && php artisan view:clear
 Smoke manual (login customer-agent):
 - `/agen-order/materi` → (data 0 → empty state). Untuk uji fungsi: admin buat 1 aset tiap tipe (active + usable_in_marketing) → kartu muncul; Unduh (image/pdf) mengunduh file; Buka (video) membuka link; Salin (text) menyalin `body_text` ke clipboard.
 - Filter kategori/tipe (`?category_id=`/`?type=`) bekerja; invalid diabaikan.
-- Dashboard "Materi Pemasaran" (nav + section) mengarah ke `/agen-order/materi` (bukan "Segera hadir"); Pelatihan/Reseller tak berubah.
+- Dashboard: section + kartu nav "Materi Pemasaran" MUNCUL (baru ditambahkan) dan mengarah ke `/agen-order/materi`; Pelatihan/Reseller tak berubah.
 - Admin Marketing Center (guard web) & slice lain tak berubah.
 
 ## Checklist
@@ -150,5 +155,5 @@ Smoke manual (login customer-agent):
 - [ ] Route `agent-order.materials` terdaftar (guard customer + agent).
 - [ ] `materials()`: filter active + usable_in_marketing; category/type opsional; paginasi withQueryString.
 - [ ] View: kartu per tipe dengan aksi Unduh/Buka/Salin; JS salin; empty state; badge tipe.
-- [ ] Dashboard: HANYA bagian Materi Pemasaran diarahkan ke `agent-order.materials` (Pelatihan & Reseller tak disentuh).
+- [ ] Dashboard: section + kartu nav "Materi Pemasaran" DITAMBAHKAN (mengarah ke `agent-order.materials`), `dashboard()` mengirim `$marketingAssets`; Pelatihan & Reseller tak disentuh.
 - [ ] view:cache bersih; admin Marketing Center & slice lain tak berubah.
