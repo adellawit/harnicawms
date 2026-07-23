@@ -33,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
-            if ($request->is('agen-order', 'agen-order/*') && ! $request->is('agen-order/login')) {
+            if ($request->is('agent-order', 'agent-order/*') && ! $request->is('agent-order/login')) {
                 return route('agent-order.login');
             }
 

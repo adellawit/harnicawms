@@ -15,8 +15,8 @@ class EnsureSidebarLoaded
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Shop customer app tidak memakai admin sidebar / IAM permissions.
-        if ($request->is('shop', 'shop/*', 'orders', 'orders/*')) {
+        // Shop / agent-order customer app tidak memakai admin sidebar / IAM permissions.
+        if ($request->is('shop', 'shop/*', 'orders', 'orders/*', 'agent-order', 'agent-order/*')) {
             return $next($request);
         }
 
