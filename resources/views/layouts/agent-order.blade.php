@@ -50,15 +50,14 @@
                         <i class="ti ti-layout-grid"></i>
                         <span class="d-none d-md-inline ms-1">Katalog</span>
                     </a>
-                    <a href="{{ route('agent-order.checkout') }}"
-                        class="shop-nav-circle shop-nav-cart {{ request()->routeIs('agent-order.checkout') ? 'active' : '' }}"
-                        id="navCartBtn" title="Keranjang" aria-label="Keranjang">
+                    <button type="button" class="shop-nav-circle shop-nav-cart border-0 bg-transparent"
+                        id="navCartBtn" title="Keranjang" aria-label="Keranjang"
+                        data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
                         <i class="ti ti-shopping-cart"></i>
-                        @php $navCartCount = count(session(\App\Services\Shop\ShopCartService::SESSION_KEY)['items'] ?? []); @endphp
-                        @if ($navCartCount > 0)
-                            <span class="badge bg-danger rounded-pill cart-badge" id="navCartBadge">{{ $navCartCount }}</span>
+                        @if (($navCartSummary['item_count'] ?? 0) > 0)
+                            <span class="badge bg-danger rounded-pill cart-badge" id="navCartBadge">{{ $navCartSummary['item_count'] }}</span>
                         @endif
-                    </a>
+                    </button>
                     <a href="{{ route('agent-order.orders') }}"
                         class="shop-nav-circle {{ $navOrdersActive ? 'active' : '' }}"
                         title="Pesanan" aria-label="Pesanan">
@@ -125,6 +124,23 @@
         </div>
     </footer>
 
+    @auth('customer')
+        <div class="offcanvas offcanvas-end shop-cart-offcanvas" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title" id="cartOffcanvasLabel">Keranjang</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
+            </div>
+            <div class="offcanvas-body d-flex flex-column p-0">
+                <div class="flex-grow-1 overflow-auto p-3" id="cartItemsList">
+                    @include('agent.order._cart-items', ['cart' => $navCart, 'summary' => $navCartSummary])
+                </div>
+                <div class="border-top p-3 bg-light" id="cartFooter">
+                    @include('agent.order._cart-footer', ['summary' => $navCartSummary])
+                </div>
+            </div>
+        </div>
+    @endauth
+
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
     <script src="{{ asset('assets/js/brand-theme.js') }}"></script>
@@ -140,6 +156,9 @@
         window.shopCheckoutUrl = @json(route('agent-order.checkout'));
         $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': window.shopRoutes.csrf } });
     </script>
+    @auth('customer')
+        <script src="{{ asset('assets/js/shop.js') }}"></script>
+    @endauth
     @stack('scripts')
 </body>
 </html>

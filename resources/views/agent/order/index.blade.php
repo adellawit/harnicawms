@@ -119,21 +119,6 @@
         </div>
     @endif
 
-    <div class="offcanvas offcanvas-end shop-cart-offcanvas" tabindex="-1" id="cartOffcanvas">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">Keranjang</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
-        </div>
-        <div class="offcanvas-body d-flex flex-column p-0">
-            <div class="flex-grow-1 overflow-auto p-3" id="cartItemsList">
-                @include('agent.order._cart-items', ['cart' => $cart, 'summary' => $summary])
-            </div>
-            <div class="border-top p-3 bg-light" id="cartFooter">
-                @include('agent.order._cart-footer', ['summary' => $summary])
-            </div>
-        </div>
-    </div>
-
     <div class="modal fade" id="variantModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -148,7 +133,3 @@
         </div>
     </div>
 @endsection
-
-@push('scripts')
-    <script src="{{ asset('assets/js/shop.js') }}"></script>
-@endpush

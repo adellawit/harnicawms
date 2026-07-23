@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
 use App\Services\Ai\Contracts\LlmProviderInterface;
 use App\Services\Ai\LlmProviderManager;
+use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Theme\AppThemeService;
 
@@ -67,6 +68,34 @@ class AppServiceProvider extends ServiceProvider
                 'shopCompanyPhone' => $companyPhone,
                 'shopCompanyEmail' => $companyEmail,
             ]);
+        });
+
+        View::composer('layouts.agent-order', function ($view) {
+            $emptyCart = ['price_list_id' => null, 'items' => []];
+            $emptySummary = [
+                'item_count' => 0,
+                'subtotal' => 0,
+                'tax_amount' => 0,
+                'tax_rate' => 0,
+                'tax_enabled' => false,
+                'total' => 0,
+            ];
+
+            if (! auth('customer')->check()) {
+                $view->with(['navCart' => $emptyCart, 'navCartSummary' => $emptySummary]);
+
+                return;
+            }
+
+            try {
+                $cartService = new ShopCartService(new ShopContextService(auth('customer')->user()));
+                $view->with([
+                    'navCart' => $cartService->get(),
+                    'navCartSummary' => $cartService->summarize(),
+                ]);
+            } catch (\Throwable) {
+                $view->with(['navCart' => $emptyCart, 'navCartSummary' => $emptySummary]);
+            }
         });
 
         View::composer(['layouts.*', 'auth.*', 'dashboard', 'customer.*'], function ($view) {
