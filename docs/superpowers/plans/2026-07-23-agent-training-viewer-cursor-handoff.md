@@ -1,11 +1,13 @@
 # Cursor Handoff — Viewer Training/Materi Agen (slice 5b)
 
 > Tunjuk ke Cursor: "Kerjakan docs/superpowers/plans/2026-07-23-agent-training-viewer-cursor-handoff.md".
-> Aturan permanen ada di `.cursorrules`. Slice TERPISAH — tambah route/method/view baru + update 2 tautan di dashboard. Jangan sentuh modul Academy (guard web) yang sudah ada.
+> Aturan permanen ada di `.cursorrules`. Slice TERPISAH — tambah route/method/view baru + update tautan **Pelatihan** di dashboard. Jangan sentuh modul Academy (guard web) yang sudah ada.
+>
+> **KOREKSI (revisi):** "Materi Pemasaran" dan "Pelatihan" adalah DUA hal berbeda. Handoff INI hanya untuk **Pelatihan** (= konten Training). "Materi Pemasaran" (= marketing asset) dikerjakan di handoff terpisah `2026-07-23-agent-marketing-materials-cursor-handoff.md` (slice 5c). Di slice ini JANGAN mengarahkan section/nav "Materi Pemasaran" ke halaman training — hanya section/card "Pelatihan".
 
 ## Tujuan
 
-Halaman **Pelatihan/Materi** untuk agen (guard `customer` + `agent`): viewer **read-only** konten Training Academy (daftar course → detail course → buka materi). TANPA pelacakan progres. Dashboard section "Materi Pemasaran" DAN "Pelatihan" dua-duanya mengarah ke halaman ini (keputusan user: keduanya = konten Training yang sama, cukup 1 halaman).
+Halaman **Pelatihan** untuk agen (guard `customer` + `agent`): viewer **read-only** konten Training Academy (daftar course → detail course → buka materi). TANPA pelacakan progres. Hanya section/card **"Pelatihan"** di dashboard yang mengarah ke halaman ini.
 
 ## Konteks (sudah ada)
 
@@ -82,12 +84,12 @@ Buat `resources/views/agent/order/training/show.blade.php` extends `layouts.agen
 
 Verifikasi: `php artisan view:cache` sukses, lalu `view:clear`.
 
-## Langkah 5 — Aktifkan tautan di dashboard
+## Langkah 5 — Aktifkan tautan Pelatihan di dashboard
 
-Di `resources/views/agent/order/dashboard.blade.php`, ganti DUA placeholder "Segera hadir" berikut menjadi tautan asli ke `route('agent-order.training')`:
-- Kartu nav "Materi Pemasaran" → `href="{{ route('agent-order.training') }}"`.
-- Section "Materi pemasaran" tautan "Lihat semua" DAN section "Pelatihan" card → `route('agent-order.training')`.
-(JANGAN sentuh placeholder "Semua reseller" — itu slice 5a.)
+Di `resources/views/agent/order/dashboard.blade.php`, ganti placeholder "Segera hadir" pada bagian **Pelatihan** saja menjadi tautan asli ke `route('agent-order.training')`:
+- Section "Pelatihan" (card "Dasar Penjualan Agent" / daftar course) → `href="{{ route('agent-order.training') }}"`.
+
+**JANGAN sentuh**: placeholder "Semua reseller" (slice 5a) DAN placeholder "Materi Pemasaran" (kartu nav + section "Materi pemasaran" + "Lihat semua") — "Materi Pemasaran" diarahkan ke halaman marketing asset di slice 5c, bukan ke training.
 
 ## Verifikasi akhir
 
@@ -99,7 +101,7 @@ php artisan view:cache && php artisan view:clear
 Smoke manual (login customer-agent):
 - `/agen-order/pelatihan` → daftar course (min. 1 course published). Klik → detail course menampilkan modul & materi; pdf/video/gambar dapat dibuka/tampil. TIDAK ada tombol progres.
 - Course tak published diakses via URL → 404.
-- Dashboard "Materi Pemasaran" & "Pelatihan" mengarah ke `/agen-order/pelatihan` (bukan "Segera hadir").
+- Dashboard "Pelatihan" mengarah ke `/agen-order/pelatihan` (bukan "Segera hadir"). "Materi Pemasaran" TIDAK diubah di slice ini (ditangani slice 5c).
 - Modul Academy web (`/academy`) & alur agent lain tak berubah.
 
 ## Checklist
@@ -107,5 +109,5 @@ Smoke manual (login customer-agent):
 - [ ] Route `agent-order.training` + `agent-order.training.show` terdaftar (guard customer + agent).
 - [ ] `training()`/`trainingShow()` baca course published (404 bila tidak); nama scope/relasi diverifikasi.
 - [ ] View daftar course + detail (render materi via effective_type, TANPA progres).
-- [ ] Dashboard: kartu/nav/section Materi Pemasaran + Pelatihan diarahkan ke `agent-order.training` (reseller tak disentuh).
+- [ ] Dashboard: HANYA section/card Pelatihan diarahkan ke `agent-order.training` (Materi Pemasaran & Reseller TIDAK disentuh).
 - [ ] view:cache bersih; modul Academy web & slice lain tak berubah.
