@@ -822,8 +822,9 @@ Route::group(['prefix' => 'helper'], function () {
     Route::get('/product-variants', [HelperController::class, 'getProductVariants'])->name('helper.product-variants');
 });
 
-require __DIR__.'/auth.php';
-require __DIR__.'/customer.php';
+require __DIR__ . '/auth.php';
+require __DIR__ . '/customer.php';
+require __DIR__ . '/agent.php';
 
 require __DIR__.'/distribution.php';
 require __DIR__.'/training.php';

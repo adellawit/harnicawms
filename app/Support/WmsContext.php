@@ -24,7 +24,7 @@ class WmsContext
     public static function distributor(): ?BusinessUnit
     {
         $user = Auth::user();
-        $companyId = $user?->getCompanyIdForProduct();
+        $companyId = $user instanceof User ? $user->getCompanyIdForProduct() : null;
 
         if ($companyId) {
             $bu = BusinessUnit::find($companyId);
@@ -62,7 +62,9 @@ class WmsContext
      */
     public static function warehouses(?string $contextId = null)
     {
-        $contextId = $contextId ?: auth()->user()?->getBranchIdForTransaction() ?: optional(self::distributor())->id;
+        $authUser = Auth::user();
+        $contextId = $contextId ?: ($authUser instanceof User ? $authUser->getBranchIdForTransaction() : null)
+            ?: optional(self::distributor())->id;
         $businessUnit = $contextId ? BusinessUnit::find($contextId) : null;
 
         $query = Warehouse::inventoryActive();
@@ -152,7 +154,8 @@ class WmsContext
 
     public static function defaultWarehouse(?string $branchId = null): ?Warehouse
     {
-        $branchId = $branchId ?: auth()->user()?->getBranchIdForTransaction();
+        $authUser = Auth::user();
+        $branchId = $branchId ?: ($authUser instanceof User ? $authUser->getBranchIdForTransaction() : null);
 
         if (! $branchId) {
             return null;

@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.admin' => \App\Http\Middleware\JwtMiddlewareAdmin::class,
             'permission' => \App\Http\Middleware\CheckPermissions::class,
             'api.token' => \App\Http\Middleware\ValidateApiToken::class,
+            'agent' => \App\Http\Middleware\EnsureCustomerIsAgent::class,
         ]);
 
         // Add ForceHttps middleware to web group (after TrustProxies)
@@ -32,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
+            if ($request->is('agen-order', 'agen-order/*') && ! $request->is('agen-order/login')) {
+                return route('agent-order.login');
+            }
+
             if ($request->is('shop', 'shop/*', 'orders', 'orders/*')) {
                 return route('customer.login');
             }

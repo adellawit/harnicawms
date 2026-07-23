@@ -44,7 +44,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null): array
+    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null, string $orderType = 'web', ?string $shippingAddress = null): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -60,6 +60,8 @@ class ShopCheckoutService
         if (! $this->xendit->usesXenditForMethod($methodPayment->code, $methodPayment)) {
             throw new \InvalidArgumentException('Metode pembayaran tidak didukung.');
         }
+
+        $paymentReturnRoute = $orderType === 'web-order' ? 'agent-order.payment.return' : 'customer.payment.return';
 
         DB::beginTransaction();
         try {
@@ -80,14 +82,15 @@ class ShopCheckoutService
                 null,
                 'pending',
                 'unpaid',
-                'web',
+                $orderType,
             );
 
             $order->update([
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
-                'customer_address' => $customer->address,
+                'customer_address' => $shippingAddress ?: $customer->address,
+                'shipping_amount' => 0,
             ]);
 
             $payment = SalesOrderPayment::create([
@@ -109,11 +112,11 @@ class ShopCheckoutService
                 'description' => 'Web Order '.$salesNumber.' - '.$customer->name,
                 'invoice_duration' => config('xendit.invoice_duration', 900),
                 'currency' => 'IDR',
-                'success_redirect_url' => route('customer.payment.return', [
+                'success_redirect_url' => route($paymentReturnRoute, [
                     'status' => 'success',
                     'order_id' => $order->id,
                 ]),
-                'failure_redirect_url' => route('customer.payment.return', [
+                'failure_redirect_url' => route($paymentReturnRoute, [
                     'status' => 'failed',
                     'order_id' => $order->id,
                 ]),
@@ -164,7 +167,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processCod(Request $checkoutRequest, string $paymentMethodId): array
+    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -186,14 +189,15 @@ class ShopCheckoutService
                 null,
                 'pending',
                 'unpaid',
-                'web',
+                $orderType,
             );
 
             $order->update([
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
-                'customer_address' => $customer->address,
+                'customer_address' => $shippingAddress ?: $customer->address,
+                'shipping_amount' => 0,
             ]);
 
             SalesOrderPayment::create([
@@ -221,11 +225,11 @@ class ShopCheckoutService
         }
     }
 
-    public function assertOrderOwnedByCustomer(SalesOrder $order): void
+    public function assertOrderOwnedByCustomer(SalesOrder $order, string $orderType = 'web'): void
     {
         $customer = $this->context->customer();
 
-        if ($order->order_type !== 'web' || $order->customer_id !== $customer->id) {
+        if ($order->order_type !== $orderType || $order->customer_id !== $customer->id) {
             abort(404);
         }
     }
