@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\Marketing\Asset;
 use App\Models\MethodPayment;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
 use App\Models\SalesOrder;
+use App\Models\Training\Course;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
@@ -45,6 +47,113 @@ class AgentOrderController extends Controller
         $agent = $customer->agent;
 
         return $customer->address_shipping ?: ($customer->address ?: $agent?->address);
+    }
+
+    public function dashboard(): View
+    {
+        $ctx = $this->context();
+        $customer = $ctx->customer();
+        $agent = $customer->agent;
+        $cid = $customer->id;
+
+        $activeOrdersCount = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->count();
+
+        $ordersThisMonth = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->count();
+
+        $activeResellers = $agent
+            ? $agent->resellers()->where('status', 'active')->count()
+            : 0;
+
+        $activeOrders = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+
+        $lastOrder = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->latest('created_at')
+            ->first();
+
+        $resellers = $agent
+            ? $agent->resellers()->latest('created_at')->limit(4)->get()
+            : collect();
+
+        $assets = Asset::query()
+            ->active()
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+
+        $courses = Course::query()
+            ->published()
+            ->latest('created_at')
+            ->limit(3)
+            ->get();
+
+        return view('agent.order.dashboard', [
+            'customer' => $customer,
+            'agent' => $agent,
+            'agentCode' => $agent?->code ?? '-',
+            'branchLabel' => $ctx->branchDisplayLabel(),
+            'shippingAddress' => $this->resolveShippingAddress(),
+            'stats' => [
+                'active_orders' => $activeOrdersCount,
+                'orders_this_month' => $ordersThisMonth,
+                'active_resellers' => $activeResellers,
+            ],
+            'activeOrders' => $activeOrders,
+            'lastOrder' => $lastOrder,
+            'resellers' => $resellers,
+            'assets' => $assets,
+            'courses' => $courses,
+        ]);
+    }
+
+    public function reorder(string $order): RedirectResponse
+    {
+        $customer = $this->context()->customer();
+
+        $order = SalesOrder::with('items')
+            ->where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $customer->id)
+            ->findOrFail($order);
+
+        $cart = $this->cart();
+        $cart->clear();
+
+        $skipped = 0;
+        foreach ($order->items as $item) {
+            if (! $item->product_variant_id) {
+                $skipped++;
+                continue;
+            }
+            try {
+                $cart->add($item->product_variant_id, (float) $item->quantity);
+            } catch (\Throwable $e) {
+                $skipped++;
+            }
+        }
+
+        if ($cart->count() < 1) {
+            return redirect()->route('agent-order.index')
+                ->with('error', 'Item pada pesanan tersebut sudah tidak tersedia.');
+        }
+
+        $redirect = redirect()->route('agent-order.checkout');
+        if ($skipped > 0) {
+            $redirect->with('warning', 'Sebagian item tidak tersedia lagi dan dilewati.');
+        }
+
+        return $redirect;
     }
 
     public function index(Request $request): View|RedirectResponse

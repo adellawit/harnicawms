@@ -18,6 +18,8 @@ Route::prefix('agen-order')->name('agent-order.')->group(function () {
 
     Route::middleware(['auth:customer', 'agent'])->group(function () {
         Route::get('/', [AgentOrderController::class, 'index'])->name('index');
+        Route::get('/beranda', [AgentOrderController::class, 'dashboard'])->name('dashboard');
+        Route::post('/reorder/{order}', [AgentOrderController::class, 'reorder'])->name('reorder');
         Route::get('/products/variants', [AgentOrderController::class, 'productVariants'])->name('products.variants');
         Route::post('/cart/add', [AgentOrderController::class, 'cartAdd'])->name('cart.add');
         Route::post('/cart/update', [AgentOrderController::class, 'cartUpdate'])->name('cart.update');

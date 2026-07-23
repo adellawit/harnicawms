@@ -39,6 +39,12 @@
                     $navOrdersActive = request()->routeIs('agent-order.orders') || request()->routeIs('agent-order.orders.show');
                 @endphp
                 <div class="d-flex align-items-center gap-1 gap-sm-2 ms-auto shop-nav-actions">
+                    <a href="{{ route('agent-order.dashboard') }}"
+                        class="btn btn-sm btn-light {{ request()->routeIs('agent-order.dashboard') ? 'active' : '' }}"
+                        title="Beranda" aria-label="Beranda">
+                        <i class="ti ti-home"></i>
+                        <span class="d-none d-md-inline ms-1">Beranda</span>
+                    </a>
                     <a href="{{ route('agent-order.index') }}" class="btn btn-sm btn-light {{ request()->routeIs('agent-order.index') ? 'active' : '' }}"
                         title="Katalog" aria-label="Katalog">
                         <i class="ti ti-layout-grid"></i>
@@ -77,6 +83,11 @@
         @endif
         @if (session('error'))
             <div class="alert alert-danger alert-dismissible fade show">{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+        @if (session('warning'))
+            <div class="alert alert-warning alert-dismissible fade show">{{ session('warning') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif

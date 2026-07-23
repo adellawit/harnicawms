@@ -971,3 +971,56 @@
         flex-shrink: 0;
     }
 }
+
+/* Agent dashboard */
+.agent-dashboard-stat-value {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--bs-primary);
+}
+
+.agent-dashboard-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.65rem;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.agent-dashboard-nav-card {
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+a.agent-dashboard-nav-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.agent-dashboard-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--bs-primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.agent-dashboard-reseller-row,
+.agent-dashboard-asset-row {
+    padding: 0.875rem 1rem !important;
+}
+
+@media (min-width: 768px) {
+    .agent-dashboard-stat-value {
+        font-size: 1.5rem;
+    }
+}
