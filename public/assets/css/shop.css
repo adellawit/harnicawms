@@ -1099,3 +1099,26 @@ a.agent-dashboard-nav-card:hover {
     height: 100%;
     object-fit: cover;
 }
+
+/* Agent cart & checkout cosmetic polish */
+.agent-order-body .shop-cart-offcanvas .cart-row {
+    padding-bottom: 0.25rem;
+}
+
+.agent-order-body .shop-cart-offcanvas .cart-item-img {
+    width: 52px;
+    height: 52px;
+    border-radius: 0.625rem;
+}
+
+.agent-order-body .shop-cart-offcanvas .cart-qty-input {
+    border-radius: 0.375rem;
+}
+
+.agent-order-body .shop-checkout-card {
+    border-radius: 0.75rem;
+}
+
+.agent-order-body .shop-checkout-card > .card-header {
+    font-weight: 600;
+}
