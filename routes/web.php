@@ -42,6 +42,7 @@ use App\Http\Controllers\Admin\PurchaseInvoiceController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
 use App\Http\Controllers\Admin\ReportAdvancedController;
 use App\Http\Controllers\Admin\ReportBarcodeTrackingController;
+use App\Http\Controllers\Admin\ReportAgentCuttingPriceController;
 use App\Http\Controllers\Admin\ReportFgBarcodeStockController;
 use App\Http\Controllers\Admin\ReportPurchaseOrderController;
 use App\Http\Controllers\Admin\ReportStockCardController;
@@ -314,6 +315,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::group(['prefix' => 'menu'], function () {
             Route::get('/', [MenuController::class, 'indexView'])->name('menu.index.view')->middleware('permission:Menu,is_read');
             Route::post('/data', [MenuController::class, 'indexData'])->name('menu.index.data');
+            Route::post('/reorder', [MenuController::class, 'reorder'])->name('menu.reorder')->middleware('permission:Menu,is_update');
             Route::get('/insert', [MenuController::class, 'insertView'])->name('menu.insert.view')->middleware('permission:Menu,is_create');
             Route::post('/insert/data', [MenuController::class, 'insertData'])->name('menu.insert.data')->middleware('permission:Menu,is_create');
             Route::get('/edit/{id}', [MenuController::class, 'editView'])->name('menu.edit.view')->middleware('permission:Menu,is_update');
@@ -658,6 +660,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/barcode-dispatch/export', [ReportBarcodeTrackingController::class, 'export'])
             ->name('reporting.barcode-dispatch.export')
             ->middleware('permission:Barcode Dispatch,is_read');
+        Route::get('/agent-cutting-price', [ReportAgentCuttingPriceController::class, 'index'])
+            ->name('reporting.agent-cutting-price.index')
+            ->middleware('permission:Agent Cutting Price,is_read');
+        Route::get('/agent-cutting-price/export', [ReportAgentCuttingPriceController::class, 'export'])
+            ->name('reporting.agent-cutting-price.export')
+            ->middleware('permission:Agent Cutting Price,is_read');
+        Route::get('/agent-cutting-price/details', [ReportAgentCuttingPriceController::class, 'details'])
+            ->name('reporting.agent-cutting-price.details')
+            ->middleware('permission:Agent Cutting Price,is_read');
         Route::get('/sales-return-refund', [ReportTransactionController::class, 'indexView'])
             ->name('reporting.sales-return-refund.index');
         Route::get('/top-products-categories', [ReportSummarySalesController::class, 'indexView'])
@@ -770,8 +781,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/sync-pg-channels', [MethodPaymentController::class, 'syncPgChannels'])->name('pos.method-payment.sync-pg')->middleware('permission:Method Payment,is_create');
         });
 
-        // Detail route (must be after all named routes to avoid conflicts)
+        // Detail / print routes (must be after all named routes to avoid conflicts)
         Route::get('/detail/{id}', [TransactionController::class, 'detailView'])->name('transaction.detail');
+        Route::get('/{id}/print-invoice', [TransactionController::class, 'printInvoice'])->name('transaction.print-invoice');
     });
 
     /*****************

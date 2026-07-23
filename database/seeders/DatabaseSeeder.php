@@ -42,7 +42,9 @@ class DatabaseSeeder extends Seeder
             MarketingAccessSeeder::class,
             BarcodeTrackingAccessSeeder::class,
             FgBarcodeStockAccessSeeder::class,
+            AgentCuttingPriceAccessSeeder::class,
             ResellerMappingAccessSeeder::class,
+            AgenOrderAccessSeeder::class,
 
             // Product reference data
             StockMutationTypeSeeder::class,

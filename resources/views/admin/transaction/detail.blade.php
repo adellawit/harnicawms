@@ -29,7 +29,10 @@
                 <div class="d-flex gap-2 align-items-center">
                     <span class="badge bg-label-{{ $statusColors[$order->status] ?? 'info' }}">{{ ucfirst($order->status) }}</span>
                     <span class="badge bg-label-{{ $payStatusColors[$order->payment_status] ?? 'secondary' }}">{{ ucfirst($order->payment_status) }}</span>
-                    <a href="{{ route('transaction.index') }}" class="btn btn-outline-secondary btn-sm ms-2">
+                    <a href="{{ route('transaction.print-invoice', $order->id) }}?print=1" target="_blank" class="btn btn-outline-secondary btn-sm ms-2">
+                        <i class="ti ti-printer me-1"></i>Print Invoice
+                    </a>
+                    <a href="{{ route('transaction.index') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="ti ti-arrow-left me-1"></i>Back
                     </a>
                 </div>

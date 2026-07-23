@@ -96,7 +96,7 @@
                                                 value="{{ old('level_sidebar') }}" />
                                         </div>
                                         <div class="col-md-6 mt-4">
-                                            <label class="form-label" for="order_number">Nomor Urut</label>
+                                            <label class="form-label" for="order_number">Order Number</label>
                                             <input type="number" id="order_number" name="order_number" class="form-control"
                                                 placeholder="Enter Order Number (Optional)" value="{{ old('order_number') }}" />
                                         </div>

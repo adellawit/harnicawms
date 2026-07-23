@@ -91,7 +91,7 @@
                                         </div>
 
                                         <div class="col-md-6 mt-4">
-                                            <label for="order_number" class="form-label">Nomor Urut</label>
+                                            <label for="order_number" class="form-label">Order Number</label>
                                             <input type="number" id="order_number" name="order_number" class="form-control" placeholder="Enter Order Number (Optional)" value="{{ old('order_number', $menu['order_number'] ?? '') }}" />
                                         </div>
 
