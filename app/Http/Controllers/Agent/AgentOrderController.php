@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
-use App\Models\Marketing\Asset;
 use App\Models\MethodPayment;
 use App\Models\Partner\Reseller;
 use App\Models\Product;
@@ -90,12 +89,6 @@ class AgentOrderController extends Controller
             ? $agent->resellers()->latest('created_at')->limit(4)->get()
             : collect();
 
-        $assets = Asset::query()
-            ->active()
-            ->latest('created_at')
-            ->limit(4)
-            ->get();
-
         $courses = Course::query()
             ->published()
             ->latest('created_at')
@@ -116,7 +109,6 @@ class AgentOrderController extends Controller
             'activeOrders' => $activeOrders,
             'lastOrder' => $lastOrder,
             'resellers' => $resellers,
-            'assets' => $assets,
             'courses' => $courses,
         ]);
     }
@@ -149,6 +141,30 @@ class AgentOrderController extends Controller
             'activeStatus' => $status ?? 'all',
             'search' => $search,
         ]);
+    }
+
+    public function training(): View
+    {
+        $courses = Course::published()
+            ->with('category')
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->get();
+
+        return view('agent.order.training.index', ['courses' => $courses]);
+    }
+
+    public function trainingShow(string $courseId): View
+    {
+        $course = Course::published()
+            ->with([
+                'category',
+                'modules' => fn ($q) => $q->orderBy('sort_order'),
+                'modules.materials' => fn ($q) => $q->orderBy('sort_order'),
+            ])
+            ->findOrFail($courseId);
+
+        return view('agent.order.training.show', ['course' => $course]);
     }
 
     public function reorder(string $order): RedirectResponse

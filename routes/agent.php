@@ -20,6 +20,8 @@ Route::prefix('agen-order')->name('agent-order.')->group(function () {
         Route::get('/', [AgentOrderController::class, 'index'])->name('index');
         Route::get('/beranda', [AgentOrderController::class, 'dashboard'])->name('dashboard');
         Route::get('/reseller', [AgentOrderController::class, 'resellers'])->name('resellers');
+        Route::get('/pelatihan', [AgentOrderController::class, 'training'])->name('training');
+        Route::get('/pelatihan/{course}', [AgentOrderController::class, 'trainingShow'])->name('training.show');
         Route::post('/reorder/{order}', [AgentOrderController::class, 'reorder'])->name('reorder');
         Route::get('/products/variants', [AgentOrderController::class, 'productVariants'])->name('products.variants');
         Route::post('/cart/add', [AgentOrderController::class, 'cartAdd'])->name('cart.add');

@@ -1020,6 +1020,41 @@ a.agent-dashboard-nav-card:hover {
     padding: 0.875rem 1rem !important;
 }
 
+.agent-training-course-card {
+    transition: box-shadow 0.15s, transform 0.15s;
+    overflow: hidden;
+}
+
+a.agent-training-course-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.agent-training-course-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    overflow: hidden;
+}
+
+.agent-training-course-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.agent-training-course-thumb i {
+    font-size: 2.5rem;
+    color: #fff;
+}
+
+.agent-training-material:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: 0 !important;
+}
+
 @media (min-width: 768px) {
     .agent-dashboard-stat-value {
         font-size: 1.5rem;
