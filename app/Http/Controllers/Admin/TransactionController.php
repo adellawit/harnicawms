@@ -103,4 +103,26 @@ class TransactionController extends Controller
 
         return view('admin.transaction.detail', compact('order'));
     }
+
+    public function printInvoice(string $id)
+    {
+        $order = SalesOrder::with([
+            'items.product:id,name,sku',
+            'items.variant:id,sku',
+            'items.variant.variantAttributes.attributeValue',
+            'items.variant.variantAttributes.attributeDefinition:id,name',
+            'items.unit:id,name,symbol',
+            'payments.methodPayment:id,name',
+            'methodPayment:id,name',
+            'customer:id,name,code',
+            'branch:id,name,brand_name,address,phone,email,parent_id',
+            'branch.parent:id,name,brand_name',
+        ])->withTrashed()->findOrFail($id);
+
+        return view('admin.transaction.print-invoice', [
+            'order' => $order,
+            'backUrl' => route('transaction.detail', $order->id),
+            'autoPrint' => request()->boolean('print'),
+        ]);
+    }
 }

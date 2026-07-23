@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ReorderMenuRequest;
 use App\Models\Menu;
+use App\Services\MenuOrderingService;
 use App\Services\SidebarService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -132,6 +134,21 @@ class MenuController extends Controller
                 }
             })
             ->toJson();
+    }
+
+    public function reorder(ReorderMenuRequest $request, MenuOrderingService $orderingService)
+    {
+        $positions = $orderingService->reorder(
+            $request->validated('menus'),
+            auth('web')->id()
+        );
+
+        SidebarService::loadSidebarsAndPermissions();
+
+        return response()->json([
+            'message' => 'Menu order saved successfully.',
+            'positions' => $positions,
+        ]);
     }
 
     public function insertView(Request $request)

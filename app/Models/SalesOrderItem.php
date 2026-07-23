@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SalesOrderItem extends Model
@@ -12,6 +13,7 @@ class SalesOrderItem extends Model
     use HasUuids, SoftDeletes;
 
     protected $connection = 'pgsql';
+
     protected $table = 'transaction.sales_order_items';
 
     protected $fillable = [
@@ -72,6 +74,11 @@ class SalesOrderItem extends Model
     public function sourceWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'source_warehouse_id');
+    }
+
+    public function serialAssignments(): HasMany
+    {
+        return $this->hasMany(SalesOrderItemSerialAssignment::class);
     }
 
     public function parentItem(): BelongsTo

@@ -15,8 +15,14 @@ class EnsureSidebarLoaded
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::guard('web')->check()) {
-            SidebarService::loadSidebarsAndPermissions();
+        // Shop / agent-order customer app tidak memakai admin sidebar / IAM permissions.
+        if ($request->is('shop', 'shop/*', 'orders', 'orders/*', 'agent-order', 'agent-order/*')) {
+            return $next($request);
+        }
+
+        $admin = Auth::guard('web')->user();
+        if ($admin && filled($admin->role_id)) {
+            SidebarService::loadSidebarsAndPermissions((string) $admin->role_id);
         }
 
         return $next($request);

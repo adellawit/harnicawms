@@ -8,9 +8,18 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Agent order landing — order agent → distributor (guard customer + agent gate)
 |--------------------------------------------------------------------------
+|
+| Prefix /agent-order (bukan /agen-order) agar tidak bentrok dengan admin
+| Replenishment di /agen-order.
+|
 */
 
-Route::prefix('agen-order')->name('agent-order.')->group(function () {
+ // Legacy bookmark: /agen-order/login dulu portal agent, sekarang tertangkap admin {id}.
+Route::permanentRedirect('agen-order/login', '/agent-order/login');
+Route::permanentRedirect('agen-order/checkout', '/agent-order/checkout');
+Route::permanentRedirect('agen-order/orders', '/agent-order/orders');
+
+Route::prefix('agent-order')->name('agent-order.')->group(function () {
     Route::middleware('guest:customer')->group(function () {
         Route::get('/login', [CustomerAuthController::class, 'create'])->name('login');
         Route::post('/login', [CustomerAuthController::class, 'store'])->name('login.store');

@@ -9,6 +9,7 @@ use App\Services\Shop\ShopContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -16,6 +17,11 @@ class CustomerAuthController extends Controller
 {
     public function create(Request $request): View
     {
+        if ($this->loginPortal($request) === 'agent') {
+            // Jangan bawa intended URL admin (/dashboard, dll) ke portal agent.
+            $request->session()->forget('url.intended');
+        }
+
         return view('customer.auth.login', $this->loginViewData($request));
     }
 
@@ -34,7 +40,7 @@ class CustomerAuthController extends Controller
             ->where('email', '!=', '')
             ->first();
 
-        if ($customer === null || $password !== (string) config('customer.temp_password')) {
+        if ($customer === null || ! $this->passwordMatches($customer, $password)) {
             throw ValidationException::withMessages([
                 'email' => __('Email atau password tidak valid.'),
             ]);
@@ -50,11 +56,13 @@ class CustomerAuthController extends Controller
 
         $request->session()->regenerate();
 
-        $defaultRedirect = $portal === 'agent'
-            ? route('agent-order.index')
-            : route('customer.shop');
+        if ($portal === 'agent') {
+            $request->session()->forget('url.intended');
 
-        return redirect()->intended($defaultRedirect);
+            return redirect()->route('agent-order.index');
+        }
+
+        return redirect()->intended(route('customer.shop'));
     }
 
     public function account(): View
@@ -97,8 +105,8 @@ class CustomerAuthController extends Controller
                 ? 'Order ke Distributor'
                 : config('shop.default_company_name', 'WWW'),
             'loginAction' => $portal === 'agent'
-                ? route('agent-order.login.store')
-                : route('customer.login.store'),
+                ? route('agent-order.login.store', absolute: false)
+                : route('customer.login.store', absolute: false),
         ];
     }
 
@@ -107,5 +115,14 @@ class CustomerAuthController extends Controller
         return $request->routeIs('agent-order.login', 'agent-order.login.store', 'agent-order.logout')
             ? 'agent'
             : 'shop';
+    }
+
+    protected function passwordMatches(Customer $customer, string $password): bool
+    {
+        if (filled($customer->password) && Hash::check($password, $customer->password)) {
+            return true;
+        }
+
+        return $password === (string) config('customer.temp_password');
     }
 }

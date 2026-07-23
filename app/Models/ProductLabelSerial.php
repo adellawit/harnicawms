@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductLabelSerial extends Model
 {
@@ -42,5 +43,10 @@ class ProductLabelSerial extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id');
+    }
+
+    public function salesAssignments(): HasMany
+    {
+        return $this->hasMany(SalesOrderItemSerialAssignment::class, 'product_label_serial_id');
     }
 }

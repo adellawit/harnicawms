@@ -1,62 +1,67 @@
 <?php
 
-use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\DashboardConfigurationController;
-use App\Http\Controllers\Admin\BusinessUnitController;
+use App\Http\Controllers\Admin\AiConfigurationController;
+use App\Http\Controllers\Admin\AttributeDefinitionController;
 use App\Http\Controllers\Admin\BranchController;
-use App\Http\Controllers\Admin\WarehouseController;
+use App\Http\Controllers\Admin\BusinessUnitController;
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CustomerGroupController;
+use App\Http\Controllers\Admin\DashboardConfigurationController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DesignSystemController;
 use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\HelperController;
+use App\Http\Controllers\Admin\ImportDataController;
+use App\Http\Controllers\Admin\MembershipConfigurationController;
 use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\Admin\MethodPaymentController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ParameterController;
 use App\Http\Controllers\Admin\ParameterDetailController;
-use App\Http\Controllers\Admin\PositionController;
-use App\Http\Controllers\Admin\ProfileController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\NotificationController;
-use App\Http\Controllers\Admin\ProductCategoryController;
-use App\Http\Controllers\Admin\ProductNatureController;
-use App\Http\Controllers\Admin\ProductUnitController;
-use App\Http\Controllers\Admin\ProductController;
-use App\Http\Controllers\Admin\AttributeDefinitionController;
-use App\Http\Controllers\Admin\ProductTagController;
-use App\Http\Controllers\Admin\ProductCollectionController;
-use App\Http\Controllers\Admin\ProductStockController;
-use App\Http\Controllers\Admin\ProductPriceController;
-use App\Http\Controllers\Admin\ProductPriceListController;
-use App\Http\Controllers\Admin\ReportPurchaseOrderController;
-use App\Http\Controllers\Admin\ReportStockCardController;
-use App\Http\Controllers\Admin\ReportStockHistoryController;
-use App\Http\Controllers\Admin\ReportSummarySalesController;
-use App\Http\Controllers\Admin\ReportTransactionController;
-use App\Http\Controllers\Admin\ReportAdvancedController;
-use App\Http\Controllers\Admin\StockAdjustmentController;
-use App\Http\Controllers\Admin\StockOpnameController;
-use App\Http\Controllers\Admin\PurchaseOrderController;
-use App\Http\Controllers\Admin\PurchaseInvoiceController;
-use App\Http\Controllers\Admin\SupplierController;
-use App\Http\Controllers\Admin\POSController;
-use App\Http\Controllers\Admin\CustomerGroupController;
-use App\Http\Controllers\Admin\CustomerController;
-use App\Http\Controllers\Admin\MembershipConfigurationController;
-use App\Http\Controllers\Admin\MethodPaymentController;
-use App\Http\Controllers\Admin\TransactionController;
-use App\Http\Controllers\FileUploadController;
-use App\Http\Controllers\Xendit\WebhookController as XenditWebhookController;
-use App\Http\Controllers\Telegram\WebhookController as TelegramWebhookController;
-use App\Http\Controllers\Ai\ChatController;
-use App\Http\Controllers\Ai\ConversationController;
-use App\Http\Controllers\Admin\AiConfigurationController;
-use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
-use App\Http\Controllers\Admin\ThemeConfigurationController;
-use App\Http\Controllers\Admin\DesignSystemController;
 use App\Http\Controllers\Admin\Partner\AgentController as PartnerAgentController;
 use App\Http\Controllers\Admin\Partner\PartnerApplicationController;
 use App\Http\Controllers\Admin\Partner\PartnerNetworkMapController;
 use App\Http\Controllers\Admin\Partner\PartnerReportController;
 use App\Http\Controllers\Admin\Partner\ResellerController as PartnerResellerController;
+use App\Http\Controllers\Admin\Partner\ResellerMappingController as PartnerResellerMappingController;
+use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
+use App\Http\Controllers\Admin\POSController;
+use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\ProductCategoryController;
+use App\Http\Controllers\Admin\ProductCollectionController;
+use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductNatureController;
+use App\Http\Controllers\Admin\ProductPriceController;
+use App\Http\Controllers\Admin\ProductPriceListController;
+use App\Http\Controllers\Admin\ProductStockController;
+use App\Http\Controllers\Admin\ProductTagController;
+use App\Http\Controllers\Admin\ProductUnitController;
+use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\PurchaseInvoiceController;
+use App\Http\Controllers\Admin\PurchaseOrderController;
+use App\Http\Controllers\Admin\ReportAdvancedController;
+use App\Http\Controllers\Admin\ReportBarcodeTrackingController;
+use App\Http\Controllers\Admin\ReportAgentCuttingPriceController;
+use App\Http\Controllers\Admin\ReportFgBarcodeStockController;
+use App\Http\Controllers\Admin\ReportPurchaseOrderController;
+use App\Http\Controllers\Admin\ReportStockCardController;
+use App\Http\Controllers\Admin\ReportStockHistoryController;
+use App\Http\Controllers\Admin\ReportSummarySalesController;
+use App\Http\Controllers\Admin\ReportTransactionController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\StockAdjustmentController;
+use App\Http\Controllers\Admin\StockOpnameController;
+use App\Http\Controllers\Admin\SupplierController;
+use App\Http\Controllers\Admin\ThemeConfigurationController;
+use App\Http\Controllers\Admin\TransactionController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WarehouseController;
+use App\Http\Controllers\Ai\ChatController;
+use App\Http\Controllers\Ai\ConversationController;
+use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\Telegram\WebhookController as TelegramWebhookController;
+use App\Http\Controllers\Xendit\WebhookController as XenditWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -100,7 +105,7 @@ Route::prefix('partner')->name('partner.')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    /// DASHBOARD CONTROLLER
+    // / DASHBOARD CONTROLLER
     Route::get('/dashboard', [DashboardController::class, 'indexView'])->name('dashboard');
     Route::post('/dashboard/task-list', [DashboardController::class, 'getTaskListData'])->name('dashboard.task.list');
     Route::post('/dashboard/client-list', [DashboardController::class, 'getClientListData'])->name('dashboard.client.list');
@@ -112,7 +117,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ************************
     Route::get('/design-system', [DesignSystemController::class, 'indexView'])->name('design-system.index.view');
 
-    /// AI CHAT (WMS AI Assistant widget API)
+    // / AI CHAT (WMS AI Assistant widget API)
     Route::group([
         'prefix' => 'agent',
         'middleware' => ['permission:'.(config('agent.permission_menu') ?: 'AI Assistant').',is_read', 'throttle:'.(int) config('agent.rate_limit_per_minute', 30).',1'],
@@ -128,7 +133,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
      ** ACCOUNT ROUTES **
      *******************/
     Route::group(['prefix' => 'account'], function () {
-        /// PROFILE CONTROLLER
+        // / PROFILE CONTROLLER
         Route::get('/', [ProfileController::class, 'updateProfileView'])->name('profile.view');
         Route::post('/', [ProfileController::class, 'updateProfile'])->name('profile.update');
         Route::get('/change-password', [ProfileController::class, 'changePasswordView'])->name('profile.change-password-view');
@@ -146,6 +151,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/applications/{application}/edit', [PartnerApplicationController::class, 'edit'])->name('partner.applications.edit')->middleware('permission:Partner Application,is_update');
         Route::put('/applications/{application}', [PartnerApplicationController::class, 'update'])->name('partner.applications.update')->middleware('permission:Partner Application,is_update');
         Route::get('/applications/{id}', [PartnerApplicationController::class, 'show'])->name('partner.applications.show')->middleware('permission:Partner Application,is_read');
+        Route::get('/applications/{id}/documents/{documentId}', [PartnerApplicationController::class, 'downloadDocument'])->name('partner.applications.documents.download')->middleware('permission:Partner Application,is_read');
         Route::post('/applications/{id}/followup', [PartnerApplicationController::class, 'followup'])->name('partner.applications.followup')->middleware('permission:Partner Application,is_update');
         Route::post('/applications/{id}/assign-agent', [PartnerApplicationController::class, 'assignAgent'])->name('partner.applications.assign-agent')->middleware('permission:Partner Application,is_update');
         Route::post('/applications/{id}/convert-agent', [PartnerApplicationController::class, 'convertAgent'])->name('partner.applications.convert-agent')->middleware('permission:Partner Application,is_update');
@@ -153,7 +159,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/agents', [PartnerAgentController::class, 'index'])->name('partner.agents.index')->middleware('permission:Partner Agent,is_read');
         Route::get('/agents/{id}', [PartnerAgentController::class, 'show'])->name('partner.agents.show')->middleware('permission:Partner Agent,is_read');
         Route::get('/resellers', [PartnerResellerController::class, 'index'])->name('partner.resellers.index')->middleware('permission:Partner Reseller,is_read');
+        Route::get('/resellers/mapping', [PartnerResellerMappingController::class, 'index'])->name('partner.resellers.mapping.index')->middleware('permission:Partner Reseller Mapping,is_read');
+        Route::post('/resellers/mapping', [PartnerResellerMappingController::class, 'update'])->name('partner.resellers.mapping.store')->middleware('permission:Partner Reseller Mapping,is_update');
         Route::get('/resellers/{id}', [PartnerResellerController::class, 'show'])->name('partner.resellers.show')->middleware('permission:Partner Reseller,is_read');
+        Route::put('/resellers/{id}/mapping', [PartnerResellerController::class, 'updateMapping'])->name('partner.resellers.mapping.update')->middleware('permission:Partner Reseller,is_update');
     });
 
     /*****************
@@ -162,7 +171,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::group(['prefix' => 'human-resources'], function () {
         Route::get('/master', fn () => redirect()->route('division.index.view'));
         Route::group(['prefix' => 'employee'], function () {
-            /// USER CONTROLLER
+            // / USER CONTROLLER
             Route::get('/', [UserController::class, 'indexView'])->name('users.index.view')->middleware('permission:Employee,is_read');
             Route::post('/data', [UserController::class, 'indexData'])->name('users.index.data');
             Route::get('/insert', [UserController::class, 'insertView'])->name('users.insert.view')->middleware('permission:Employee,is_create');
@@ -275,10 +284,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
     });
 
-
-     /*****************
-     ** ROLE ROUTES **
-     *****************/
+    /*****************
+    ** ROLE ROUTES **
+    *****************/
     Route::group(['prefix' => 'masterdatas'], function () {
         // Other master data routes...
     });
@@ -307,6 +315,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::group(['prefix' => 'menu'], function () {
             Route::get('/', [MenuController::class, 'indexView'])->name('menu.index.view')->middleware('permission:Menu,is_read');
             Route::post('/data', [MenuController::class, 'indexData'])->name('menu.index.data');
+            Route::post('/reorder', [MenuController::class, 'reorder'])->name('menu.reorder')->middleware('permission:Menu,is_update');
             Route::get('/insert', [MenuController::class, 'insertView'])->name('menu.insert.view')->middleware('permission:Menu,is_create');
             Route::post('/insert/data', [MenuController::class, 'insertData'])->name('menu.insert.data')->middleware('permission:Menu,is_create');
             Route::get('/edit/{id}', [MenuController::class, 'editView'])->name('menu.edit.view')->middleware('permission:Menu,is_update');
@@ -368,7 +377,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
      ** SETTINGS ROUTES **
      *****************/
     Route::group(['prefix' => 'settings'], function () {
-        Route::get('/import-data', [\App\Http\Controllers\Admin\ImportDataController::class, 'index'])->name('import-data.index');
+        Route::get('/import-data', [ImportDataController::class, 'index'])->name('import-data.index');
 
         Route::get('/ai-configuration', [AiConfigurationController::class, 'indexView'])
             ->name('settings.ai-configuration.index.view')
@@ -645,6 +654,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('reporting.sales-by-outlet.index');
         Route::get('/sales-by-customer', [ReportTransactionController::class, 'indexView'])
             ->name('reporting.sales-by-customer.index');
+        Route::get('/barcode-dispatch', [ReportBarcodeTrackingController::class, 'index'])
+            ->name('reporting.barcode-dispatch.index')
+            ->middleware('permission:Barcode Dispatch,is_read');
+        Route::get('/barcode-dispatch/export', [ReportBarcodeTrackingController::class, 'export'])
+            ->name('reporting.barcode-dispatch.export')
+            ->middleware('permission:Barcode Dispatch,is_read');
+        Route::get('/agent-cutting-price', [ReportAgentCuttingPriceController::class, 'index'])
+            ->name('reporting.agent-cutting-price.index')
+            ->middleware('permission:Agent Cutting Price,is_read');
+        Route::get('/agent-cutting-price/export', [ReportAgentCuttingPriceController::class, 'export'])
+            ->name('reporting.agent-cutting-price.export')
+            ->middleware('permission:Agent Cutting Price,is_read');
+        Route::get('/agent-cutting-price/details', [ReportAgentCuttingPriceController::class, 'details'])
+            ->name('reporting.agent-cutting-price.details')
+            ->middleware('permission:Agent Cutting Price,is_read');
         Route::get('/sales-return-refund', [ReportTransactionController::class, 'indexView'])
             ->name('reporting.sales-return-refund.index');
         Route::get('/top-products-categories', [ReportSummarySalesController::class, 'indexView'])
@@ -715,6 +739,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('reporting.inventory-aging.index');
         Route::get('/negative-stock-analysis', [ReportAdvancedController::class, 'negativeStockAnalysis'])
             ->name('reporting.negative-stock-analysis.index');
+        Route::get('/fg-barcode-stock', [ReportFgBarcodeStockController::class, 'index'])
+            ->name('reporting.fg-barcode-stock.index')
+            ->middleware('permission:FG Barcode & Stock,is_read');
+        Route::get('/fg-barcode-stock/export', [ReportFgBarcodeStockController::class, 'export'])
+            ->name('reporting.fg-barcode-stock.export')
+            ->middleware('permission:FG Barcode & Stock,is_read');
+        Route::get('/fg-barcode-stock/serials', [ReportFgBarcodeStockController::class, 'serials'])
+            ->name('reporting.fg-barcode-stock.serials')
+            ->middleware('permission:FG Barcode & Stock,is_read');
     });
 
     /*****************
@@ -731,9 +764,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/pos', [POSController::class, 'indexView'])->name('transaction.pos');
         Route::get('/pos/product-variants', [POSController::class, 'getProductVariants'])->name('transaction.pos.product-variants');
         Route::post('/pos/preview-promo', [POSController::class, 'previewPromo'])->name('transaction.pos.preview-promo');
+        Route::post('/pos/barcode-lookup', [POSController::class, 'lookupBarcode'])->name('transaction.pos.barcode-lookup');
         Route::post('/pos/payment', [POSController::class, 'processPayment'])->name('transaction.pos.payment');
-            Route::get('/pos/payment/{orderId}/status', [POSController::class, 'paymentStatus'])->name('transaction.pos.payment.status');
-            Route::post('/pos/payment/{orderId}/sync', [POSController::class, 'syncPaymentStatus'])->name('transaction.pos.payment.sync');
+        Route::get('/pos/payment/{orderId}/status', [POSController::class, 'paymentStatus'])->name('transaction.pos.payment.status');
+        Route::post('/pos/payment/{orderId}/sync', [POSController::class, 'syncPaymentStatus'])->name('transaction.pos.payment.sync');
         Route::get('/pos/payment/return', [POSController::class, 'paymentReturn'])->name('transaction.pos.payment.return');
         Route::group(['prefix' => 'method-payment'], function () {
             Route::get('/', [MethodPaymentController::class, 'indexView'])->name('pos.method-payment.index')->middleware('permission:Method Payment,is_read');
@@ -747,8 +781,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/sync-pg-channels', [MethodPaymentController::class, 'syncPgChannels'])->name('pos.method-payment.sync-pg')->middleware('permission:Method Payment,is_create');
         });
 
-        // Detail route (must be after all named routes to avoid conflicts)
+        // Detail / print routes (must be after all named routes to avoid conflicts)
         Route::get('/detail/{id}', [TransactionController::class, 'detailView'])->name('transaction.detail');
+        Route::get('/{id}/print-invoice', [TransactionController::class, 'printInvoice'])->name('transaction.print-invoice');
     });
 
     /*****************
@@ -791,6 +826,6 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/customer.php';
 require __DIR__ . '/agent.php';
 
-require __DIR__ . '/distribution.php';
-require __DIR__ . '/training.php';
-require __DIR__ . '/marketing.php';
+require __DIR__.'/distribution.php';
+require __DIR__.'/training.php';
+require __DIR__.'/marketing.php';

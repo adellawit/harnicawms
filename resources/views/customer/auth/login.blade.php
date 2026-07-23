@@ -36,7 +36,7 @@
                     </div>
                 @enderror
 
-                <form method="POST" action="{{ $loginAction ?? route('customer.login.store') }}">
+                <form method="POST" action="{{ $loginAction ?? route('customer.login.store', absolute: false) }}" id="agent-customer-login-form">
                     @csrf
 
                     <div class="form-floating-custom">
@@ -61,7 +61,7 @@
                         <label class="form-check-label" for="remember">Remember me</label>
                     </div>
 
-                    <button type="submit" class="btn-login">
+                    <button type="submit" class="btn-login" id="login-submit-btn">
                         <span>Sign In</span>
                         <i class="ti ti-arrow-right"></i>
                     </button>
@@ -87,6 +87,13 @@
                 } else {
                     input.type = 'password';
                     icon.classList.replace('ti-eye', 'ti-eye-off');
+                }
+            });
+
+            document.getElementById('agent-customer-login-form')?.addEventListener('submit', function () {
+                const btn = document.getElementById('login-submit-btn');
+                if (btn) {
+                    btn.disabled = true;
                 }
             });
         </script>

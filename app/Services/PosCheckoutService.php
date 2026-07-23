@@ -9,7 +9,6 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
 use App\Models\Warehouse;
-use App\Services\MembershipPointService;
 use App\Services\Promotion\PromotionEngineService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
@@ -69,6 +68,7 @@ class PosCheckoutService
                 'is_promo_free' => false,
                 'promotion_id' => null,
                 'source_warehouse_id' => null,
+                'serial_numbers' => array_values(array_filter($item['serial_numbers'] ?? [])),
             ];
         }
 
@@ -208,6 +208,7 @@ class PosCheckoutService
         ]);
 
         $createdByLineKey = [];
+        $serialsByItemId = [];
 
         foreach ($totals['items_data'] as $iData) {
             $parentKey = $iData['_parent_line_key'] ?? null;
@@ -245,7 +246,14 @@ class PosCheckoutService
             if ($lineKey !== null) {
                 $createdByLineKey[$lineKey] = $item->id;
             }
+
+            $serials = array_values(array_filter($iData['serial_numbers'] ?? []));
+            if ($serials !== []) {
+                $serialsByItemId[$item->id] = $serials;
+            }
         }
+
+        $order->pending_serials_by_item_id = $serialsByItemId;
 
         return $order;
     }
