@@ -94,6 +94,37 @@
         @yield('content')
     </main>
 
+    <footer class="shop-footer border-top mt-5">
+        <div class="container shop-main py-4">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="fw-bold mb-2">{{ $shopCompanyName ?? config('app.name') }}</div>
+                    <p class="text-muted small mb-0">Distributor resmi produk jadi untuk jaringan agen. Order online, kirim ke alamat agen Anda.</p>
+                </div>
+                <div class="col-md-4">
+                    <div class="fw-semibold small text-muted text-uppercase mb-2">Kontak &amp; Alamat</div>
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-1"><i class="ti ti-map-pin me-1"></i>{{ $shopCompanyAddress ?? '-' }}</li>
+                        <li class="mb-1"><i class="ti ti-phone me-1"></i>{{ $shopCompanyPhone ?? '-' }}</li>
+                        <li><i class="ti ti-mail me-1"></i>{{ $shopCompanyEmail ?? '-' }}</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <div class="fw-semibold small text-muted text-uppercase mb-2">Lokasi</div>
+                    @if (filled($shopCompanyAddress ?? null))
+                        <a class="small" target="_blank" rel="noopener"
+                            href="https://www.google.com/maps/search/?api=1&query={{ urlencode($shopCompanyAddress) }}">
+                            <i class="ti ti-external-link me-1"></i>Buka di Google Maps
+                        </a>
+                    @else
+                        <span class="small text-muted">-</span>
+                    @endif
+                </div>
+            </div>
+            <div class="text-center text-muted small mt-3">&copy; {{ date('Y') }} {{ $shopCompanyName ?? config('app.name') }}</div>
+        </div>
+    </footer>
+
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
     <script src="{{ asset('assets/js/brand-theme.js') }}"></script>

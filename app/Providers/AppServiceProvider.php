@@ -38,13 +38,24 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrapFive();
         Paginator::defaultView('pagination.bootstrap-compact');
 
-        View::composer(['layouts.customer', 'customer.auth.login'], function ($view) {
+        View::composer(['layouts.customer', 'layouts.agent-order', 'customer.auth.login'], function ($view) {
             $companyName = (string) config('shop.default_company_name', config('app.name'));
+            $companyAddress = null;
+            $companyPhone = null;
+            $companyEmail = null;
 
             if (auth('customer')->check()) {
                 try {
                     $ctx = new ShopContextService(auth('customer')->user());
                     $companyName = $ctx->companyName();
+                    $company = $ctx->company();
+                    if ($company) {
+                        $companyAddress = collect([$company->address, $company->city, $company->province])
+                            ->filter(fn ($part) => filled($part))
+                            ->implode(', ') ?: null;
+                        $companyPhone = $company->phone;
+                        $companyEmail = $company->email;
+                    }
                 } catch (\Throwable) {
                     // keep defaults
                 }
@@ -52,6 +63,9 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with([
                 'shopCompanyName' => $companyName,
+                'shopCompanyAddress' => $companyAddress,
+                'shopCompanyPhone' => $companyPhone,
+                'shopCompanyEmail' => $companyEmail,
             ]);
         });
 

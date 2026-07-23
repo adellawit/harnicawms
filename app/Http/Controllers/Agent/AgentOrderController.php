@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Marketing\Asset;
 use App\Models\MethodPayment;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
+use App\Models\Promotion;
 use App\Models\SalesOrder;
 use App\Models\Training\Course;
 use App\Services\Shop\ShopCartService;
@@ -171,6 +173,8 @@ class AgentOrderController extends Controller
         $branchId = $ctx->branchId();
         $priceListId = $ctx->priceListId();
         $search = trim((string) $request->get('q', ''));
+        $categoryId = $request->get('category_id');
+        $promoOnly = $request->boolean('promo');
 
         $productsQuery = Product::with('nature')
             ->withCount('variants')
@@ -180,12 +184,31 @@ class AgentOrderController extends Controller
             ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
             ->orderBy('name');
 
+        if ($categoryId) {
+            $productsQuery->where('category_id', $categoryId);
+        }
+
         if ($search !== '') {
             $productsQuery->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', '%'.$search.'%')
                     ->orWhere('code', 'ilike', '%'.$search.'%');
             });
         }
+
+        $categoryIds = Product::query()->saleItems()->whereNull('deleted_at')
+            ->where('branch_id', $branchId)
+            ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
+            ->whereNotNull('category_id')
+            ->distinct()
+            ->pluck('category_id');
+
+        $categories = ProductCategory::whereIn('id', $categoryIds)->orderBy('name')->get(['id', 'name']);
+
+        $promoProductIds = Promotion::activeNow()
+            ->whereNotNull('buy_product_id')
+            ->pluck('buy_product_id')
+            ->unique()
+            ->all();
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId, $priceListId) {
             $minPrice = $this->minVariantPrice($product->id, $branchId, $priceListId);
@@ -202,11 +225,27 @@ class AgentOrderController extends Controller
             ];
         })->filter(fn ($p) => $p['has_price'])->values();
 
+        $products = $products->map(function ($p) use ($promoProductIds) {
+            $p['is_promo'] = in_array($p['id'], $promoProductIds, true);
+
+            return $p;
+        });
+
+        $promoProducts = $products->where('is_promo', true)->values();
+
+        if ($promoOnly) {
+            $products = $promoProducts;
+        }
+
         return view('agent.order.index', [
             'customer' => $ctx->customer(),
             'branch' => $ctx->branch(),
             'products' => $products,
             'search' => $search,
+            'categories' => $categories,
+            'activeCategoryId' => $categoryId,
+            'promoProducts' => $promoProducts,
+            'promoOnly' => $promoOnly,
             'cart' => $this->cart()->get(),
             'summary' => $this->cart()->summarize(),
         ]);
