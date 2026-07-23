@@ -84,6 +84,7 @@ class AgentOrderController extends Controller
 
         $lastOrder = SalesOrder::where('order_type', self::ORDER_TYPE)
             ->where('customer_id', $cid)
+            ->where('status', 'completed')
             ->latest('created_at')
             ->first();
 
@@ -105,6 +106,15 @@ class AgentOrderController extends Controller
             ->limit(3)
             ->get();
 
+        $totalResellers = $agent ? $agent->resellers()->count() : 0;
+
+        $totalMarketingAssets = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->count();
+
+        $totalCourses = Course::query()->published()->count();
+
         return view('agent.order.dashboard', [
             'customer' => $customer,
             'agent' => $agent,
@@ -121,6 +131,10 @@ class AgentOrderController extends Controller
             'resellers' => $resellers,
             'marketingAssets' => $marketingAssets,
             'courses' => $courses,
+            'totalActiveOrders' => $activeOrdersCount,
+            'totalResellers' => $totalResellers,
+            'totalMarketingAssets' => $totalMarketingAssets,
+            'totalCourses' => $totalCourses,
         ]);
     }
 

@@ -109,7 +109,9 @@
     <section class="mb-4">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Pesanan aktif</h2>
-            <a href="{{ route('agent-order.orders') }}" class="small text-primary text-decoration-none">Semua pesanan →</a>
+            @if ($totalActiveOrders > 4)
+                <a href="{{ route('agent-order.orders') }}" class="small text-primary text-decoration-none">Semua pesanan →</a>
+            @endif
         </div>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">
@@ -157,7 +159,7 @@
     {{-- 6. Order lagi --}}
     @if ($lastOrder)
         <section class="mb-4">
-            <div class="card border-0 shadow-sm shop-order-card">
+            <div class="card border-0 shadow-sm shop-order-card agent-reorder-card">
                 <div class="card-body d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-3 py-3">
                     <div class="min-w-0">
                         <div class="fw-semibold">Order lagi dari {{ $lastOrder->sales_number }}</div>
@@ -181,7 +183,9 @@
     <section class="mb-4">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Reseller Saya</h2>
-            <a href="{{ route('agent-order.resellers') }}" class="small text-primary text-decoration-none">Semua reseller →</a>
+            @if ($totalResellers > 4)
+                <a href="{{ route('agent-order.resellers') }}" class="small text-primary text-decoration-none">Semua reseller →</a>
+            @endif
         </div>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">
@@ -226,7 +230,9 @@
     <section class="mb-4">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Materi pemasaran</h2>
-            <a href="{{ route('agent-order.materials') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
+            @if ($totalMarketingAssets > 4)
+                <a href="{{ route('agent-order.materials') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
+            @endif
         </div>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">
@@ -255,7 +261,9 @@
     <section class="mb-2">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <h2 class="h6 fw-semibold mb-0">Pelatihan</h2>
-            <a href="{{ route('agent-order.training') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
+            @if ($totalCourses > 3)
+                <a href="{{ route('agent-order.training') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
+            @endif
         </div>
         <div class="row g-2 g-md-3">
             @forelse ($courses as $course)
