@@ -70,12 +70,22 @@ class AppThemeService
     }
 
     /**
-     * Pick readable ink for a surface background using WCAG relative luminance.
+     * Pick readable ink for a surface background using WCAG contrast ratio.
      */
     public function contrastInk(string $hex): string
     {
         $hex = $this->normalizeHex($hex, '#FFFFFF');
-        $hex = ltrim($hex, '#');
+        $dark = '#2F3A44';
+        $light = '#FFFFFF';
+
+        return $this->contrastRatio($hex, $light) >= $this->contrastRatio($hex, $dark)
+            ? $light
+            : $dark;
+    }
+
+    private function relativeLuminance(string $hex): float
+    {
+        $hex = ltrim($this->normalizeHex($hex, '#FFFFFF'), '#');
         $channels = [
             hexdec(substr($hex, 0, 2)) / 255,
             hexdec(substr($hex, 2, 2)) / 255,
@@ -88,9 +98,17 @@ class AppThemeService
                 : (($c + 0.055) / 1.055) ** 2.4;
         }, $channels);
 
-        $luminance = 0.2126 * $linear[0] + 0.7152 * $linear[1] + 0.0722 * $linear[2];
+        return 0.2126 * $linear[0] + 0.7152 * $linear[1] + 0.0722 * $linear[2];
+    }
 
-        return $luminance > 0.179 ? '#2F3A44' : '#FFFFFF';
+    private function contrastRatio(string $hexA, string $hexB): float
+    {
+        $l1 = $this->relativeLuminance($hexA);
+        $l2 = $this->relativeLuminance($hexB);
+        $lighter = max($l1, $l2);
+        $darker = min($l1, $l2);
+
+        return ($lighter + 0.05) / ($darker + 0.05);
     }
 
     public function update(array $data, ?UploadedFile $logo = null, ?UploadedFile $favicon = null, ?string $userId = null): AppThemeSetting

@@ -108,26 +108,38 @@ table.dataTable tbody tr:hover {
 }
 
 /* ---- Optional surface color overrides (admin layout) ------------- */
+/* Use `background` (not only background-color) to beat custom.css gradients/shorthands. */
+
 body.app-surface-navbar #layout-navbar,
 body.app-surface-navbar .bg-navbar-theme {
-    background-color: var(--brand-navbar-bg) !important;
+    background: var(--brand-navbar-bg) !important;
     color: var(--brand-navbar-color) !important;
+    border-bottom-color: rgba(var(--brand-navbar-rgb), 0.25) !important;
 }
 
 body.app-surface-navbar #layout-navbar .navbar-nav .nav-link,
 body.app-surface-navbar #layout-navbar .nav-item .nav-link,
 body.app-surface-navbar #layout-navbar .layout-menu-toggle,
-body.app-surface-navbar #layout-navbar i {
+body.app-surface-navbar #layout-navbar i,
+body.app-surface-navbar #layout-navbar .breadcrumb-item,
+body.app-surface-navbar #layout-navbar .breadcrumb-item a,
+body.app-surface-navbar #layout-navbar .breadcrumb-item a:hover,
+body.app-surface-navbar #layout-navbar .breadcrumb-item.active,
+body.app-surface-navbar #layout-navbar .breadcrumb-item + .breadcrumb-item::before {
     color: var(--brand-navbar-color) !important;
 }
 
 body.app-surface-sidebar #layout-menu,
-body.app-surface-sidebar .bg-menu-theme {
-    background-color: var(--brand-sidebar-bg) !important;
+body.app-surface-sidebar .bg-menu-theme,
+body.app-surface-sidebar .layout-menu,
+body.app-surface-sidebar .bg-menu-theme .app-brand.demo {
+    background: var(--brand-sidebar-bg) !important;
     color: var(--brand-sidebar-color) !important;
 }
 
 body.app-surface-sidebar .bg-menu-theme .menu-link,
+body.app-surface-sidebar .bg-menu-theme .menu-horizontal-prev,
+body.app-surface-sidebar .bg-menu-theme .menu-horizontal-next,
 body.app-surface-sidebar .bg-menu-theme .menu-icon,
 body.app-surface-sidebar .bg-menu-theme .menu-header-text,
 body.app-surface-sidebar .bg-menu-theme .app-brand-text {
@@ -136,30 +148,46 @@ body.app-surface-sidebar .bg-menu-theme .app-brand-text {
 
 body.app-surface-sidebar .bg-menu-theme .menu-link:hover,
 body.app-surface-sidebar .bg-menu-theme .menu-link:focus,
-body.app-surface-sidebar .bg-menu-theme .menu-item.active > .menu-link {
+body.app-surface-sidebar .bg-menu-theme .menu-item.active > .menu-link,
+body.app-surface-sidebar .bg-menu-theme.menu-vertical .menu-item.active > .menu-link:not(.menu-toggle) {
     color: var(--brand-primary) !important;
-    background-color: rgba(var(--brand-primary-rgb), 0.12) !important;
+    background-color: rgba(var(--brand-primary-rgb), 0.16) !important;
 }
 
-body.app-surface-page .layout-page {
-    background-color: var(--brand-page-bg) !important;
+body.app-surface-sidebar .bg-menu-theme .menu-item:hover .menu-icon,
+body.app-surface-sidebar .bg-menu-theme .menu-item.active .menu-icon,
+body.app-surface-sidebar .bg-menu-theme .menu-item.active > .menu-link .menu-icon {
+    color: var(--brand-primary) !important;
 }
 
-body.app-surface-page:not(.app-glass-enabled) {
-    background-color: var(--brand-page-bg) !important;
+body.app-surface-sidebar .bg-menu-theme .app-brand.demo {
+    border-bottom-color: rgba(var(--brand-sidebar-rgb), 0.35) !important;
+}
+
+/* Page background: custom.css forces .content-wrapper white — override it */
+body.app-surface-page,
+body.app-surface-page .layout-page,
+body.app-surface-page .content-wrapper {
+    background: var(--brand-page-bg) !important;
+}
+
+body.app-surface-page .content-footer {
+    background: var(--brand-page-bg) !important;
 }
 
 /* Glass + surface: tinted translucent surfaces, keep blur */
 body.app-glass-enabled.app-surface-navbar .bg-navbar-theme,
 body.app-glass-enabled.app-surface-navbar #layout-navbar {
-    background: rgba(var(--brand-navbar-rgb), 0.82) !important;
+    background: rgba(var(--brand-navbar-rgb), 0.92) !important;
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     backdrop-filter: blur(16px) saturate(140%);
 }
 
 body.app-glass-enabled.app-surface-sidebar .bg-menu-theme,
-body.app-glass-enabled.app-surface-sidebar #layout-menu {
-    background: rgba(var(--brand-sidebar-rgb), 0.82) !important;
+body.app-glass-enabled.app-surface-sidebar #layout-menu,
+body.app-glass-enabled.app-surface-sidebar .layout-menu,
+body.app-glass-enabled.app-surface-sidebar .bg-menu-theme .app-brand.demo {
+    background: rgba(var(--brand-sidebar-rgb), 0.92) !important;
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     backdrop-filter: blur(16px) saturate(140%);
 }
@@ -171,7 +199,9 @@ body.app-glass-enabled.app-surface-page {
         var(--brand-page-bg) !important;
 }
 
-body.app-glass-enabled.app-surface-page .layout-page {
+body.app-glass-enabled.app-surface-page .layout-page,
+body.app-glass-enabled.app-surface-page .content-wrapper,
+body.app-glass-enabled.app-surface-page .content-footer {
     background: transparent !important;
 }
 

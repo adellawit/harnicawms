@@ -7,12 +7,26 @@
     function contrastInk(hex) {
         var h = (hex || '').replace('#', '');
         if (h.length !== 6) return '#2F3A44';
-        var channels = [0, 2, 4].map(function (i) {
-            var c = parseInt(h.substr(i, 2), 16) / 255;
-            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        });
-        var luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-        return luminance > 0.179 ? '#2F3A44' : '#FFFFFF';
+
+        function luminance(hex6) {
+            var channels = [0, 2, 4].map(function (i) {
+                var c = parseInt(hex6.substr(i, 2), 16) / 255;
+                return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+        }
+
+        function ratio(a, b) {
+            var l1 = luminance(a);
+            var l2 = luminance(b);
+            var hi = Math.max(l1, l2);
+            var lo = Math.min(l1, l2);
+            return (hi + 0.05) / (lo + 0.05);
+        }
+
+        var dark = '2F3A44';
+        var light = 'FFFFFF';
+        return ratio(h, light) >= ratio(h, dark) ? '#FFFFFF' : '#2F3A44';
     }
 
     function init() {
