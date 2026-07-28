@@ -26,5 +26,19 @@
     --glass-shadow: 0 20px 50px -28px rgba(31, 41, 55, 0.28);
     --bs-primary: var(--brand-primary);
     --bs-primary-rgb: var(--brand-primary-rgb);
+@if (!empty($t['navbar_bg']))
+    --brand-navbar-bg: {{ $t['navbar_bg'] }};
+    --brand-navbar-rgb: {{ $t['navbar_rgb'] }};
+    --brand-navbar-color: {{ $t['navbar_color'] }};
+@endif
+@if (!empty($t['sidebar_bg']))
+    --brand-sidebar-bg: {{ $t['sidebar_bg'] }};
+    --brand-sidebar-rgb: {{ $t['sidebar_rgb'] }};
+    --brand-sidebar-color: {{ $t['sidebar_color'] }};
+@endif
+@if (!empty($t['page_bg']))
+    --brand-page-bg: {{ $t['page_bg'] }};
+    --brand-page-bg-rgb: {{ $t['page_bg_rgb'] }};
+@endif
 }
 </style>

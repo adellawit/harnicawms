@@ -71,7 +71,7 @@
     {{-- @vite(['resources/css/app.css', 'resources/js/app.js']) --}}
 </head>
 
-<body class="{{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }}">
+<body class="{{ ($appTheme['glass_enabled'] ?? true) ? 'app-glass-enabled' : '' }} {{ ($appTheme['motion_enabled'] ?? true) ? 'app-motion-enabled' : '' }}{{ !empty($appTheme['navbar_bg']) ? ' app-surface-navbar' : '' }}{{ !empty($appTheme['sidebar_bg']) ? ' app-surface-sidebar' : '' }}{{ !empty($appTheme['page_bg']) ? ' app-surface-page' : '' }}">
 
     @if(session('impersonator_id'))
     <div class="alert alert-info alert-dismissible mb-0 rounded-0 d-flex align-items-center justify-content-center" style="z-index: 9999; position: relative;">
