@@ -60,10 +60,7 @@ class CustomerAuthController extends Controller
             ? route('agent-order.dashboard')
             : route('customer.shop');
 
-            return redirect()->route('agent-order.index');
-        }
-
-        return redirect()->intended(route('customer.shop'));
+        return redirect()->intended($defaultRedirect);
     }
 
     public function account(): View
