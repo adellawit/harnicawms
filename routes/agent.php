@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Agent\AgentOrderController;
+use App\Http\Controllers\Agent\AgentPosController;
 use App\Http\Controllers\Customer\CustomerAuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,12 @@ Route::prefix('agent-order')->name('agent-order.')->group(function () {
         Route::get('/pelatihan', [AgentOrderController::class, 'training'])->name('training');
         Route::get('/pelatihan/{course}', [AgentOrderController::class, 'trainingShow'])->name('training.show');
         Route::get('/materi', [AgentOrderController::class, 'materials'])->name('materials');
+        Route::get('/pos', [AgentPosController::class, 'index'])->name('pos');
+        Route::get('/pos/product-variants', [AgentPosController::class, 'getProductVariants'])->name('pos.product-variants');
+        Route::post('/pos/preview-promo', [AgentPosController::class, 'previewPromo'])->name('pos.preview-promo');
+        Route::post('/pos/payment', [AgentPosController::class, 'processPayment'])->name('pos.payment');
+        Route::get('/pos/payment/{orderId}/status', [AgentPosController::class, 'paymentStatus'])->name('pos.payment.status');
+        Route::get('/pos/payment/return', [AgentPosController::class, 'paymentReturn'])->name('pos.payment.return');
         Route::post('/reorder/{order}', [AgentOrderController::class, 'reorder'])->name('reorder');
         Route::get('/products/variants', [AgentOrderController::class, 'productVariants'])->name('products.variants');
         Route::post('/cart/add', [AgentOrderController::class, 'cartAdd'])->name('cart.add');

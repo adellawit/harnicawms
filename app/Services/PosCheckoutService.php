@@ -167,6 +167,7 @@ class PosCheckoutService
         string $status,
         string $paymentStatus,
         string $orderType = 'pos',
+        ?string $warehouseId = null,
     ): SalesOrder {
         $customerName = null;
         if ($request->customer_id) {
@@ -174,7 +175,7 @@ class PosCheckoutService
             $customerName = $customer?->name;
         }
 
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = $warehouseId ?: optional(WmsContext::defaultWarehouse($branchId))->id;
 
         $order = SalesOrder::create([
             'sales_number' => $salesNumber,
