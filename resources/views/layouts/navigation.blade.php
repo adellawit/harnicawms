@@ -169,8 +169,8 @@
                                         ? route($child->route_name)
                                         : url($child->url_path);
                                     $isChildActive    = $checkMenuActive($child) || $checkActiveDescendant($child);
-                                    $hasGrandChildren = $child->has_page
-                                        && $child->relationLoaded('children')
+                                    // Show nested submenu whenever children exist (do not require has_page).
+                                    $hasGrandChildren = $child->relationLoaded('children')
                                         && $child->children->count() > 0;
                                 @endphp
 
@@ -187,8 +187,7 @@
                                                         ? route($grandChild->route_name)
                                                         : url($grandChild->url_path);
                                                     $isGrandChildActive = $checkMenuActive($grandChild) || $checkActiveDescendant($grandChild);
-                                                    $hasGreatGrandChildren = $grandChild->has_page
-                                                        && $grandChild->relationLoaded('children')
+                                                    $hasGreatGrandChildren = $grandChild->relationLoaded('children')
                                                         && $grandChild->children->count() > 0;
                                                 @endphp
                                                 @if ($hasGreatGrandChildren)

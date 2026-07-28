@@ -12,6 +12,16 @@ class PurchaseOrderReceiveWarehouse
 
     public static function hasReceivableRawMaterial(ProductPurchaseOrder $purchase): bool
     {
+        return self::receivableNatureCodes($purchase)->contains(self::RAW_MATERIAL_NATURE);
+    }
+
+    /**
+     * Nature codes of PO lines that still have remaining qty to receive.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    public static function receivableNatureCodes(ProductPurchaseOrder $purchase)
+    {
         if (! $purchase->relationLoaded('items')) {
             $purchase->load(['items.product.nature', 'items.receiveItems']);
         } else {
@@ -20,10 +30,62 @@ class PurchaseOrderReceiveWarehouse
             }
         }
 
-        return $purchase->items->contains(
-            fn (ProductPurchaseOrderItem $item) => self::remainingQuantity($item) > 0
-                && $item->product?->nature?->code === self::RAW_MATERIAL_NATURE
-        );
+        return $purchase->items
+            ->filter(fn (ProductPurchaseOrderItem $item) => self::remainingQuantity($item) > 0)
+            ->map(fn (ProductPurchaseOrderItem $item) => $item->product?->nature?->code)
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Warehouse types allowed for this receive, based on remaining line natures.
+     *
+     * @return list<string>
+     */
+    public static function allowedWarehouseTypeCodes(ProductPurchaseOrder $purchase): array
+    {
+        $natures = self::receivableNatureCodes($purchase);
+        if ($natures->isEmpty()) {
+            return [];
+        }
+
+        $types = [];
+        foreach ($natures as $nature) {
+            $types = array_merge($types, match ($nature) {
+                'RAW_MATERIAL', 'SEMI_FINISHED' => ['RAW_MATERIAL', 'WIP'],
+                'FINISHED_GOOD' => ['FG'],
+                default => ['GENERAL', 'FG', 'RAW_MATERIAL', 'WIP'],
+            });
+        }
+
+        return array_values(array_unique($types));
+    }
+
+    /**
+     * @param  list<array{id: string, label: string}>  $options
+     * @return list<array{id: string, label: string}>
+     */
+    public static function filterOptionsByPurchase(ProductPurchaseOrder $purchase, array $options): array
+    {
+        $allowedTypes = self::allowedWarehouseTypeCodes($purchase);
+        if ($allowedTypes === [] || $options === []) {
+            return $options;
+        }
+
+        $allowedIds = Warehouse::query()
+            ->whereIn('id', collect($options)->pluck('id')->all())
+            ->whereIn('warehouse_type_code', $allowedTypes)
+            ->pluck('id')
+            ->all();
+
+        $filtered = array_values(array_filter(
+            $options,
+            fn (array $option) => in_array($option['id'], $allowedIds, true)
+        ));
+
+        // Fallback: jangan kosongkan dropdown jika mapping type tidak ketemu.
+        return $filtered !== [] ? $filtered : $options;
     }
 
     private static function remainingQuantity(ProductPurchaseOrderItem $item): float
@@ -73,6 +135,20 @@ class PurchaseOrderReceiveWarehouse
         $allowed = collect($warehouses)->pluck('id')->all();
 
         if (self::hasReceivableRawMaterial($purchase)) {
+            // Bahan baku: utamakan gudang RAW_MATERIAL, lalu WIP.
+            $rmId = optional(
+                Warehouse::inventoryActive()
+                    ->where('warehouse_type_code', 'RAW_MATERIAL')
+                    ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                    ->orderByDesc('is_default')
+                    ->orderBy('code')
+                    ->first()
+            )->id;
+
+            if ($rmId && in_array($rmId, $allowed, true)) {
+                return $rmId;
+            }
+
             $wipId = $wipWarehouseId ?? optional(WmsContext::wipWarehouse($companyId))->id;
             if ($wipId && in_array($wipId, $allowed, true)) {
                 return $wipId;

@@ -74,8 +74,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}', [MarketingAllocationController::class, 'show'])->name('marketing-allocation.show')->middleware('permission:Marketing Allocation,is_read');
     });
 
-    // --- Replenishment (Distributor <-> Agen) ---
-    Route::group(['prefix' => 'replenishment'], function () {
+    // --- Agen Order / Replenishment (Distributor <-> Agen) ---
+    // Primary URL: /agen-order (legacy /replenishment redirects below)
+    Route::group(['prefix' => 'agen-order'], function () {
         Route::get('/', [ReplenishmentOrderController::class, 'index'])->name('replenishment.index')->middleware('permission:Replenishment,is_read');
         Route::get('/create', [ReplenishmentOrderController::class, 'create'])->name('replenishment.create')->middleware('permission:Replenishment,is_create');
         Route::post('/', [ReplenishmentOrderController::class, 'store'])->name('replenishment.store')->middleware('permission:Replenishment,is_create');
@@ -85,6 +86,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/receive/{shipmentId}', [ReplenishmentOrderController::class, 'receive'])->name('replenishment.receive')->middleware('permission:Replenishment,is_update');
         Route::post('/{id}/return', [ReplenishmentOrderController::class, 'returnGoods'])->name('replenishment.return')->middleware('permission:Replenishment,is_update');
     });
+
+    Route::permanentRedirect('replenishment', 'agen-order');
+    Route::permanentRedirect('replenishment/{path}', 'agen-order/{path}')->where('path', '.*');
 
     // --- Laporan HPP ---
     Route::get('/laporan-hpp', [HppReportController::class, 'index'])->name('hpp.index')->middleware('permission:Laporan HPP,is_read');

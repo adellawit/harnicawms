@@ -23,6 +23,8 @@
             /* Bootstrap modal always on top */
             .modal { z-index: 9990 !important; }
             .modal-backdrop { z-index: 9980 !important; }
+            /* SweetAlert must sit above Bootstrap modal (skip/confirm dialogs) */
+            .swal2-container { z-index: 10050 !important; }
 
             /* ── Top Bar ─────────────────────────────────────────────────── */
             .pos-top-bar {
@@ -1193,6 +1195,15 @@
             <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
         @endif
 
+        @if (!empty($agentConversion))
+            <div class="alert alert-info mb-3" id="agentConversionBanner" role="status">
+                <strong>Pembayaran awal Agent</strong>
+                — selesaikan transaksi POS untuk
+                <strong>{{ $agentConversion['agent_name'] ?? 'Agent' }}</strong>.
+                Setelah pembayaran lunas, <strong>kode Agent</strong> dan <strong>invoice awal</strong> (nomor transaksi POS) akan ditampilkan.
+            </div>
+        @endif
+
         @if ($errors->any())
             <x-alert type="danger" class="mb-3">
                 <ul class="m-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
@@ -1242,6 +1253,20 @@
                         <i class="ti ti-search icon"></i>
                         <input type="text" class="form-control" placeholder="Search products..." id="searchProduct">
                     </div>
+                    <form id="posSerialScanForm" class="pos-serial-scan d-flex align-items-center gap-2 flex-grow-1" style="min-width:220px;max-width:420px;">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="ti ti-barcode"></i></span>
+                            <input
+                                type="text"
+                                id="posSerialScanInput"
+                                class="form-control font-monospace"
+                                maxlength="20"
+                                autocomplete="off"
+                                placeholder="Scan atau ketik serial..."
+                            >
+                            <button type="submit" class="btn btn-primary" id="posSerialScanSubmit">Tambah</button>
+                        </div>
+                    </form>
                     <div class="pos-categories" id="productTypeTabs" aria-label="Product Type">
                         <span class="pos-category-pill active" data-product-type="all">
                             All <span class="pill-count">{{ $products->count() ?? 0 }}</span>
@@ -1253,6 +1278,7 @@
                         @endforeach
                     </div>
                 </div>
+                <div id="posSerialPendingHint" class="px-3 py-2 small text-primary border-bottom" style="display:none;"></div>
 
                 <div class="pos-product-grid" id="productGrid">
                     @forelse($products ?? collect() as $product)
@@ -1341,6 +1367,7 @@
                         <div class="ci-info">
                             <div class="ci-name">Product</div>
                             <div class="ci-price">Rp 0</div>
+                            <div class="ci-serial text-muted small font-monospace" style="display:none;"></div>
                         </div>
                         <div class="ci-right">
                             <div class="ci-qty">
@@ -1584,9 +1611,16 @@
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+        <script src="{{ asset('assets/js/pos-barcode-scan.js') }}"></script>
     @endpush
     @push('page-js')
         <script>
+            window.PosBarcodeScanConfig = {
+                routes: {
+                    lookup: @json(route('transaction.pos.barcode-lookup'))
+                }
+            };
+
             $(document).ready(function() {
                 // ── Select2 ───────────────────────────────────────────
                 $('#priceListSelect').select2({
@@ -1635,15 +1669,24 @@
                     }
                 });
 
+                var preselectCustomerId = @json($preselectCustomerId ?? null);
+                if (preselectCustomerId) {
+                    $('#customerSelect').val(preselectCustomerId).trigger('change');
+                }
+
                 var discountType = 'percent';
                 var redeemValuePerPoint = {{ (int) ($redeemValuePerPoint ?? 0) }};
 
                 function updateSelectedPartnerBadge() {
                     var $selected = $('#customerSelect option:selected');
                     var $badge = $('#selectedPartnerBadge');
-                    var role = $selected.data('partner-role');
-                    var label = $selected.data('partner-label');
-                    var code = $selected.data('partner-code');
+                    var role = String($selected.attr('data-partner-role') || '').toLowerCase();
+                    var label = $selected.attr('data-partner-label') || $selected.data('partner-label');
+                    var code = $selected.attr('data-partner-code') || $selected.data('partner-code');
+                    $('#posWrapper').attr('data-partner-role', role);
+                    if (window.PosBarcodeScan && window.PosBarcodeScan.clearPending) {
+                        window.PosBarcodeScan.clearPending();
+                    }
 
                     if (!role || !label) {
                         $badge.hide().removeClass('agent reseller partner-lead').text('');
@@ -1891,6 +1934,7 @@
                         return;
                     }
                     var productId = $(this).data('product-id');
+                    var productName = $(this).find('.p-name').text();
                     var productImage = $(this).find('.p-img').attr('src');
 
                     $.get('{{ route("transaction.pos.product-variants") }}', {
@@ -1902,10 +1946,25 @@
                         if (withPrice.length === 0) { alert('No variants with price for this price list'); return; }
                         if (withPrice.length === 1) {
                             var v = withPrice[0];
+                            if (window.PosBarcodeScan) {
+                                window.PosBarcodeScan.syncPartnerRoleFromCustomer();
+                            }
+                            if (
+                                window.PosBarcodeScan &&
+                                window.PosBarcodeScan.isPartnerCustomer() &&
+                                !!v.has_trackable_serials
+                            ) {
+                                window.PosBarcodeScan.promptForProduct({
+                                    productId: productId || v.product_id,
+                                    variantId: v.id,
+                                    name: v.display_name || productName
+                                });
+                                return;
+                            }
                             addToCart(v.id, v.display_name, v.selling_price, v.image || productImage, v.unit_id, v.unit_label);
                             return;
                         }
-                        showVariantModal(variants, productImage);
+                        showVariantModal(variants, productImage, productId);
                     }).fail(function() { alert('Failed to load variants'); });
                 });
 
@@ -1913,7 +1972,7 @@
                 var variantModalEl = document.getElementById('variantModal');
                 var variantModal = new bootstrap.Modal(variantModalEl);
 
-                function showVariantModal(variants, productImage) {
+                function showVariantModal(variants, productImage, productId) {
                     $('#variantLoading').hide();
                     $('#variantList').hide();
                     $('#variantEmpty').hide();
@@ -1927,12 +1986,16 @@
                             var stockClass = v.stock > 10 ? 'stock-ok' : (v.stock > 0 ? 'stock-low' : 'stock-out');
                             html += '<div class="variant-card variant-item" role="button" tabindex="0"';
                             html += ' data-variant-id="'+v.id+'" data-name="'+escapeHtml(v.display_name)+'" data-price="'+v.selling_price+'"';
-                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'" data-unit-label="'+(v.unit_label||'')+'">';
+                            html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'" data-unit-label="'+(v.unit_label||'')+'"';
+                            html += ' data-product-id="'+(productId || v.product_id || '')+'" data-has-trackable-serials="'+(v.has_trackable_serials ? 1 : 0)+'">';
                             html += '<img src="'+img+'" alt="'+escapeHtml(v.display_name)+'" class="v-img" onerror="this.src=\'https://placehold.co/300x225/f8f9fa/b0b7c3?text=?\'">';
                             html += '<div class="v-body">';
                             html += '<div class="v-name">'+escapeHtml(v.display_name)+'</div>';
                             html += '<div class="v-price">Rp '+Number(v.selling_price).toLocaleString('id-ID')+'</div>';
                             html += '<span class="v-stock '+stockClass+'">Stok: '+v.stock+'</span>';
+                            if (v.has_trackable_serials) {
+                                html += '<div class="small text-primary mt-1"><i class="ti ti-barcode"></i> Serial</div>';
+                            }
                             html += '</div></div>';
                         });
                         html += '</div>';
@@ -1944,7 +2007,24 @@
                 $(document).on('click', '.variant-item', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    addToCart($(this).data('variant-id'), $(this).data('name'), $(this).data('price'), $(this).data('image'), $(this).data('unit-id'), $(this).data('unit-label'));
+                    var $el = $(this);
+                    if (window.PosBarcodeScan) {
+                        window.PosBarcodeScan.syncPartnerRoleFromCustomer();
+                    }
+                    if (
+                        window.PosBarcodeScan &&
+                        window.PosBarcodeScan.isPartnerCustomer() &&
+                        Number($el.attr('data-has-trackable-serials') || $el.data('has-trackable-serials')) === 1
+                    ) {
+                        variantModal.hide();
+                        window.PosBarcodeScan.promptForProduct({
+                            productId: $el.attr('data-product-id') || $el.data('product-id'),
+                            variantId: $el.attr('data-variant-id') || $el.data('variant-id'),
+                            name: $el.attr('data-name') || $el.data('name')
+                        });
+                        return;
+                    }
+                    addToCart($el.data('variant-id'), $el.data('name'), $el.data('price'), $el.data('image'), $el.data('unit-id'), $el.data('unit-label'));
                     variantModal.hide();
                 });
 
@@ -1954,13 +2034,15 @@
 
                 // ── Cart quantity ─────────────────────────────────────
                 $(document).on('click', '.btn-minus', function() {
-                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
+                    var $item = $(this).closest('.pos-cart-item');
+                    if ($item.hasClass('is-promo-free') || $item.data('serial-number')) return;
                     var inp = $(this).siblings('.quantity-input');
                     var val = parseInt(inp.val());
                     if (val > 1) { inp.val(val - 1); updateCartTotals(); }
                 });
                 $(document).on('click', '.btn-plus', function() {
-                    if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
+                    var $item = $(this).closest('.pos-cart-item');
+                    if ($item.hasClass('is-promo-free') || $item.data('serial-number')) return;
                     var inp = $(this).siblings('.quantity-input');
                     inp.val(parseInt(inp.val()) + 1);
                     updateCartTotals();
@@ -2176,13 +2258,15 @@
                             discType = $el.find('.item-disc-type.active').data('type') || 'percent';
                             discVal = parseDiscValue($el.find('.item-disc-input').val(), discType);
                         }
+                        var serialNumber = $el.data('serial-number') || null;
                         items.push({
                             variant_id: $el.data('variant-id'),
                             unit_id: $el.data('unit-id'),
                             quantity: qty,
                             unit_price: unitPrice,
                             discount_type: discType,
-                            discount_value: discVal
+                            discount_value: discVal,
+                            serial_numbers: serialNumber ? [String(serialNumber)] : []
                         });
                     });
                     return items;
@@ -2343,6 +2427,11 @@
                 function showPaymentSuccess(d, methodName) {
                     var html = '<table class="w-100" style="font-size:0.95rem">';
                     html += '<tr><td class="text-start py-1" style="color:#9aa4b8">No. Transaksi</td><td class="text-end py-1 fw-bold">' + (d.sales_number || '-') + '</td></tr>';
+                    if (d.agent_conversion) {
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Kode Agent</td><td class="text-end py-1 fw-bold text-primary">' + (d.agent_conversion.agent_code || '-') + '</td></tr>';
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Nama Agent</td><td class="text-end py-1 fw-bold">' + (d.agent_conversion.agent_name || '-') + '</td></tr>';
+                        html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Invoice Awal</td><td class="text-end py-1 fw-bold">' + (d.sales_number || '-') + '</td></tr>';
+                    }
                     html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Total</td><td class="text-end py-1 fw-bold">' + formatRp(d.total) + '</td></tr>';
                     html += '<tr><td class="text-start py-1" style="color:#9aa4b8">Payment</td><td class="text-end py-1 fw-bold">' + methodName + '</td></tr>';
                     if (d.amount_paid !== undefined) {
@@ -2373,14 +2462,22 @@
 
                     resetPosUiAfterPayment();
                     updateMembershipPointsUi();
+                    if (window.PosBarcodeScan) {
+                        window.PosBarcodeScan.clearPending();
+                    }
 
                     if (d.sales_number) {
                         $('#posTrxNumber').text(d.sales_number);
                         $('#posTrxNumberWrap').show();
                     }
 
+                    if (d.agent_conversion) {
+                        $('#agentConversionBanner').remove();
+                    }
+
+                    var title = d.agent_conversion ? 'Agent siap — pembayaran lunas' : 'Transaction Complete!';
                     Swal.fire({
-                        title: 'Transaction Complete!',
+                        title: title,
                         html: html,
                         icon: 'success',
                         confirmButtonText: 'OK',
@@ -2406,9 +2503,11 @@
                                 clearXenditPoll();
                                 closeXenditCheckout();
                                 showPaymentSuccess({
+                                    sales_order_id: res.data.sales_order_id,
                                     sales_number: res.data.sales_number,
                                     total: res.data.total,
-                                    change_amount: 0
+                                    change_amount: 0,
+                                    agent_conversion: res.data.agent_conversion || null
                                 }, methodName);
                             }
                         });
@@ -2521,31 +2620,72 @@
                 }
 
                 // ── addToCart ──────────────────────────────────────────
-                function addToCart(variantId, name, price, image, unitId, unitLabel) {
+                function addToCart(variantId, name, price, image, unitId, unitLabel, serialPayload) {
                     $('#emptyCart').hide();
-                    var existing = $cartPaidItems().filter('[data-variant-id="'+variantId+'"]');
-                    if (existing.length > 0) {
-                        var inp = existing.find('.quantity-input');
-                        inp.val(parseInt(inp.val()) + 1);
-                    } else {
-                        var item = $('#sampleCartItem').clone().removeAttr('id').show();
-                        item.attr('data-variant-id', variantId);
-                        item.attr('data-unit-id', unitId || '');
-                        item.attr('data-unit-label', unitLabel || '');
-                        item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
-                        item.find('.ci-name').text(name);
-                        item.find('.ci-price').text(
-                            'Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
-                        );
-                        item.find('.ci-qty-unit').text(unitLabel || '');
-                        item.find('.quantity-input').data('unit-price', price);
-                        $('#cartItems').append(item);
+                    var serialNumber = serialPayload && serialPayload.serial_number
+                        ? String(serialPayload.serial_number)
+                        : null;
+
+                    if (!serialNumber) {
+                        var existing = $cartPaidItems().filter(function() {
+                            return $(this).data('variant-id') == variantId && !$(this).data('serial-number');
+                        });
+                        if (existing.length > 0) {
+                            var inp = existing.find('.quantity-input');
+                            inp.val(parseInt(inp.val()) + 1);
+                            if (isPosMobile()) {
+                                setPosMobileView('cart');
+                            }
+                            updateCartTotals();
+                            checkEmptyCart();
+                            return;
+                        }
                     }
+
+                    var item = $('#sampleCartItem').clone().removeAttr('id').show();
+                    item.attr('data-variant-id', variantId);
+                    item.attr('data-unit-id', unitId || '');
+                    item.attr('data-unit-label', unitLabel || '');
+                    if (serialNumber) {
+                        item.attr('data-serial-number', serialNumber);
+                        item.attr('data-serial-id', serialPayload.serial_id || '');
+                        item.addClass('is-serial-tracked');
+                        item.find('.ci-serial').text(serialNumber).show();
+                        item.find('.btn-minus, .btn-plus').prop('disabled', true).addClass('disabled');
+                    } else {
+                        item.find('.ci-serial').hide().text('');
+                    }
+                    item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
+                    item.find('.ci-name').text(name);
+                    item.find('.ci-price').text(
+                        'Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
+                    );
+                    item.find('.ci-qty-unit').text(unitLabel || '');
+                    item.find('.quantity-input').val(1).data('unit-price', price);
+                    $('#cartItems').append(item);
+
                     if (isPosMobile()) {
                         setPosMobileView('cart');
                     }
                     updateCartTotals();
                     checkEmptyCart();
+                }
+
+                if (window.PosBarcodeScanConfig) {
+                    window.PosBarcodeScanConfig.onScanSuccess = function(data) {
+                        addToCart(
+                            data.variant_id,
+                            data.name,
+                            data.price,
+                            data.image,
+                            data.unit_id,
+                            data.unit_label,
+                            {
+                                serial_id: data.serial_id,
+                                serial_number: data.serial_number
+                            }
+                        );
+                    };
                 }
 
                 // ── updateCartTotals ──────────────────────────────────
@@ -2668,9 +2808,11 @@
                         $.get('{{ url("transaction/pos/payment") }}/' + orderId + '/status', { sync: 1 }).done(function(res) {
                             if (res.success && res.data && res.data.is_paid) {
                                 showPaymentSuccess({
+                                    sales_order_id: res.data.sales_order_id,
                                     sales_number: res.data.sales_number,
                                     total: res.data.total,
-                                    change_amount: 0
+                                    change_amount: 0,
+                                    agent_conversion: res.data.agent_conversion || null
                                 }, methodName);
                             } else {
                                 pollXenditPayment(orderId, methodName);

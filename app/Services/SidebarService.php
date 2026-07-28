@@ -19,7 +19,14 @@ class SidebarService
      */
     public static function loadSidebarsAndPermissions(?string $roleId = null): void
     {
-        $roleId = $roleId ?? Auth::user()->role_id;
+        $roleId = $roleId ?? Auth::guard('web')->user()?->role_id;
+
+        if (! filled($roleId)) {
+            session(['sidebars' => collect()]);
+            session(['permissions' => []]);
+
+            return;
+        }
 
         if ($roleId === Role::SUPER_ADMIN_ID) {
             self::loadSuperAdminSidebars();

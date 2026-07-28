@@ -1262,28 +1262,35 @@ class PurchaseOrderController extends Controller
                     );
                 }
 
-                $stock = ProductStock::firstOrCreate(
-                    [
-                        'product_id' => $poItem->product_id,
-                        'branch_id' => $stockBranchId,
-                        'warehouse_id' => $warehouseId,
-                        'unit_id' => $poItem->unit_id,
-                    ],
-                    [
-                        'company_id' => $companyId,
-                        'quantity' => 0,
-                        'created_by' => $user->id,
-                        'updated_by' => $user->id,
-                    ]
-                );
+                // Legacy product_stock unik per (product_id, branch_id) saja — jangan include warehouse/unit di lookup.
+                $stock = ProductStock::withTrashed()->firstOrNew([
+                    'product_id' => $poItem->product_id,
+                    'branch_id' => $stockBranchId,
+                ]);
+
+                if ($stock->trashed()) {
+                    $stock->restore();
+                }
+
+                if (! $stock->exists) {
+                    $stock->company_id = $companyId;
+                    $stock->warehouse_id = $warehouseId;
+                    $stock->unit_id = $poItem->unit_id;
+                    $stock->quantity = 0;
+                    $stock->created_by = $user->id;
+                }
 
                 $qtyBefore = (float) $stock->quantity;
                 $qtyAfter = $qtyBefore + $qtyReceived;
 
-                $stock->update([
+                $stock->fill([
+                    'company_id' => $companyId ?: $stock->company_id,
+                    'warehouse_id' => $warehouseId,
+                    'unit_id' => $poItem->unit_id ?: $stock->unit_id,
                     'quantity' => $qtyAfter,
                     'updated_by' => $user->id,
                 ]);
+                $stock->save();
 
                 ProductStockMovement::create([
                     'product_stock_id' => $stock->id,
@@ -1447,7 +1454,7 @@ class PurchaseOrderController extends Controller
             }
         }
 
-        return $options;
+        return PurchaseOrderReceiveWarehouse::filterOptionsByPurchase($purchase, $options);
     }
 
     /**

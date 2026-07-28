@@ -6,6 +6,7 @@ use App\Models\PaymentGatewayCallback;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
 use App\Services\PosCheckoutService;
+use App\Services\Sales\BarcodeDispatchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,7 @@ class PaymentSyncService
     public function __construct(
         protected XenditService $xendit,
         protected PosCheckoutService $checkout,
+        protected BarcodeDispatchService $barcodeDispatch,
     ) {}
 
     /**
@@ -199,6 +201,11 @@ class PaymentSyncService
                 }
 
                 $this->checkout->completePaidOrder($order, $order->created_by);
+                $this->barcodeDispatch->finalizeIfEligible(
+                    $order->id,
+                    $order->created_by,
+                    $order->branch_id
+                );
             });
 
             Log::info('Xendit payment completed', [

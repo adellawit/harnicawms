@@ -129,7 +129,12 @@
                         { data: 'payment_badge', orderable: false, searchable: false },
                         { data: 'total_fmt', orderable: false, searchable: false, className: 'text-end' },
                         { data: null, orderable: false, searchable: false, render: function(d, t, r) {
-                            return '<a href="{{ url("transaction/detail") }}/'+r.id+'" class="btn btn-sm btn-outline-primary"><i class="ti ti-eye me-1"></i>Detail</a>';
+                            var detailUrl = "{{ url('transaction/detail') }}/" + r.id;
+                            var printUrl = "{{ url('transaction') }}/" + r.id + "/print-invoice?print=1";
+                            return '<div class="d-flex gap-1">'
+                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary"><i class="ti ti-eye me-1"></i>Detail</a>'
+                                + '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="ti ti-printer me-1"></i>Print Invoice</a>'
+                                + '</div>';
                         } }
                     ],
                     dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',

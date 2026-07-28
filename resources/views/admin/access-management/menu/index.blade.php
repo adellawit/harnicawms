@@ -12,8 +12,266 @@
             .breadcrumb-item a:hover {
                 color: #212529 !important;
             }
-            .menu-table th, .menu-table td {
-                vertical-align: middle;
+
+            .menu-tree-table {
+                min-width: 1020px;
+                border-top: 1px solid var(--bs-border-color);
+                color: var(--bs-body-color);
+            }
+
+            .menu-tree-grid {
+                display: grid;
+                grid-template-columns: 74px minmax(200px, 1.5fr) minmax(132px, .8fr) minmax(160px, 1.1fr) repeat(4, 52px) 82px;
+            }
+
+            .menu-tree-table.has-actions .menu-tree-grid {
+                grid-template-columns: 74px minmax(200px, 1.5fr) minmax(132px, .8fr) minmax(160px, 1.1fr) repeat(4, 52px) 82px 96px;
+            }
+
+            .menu-tree-header {
+                position: sticky;
+                top: 0;
+                z-index: 5;
+                color: var(--bs-secondary-color);
+                background: var(--bs-tertiary-bg);
+                font-size: .6875rem;
+                font-weight: 600;
+                letter-spacing: .035em;
+                text-transform: uppercase;
+            }
+
+            .menu-tree-header > div,
+            .menu-tree-cell {
+                display: flex;
+                min-width: 0;
+                align-items: center;
+                min-height: 50px;
+                padding: .625rem .75rem;
+                border-right: 1px solid var(--bs-border-color);
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+
+            .menu-tree-header > div {
+                min-height: 42px;
+                padding-block: .5rem;
+            }
+
+            .menu-tree-header > div:last-child,
+            .menu-tree-cell:last-child {
+                border-right: 0;
+            }
+
+            .menu-tree-row {
+                background: var(--bs-body-bg);
+                font-size: .8125rem;
+                transition: background-color 160ms ease;
+            }
+
+            .menu-tree-row:hover {
+                background: var(--bs-tertiary-bg);
+            }
+
+            .menu-tree-row.is-root {
+                background: color-mix(in srgb, var(--bs-primary) 5%, var(--bs-body-bg));
+            }
+
+            .menu-tree-row.is-root:hover {
+                background: color-mix(in srgb, var(--bs-primary) 9%, var(--bs-body-bg));
+            }
+
+            .menu-name-cell {
+                padding-left: calc(.75rem + (var(--menu-depth) - 1) * 1.5rem);
+                gap: .375rem;
+                white-space: nowrap;
+            }
+
+            .menu-collapse-toggle {
+                display: inline-flex;
+                width: 28px;
+                height: 28px;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 28px;
+                padding: 0;
+                border: 0;
+                border-radius: var(--bs-border-radius-sm);
+                color: var(--bs-secondary-color);
+                background: transparent;
+                cursor: pointer;
+                transition: color 160ms ease, background-color 160ms ease;
+            }
+
+            .menu-collapse-toggle:hover,
+            .menu-collapse-toggle:focus-visible {
+                color: var(--bs-primary);
+                background: rgba(var(--bs-primary-rgb), .1);
+                outline: none;
+            }
+
+            .menu-collapse-toggle.is-hidden {
+                visibility: hidden;
+                pointer-events: none;
+            }
+
+            .menu-tree-branch {
+                display: inline-flex;
+                flex: 0 0 18px;
+                align-items: center;
+                justify-content: center;
+                color: var(--bs-secondary-color);
+            }
+
+            .menu-name-text {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .menu-order-cell {
+                justify-content: center;
+                gap: .25rem;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .menu-drag-handle {
+                display: inline-flex;
+                width: 30px;
+                height: 30px;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 30px;
+                padding: 0;
+                border: 0;
+                border-radius: var(--bs-border-radius-sm);
+                color: var(--bs-secondary-color);
+                background: transparent;
+                cursor: grab;
+                transition: color 160ms ease, background-color 160ms ease;
+            }
+
+            .menu-drag-handle:hover,
+            .menu-drag-handle:focus-visible {
+                color: var(--bs-primary);
+                background: rgba(var(--bs-primary-rgb), .1);
+                outline: none;
+            }
+
+            .menu-drag-handle:active {
+                cursor: grabbing;
+            }
+
+            .menu-icon-code {
+                display: block;
+                max-width: 100%;
+                overflow: hidden;
+                padding: .2rem .4rem;
+                border-radius: var(--bs-border-radius-sm);
+                color: var(--bs-secondary-color);
+                background: var(--bs-tertiary-bg);
+                font-size: .6875rem;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .menu-url {
+                display: block;
+                overflow: hidden;
+                color: var(--bs-secondary-color);
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .menu-permission-icon {
+                font-size: 1rem;
+            }
+
+            .menu-tree-item.is-deleted {
+                opacity: .68;
+            }
+
+            .menu-tree-list:empty {
+                min-height: 0;
+            }
+
+            .menu-tree-list[data-depth="4"]:empty {
+                display: none;
+            }
+
+            .menu-tree.is-sorting .menu-tree-list:empty {
+                min-height: 12px;
+                outline: 1px dashed rgba(var(--bs-primary-rgb), .35);
+                outline-offset: -2px;
+            }
+
+            .menu-tree-ghost > .menu-tree-row {
+                background: rgba(var(--bs-primary-rgb), .12);
+            }
+
+            .menu-tree-chosen > .menu-tree-row {
+                box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb), .2);
+            }
+
+            .menu-empty-state {
+                padding: 2rem;
+                text-align: center;
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+
+            .menu-action-cell {
+                justify-content: center;
+                gap: .375rem;
+                white-space: nowrap;
+            }
+
+            .menu-action-btn {
+                display: inline-flex;
+                width: 32px;
+                height: 32px;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 32px;
+                padding: 0;
+            }
+
+            .menu-save-status {
+                min-width: 100px;
+                font-size: .8125rem;
+                white-space: nowrap;
+            }
+
+            .menu-tree-toolbar .btn {
+                display: inline-flex;
+                align-items: center;
+                gap: .3rem;
+            }
+
+            .menu-table-scroll {
+                border-radius: 0 0 var(--bs-card-border-radius) var(--bs-card-border-radius);
+            }
+
+            @media (max-width: 767.98px) {
+                .menu-card-header {
+                    align-items: flex-start !important;
+                    gap: .75rem;
+                }
+
+                .menu-card-actions {
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                }
+
+                .menu-save-status {
+                    width: 100%;
+                    margin-right: 0 !important;
+                    text-align: right;
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .menu-tree-row,
+                .menu-drag-handle,
+                .menu-collapse-toggle {
+                    transition: none;
+                }
             }
         </style>
     @endpush
@@ -26,6 +284,7 @@
             $hasDeletePermission = session('permissions.Menu.is_delete', false) == 1;
             $hasCreatePermission = session('permissions.Menu.is_create', false) == 1;
             $hasAnyActionPermission = $hasUpdatePermission || $hasDeletePermission;
+            $canReorderMenus = $hasUpdatePermission && $status === '';
         @endphp
 
         <x-page-header
@@ -48,10 +307,25 @@
 
         <!-- Menu Table -->
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header menu-card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Menu Management</h5>
-                <div>
-                    <button type="button" class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
+                <div class="menu-card-actions d-flex align-items-center">
+                    <div class="btn-group btn-group-sm menu-tree-toolbar me-2" role="group" aria-label="Menu tree controls">
+                        <button type="button" id="expandAllMenus" class="btn btn-outline-secondary" title="Expand all menus">
+                            <i class="ti ti-arrows-maximize"></i>
+                            <span>Expand All</span>
+                        </button>
+                        <button type="button" id="collapseAllMenus" class="btn btn-outline-secondary" title="Collapse all menus">
+                            <i class="ti ti-arrows-minimize"></i>
+                            <span>Collapse All</span>
+                        </button>
+                    </div>
+                    @if($hasUpdatePermission)
+                        <span id="menuSaveStatus" class="menu-save-status text-muted me-3" aria-live="polite">
+                            {{ $canReorderMenus ? 'Drag to reorder' : 'Use filter All to reorder' }}
+                        </span>
+                    @endif
+                    <button type="button" class="btn btn-outline-secondary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="ti ti-filter me-1"></i> Filter
                     </button>
                     @permission('Menu', 'is_create')
@@ -61,156 +335,32 @@
                     @endpermission
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered menu-table">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 25%">Menu</th>
-                                <th>Icon</th>
-                                <th>URL Path</th>
-                                <th class="text-center">Create</th>
-                                <th class="text-center">Read</th>
-                                <th class="text-center">Update</th>
-                                <th class="text-center">Delete</th>
-                                <th class="text-center">Status</th>
-                                @if($hasAnyActionPermission)
-                                <th class="text-center">Actions</th>
-                                @endif
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($parentMenus as $parent)
-                                {{-- Parent Menu Row (Level 1) --}}
-                                <tr class="table-secondary">
-                                    <td>
-                                        <strong>
-                                            @if($parent->icon)
-                                                <i class="{{ $parent->icon }} me-1"></i>
-                                            @endif
-                                            {{ $parent->name }}
-                                        </strong>
-                                    </td>
-                                    <td>@if($parent->icon)<code>{{ $parent->icon }}</code>@else - @endif</td>
-                                    <td>{{ $parent->url_path ?? '-' }}</td>
-                                    <td class="text-center"><i class="ti ti-{{ $parent->has_create ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                    <td class="text-center"><i class="ti ti-{{ $parent->has_read ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                    <td class="text-center"><i class="ti ti-{{ $parent->has_update ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                    <td class="text-center"><i class="ti ti-{{ $parent->has_delete ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                    <td class="text-center">
-                                        <x-badge :color="$parent->deleted_at ? 'danger' : 'success'">{{ $parent->deleted_at ? 'Deleted' : 'Active' }}</x-badge>
-                                    </td>
-                                    @if($hasAnyActionPermission)
-                                    <td class="text-center">
-                                        @if($parent->deleted_at)
-                                            @permission('Menu', 'is_delete')
-                                            <button type="button" class="btn btn-sm btn-label-success d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="{{ $parent->id }}" data-name="{{ $parent->name }}">
-                                                <i class="ti ti-refresh me-1"></i> Restore
-                                            </button>
-                                            @endpermission
-                                        @else
-                                            @permission('Menu', 'is_update')
-                                            <a href="{{ route('menu.edit.view', $parent->id) }}" class="btn btn-sm btn-label-warning d-inline-flex align-items-center me-1"><i class="ti ti-pencil me-1"></i> Edit</a>
-                                            @endpermission
-                                            @permission('Menu', 'is_delete')
-                                            <button type="button" class="btn btn-sm btn-label-danger d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ $parent->id }}" data-name="{{ $parent->name }}"><i class="ti ti-trash me-1"></i> Delete</button>
-                                            @endpermission
-                                        @endif
-                                    </td>
-                                    @endif
-                                </tr>
+            <div class="card-body p-0">
+                <div class="table-responsive menu-table-scroll">
+                    <div id="menuTree" class="menu-tree menu-tree-table {{ $hasAnyActionPermission ? 'has-actions' : '' }}">
+                        <div class="menu-tree-header menu-tree-grid">
+                            <div class="justify-content-center">Order Number</div>
+                            <div>Menu</div>
+                            <div>Icon</div>
+                            <div>URL Path</div>
+                            <div class="justify-content-center">Create</div>
+                            <div class="justify-content-center">Read</div>
+                            <div class="justify-content-center">Update</div>
+                            <div class="justify-content-center">Delete</div>
+                            <div class="justify-content-center">Status</div>
+                            @if($hasAnyActionPermission)
+                                <div class="justify-content-center">Actions</div>
+                            @endif
+                        </div>
 
-                                {{-- Children Menu Rows (Level 2) --}}
-                                @foreach ($parent->children as $child)
-                                    @php
-                                        $hasGrandChildren = $child->relationLoaded('children') && $child->children->count() > 0;
-                                    @endphp
-                                    <tr class="{{ $hasGrandChildren ? 'table-light' : '' }}">
-                                        <td style="padding-left: 2rem;">
-                                            <span class="text-muted">└</span>
-                                            @if($child->icon)
-                                                <i class="{{ $child->icon }} me-1 text-muted"></i>
-                                            @endif
-                                            {!! $hasGrandChildren ? '<strong>' . e($child->name) . '</strong>' : e($child->name) !!}
-                                        </td>
-                                        <td>@if($child->icon)<code>{{ $child->icon }}</code>@else - @endif</td>
-                                        <td>{{ $child->url_path ?? '-' }}</td>
-                                        <td class="text-center"><i class="ti ti-{{ $child->has_create ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                        <td class="text-center"><i class="ti ti-{{ $child->has_read ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                        <td class="text-center"><i class="ti ti-{{ $child->has_update ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                        <td class="text-center"><i class="ti ti-{{ $child->has_delete ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                        <td class="text-center">
-                                            <x-badge :color="$child->deleted_at ? 'danger' : 'success'">{{ $child->deleted_at ? 'Deleted' : 'Active' }}</x-badge>
-                                        </td>
-                                        @if($hasAnyActionPermission)
-                                        <td class="text-center">
-                                            @if($child->deleted_at)
-                                                @permission('Menu', 'is_delete')
-                                                <button type="button" class="btn btn-sm btn-label-success d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="{{ $child->id }}" data-name="{{ $child->name }}">
-                                                    <i class="ti ti-refresh me-1"></i> Restore
-                                                </button>
-                                                @endpermission
-                                            @else
-                                                @permission('Menu', 'is_update')
-                                                <a href="{{ route('menu.edit.view', $child->id) }}" class="btn btn-sm btn-label-warning d-inline-flex align-items-center me-1"><i class="ti ti-pencil me-1"></i> Edit</a>
-                                                @endpermission
-                                                @permission('Menu', 'is_delete')
-                                                <button type="button" class="btn btn-sm btn-label-danger d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ $child->id }}" data-name="{{ $child->name }}"><i class="ti ti-trash me-1"></i> Delete</button>
-                                                @endpermission
-                                            @endif
-                                        </td>
-                                        @endif
-                                    </tr>
-
-                                    {{-- Grandchildren Menu Rows (Level 3) --}}
-                                    @if($hasGrandChildren)
-                                        @foreach ($child->children as $grandChild)
-                                            <tr>
-                                                <td style="padding-left: 4rem;">
-                                                    <span class="text-muted">└</span>
-                                                    @if($grandChild->icon)
-                                                        <i class="{{ $grandChild->icon }} me-1 text-muted"></i>
-                                                    @endif
-                                                    {{ $grandChild->name }}
-                                                </td>
-                                                <td>@if($grandChild->icon)<code>{{ $grandChild->icon }}</code>@else - @endif</td>
-                                                <td>{{ $grandChild->url_path ?? '-' }}</td>
-                                                <td class="text-center"><i class="ti ti-{{ $grandChild->has_create ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                                <td class="text-center"><i class="ti ti-{{ $grandChild->has_read ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                                <td class="text-center"><i class="ti ti-{{ $grandChild->has_update ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                                <td class="text-center"><i class="ti ti-{{ $grandChild->has_delete ? 'check text-success' : 'x text-muted' }}"></i></td>
-                                                <td class="text-center">
-                                                    <x-badge :color="$grandChild->deleted_at ? 'danger' : 'success'">{{ $grandChild->deleted_at ? 'Deleted' : 'Active' }}</x-badge>
-                                                </td>
-                                                @if($hasAnyActionPermission)
-                                                <td class="text-center">
-                                                    @if($grandChild->deleted_at)
-                                                        @permission('Menu', 'is_delete')
-                                                        <button type="button" class="btn btn-sm btn-label-success d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="{{ $grandChild->id }}" data-name="{{ $grandChild->name }}">
-                                                            <i class="ti ti-refresh me-1"></i> Restore
-                                                        </button>
-                                                        @endpermission
-                                                    @else
-                                                        @permission('Menu', 'is_update')
-                                                        <a href="{{ route('menu.edit.view', $grandChild->id) }}" class="btn btn-sm btn-label-warning d-inline-flex align-items-center me-1"><i class="ti ti-pencil me-1"></i> Edit</a>
-                                                        @endpermission
-                                                        @permission('Menu', 'is_delete')
-                                                        <button type="button" class="btn btn-sm btn-label-danger d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ $grandChild->id }}" data-name="{{ $grandChild->name }}"><i class="ti ti-trash me-1"></i> Delete</button>
-                                                        @endpermission
-                                                    @endif
-                                                </td>
-                                                @endif
-                                            </tr>
-                                        @endforeach
-                                    @endif
-                                @endforeach
+                        <div id="menuTreeRoot" class="menu-tree-list" data-depth="1">
+                            @forelse($parentMenus as $parent)
+                                @include('admin.access-management.menu._tree-item', ['menu' => $parent, 'depth' => 1])
                             @empty
-                                <tr>
-                                    <td colspan="{{ $hasAnyActionPermission ? 9 : 8 }}" class="text-center">No menus found.</td>
-                                </tr>
+                                <div class="menu-empty-state">No menus found.</div>
                             @endforelse
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -305,6 +455,7 @@
 
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/sortablejs/sortable.js') }}"></script>
     @endpush
 
 
@@ -313,6 +464,203 @@
 
         <script>
             $(document).ready(function() {
+                const menuTree = document.getElementById('menuTree');
+                const menuTreeRoot = document.getElementById('menuTreeRoot');
+                const saveStatus = document.getElementById('menuSaveStatus');
+                const expandAllMenus = document.getElementById('expandAllMenus');
+                const collapseAllMenus = document.getElementById('collapseAllMenus');
+                const canReorder = @json($canReorderMenus);
+                const sortables = [];
+                let lastSavedTree = [];
+
+                function directItems(list) {
+                    return Array.from(list.children).filter(element => element.classList.contains('menu-tree-item'));
+                }
+
+                function childList(item) {
+                    return Array.from(item.children).find(element => element.classList.contains('menu-tree-list'));
+                }
+
+                function serializeList(list) {
+                    return directItems(list).map(item => ({
+                        id: item.dataset.menuId,
+                        children: serializeList(childList(item)),
+                    }));
+                }
+
+                function setItemExpanded(item, expanded) {
+                    const list = childList(item);
+                    const row = item.querySelector(':scope > .menu-tree-row');
+                    const toggle = row.querySelector('.menu-collapse-toggle');
+                    const hasChildren = directItems(list).length > 0;
+                    const shouldExpand = !hasChildren || expanded;
+
+                    item.classList.toggle('is-collapsed', hasChildren && !shouldExpand);
+                    list.hidden = hasChildren && !shouldExpand;
+                    toggle.classList.toggle('is-hidden', !hasChildren);
+                    toggle.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+                    toggle.setAttribute('aria-label', `${shouldExpand ? 'Collapse' : 'Expand'} ${item.dataset.menuName}`);
+                    toggle.title = `${shouldExpand ? 'Collapse' : 'Expand'} ${item.dataset.menuName}`;
+
+                    const icon = toggle.querySelector('i');
+                    icon.classList.toggle('ti-chevron-down', shouldExpand);
+                    icon.classList.toggle('ti-chevron-right', !shouldExpand);
+                }
+
+                function setAllMenusExpanded(expanded) {
+                    menuTree.querySelectorAll('.menu-tree-item').forEach(item => {
+                        setItemExpanded(item, expanded);
+                    });
+                }
+
+                function refreshTreeMetadata(list = menuTreeRoot, depth = 1) {
+                    list.dataset.depth = depth;
+
+                    directItems(list).forEach((item, index) => {
+                        const row = item.querySelector(':scope > .menu-tree-row');
+                        const orderValue = row.querySelector('.menu-order-value');
+                        const children = directItems(childList(item));
+
+                        row.style.setProperty('--menu-depth', depth);
+                        row.classList.toggle('is-root', depth === 1);
+                        row.classList.toggle('has-children', depth > 1 && children.length > 0);
+                        orderValue.textContent = index + 1;
+                        setItemExpanded(item, !item.classList.contains('is-collapsed'));
+                        refreshTreeMetadata(childList(item), depth + 1);
+                    });
+                }
+
+                function subtreeHeight(item) {
+                    const children = directItems(childList(item));
+
+                    if (children.length === 0) {
+                        return 1;
+                    }
+
+                    return 1 + Math.max(...children.map(subtreeHeight));
+                }
+
+                function restoreTree(tree, list = menuTreeRoot) {
+                    const itemMap = new Map(
+                        Array.from(menuTree.querySelectorAll('.menu-tree-item'))
+                            .map(item => [item.dataset.menuId, item])
+                    );
+
+                    tree.forEach(node => {
+                        const item = itemMap.get(node.id);
+
+                        if (!item) {
+                            return;
+                        }
+
+                        list.appendChild(item);
+                        restoreTree(node.children, childList(item));
+                    });
+
+                    refreshTreeMetadata();
+                }
+
+                function setSortablesDisabled(disabled) {
+                    sortables.forEach(sortable => sortable.option('disabled', disabled));
+                }
+
+                function setSaveStatus(message, className) {
+                    if (!saveStatus) {
+                        return;
+                    }
+
+                    saveStatus.textContent = message;
+                    saveStatus.className = `menu-save-status me-3 ${className}`;
+                }
+
+                async function saveTree() {
+                    const tree = serializeList(menuTreeRoot);
+
+                    setSortablesDisabled(true);
+                    setSaveStatus('Saving...', 'text-primary');
+
+                    try {
+                        const response = await fetch(@json(route('menu.reorder')), {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': @json(csrf_token()),
+                            },
+                            body: JSON.stringify({ menus: tree }),
+                        });
+                        const payload = await response.json();
+
+                        if (!response.ok) {
+                            const validationMessage = payload.errors?.menus?.[0];
+                            throw new Error(validationMessage || payload.message || 'Menu order could not be saved.');
+                        }
+
+                        lastSavedTree = tree;
+                        setSaveStatus('Saved', 'text-success');
+                    } catch (error) {
+                        restoreTree(lastSavedTree);
+                        setSaveStatus(error.message, 'text-danger');
+                    } finally {
+                        setSortablesDisabled(false);
+                    }
+                }
+
+                if (canReorder && menuTreeRoot) {
+                    lastSavedTree = serializeList(menuTreeRoot);
+
+                    menuTree.querySelectorAll('.menu-tree-list').forEach(list => {
+                        sortables.push(Sortable.create(list, {
+                            group: 'menu-tree',
+                            animation: 150,
+                            handle: '.menu-drag-handle',
+                            draggable: '.menu-tree-item',
+                            ghostClass: 'menu-tree-ghost',
+                            chosenClass: 'menu-tree-chosen',
+                            fallbackOnBody: true,
+                            swapThreshold: .65,
+                            onStart: () => menuTree.classList.add('is-sorting'),
+                            onMove: event => {
+                                const targetDepth = Number(event.to.dataset.depth);
+                                const targetParent = event.to.closest('.menu-tree-item');
+
+                                if (
+                                    event.dragged.contains(event.to) ||
+                                    targetParent?.dataset.deleted === '1'
+                                ) {
+                                    return false;
+                                }
+
+                                return targetDepth + subtreeHeight(event.dragged) - 1 <= 3;
+                            },
+                            onEnd: event => {
+                                menuTree.classList.remove('is-sorting');
+
+                                if (event.from === event.to && event.oldIndex === event.newIndex) {
+                                    return;
+                                }
+
+                                refreshTreeMetadata();
+                                saveTree();
+                            },
+                        }));
+                    });
+                }
+
+                menuTree.addEventListener('click', event => {
+                    const toggle = event.target.closest('.menu-collapse-toggle');
+
+                    if (!toggle) {
+                        return;
+                    }
+
+                    const item = toggle.closest('.menu-tree-item');
+                    setItemExpanded(item, item.classList.contains('is-collapsed'));
+                });
+
+                expandAllMenus.addEventListener('click', () => setAllMenusExpanded(true));
+                collapseAllMenus.addEventListener('click', () => setAllMenusExpanded(false));
+
                 $("#btnFilter").click(function() {
                     var status = $('#selectStatus').find(':selected').val();
                     var path = "{{ url("access-management/menu") }}?";

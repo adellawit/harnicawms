@@ -8,15 +8,20 @@ use App\Models\MethodPayment;
 use App\Models\Product;
 use App\Models\ProductNature;
 use App\Models\ProductPriceList;
+use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
+use App\Services\MembershipPointService;
 use App\Services\PosCheckoutService;
 use App\Services\Product\ProductSearchService;
-use App\Support\WmsContext;
+use App\Services\Promotion\PromotionEngineService;
+use App\Services\Sales\BarcodeDispatchService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +32,7 @@ class POSController extends Controller
         protected ProductSearchService $productSearch,
         protected XenditService $xendit,
         protected PaymentSyncService $paymentSync,
+        protected BarcodeDispatchService $barcodeDispatch,
     ) {}
 
     protected function getBranchId(): ?string
@@ -64,6 +70,10 @@ class POSController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'uses_payment_gateway', 'gateway_provider', 'payment_group_code', 'gateway_channel_code']);
 
+        $agentConversion = session('partner_agent_conversion');
+        $preselectCustomerId = $request->query('customer_id')
+            ?: (is_array($agentConversion) ? ($agentConversion['customer_id'] ?? null) : null);
+
         // Customers (from customer.customers, filter by branch via customer_group)
         $customers = Customer::with([
             'customerGroup',
@@ -79,8 +89,25 @@ class POSController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'customer_group_id', 'customer_type', 'points_balance']);
 
+        // Ensure converted agent customer is selectable even if branch filter misses them.
+        if ($preselectCustomerId && ! $customers->contains('id', $preselectCustomerId)) {
+            $extra = Customer::with([
+                'customerGroup',
+                'agent:id,customer_id,code,name,status',
+                'reseller:id,customer_id,code,name,status,agent_id',
+                'reseller.agent:id,code,name',
+            ])
+                ->whereNull('deleted_at')
+                ->where('id', $preselectCustomerId)
+                ->first(['id', 'code', 'name', 'customer_group_id', 'customer_type', 'points_balance']);
+
+            if ($extra) {
+                $customers = $customers->prepend($extra)->unique('id')->values();
+            }
+        }
+
         $customerSelectGroups = $this->buildPosCustomerSelectGroups($customers);
-        $membershipConfig = app(\App\Services\MembershipPointService::class)->resolveDefaultConfig($branchId);
+        $membershipConfig = app(MembershipPointService::class)->resolveDefaultConfig($branchId);
         $redeemValuePerPoint = (int) ($membershipConfig?->redeem_value_per_point ?? 0);
         $earnAmountStep = (int) ($membershipConfig?->transaction_amount_step ?? 0);
         $earnPointsPerStep = (int) ($membershipConfig?->points_per_step ?? 0);
@@ -138,6 +165,8 @@ class POSController extends Controller
             'xenditSyncChannels' => config('xendit.sync_channels_from_api', true),
             'xenditChannelGroups' => $xenditChannelGroups,
             'nonXenditMethods' => $nonXenditMethods,
+            'preselectCustomerId' => $preselectCustomerId,
+            'agentConversion' => is_array($agentConversion) ? $agentConversion : null,
         ]);
     }
 
@@ -178,11 +207,53 @@ class POSController extends Controller
 
             $result[] = array_merge($mapped, [
                 'barcode' => $variant->barcode,
-                'image' => $variant->image ?? $product->image ?? null,
+                'image' => $variant->image ?? null,
+                'product_id' => $product->id,
+                'has_trackable_serials' => $this->barcodeDispatch->productHasTrackableSerials(
+                    $product->id,
+                    $variant->id
+                ),
             ]);
         }
 
         return response()->json(['variants' => $result]);
+    }
+
+    /**
+     * Resolve printed label serial into a POS cart line payload.
+     */
+    public function lookupBarcode(Request $request)
+    {
+        $request->validate([
+            'serial_number' => 'required|string|max:20',
+            'price_list_id' => 'required|uuid',
+            'pending_product_id' => 'nullable|uuid',
+            'pending_variant_id' => 'nullable|uuid',
+            'pending_unit_id' => 'nullable|uuid',
+        ]);
+
+        $branchId = $this->getBranchId();
+        if (! $branchId) {
+            return response()->json(['success' => false, 'message' => 'Branch not selected'], 422);
+        }
+
+        try {
+            $payload = $this->barcodeDispatch->lookupForPos(
+                $request->serial_number,
+                $branchId,
+                $request->price_list_id,
+                $request->pending_product_id,
+                $request->pending_variant_id,
+                $request->pending_unit_id,
+            );
+
+            return response()->json(['success' => true, 'data' => $payload]);
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
     }
 
     /**
@@ -227,7 +298,7 @@ class POSController extends Controller
             return response()->json(['success' => true, 'free_items' => []]);
         }
 
-        $expanded = \App\Services\Promotion\PromotionEngineService::applyToCartLines(
+        $expanded = PromotionEngineService::applyToCartLines(
             $itemsData,
             $companyId,
             $branchId,
@@ -239,7 +310,7 @@ class POSController extends Controller
             ->map(function (array $row) {
                 $variant = ProductVariant::with(['product.defaultUnit'])->find($row['product_variant_id']);
                 $unit = $row['unit_id']
-                    ? \App\Models\ProductUnit::query()->find($row['unit_id'], ['id', 'symbol', 'name'])
+                    ? ProductUnit::query()->find($row['unit_id'], ['id', 'symbol', 'name'])
                     : ($variant?->product?->defaultUnit);
 
                 return [
@@ -293,17 +364,26 @@ class POSController extends Controller
             }
         }
 
+        $data = [
+            'sales_order_id' => $order->id,
+            'sales_number' => $order->sales_number,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'total' => (float) $order->total,
+            'is_paid' => $order->payment_status === 'paid',
+            'sync' => $syncResult,
+        ];
+
+        if ($order->payment_status === 'paid') {
+            $agentConversion = $this->consumeAgentConversionForCustomer($order->customer_id);
+            if ($agentConversion) {
+                $data['agent_conversion'] = $agentConversion;
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'data' => [
-                'sales_order_id' => $order->id,
-                'sales_number' => $order->sales_number,
-                'status' => $order->status,
-                'payment_status' => $order->payment_status,
-                'total' => (float) $order->total,
-                'is_paid' => $order->payment_status === 'paid',
-                'sync' => $syncResult,
-            ],
+            'data' => $data,
         ]);
     }
 
@@ -385,6 +465,8 @@ class POSController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_type' => 'nullable|in:percent,nominal',
             'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.serial_numbers' => 'nullable|array',
+            'items.*.serial_numbers.*' => 'string|max:20',
             'payment_method_id' => 'required|uuid',
             'customer_id' => 'nullable|uuid',
             'tax_rate' => 'required|numeric|min:0|max:100',
@@ -431,6 +513,10 @@ class POSController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
+            $this->barcodeDispatch->assertCartSerialsForDestination(
+                $request->customer_id,
+                $totals['items_data']
+            );
             $total = $totals['total'];
             $amountPaid = (float) $request->amount_paid;
 
@@ -453,12 +539,19 @@ class POSController extends Controller
                 'unpaid',
             );
 
+            $this->barcodeDispatch->assignSerialsForNewOrder(
+                $order,
+                $order->pending_serials_by_item_id ?? [],
+                $userId,
+                $branchId
+            );
+
             $changeAmount = max($amountPaid - $total, 0);
 
             SalesOrderPayment::create([
                 'sales_order_id' => $order->id,
                 'method_payment_id' => $request->payment_method_id,
-                'payment_code' => 'PAY-' . $salesNumber,
+                'payment_code' => 'PAY-'.$salesNumber,
                 'amount' => $amountPaid,
                 'change_amount' => $changeAmount,
                 'status' => 'completed',
@@ -466,32 +559,48 @@ class POSController extends Controller
             ]);
 
             $this->checkout->completePaidOrder($order->fresh(), $userId);
+            $this->barcodeDispatch->finalizeIfEligible($order->id, $userId, $branchId);
 
             DB::commit();
 
             $order->refresh();
 
+            $paymentData = [
+                'sales_order_id' => $order->id,
+                'sales_number' => $order->sales_number,
+                'total' => (float) $order->total,
+                'amount_paid' => $amountPaid,
+                'change_amount' => $changeAmount,
+                'promo_free_count' => (int) ($totals['promo_free_count'] ?? 0),
+                'membership_points_earned' => (int) ($order->membership_points_earned ?? 0),
+                'membership_points_redeemed' => (int) ($order->membership_points_redeemed ?? 0),
+                'membership_redeem_discount_amount' => (float) ($order->membership_redeem_discount_amount ?? 0),
+            ];
+
+            $agentConversion = $this->consumeAgentConversionForCustomer($order->customer_id);
+            if ($agentConversion) {
+                $paymentData['agent_conversion'] = $agentConversion;
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Transaction completed successfully',
-                'data' => [
-                    'sales_number' => $order->sales_number,
-                    'total' => (float) $order->total,
-                    'amount_paid' => $amountPaid,
-                    'change_amount' => $changeAmount,
-                    'promo_free_count' => (int) ($totals['promo_free_count'] ?? 0),
-                    'membership_points_earned' => (int) ($order->membership_points_earned ?? 0),
-                    'membership_points_redeemed' => (int) ($order->membership_points_redeemed ?? 0),
-                    'membership_redeem_discount_amount' => (float) ($order->membership_redeem_discount_amount ?? 0),
-                ],
+                'data' => $paymentData,
             ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('POS Payment failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Payment failed: ' . $e->getMessage(),
+                'message' => 'Payment failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -506,6 +615,10 @@ class POSController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
+            $this->barcodeDispatch->assertCartSerialsForDestination(
+                $request->customer_id,
+                $totals['items_data']
+            );
             $total = $totals['total'];
 
             if ($total <= 0) {
@@ -524,10 +637,17 @@ class POSController extends Controller
                 'unpaid',
             );
 
+            $this->barcodeDispatch->assignSerialsForNewOrder(
+                $order,
+                $order->pending_serials_by_item_id ?? [],
+                $userId,
+                $branchId
+            );
+
             $payment = SalesOrderPayment::create([
                 'sales_order_id' => $order->id,
                 'method_payment_id' => $request->payment_method_id,
-                'payment_code' => 'PAY-' . $salesNumber,
+                'payment_code' => 'PAY-'.$salesNumber,
                 'gateway' => 'xendit',
                 'amount' => $total,
                 'change_amount' => 0,
@@ -541,9 +661,9 @@ class POSController extends Controller
                 : $methodPayment->name;
 
             $invoicePayload = [
-                'external_id' => 'pos-' . $order->id,
+                'external_id' => 'pos-'.$order->id,
                 'amount' => (int) round($total),
-                'description' => 'POS ' . $salesNumber . ' - ' . $channelLabel,
+                'description' => 'POS '.$salesNumber.' - '.$channelLabel,
                 'invoice_duration' => config('xendit.invoice_duration', 900),
                 'currency' => 'IDR',
                 'success_redirect_url' => route('transaction.pos.payment.return', [
@@ -566,7 +686,7 @@ class POSController extends Controller
 
             if ($xenditChannel) {
                 $payment->update([
-                    'notes' => 'xendit_channel:' . strtoupper((string) $xenditChannel),
+                    'notes' => 'xendit_channel:'.strtoupper((string) $xenditChannel),
                 ]);
             }
 
@@ -598,13 +718,20 @@ class POSController extends Controller
                     'invoice_id' => $invoiceId,
                 ],
             ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('POS Xendit payment failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Xendit payment failed: ' . $e->getMessage(),
+                'message' => 'Xendit payment failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -635,7 +762,7 @@ class POSController extends Controller
     /**
      * Group POS customers as: Agent A → resellers under A, Agent B → resellers under B, then others.
      *
-     * @param  \Illuminate\Support\Collection<int, Customer>  $customers
+     * @param  Collection<int, Customer>  $customers
      * @return list<array{label: string, customers: list<Customer>}>
      */
     protected function buildPosCustomerSelectGroups($customers): array
@@ -695,5 +822,31 @@ class POSController extends Controller
         }
 
         return $groups;
+    }
+
+    /**
+     * After paid POS for converted Agent customer: return agent code payload and clear session.
+     *
+     * @return array{agent_id: string, agent_code: string, agent_name: string, customer_id: string}|null
+     */
+    protected function consumeAgentConversionForCustomer(?string $customerId): ?array
+    {
+        if (! $customerId) {
+            return null;
+        }
+
+        $conversion = session('partner_agent_conversion');
+        if (! is_array($conversion) || ($conversion['customer_id'] ?? null) !== $customerId) {
+            return null;
+        }
+
+        session()->forget('partner_agent_conversion');
+
+        return [
+            'agent_id' => (string) ($conversion['agent_id'] ?? ''),
+            'agent_code' => (string) ($conversion['agent_code'] ?? ''),
+            'agent_name' => (string) ($conversion['agent_name'] ?? ''),
+            'customer_id' => (string) $customerId,
+        ];
     }
 }
