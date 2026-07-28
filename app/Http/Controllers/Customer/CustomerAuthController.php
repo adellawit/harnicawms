@@ -56,8 +56,9 @@ class CustomerAuthController extends Controller
 
         $request->session()->regenerate();
 
-        if ($portal === 'agent') {
-            $request->session()->forget('url.intended');
+        $defaultRedirect = $portal === 'agent'
+            ? route('agent-order.dashboard')
+            : route('customer.shop');
 
             return redirect()->route('agent-order.index');
         }

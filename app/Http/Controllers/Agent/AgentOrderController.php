@@ -3,12 +3,18 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\Marketing\Asset;
+use App\Models\Marketing\Category;
 use App\Models\MethodPayment;
+use App\Models\Partner\Reseller;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
+use App\Models\Promotion;
 use App\Models\SalesOrder;
+use App\Models\Training\Course;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
@@ -47,6 +53,217 @@ class AgentOrderController extends Controller
         return $customer->address_shipping ?: ($customer->address ?: $agent?->address);
     }
 
+    public function dashboard(): View
+    {
+        $ctx = $this->context();
+        $customer = $ctx->customer();
+        $agent = $customer->agent;
+        $cid = $customer->id;
+
+        $activeOrdersCount = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->count();
+
+        $ordersThisMonth = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->count();
+
+        $activeResellers = $agent
+            ? $agent->resellers()->where('status', 'active')->count()
+            : 0;
+
+        $activeOrders = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+
+        $lastOrder = SalesOrder::where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $cid)
+            ->where('status', 'completed')
+            ->latest('created_at')
+            ->first();
+
+        $resellers = $agent
+            ? $agent->resellers()->latest('created_at')->limit(4)->get()
+            : collect();
+
+        $marketingAssets = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->with('category')
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+
+        $courses = Course::query()
+            ->published()
+            ->latest('created_at')
+            ->limit(3)
+            ->get();
+
+        $totalResellers = $agent ? $agent->resellers()->count() : 0;
+
+        $totalMarketingAssets = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->count();
+
+        $totalCourses = Course::query()->published()->count();
+
+        return view('agent.order.dashboard', [
+            'customer' => $customer,
+            'agent' => $agent,
+            'agentCode' => $agent?->code ?? '-',
+            'branchLabel' => $ctx->branchDisplayLabel(),
+            'shippingAddress' => $this->resolveShippingAddress(),
+            'stats' => [
+                'active_orders' => $activeOrdersCount,
+                'orders_this_month' => $ordersThisMonth,
+                'active_resellers' => $activeResellers,
+            ],
+            'activeOrders' => $activeOrders,
+            'lastOrder' => $lastOrder,
+            'resellers' => $resellers,
+            'marketingAssets' => $marketingAssets,
+            'courses' => $courses,
+            'totalActiveOrders' => $activeOrdersCount,
+            'totalResellers' => $totalResellers,
+            'totalMarketingAssets' => $totalMarketingAssets,
+            'totalCourses' => $totalCourses,
+        ]);
+    }
+
+    public function resellers(Request $request): View
+    {
+        $customer = $this->context()->customer();
+        $agent = $customer->agent;
+
+        $query = $agent
+            ? $agent->resellers()->getQuery()
+            : Reseller::query()->whereRaw('1 = 0');
+
+        $status = $request->get('status');
+        if (in_array($status, ['active', 'inactive'], true)) {
+            $query->where('status', $status);
+        } else {
+            $status = null;
+        }
+
+        $search = trim((string) $request->get('q', ''));
+        if ($search !== '') {
+            $query->where(fn ($q) => $q->where('name', 'ilike', "%{$search}%")->orWhere('code', 'ilike', "%{$search}%"));
+        }
+
+        $resellers = $query->orderBy('name')->paginate(20)->withQueryString();
+
+        return view('agent.order.resellers', [
+            'resellers' => $resellers,
+            'activeStatus' => $status ?? 'all',
+            'search' => $search,
+        ]);
+    }
+
+    public function training(): View
+    {
+        $courses = Course::published()
+            ->with('category')
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->get();
+
+        return view('agent.order.training.index', ['courses' => $courses]);
+    }
+
+    public function trainingShow(string $courseId): View
+    {
+        $course = Course::published()
+            ->with([
+                'category',
+                'modules' => fn ($q) => $q->orderBy('sort_order'),
+                'modules.materials' => fn ($q) => $q->orderBy('sort_order'),
+            ])
+            ->findOrFail($courseId);
+
+        return view('agent.order.training.show', ['course' => $course]);
+    }
+
+    public function materials(Request $request): View
+    {
+        $query = Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->with('category')
+            ->latest('created_at');
+
+        $categoryId = $request->get('category_id');
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $type = $request->get('type');
+        if (in_array($type, ['image', 'pdf', 'video', 'text'], true)) {
+            $query->where('type', $type);
+        } else {
+            $type = null;
+        }
+
+        $assets = $query->paginate(24)->withQueryString();
+
+        $categories = Category::whereHas('assets', fn ($q) => $q->active()->where('usable_in_marketing', true))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('agent.order.materials', [
+            'assets' => $assets,
+            'categories' => $categories,
+            'activeCategoryId' => $categoryId,
+            'activeType' => $type,
+        ]);
+    }
+
+    public function reorder(string $order): RedirectResponse
+    {
+        $customer = $this->context()->customer();
+
+        $order = SalesOrder::with('items')
+            ->where('order_type', self::ORDER_TYPE)
+            ->where('customer_id', $customer->id)
+            ->findOrFail($order);
+
+        $cart = $this->cart();
+        $cart->clear();
+
+        $skipped = 0;
+        foreach ($order->items as $item) {
+            if (! $item->product_variant_id) {
+                $skipped++;
+                continue;
+            }
+            try {
+                $cart->add($item->product_variant_id, (float) $item->quantity);
+            } catch (\Throwable $e) {
+                $skipped++;
+            }
+        }
+
+        if ($cart->count() < 1) {
+            return redirect()->route('agent-order.index')
+                ->with('error', 'Item pada pesanan tersebut sudah tidak tersedia.');
+        }
+
+        $redirect = redirect()->route('agent-order.checkout');
+        if ($skipped > 0) {
+            $redirect->with('warning', 'Sebagian item tidak tersedia lagi dan dilewati.');
+        }
+
+        return $redirect;
+    }
+
     public function index(Request $request): View|RedirectResponse
     {
         $ctx = $this->context();
@@ -62,6 +279,8 @@ class AgentOrderController extends Controller
         $branchId = $ctx->branchId();
         $priceListId = $ctx->priceListId();
         $search = trim((string) $request->get('q', ''));
+        $categoryId = $request->get('category_id');
+        $promoOnly = $request->boolean('promo');
 
         $productsQuery = Product::with('nature')
             ->withCount('variants')
@@ -71,12 +290,31 @@ class AgentOrderController extends Controller
             ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
             ->orderBy('name');
 
+        if ($categoryId) {
+            $productsQuery->where('category_id', $categoryId);
+        }
+
         if ($search !== '') {
             $productsQuery->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', '%'.$search.'%')
                     ->orWhere('code', 'ilike', '%'.$search.'%');
             });
         }
+
+        $categoryIds = Product::query()->saleItems()->whereNull('deleted_at')
+            ->where('branch_id', $branchId)
+            ->whereHas('nature', fn ($q) => $q->where('code', 'FINISHED_GOOD'))
+            ->whereNotNull('category_id')
+            ->distinct()
+            ->pluck('category_id');
+
+        $categories = ProductCategory::whereIn('id', $categoryIds)->orderBy('name')->get(['id', 'name']);
+
+        $promoProductIds = Promotion::activeNow()
+            ->whereNotNull('buy_product_id')
+            ->pluck('buy_product_id')
+            ->unique()
+            ->all();
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId, $priceListId) {
             $minPrice = $this->minVariantPrice($product->id, $branchId, $priceListId);
@@ -93,11 +331,27 @@ class AgentOrderController extends Controller
             ];
         })->filter(fn ($p) => $p['has_price'])->values();
 
+        $products = $products->map(function ($p) use ($promoProductIds) {
+            $p['is_promo'] = in_array($p['id'], $promoProductIds, true);
+
+            return $p;
+        });
+
+        $promoProducts = $products->where('is_promo', true)->values();
+
+        if ($promoOnly) {
+            $products = $promoProducts;
+        }
+
         return view('agent.order.index', [
             'customer' => $ctx->customer(),
             'branch' => $ctx->branch(),
             'products' => $products,
             'search' => $search,
+            'categories' => $categories,
+            'activeCategoryId' => $categoryId,
+            'promoProducts' => $promoProducts,
+            'promoOnly' => $promoOnly,
             'cart' => $this->cart()->get(),
             'summary' => $this->cart()->summarize(),
         ]);
@@ -398,20 +652,37 @@ class AgentOrderController extends Controller
         ]);
     }
 
-    public function orders(): View
+    public function orders(Request $request): View
     {
         $customer = auth('customer')->user();
 
-        $orders = SalesOrder::query()
+        $filterMap = [
+            'pending' => ['status', 'pending'],
+            'completed' => ['status', 'completed'],
+            'unpaid' => ['payment_status', 'unpaid'],
+            'cancelled' => ['status', 'cancelled'],
+        ];
+        $activeFilter = $request->get('filter');
+        $activeFilter = array_key_exists($activeFilter, $filterMap) ? $activeFilter : 'all';
+
+        $query = SalesOrder::query()
             ->where('order_type', self::ORDER_TYPE)
             ->where('customer_id', $customer->id)
-            ->with('payments.methodPayment')
-            ->orderByDesc('created_at')
-            ->paginate(15);
+            ->withCount('items')
+            ->with(['items' => fn ($q) => $q->with('product')->limit(1), 'methodPayment', 'payments.methodPayment'])
+            ->orderByDesc('created_at');
+
+        if ($activeFilter !== 'all') {
+            [$col, $val] = $filterMap[$activeFilter];
+            $query->where($col, $val);
+        }
+
+        $orders = $query->paginate(15);
 
         return view('agent.order.orders.index', [
             'customer' => $customer,
             'orders' => $orders,
+            'activeFilter' => $activeFilter,
         ]);
     }
 
