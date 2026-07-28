@@ -38,6 +38,10 @@ class AppThemeService
         $primaryRgb = $this->hexToRgbString($primary);
         $secondaryRgb = $this->hexToRgbString($secondary);
 
+        $navbarBg = $this->optionalHex($setting->navbar_color);
+        $sidebarBg = $this->optionalHex($setting->sidebar_color);
+        $pageBg = $this->optionalHex($setting->background_color);
+
         return [
             'primary' => $primary,
             'secondary' => $secondary,
@@ -48,6 +52,14 @@ class AppThemeService
             'primary_soft' => $this->tintHex($primary, 0.86),
             'secondary_600' => $this->shadeHex($secondary, 0.16),
             'secondary_soft' => $this->tintHex($secondary, 0.86),
+            'navbar_bg' => $navbarBg,
+            'navbar_rgb' => $navbarBg ? $this->hexToRgbString($navbarBg) : null,
+            'navbar_color' => $navbarBg ? $this->contrastInk($navbarBg) : null,
+            'sidebar_bg' => $sidebarBg,
+            'sidebar_rgb' => $sidebarBg ? $this->hexToRgbString($sidebarBg) : null,
+            'sidebar_color' => $sidebarBg ? $this->contrastInk($sidebarBg) : null,
+            'page_bg' => $pageBg,
+            'page_bg_rgb' => $pageBg ? $this->hexToRgbString($pageBg) : null,
             'color_mode' => $setting->color_mode,
             'glass_enabled' => $setting->glass_enabled,
             'motion_enabled' => $setting->motion_enabled,
@@ -55,6 +67,30 @@ class AppThemeService
             'favicon_url' => $this->faviconUrl($setting),
             'default_logo_url' => asset('assets/img/harnica/logo.png'),
         ];
+    }
+
+    /**
+     * Pick readable ink for a surface background using WCAG relative luminance.
+     */
+    public function contrastInk(string $hex): string
+    {
+        $hex = $this->normalizeHex($hex, '#FFFFFF');
+        $hex = ltrim($hex, '#');
+        $channels = [
+            hexdec(substr($hex, 0, 2)) / 255,
+            hexdec(substr($hex, 2, 2)) / 255,
+            hexdec(substr($hex, 4, 2)) / 255,
+        ];
+
+        $linear = array_map(static function (float $c): float {
+            return $c <= 0.03928
+                ? $c / 12.92
+                : (($c + 0.055) / 1.055) ** 2.4;
+        }, $channels);
+
+        $luminance = 0.2126 * $linear[0] + 0.7152 * $linear[1] + 0.0722 * $linear[2];
+
+        return $luminance > 0.179 ? '#2F3A44' : '#FFFFFF';
     }
 
     public function update(array $data, ?UploadedFile $logo = null, ?UploadedFile $favicon = null, ?string $userId = null): AppThemeSetting
@@ -112,6 +148,20 @@ class AppThemeService
         }
 
         return strtoupper($fallback);
+    }
+
+    private function optionalHex(?string $hex): ?string
+    {
+        if ($hex === null || trim($hex) === '') {
+            return null;
+        }
+
+        $normalized = strtoupper(trim($hex));
+        if (preg_match('/^#[0-9A-F]{6}$/', $normalized)) {
+            return $normalized;
+        }
+
+        return null;
     }
 
     private function hexToRgbString(string $hex): string
