@@ -1251,12 +1251,8 @@ body.agent-pos-body {
 }
 #posCampaignStrip {
     flex-shrink: 0;
-    min-height: 2.5rem;
     border-top: 1px solid #f0f0f0;
     background: #fafbfe;
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-    color: #9aa4b8;
 }
 .pos-toolbar-row {
     display: flex;

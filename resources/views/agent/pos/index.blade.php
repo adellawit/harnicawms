@@ -107,9 +107,26 @@
                     @endforelse
                 </div>
 
-                <div id="posCampaignStrip" aria-hidden="true">
-                    {{-- Slice 3: campaign strip placeholder --}}
-                </div>
+                @if (($campaigns ?? collect())->isNotEmpty())
+                    <div id="posCampaignStrip" class="row g-2 mt-2 px-2 pb-2">
+                        @foreach ($campaigns as $c)
+                            <div class="col-6 col-xl-4">
+                                <div class="card border-0 shadow-sm h-100 bg-label-primary">
+                                    <div class="card-body p-3">
+                                        <span class="badge bg-primary mb-1">CAMPAIGN</span>
+                                        <div class="fw-semibold small text-truncate">{{ $c['name'] }}</div>
+                                        @if (!empty($c['label']))
+                                            <div class="text-muted small">{{ $c['label'] }}</div>
+                                        @endif
+                                        @if (!empty($c['product']))
+                                            <div class="text-muted small text-truncate">{{ $c['product'] }}</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
 
             {{-- Panel kanan: keranjang --}}

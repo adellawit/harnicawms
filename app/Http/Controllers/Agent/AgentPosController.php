@@ -8,6 +8,7 @@ use App\Models\Partner\Agent;
 use App\Models\Product;
 use App\Models\ProductNature;
 use App\Models\ProductPriceList;
+use App\Models\Promotion;
 use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\SalesOrder;
@@ -129,6 +130,31 @@ class AgentPosController extends Controller
             ];
         });
 
+        $campaigns = Promotion::activeNow()
+            ->when($companyId, fn ($q) => $q->where(function ($qq) use ($companyId) {
+                $qq->whereNull('company_id')->orWhere('company_id', $companyId);
+            }))
+            ->with(['buyProduct:id,name', 'getProduct:id,name'])
+            ->orderByDesc('priority')
+            ->orderBy('code')
+            ->limit(6)
+            ->get()
+            ->map(function (Promotion $promotion) {
+                $labelParts = [];
+                if ($promotion->buy_min_qty > 0) {
+                    $labelParts[] = 'Beli '.$this->formatPromoQty($promotion->buy_min_qty);
+                }
+                if ($promotion->get_qty > 0) {
+                    $labelParts[] = 'gratis '.$this->formatPromoQty($promotion->get_qty);
+                }
+
+                return [
+                    'name' => $promotion->name,
+                    'label' => trim(implode(' ', $labelParts)),
+                    'product' => $promotion->buyProduct?->name,
+                ];
+            });
+
         return view('agent.pos.index', [
             'products' => $products,
             'productTypes' => $productTypes,
@@ -148,7 +174,17 @@ class AgentPosController extends Controller
             'nonXenditMethods' => $nonXenditMethods,
             'agentWarehouseId' => $this->agentWarehouseId(),
             'branchId' => $branchId,
+            'campaigns' => $campaigns,
         ]);
+    }
+
+    protected function formatPromoQty(float $qty): string
+    {
+        if (fmod($qty, 1.0) === 0.0) {
+            return (string) (int) $qty;
+        }
+
+        return rtrim(rtrim(number_format($qty, 2, ',', '.'), '0'), ',');
     }
 
     public function getProductVariants(Request $request): JsonResponse
