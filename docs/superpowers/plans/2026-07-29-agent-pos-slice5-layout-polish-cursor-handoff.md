@@ -2,7 +2,7 @@
 
 > Tunjuk ke Cursor: "Kerjakan docs/superpowers/plans/2026-07-29-agent-pos-slice5-layout-polish-cursor-handoff.md".
 > Spec: `docs/superpowers/specs/2026-07-28-agent-pos-design.md`. Prasyarat: Slice 1–4 selesai (POS agen jalan di `/agent-order/pos`).
-> SCOPE = 5 penyesuaian tampilan/UX POS agen dari feedback. **JANGAN ubah admin POS** & **/shop customer**. File yang disentuh: `resources/views/agent/pos/index.blade.php`, `resources/views/layouts/agent-pos.blade.php`, `public/assets/js/agent-pos.js`, `app/Http/Controllers/Agent/AgentPosController.php`, `routes/agent.php` (khusus poin 2). Pakai token warna brand (`--bs-primary`), bukan hex.
+> SCOPE = 7 penyesuaian tampilan/UX POS agen dari feedback. **JANGAN ubah admin POS** & **/shop customer**. File yang disentuh: `resources/views/agent/pos/index.blade.php`, `resources/views/layouts/agent-pos.blade.php`, `resources/views/agent/order/dashboard.blade.php` (poin 7), `public/assets/js/agent-pos.js`, `app/Http/Controllers/Agent/AgentPosController.php`, `routes/agent.php` (poin 2). Pakai token warna brand (`--bs-primary`), bukan hex.
 
 ## Poin 1 — Judul header: hilangkan "· WIT. Management System", pakai format meta transaksi
 
@@ -123,6 +123,22 @@ Teks "Ongkir F6 Rp 0" terlalu panjang → meluber melewati batas tombol dan mene
 
 (Bila tetap ingin dipertahankan: buang teks "Rp 0" & `<kbd>`, sisakan label "Ongkir" saja, dan pastikan `.pos-toolbar-row` memakai `flex-wrap`/lebar tombol yang muat.)
 
+## Poin 6 — Hapus tombol "Batal" (redundan dengan "Hapus Semua")
+
+Tombol "Hapus Semua" dan "Batal" menjalankan fungsi identik: di `public/assets/js/agent-pos.js:139-140`, handler `#btnClearAll` hanya memicu `$('#btnCancel').trigger('click')`. Jadi keduanya = reset transaksi yang sama.
+
+**Hapus tombol "Batal"** (`index.blade.php:232-234`, `#btnCancel`) dari `.pos-action-row`, sehingga baris aksi hanya berisi tombol **BAYAR** (boleh dibuat full-width). Pertahankan LOGIKA reset: fungsi sebenarnya ada di `bindCancel()` (agent-pos.js:359-360, handler `#btnCancel`). Karena elemen `#btnCancel` dihapus, **pindahkan logika reset itu ke `#btnClearAll`** langsung (ubah baris 139-140 agar `#btnClearAll` menjalankan reset sendiri, bukan men-trigger `#btnCancel` yang sudah tak ada). Pastikan "Hapus Semua" tetap mengosongkan keranjang + reset diskon/pelanggan seperti sebelumnya.
+
+## Poin 7 — Icon navigasi POS tidak muncul
+
+Di `resources/views/agent/order/dashboard.blade.php:73`, kartu nav "POS / Kasir" memakai `<i class="ti ti-cash-register">`. Ikon `ti-cash-register` **tidak ada** di Tabler Icons versi project (`public/assets/vendor/fonts/tabler-icons.css`) → tampil kosong.
+
+**Ganti** ke ikon yang tersedia: **`ti-cash`** (rekomendasi) atau `ti-building-store`. Contoh:
+```blade
+<span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-cash"></i></span>
+```
+Bila poin 4 (ikon di header portal) juga dibuat sebelumnya dengan `ti-cash-register`, ganti pula. (Cek cepat: `grep -rn "ti-cash-register" resources/views` — pastikan tak ada sisa.)
+
 ## Verifikasi akhir
 
 ```bash
@@ -136,6 +152,8 @@ Smoke manual (login agen → `/agent-order/pos`, lebar desktop):
 - "Reguler"/price list sebaris dengan pilih reseller, rapi.
 - Tombol Diskon/Promo/Catatan/Hapus Semua/BAYAR tanpa label F#; tak ada shortcut keyboard.
 - Tombol Ongkir yang meluber hilang (atau muat rapi); ongkir tetap Rp 0 di ringkasan.
+- Baris aksi hanya tombol BAYAR (tombol "Batal" hilang); "Hapus Semua" tetap mereset keranjang + diskon + pelanggan.
+- Kartu nav "POS / Kasir" di dashboard menampilkan ikon (bukan kosong).
 - Tak ada error konsol; admin POS & /shop tak berubah.
 
 ## Checklist
@@ -145,4 +163,6 @@ Smoke manual (login agen → `/agent-order/pos`, lebar desktop):
 - [ ] Price list "Reguler" dipindah sebaris dengan pilih reseller; select2 & handler tetap jalan.
 - [ ] Semua `<kbd>` shortcut dihapus + handler keydown F1/F4/F5/F7/F8 dihapus.
 - [ ] Tombol Ongkir yang meluber dihapus (atau dirapikan); ongkir Rp 0 tetap di ringkasan.
+- [ ] Tombol "Batal" dihapus; logika reset dipindah ke "Hapus Semua" (tak ada referensi `#btnCancel` yang menggantung).
+- [ ] Ikon nav POS diganti dari `ti-cash-register` (tak ada) ke `ti-cash`/`ti-building-store`; tak ada sisa `ti-cash-register`.
 - [ ] view:cache bersih; admin POS & /shop tak berubah; token brand dipakai.
