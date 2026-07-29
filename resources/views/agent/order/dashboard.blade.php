@@ -68,6 +68,18 @@
     {{-- 4. Kartu navigasi --}}
     <div class="row g-2 g-md-3 mb-4">
         <div class="col-md-4">
+            <a href="{{ route('agent-order.pos') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-cash-register"></i></span>
+                    <div class="min-w-0">
+                        <div class="fw-semibold">POS / Kasir</div>
+                        <div class="small text-muted">Jual ke reseller Anda</div>
+                    </div>
+                    <i class="ti ti-chevron-right ms-auto text-muted flex-shrink-0"></i>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
             <a href="{{ route('agent-order.index') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-building-store"></i></span>

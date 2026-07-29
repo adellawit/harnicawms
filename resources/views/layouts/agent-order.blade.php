@@ -37,6 +37,7 @@
                 @php
                     $navCustomer = auth('customer')->user();
                     $navOrdersActive = request()->routeIs('agent-order.orders') || request()->routeIs('agent-order.orders.show');
+                    $navPosActive = request()->routeIs('agent-order.pos*');
                 @endphp
                 <div class="d-flex align-items-center gap-1 gap-sm-2 ms-auto shop-nav-actions">
                     <a href="{{ route('agent-order.dashboard') }}"
@@ -49,6 +50,11 @@
                         title="Katalog" aria-label="Katalog">
                         <i class="ti ti-layout-grid"></i>
                         <span class="d-none d-md-inline ms-1">Katalog</span>
+                    </a>
+                    <a href="{{ route('agent-order.pos') }}"
+                        class="shop-nav-circle {{ $navPosActive ? 'active' : '' }}"
+                        title="POS" aria-label="POS">
+                        <i class="ti ti-cash-register"></i>
                     </a>
                     <button type="button" class="shop-nav-circle shop-nav-cart"
                         id="navCartBtn" title="Keranjang" aria-label="Keranjang"
