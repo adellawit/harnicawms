@@ -26,8 +26,30 @@
         });
         $('#customerSelect').select2({
             dropdownParent: $('body'),
-            placeholder: 'Pilih Reseller',
+            placeholder: 'Pelanggan Umum (Walk-in)',
             allowClear: true,
+            minimumInputLength: 0,
+            ajax: {
+                url: routes.resellerSearch,
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '' };
+                },
+                processResults: function (data) {
+                    return { results: data.results || [] };
+                },
+            },
+            templateResult: function (item) {
+                if (!item.id) {
+                    return item.text;
+                }
+                var $row = $('<span></span>').text(item.text);
+                if (item.own) {
+                    $row.append(' <span class="badge bg-label-primary ms-1">Reseller Anda</span>');
+                }
+                return $row;
+            },
         });
 
         var variantModalEl = document.getElementById('variantModal');
@@ -45,7 +67,6 @@
         bindToolbar();
         bindCatalog();
         bindCartEvents();
-        bindCancel();
         handleXenditReturn();
 
         $('#priceListSelect').on('change select2:select', function () {
@@ -137,32 +158,23 @@
             });
         });
         $('#btnClearAll').on('click', function () {
-            $('#btnCancel').trigger('click');
-        });
-        $(document).on('keydown', function (e) {
-            if ($(e.target).is('input, textarea, select')) {
-                return;
-            }
-            if (e.key === 'F1') {
-                e.preventDefault();
-                $('#btnPayment').trigger('click');
-            }
-            if (e.key === 'F4') {
-                e.preventDefault();
-                $('#btnDiscToolbar').trigger('click');
-            }
-            if (e.key === 'F5') {
-                e.preventDefault();
-                $('#btnPromoToolbar').trigger('click');
-            }
-            if (e.key === 'F7') {
-                e.preventDefault();
-                $('#btnNotesToolbar').trigger('click');
-            }
-            if (e.key === 'F8') {
-                e.preventDefault();
-                $('#btnClearAll').trigger('click');
-            }
+            Swal.fire({
+                title: 'Hapus semua item?',
+                text: 'Keranjang, diskon, dan pelanggan akan direset.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, hapus',
+                cancelButtonText: 'Batal',
+                customClass: {
+                    confirmButton: 'btn btn-danger me-2',
+                    cancelButton: 'btn btn-label-secondary',
+                },
+                buttonsStyling: false,
+            }).then(function (r) {
+                if (r.isConfirmed) {
+                    clearCart();
+                }
+            });
         });
         $('#categoryFilterSelect').on('change', function () {
             var typeId = $(this).val();
@@ -353,28 +365,6 @@
             var discType = item.find('.item-disc-type.active').data('type') || 'percent';
             handleDiscInputInput(this, discType);
             updateCartTotals();
-        });
-    }
-
-    function bindCancel() {
-        $('#btnCancel').on('click', function () {
-            Swal.fire({
-                title: 'Hapus semua item?',
-                text: 'Keranjang akan dikosongkan.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, hapus',
-                cancelButtonText: 'Batal',
-                customClass: {
-                    confirmButton: 'btn btn-danger me-2',
-                    cancelButton: 'btn btn-label-secondary',
-                },
-                buttonsStyling: false,
-            }).then(function (r) {
-                if (r.isConfirmed) {
-                    clearCart();
-                }
-            });
         });
     }
 
@@ -792,6 +782,7 @@
         $('.disc-type').removeClass('active');
         $('.disc-type[data-type="percent"]').addClass('active');
         orderNotes = '';
+        $('#customerSelect').val(null).trigger('change');
         updateCartTotals();
         checkEmptyCart();
     }

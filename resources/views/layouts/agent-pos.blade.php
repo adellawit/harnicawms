@@ -31,7 +31,6 @@
                 @else
                     <i class="ti ti-receipt"></i>
                 @endif
-                <span>POS Agen · {{ $shopCompanyName ?? config('app.name') }}</span>
             </div>
             <div class="d-flex align-items-center gap-2">
                 @auth('customer')

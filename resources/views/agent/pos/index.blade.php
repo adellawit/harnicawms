@@ -20,23 +20,15 @@
         @endif
 
         <div class="pos-top-bar">
-            <span class="pos-title"><i class="ti ti-receipt me-1"></i>POS Agen</span>
-            <div class="pos-meta">
-                <span id="posTrxNumberWrap" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
+            <div class="pos-title-line">
+                <span class="pos-title">POS Agen</span>
+                <span class="pos-meta-sep">·</span>
                 <span>{{ date('d M Y') }}</span>
+                <span class="pos-meta-sep">·</span>
                 <span id="posClock">{{ date('H:i') }}</span>
+                <span class="pos-meta-sep">·</span>
                 <span><span id="cartItemCount" class="meta-val">0</span> item</span>
-            </div>
-            <div class="pos-controls">
-                <div id="priceListWrapper" data-selected-id="{{ $defaultPriceListId ?? '' }}">
-                    <select id="priceListSelect" style="width:200px">
-                        <option value="">Daftar Harga</option>
-                        @forelse($priceLists ?? collect() as $pl)
-                            <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
-                        @empty
-                        @endforelse
-                    </select>
-                </div>
+                <span id="posTrxNumberWrap" class="ms-2" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
             </div>
         </div>
 
@@ -132,17 +124,20 @@
             {{-- Panel kanan: keranjang --}}
             <div class="pos-cart">
                 <div class="pos-cart-top">
-                    <select id="customerSelect" style="width:100%">
-                        <option value="">Pelanggan Umum (Walk-in)</option>
-                        @foreach($resellers ?? collect() as $reseller)
-                            <option value="{{ $reseller->customer_id }}">
-                                {{ $reseller->name ?: $reseller->customer?->name }}
-                                @if($reseller->customer?->code)
-                                    · {{ $reseller->customer->code }}
-                                @endif
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="pos-cart-top-reseller flex-grow-1 min-w-0">
+                        <select id="customerSelect" style="width:100%">
+                            <option value="">Pelanggan Umum (Walk-in)</option>
+                        </select>
+                    </div>
+                    <div id="priceListWrapper" class="pos-cart-top-price-list flex-shrink-0" data-selected-id="{{ $defaultPriceListId ?? '' }}">
+                        <select id="priceListSelect" style="width:160px">
+                            <option value="">Daftar Harga</option>
+                            @forelse($priceLists ?? collect() as $pl)
+                                <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
+                            @empty
+                            @endforelse
+                        </select>
+                    </div>
                     <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
@@ -192,11 +187,10 @@
                 </div>
 
                 <div class="pos-toolbar-row">
-                    <button type="button" class="pos-tool-btn" id="btnDiscToolbar">Diskon <kbd>F4</kbd></button>
-                    <button type="button" class="pos-tool-btn" id="btnPromoToolbar">Promo <kbd>F5</kbd></button>
-                    <button type="button" class="pos-tool-btn" disabled title="Ongkir portal agen = Rp 0">Ongkir <kbd>F6</kbd> Rp 0</button>
-                    <button type="button" class="pos-tool-btn" id="btnNotesToolbar">Catatan <kbd>F7</kbd></button>
-                    <button type="button" class="pos-tool-btn" id="btnClearAll">Hapus Semua <kbd>F8</kbd></button>
+                    <button type="button" class="pos-tool-btn" id="btnDiscToolbar">Diskon</button>
+                    <button type="button" class="pos-tool-btn" id="btnPromoToolbar">Promo</button>
+                    <button type="button" class="pos-tool-btn" id="btnNotesToolbar">Catatan</button>
+                    <button type="button" class="pos-tool-btn" id="btnClearAll">Hapus Semua</button>
                 </div>
 
                 <div class="pos-cart-footer">
@@ -229,11 +223,8 @@
                     </div>
 
                     <div class="pos-action-row">
-                        <button type="button" class="btn btn-label-danger btn-sm" id="btnCancel">
-                            <i class="ti ti-trash me-1"></i> Batal
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm pos-btn-bayar" id="btnPayment">
-                            <i class="ti ti-cash me-1"></i> BAYAR <kbd class="ms-1 opacity-75">F1</kbd>
+                        <button type="button" class="btn btn-primary btn-sm pos-btn-bayar w-100" id="btnPayment">
+                            <i class="ti ti-cash me-1"></i> BAYAR
                         </button>
                     </div>
                 </div>
@@ -392,6 +383,7 @@
             previewPromo: @json(route('agent-order.pos.preview-promo')),
             payment: @json(route('agent-order.pos.payment')),
             paymentStatus: @json(url('/agent-order/pos/payment')),
+            resellerSearch: @json(route('agent-order.pos.resellers-search')),
         };
         window.agentPosConfig = {
             routes: {
@@ -399,6 +391,7 @@
                 previewPromo: window.agentPosRoutes.previewPromo,
                 payment: window.agentPosRoutes.payment,
                 paymentStatusBase: window.agentPosRoutes.paymentStatus,
+                resellerSearch: window.agentPosRoutes.resellerSearch,
             },
             taxRate: {{ (int) ($taxRate ?? 0) }},
             cashMethodId: @json($cashMethodId),

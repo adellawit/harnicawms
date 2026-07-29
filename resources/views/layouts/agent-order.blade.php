@@ -54,7 +54,7 @@
                     <a href="{{ route('agent-order.pos') }}"
                         class="shop-nav-circle {{ $navPosActive ? 'active' : '' }}"
                         title="POS" aria-label="POS">
-                        <i class="ti ti-cash-register"></i>
+                        <i class="ti ti-cash"></i>
                     </a>
                     <button type="button" class="shop-nav-circle shop-nav-cart"
                         id="navCartBtn" title="Keranjang" aria-label="Keranjang"

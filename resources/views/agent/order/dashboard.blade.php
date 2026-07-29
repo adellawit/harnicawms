@@ -70,7 +70,7 @@
         <div class="col-md-4">
             <a href="{{ route('agent-order.pos') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-cash-register"></i></span>
+                    <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-cash"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">POS / Kasir</div>
                         <div class="small text-muted">Jual ke reseller Anda</div>

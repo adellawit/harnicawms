@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Agent;
 use App\Http\Controllers\Controller;
 use App\Models\MethodPayment;
 use App\Models\Partner\Agent;
+use App\Models\Partner\Reseller;
 use App\Models\Product;
 use App\Models\ProductNature;
 use App\Models\ProductPriceList;
@@ -89,13 +90,6 @@ class AgentPosController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'uses_payment_gateway', 'gateway_provider', 'payment_group_code', 'gateway_channel_code']);
 
-        $resellers = $this->agent()->resellers()
-            ->with('customer:id,code,name')
-            ->whereNotNull('customer_id')
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
-
         $products = Product::with('nature')
             ->withCount('variants')
             ->saleItems()
@@ -161,7 +155,6 @@ class AgentPosController extends Controller
             'priceLists' => $priceLists,
             'defaultPriceListId' => $defaultPriceListId,
             'methodPayments' => $methodPayments,
-            'resellers' => $resellers,
             'taxRate' => 0,
             'redeemValuePerPoint' => 0,
             'earnAmountStep' => 0,
@@ -185,6 +178,39 @@ class AgentPosController extends Controller
         }
 
         return rtrim(rtrim(number_format($qty, 2, ',', '.'), '0'), ',');
+    }
+
+    public function resellerSearch(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->get('q', ''));
+        $agent = $this->agent();
+
+        $base = Reseller::query()
+            ->with('customer:id,code,name')
+            ->whereNotNull('customer_id')
+            ->where('status', 'active');
+
+        if (mb_strlen($q) >= 3) {
+            $base->where(function ($w) use ($q) {
+                $w->where('name', 'ilike', "%{$q}%")
+                    ->orWhere('code', 'ilike', "%{$q}%")
+                    ->orWhereHas('customer', fn ($c) => $c
+                        ->where('name', 'ilike', "%{$q}%")
+                        ->orWhere('code', 'ilike', "%{$q}%"));
+            });
+        } else {
+            $base->where('agent_id', $agent->id);
+        }
+
+        $rows = $base->orderBy('name')->limit(30)->get();
+
+        return response()->json([
+            'results' => $rows->map(fn (Reseller $r) => [
+                'id' => $r->customer_id,
+                'text' => trim(($r->name ?: $r->customer?->name).($r->customer?->code ? ' · '.$r->customer->code : '')),
+                'own' => $r->agent_id === $agent->id,
+            ])->values(),
+        ]);
     }
 
     public function getProductVariants(Request $request): JsonResponse

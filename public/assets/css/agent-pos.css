@@ -32,6 +32,29 @@
     color: #2c3e50;
     white-space: nowrap;
 }
+.pos-top-bar .pos-title-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #677788;
+}
+.pos-top-bar .pos-title-line .pos-title {
+    font-size: 0.875rem;
+}
+.pos-top-bar .pos-meta-sep {
+    color: #c5cad3;
+    user-select: none;
+}
+.pos-top-bar .pos-title-line .meta-val {
+    color: #2c3e50;
+    font-weight: 600;
+}
+.pos-top-bar .pos-title-line .meta-id {
+    color: var(--pos-accent);
+    font-weight: 700;
+}
 .pos-top-bar .pos-meta {
     display: flex;
     align-items: center;
@@ -296,6 +319,18 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.pos-cart-top-reseller {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+.pos-cart-top-price-list {
+    flex: 0 0 160px;
+    max-width: 100%;
+}
+.pos-cart-top-price-list .select2-container {
+    width: 100% !important;
 }
 .pos-cart-top .cart-badge {
     background: var(--pos-accent);
@@ -1286,9 +1321,7 @@ body.agent-pos-body {
     cursor: not-allowed;
 }
 .pos-toolbar-row .pos-tool-btn kbd {
-    font-size: 0.6rem;
-    opacity: 0.7;
-    margin-left: 0.15rem;
+    display: none;
 }
 .pos-shipping-row {
     color: #9aa4b8;
