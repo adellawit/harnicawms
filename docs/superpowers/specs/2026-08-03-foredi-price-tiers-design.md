@@ -61,9 +61,9 @@ Indexes biasa: `category_id`, `product_id`, `level`, `is_active`, `sort_order`.
 
 `Database\Seeders\ForediPriceTierSeeder`
 
-1. Resolve kategori `code = FOREDI` dan produk `code = FOREDI-FG`.
-2. Jika salah satu hilang → error message + return (jangan throw agar `db:seed` lain tetap jalan).
-3. Upsert 6 baris di atas (idempotent via `updateOrCreate` pada `product_id + level + min_qty`).
+1. Resolve produk `code = FOREDI-FG`. Jika hilang → error + return.
+2. Ensure kategori `code = FOREDI` (buat/restore bila belum ada), lalu link `FOREDI-FG.category_id` ke kategori itu bila belum.
+3. Upsert 6 baris di atas (idempotent; `min_qty` null via `whereNull`).
 4. Didaftarkan di `DatabaseSeeder` **setelah** `ForediProductSeeder`.
 
 ### Explicit non-goals (fase ini)

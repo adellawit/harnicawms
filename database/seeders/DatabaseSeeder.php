@@ -75,6 +75,10 @@ class DatabaseSeeder extends Seeder
             // Depends on: ProductUnitSeeder (+SACHET), ProductNatureSeeder, ProductParameterSeeder,
             //             ProductPriceListSeeder, WarehouseSeeder, BusinessUnitSeeder
             ForediProductSeeder::class,
+
+            // Foredi partner price tiers (RESMI/MAP/Reseller/Agen) — terpisah dari price list POS
+            // Depends on: ForediProductSeeder (FOREDI-FG) + kategori FOREDI
+            ForediPriceTierSeeder::class,
         ]);
     }
 }
