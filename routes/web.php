@@ -52,6 +52,7 @@ use App\Http\Controllers\Admin\ReportTransactionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StockAdjustmentController;
 use App\Http\Controllers\Admin\StockOpnameController;
+use App\Http\Controllers\Admin\ShippingRateController;
 use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\ThemeConfigurationController;
 use App\Http\Controllers\Admin\TransactionController;
@@ -359,6 +360,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/{parameterId}/details/edit/data', [ParameterDetailController::class, 'editData'])->name('parameter.details.edit.data')->middleware('permission:Parameter,is_update');
             Route::post('/{parameterId}/details/delete', [ParameterDetailController::class, 'deleteData'])->name('parameter.details.delete.data')->middleware('permission:Parameter,is_delete');
             Route::post('/{parameterId}/details/restore', [ParameterDetailController::class, 'restoreData'])->name('parameter.details.restore.data')->middleware('permission:Parameter,is_delete');
+        });
+
+        Route::group(['prefix' => 'shipping-rate'], function () {
+            Route::get('/', [ShippingRateController::class, 'indexView'])->name('shipping-rate.index.view')->middleware('permission:Master Ongkir,is_read');
+            Route::post('/data', [ShippingRateController::class, 'indexData'])->name('shipping-rate.index.data');
+            Route::get('/insert', [ShippingRateController::class, 'insertView'])->name('shipping-rate.insert.view')->middleware('permission:Master Ongkir,is_create');
+            Route::post('/insert/data', [ShippingRateController::class, 'insertData'])->name('shipping-rate.insert.data')->middleware('permission:Master Ongkir,is_create');
+            Route::get('/edit/{id}', [ShippingRateController::class, 'editView'])->name('shipping-rate.edit.view')->middleware('permission:Master Ongkir,is_update');
+            Route::post('/edit/data', [ShippingRateController::class, 'editData'])->name('shipping-rate.edit.data')->middleware('permission:Master Ongkir,is_update');
+            Route::post('/delete', [ShippingRateController::class, 'deleteData'])->name('shipping-rate.delete.data')->middleware('permission:Master Ongkir,is_delete');
+            Route::post('/restore', [ShippingRateController::class, 'restoreData'])->name('shipping-rate.restore.data')->middleware('permission:Master Ongkir,is_delete');
+            Route::get('/import/template', [ShippingRateController::class, 'importTemplate'])->name('shipping-rate.import.template')->middleware('permission:Master Ongkir,is_create');
+            Route::post('/import/data', [ShippingRateController::class, 'importData'])->name('shipping-rate.import.data')->middleware('permission:Master Ongkir,is_create');
         });
 
         Route::group(['prefix' => 'supplier'], function () {

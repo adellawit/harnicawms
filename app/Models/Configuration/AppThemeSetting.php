@@ -19,6 +19,9 @@ class AppThemeSetting extends Model
     protected $fillable = [
         'primary_color',
         'secondary_color',
+        'navbar_color',
+        'sidebar_color',
+        'background_color',
         'logo_path',
         'favicon_path',
         'color_mode',

@@ -48,7 +48,7 @@
                         </div>
 
                         <div class="login-header">
-                            <h3>Welcome! 👋</h3>
+                            <h3>Welcome!</h3>
                             <p>Please sign in to your account to continue</p>
                         </div>
 

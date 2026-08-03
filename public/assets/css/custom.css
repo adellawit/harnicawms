@@ -1129,9 +1129,12 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 /* CSS Variables for Login Page */
 :root {
     --login-primary-gradient: linear-gradient(135deg, #5C9E84 0%, #7BB5A0 50%, #9ECAB8 100%);
-    --login-glass-bg: rgba(255, 255, 255, 0.95);
-    --login-glass-border: rgba(255, 255, 255, 0.3);
-    --login-shadow-color: rgba(92, 158, 132, 0.15);
+    --login-page-gradient: linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%);
+    --login-glass-bg: rgba(255, 255, 255, 0.92);
+    --login-glass-border: rgba(227, 245, 231, 0.85);
+    --login-shadow-color: rgba(92, 158, 132, 0.14);
+    --login-input-bg: #F3FAF5;
+    --login-input-border: #D4EADF;
 }
 
 /* Login Page - Auth Wrapper acts as main container */
@@ -1139,8 +1142,7 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
     display: flex;
     min-height: 100vh;
     position: relative;
-    background: #ffffff;
-    /* Changed to match login-card (white) */
+    background: var(--login-page-gradient);
     overflow-x: hidden;
 }
 
@@ -1156,7 +1158,7 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 .shape {
     position: absolute;
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.03);
+    background: rgba(92, 158, 132, 0.08);
     animation: float 20s infinite ease-in-out;
     transform: skewX(-12deg);
 }
@@ -1361,7 +1363,7 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
     justify-content: center;
     align-items: flex-start;
     padding: 2rem;
-    background: linear-gradient(180deg, #f4faf7 0%, #f7fcf9 50%, #f4faf7 100%);
+    background: var(--login-page-gradient);
     position: relative;
 }
 
@@ -1585,18 +1587,18 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
     width: 100%;
     height: 56px;
     padding: 1rem 1rem 1rem 3rem;
-    border: 2px solid #e2e8f0;
+    border: 2px solid var(--login-input-border);
     border-radius: 14px;
     font-size: 1rem;
     transition: all 0.3s ease;
-    background: #f8fafc;
+    background: var(--login-input-bg);
     box-sizing: border-box;
 }
 
 .form-floating-custom .form-control:focus {
     border-color: #5C9E84;
-    box-shadow: 0 0 0 4px rgba(92, 158, 132, 0.1);
-    background: white;
+    box-shadow: 0 0 0 4px rgba(92, 158, 132, 0.12);
+    background: #ffffff;
 }
 
 .form-floating-custom .form-control::placeholder {
@@ -2333,20 +2335,20 @@ a:focus-visible {
    Background Color Putih (kecuali Sidebar & Login)
    ========================================================================== */
 
-/* Layout page background putih */
+/* Layout page — soft mint (glass mode makes these transparent) */
 .layout-page {
-    background-color: #ffffff !important;
+    background: var(--brand-page-gradient, linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)) !important;
 }
 
-/* Content wrapper background putih */
+/* Content wrapper follows page wash */
 .content-wrapper {
-    background-color: #ffffff !important;
+    background: transparent !important;
 }
 
-/* Navbar/Topbar background dengan subtle cream gradient */
+/* Navbar/Topbar — soft mint horizontal wash */
 .bg-navbar-theme,
 #layout-navbar {
-    background: linear-gradient(90deg, #ffffff 0%, #f4faf7 100%) !important;
+    background: linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%) !important;
     border-bottom: 1px solid rgba(92, 158, 132, 0.12);
 }
 
@@ -2356,9 +2358,9 @@ a:focus-visible {
     background-color: transparent !important;
 }
 
-/* Footer background putih */
+/* Footer follows page wash */
 .content-footer {
-    background-color: #ffffff !important;
+    background: transparent !important;
 }
 
 /* Footer tetap di bawah viewport saat konten pendek */
@@ -2445,9 +2447,9 @@ a:focus-visible {
     flex-shrink: 0;
 }
 
-/* Body background dengan subtle cream gradient */
+/* Body background — soft mint horizontal wash */
 .light-style body {
-    background: linear-gradient(135deg, #ffffff 0%, rgba(92, 158, 132, 0.04) 100%) !important;
+    background: linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%) !important;
 }
 
 /* Card tetap putih dengan shadow */
@@ -2993,10 +2995,34 @@ a:hover,
     color: #ffffff !important;
 }
 
-/* Login page brand green */
+/* Login page soft mint wash (match admin page surface) */
+.authentication-wrapper.authentication-cover,
 .auth-wrapper,
 .auth-card .auth-brand-side {
-    background: linear-gradient(180deg, var(--brand-050) 0%, var(--brand-100) 100%) !important;
+    background: var(--login-page-gradient, linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)) !important;
+}
+
+body.app-glass-enabled .authentication-wrapper.authentication-cover {
+    background: var(--login-page-gradient, linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)) !important;
+}
+
+.auth-card {
+    border: 1px solid rgba(212, 234, 223, 0.9);
+    box-shadow:
+        0 25px 50px -12px rgba(92, 158, 132, 0.16),
+        0 0 0 1px rgba(227, 245, 231, 0.7);
+}
+
+.auth-card .auth-form-side {
+    background: rgba(255, 255, 255, 0.94) !important;
+}
+
+.auth-login-only .login-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(212, 234, 223, 0.9);
+    box-shadow:
+        0 25px 50px -12px rgba(92, 158, 132, 0.16),
+        0 0 0 1px rgba(227, 245, 231, 0.7);
 }
 
 .login-header h3,

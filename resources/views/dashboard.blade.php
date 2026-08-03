@@ -22,6 +22,7 @@
     @push('vendor-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
     @endpush
 
     @push('page-css')
@@ -35,54 +36,81 @@
 
     <div class="container-xxl flex-grow-1 container-p-y">
 
+        @php
+            $selectedOutlet = $outlets->firstWhere('id', $currentBranchId);
+            $isDefaultPeriod = $periodStart->isSameDay($periodEnd->copy()->startOfMonth()) && $periodEnd->isSameDay(now()->startOfDay());
+            $isFilterActive = filled($currentBranchId) || ! $isDefaultPeriod;
+            $periodLabel = $periodStart->format('d M Y') . ' — ' . $periodEnd->format('d M Y');
+        @endphp
+
         {{-- PAGE HEADER --}}
         <x-page-header
             title="Dashboard"
             subtitle="Real-time monitoring sales, inventory, warehouse, and operational."
             :breadcrumbs="[['label' => 'Home', 'url' => route('dashboard')], ['label' => 'Dashboard', 'active' => true]]"
-        />
+        >
+            <x-slot:actions>
+                <span class="badge bg-label-secondary">
+                    <i class="ti ti-building-store me-1"></i>{{ $selectedOutlet->name ?? 'All Outlets' }}
+                </span>
+                <span class="badge bg-label-primary">
+                    <i class="ti ti-calendar me-1"></i>{{ $periodLabel }}
+                </span>
+                <button type="button"
+                        class="btn btn-sm {{ $isFilterActive ? 'btn-warning' : 'btn-primary' }}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#dashboardFilterModal">
+                    <i class="ti ti-filter me-1"></i> Filter
+                </button>
+            </x-slot:actions>
+        </x-page-header>
 
-        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <div style="width: 280px;">
-                    <select id="outlet-filter" class="select2 form-select form-select-sm" data-placeholder="Pilih Outlet" data-allow-clear="true">
-                        <option value="">All Outlets</option>
-                        @foreach($outlets as $o)
-                            <option value="{{ $o->id }}" {{ $o->id === $currentBranchId ? 'selected' : '' }}>{{ $o->name }}</option>
-                        @endforeach
-                    </select>
+        <x-modal id="dashboardFilterModal" title="Filter Dashboard">
+            <div class="mb-3">
+                <label class="form-label" for="outlet-filter">Branch / Outlet</label>
+                <select id="outlet-filter" class="form-select" data-placeholder="Pilih Outlet" data-allow-clear="true">
+                    <option value="">All Outlets</option>
+                    @foreach($outlets as $o)
+                        <option value="{{ $o->id }}" {{ $o->id === $currentBranchId ? 'selected' : '' }}>{{ $o->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="mb-1">
+                <label class="form-label" for="dashboard-period-range">Periode</label>
+                <div class="input-group input-group-merge">
+                    <span class="input-group-text"><i class="ti ti-calendar"></i></span>
+                    <input type="text"
+                           id="dashboard-period-range"
+                           class="form-control"
+                           placeholder="Pilih periode"
+                           readonly
+                           autocomplete="off"
+                           value=""
+                           data-date-from="{{ $periodStart->toDateString() }}"
+                           data-date-to="{{ $periodEnd->toDateString() }}"
+                           data-default-from="{{ $today->copy()->startOfMonth()->toDateString() }}"
+                           data-default-to="{{ $today->toDateString() }}">
                 </div>
+                <div class="form-text">Default otomatis: tanggal 1 bulan ini sampai hari ini (contoh 1–3 Agu; besok jadi 1–4 Agu).</div>
             </div>
-            <div>
-                <span class="text-muted small">Last updated:</span>
-                <span class="fw-semibold text-primary small">{{ now()->format('d M Y, H:i') }}</span>
-            </div>
-        </div>
+            <x-slot:footer>
+                <button type="button" class="btn btn-label-dark" id="btnResetDashboardFilter">Reset</button>
+                <button type="button" class="btn btn-primary" id="btnApplyDashboardFilter">Terapkan</button>
+            </x-slot:footer>
+        </x-modal>
 
         @if($sectionVisible('executive_overview'))
         {{-- EXECUTIVE OVERVIEW --}}
         <x-dashboard.section-header icon="ti ti-dashboard" title="Executive Overview" subtitle="Ringkasan performa bisnis untuk owner & manajemen." />
 
         @if($widgetVisible('executive_overview', 'kpi_cards'))
-        <div class="row g-3 mb-4">
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Revenue Today" :value="$fmtRp($revenueToday)" :trend="($revDayPct >= 0 ? '+' : '') . $revDayPct . '% vs yesterday'" :trendType="$revDayPct >= 0 ? 'up' : 'down'" icon="ti ti-cash" iconColor="success" />
-            </div>
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Revenue This Month" :value="$fmtRp($revenueThisMonth)" :trend="($revMonPct >= 0 ? '+' : '') . $revMonPct . '% vs last month'" :trendType="$revMonPct >= 0 ? 'up' : 'down'" icon="ti ti-calendar-stats" iconColor="primary" />
-            </div>
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Transactions Today" :value="$fmtNum($txToday)" :trend="($txDayPct >= 0 ? '+' : '') . $txDayPct . '% vs yesterday'" :trendType="$txDayPct >= 0 ? 'up' : 'down'" icon="ti ti-receipt-2" iconColor="info" />
-            </div>
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Gross Profit" :value="$fmtRp($grossProfit)" :trend="number_format($profitMargin, 1) . '% margin'" :trendType="$profitMargin >= 0 ? 'up' : 'down'" icon="ti ti-report-money" iconColor="warning" />
-            </div>
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Best Outlet" :value="$bestOutlet->name ?? '-'" :subtitle="$bestOutlet ? $fmtRp($bestOutlet->revenue) . ' /bln' : ''" icon="ti ti-building-store" iconColor="primary" />
-            </div>
-            <div class="col-xl-2 col-md-4 col-6">
-                <x-dashboard.kpi-card title="Best Product" :value="$bestProduct->name ?? '-'" :subtitle="$bestProduct ? $fmtRp($bestProduct->revenue) . ' /bln' : ''" icon="ti ti-star" iconColor="warning" />
-            </div>
+        <div class="dashboard-kpi-grid mb-4">
+            <x-dashboard.kpi-card title="Revenue Today" :value="$fmtRp($revenueToday)" :trend="($revDayPct >= 0 ? '+' : '') . $revDayPct . '% vs yesterday'" :trendType="$revDayPct >= 0 ? 'up' : 'down'" icon="ti ti-cash" iconColor="success" />
+            <x-dashboard.kpi-card title="Revenue This Month" :value="$fmtRp($revenueThisMonth)" :trend="($revMonPct >= 0 ? '+' : '') . $revMonPct . '% vs last month'" :trendType="$revMonPct >= 0 ? 'up' : 'down'" icon="ti ti-calendar-stats" iconColor="primary" />
+            <x-dashboard.kpi-card title="Transactions Today" :value="$fmtNum($txToday)" :trend="($txDayPct >= 0 ? '+' : '') . $txDayPct . '% vs yesterday'" :trendType="$txDayPct >= 0 ? 'up' : 'down'" icon="ti ti-receipt-2" iconColor="info" />
+            <x-dashboard.kpi-card title="Gross Profit" :value="$fmtRp($grossProfit)" :trend="number_format($profitMargin, 1) . '% margin'" :trendType="$profitMargin >= 0 ? 'up' : 'down'" icon="ti ti-report-money" iconColor="warning" />
+            <x-dashboard.kpi-card title="Best Outlet" :value="$bestOutlet->name ?? '-'" :subtitle="$bestOutlet ? $fmtRp($bestOutlet->revenue) . ' /bln' : ''" icon="ti ti-building-store" iconColor="primary" />
+            <x-dashboard.kpi-card title="Best Product" :value="$bestProduct->name ?? '-'" :subtitle="$bestProduct ? $fmtRp($bestProduct->revenue) . ' /bln' : ''" icon="ti ti-star" iconColor="warning" />
         </div>
         @endif
 
@@ -554,26 +582,106 @@
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
     @endpush
 
     @push('page-js')
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // ── Select2: Outlet Filter ──
+        function pad(n) { return String(n).padStart(2, '0'); }
+        function toYmd(d) {
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+        // Parse Y-m-d as local date (avoid UTC shift that can show previous day)
+        function parseLocalYmd(ymd) {
+            if (!ymd) return null;
+            var p = String(ymd).split('-');
+            if (p.length !== 3) return null;
+            var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+            return isNaN(d.getTime()) ? null : d;
+        }
+        function buildDashboardUrl(branchId, dateFrom, dateTo, isCustomPeriod) {
+            var params = new URLSearchParams();
+            if (branchId) params.set('branch_id', branchId);
+            if (isCustomPeriod && dateFrom && dateTo) {
+                params.set('period_custom', '1');
+                params.set('date_from', dateFrom);
+                params.set('date_to', dateTo);
+            }
+            var qs = params.toString();
+            return '{{ route("dashboard") }}' + (qs ? '?' + qs : '');
+        }
+
+        var rangeEl = document.getElementById('dashboard-period-range');
+        // Source of truth = server (PHP), bukan jam browser
+        var defaults = {
+            from: rangeEl?.dataset.defaultFrom || '',
+            to: rangeEl?.dataset.defaultTo || ''
+        };
+        var draftFrom = rangeEl?.dataset.dateFrom || defaults.from;
+        var draftTo = rangeEl?.dataset.dateTo || defaults.to;
+        var periodPicker = null;
+
+        // ── Select2 inside modal ──
         $('#outlet-filter').select2({
             theme: 'bootstrap-5',
             allowClear: true,
             placeholder: 'Pilih Outlet',
             width: '100%',
-            dropdownAutoWidth: false,
+            dropdownParent: $('#dashboardFilterModal'),
         });
-        $('#outlet-filter').on('change', function () {
-            var branchId = $(this).val();
-            var url = '{{ route("dashboard") }}';
-            if (branchId) {
-                url += '?branch_id=' + encodeURIComponent(branchId);
+
+        // ── Period range (default: tgl 1 bulan ini → hari ini) ──
+        // Jangan prefill value HTML — flatpickr sering salah parse separator "—" jadi tanggal acak.
+        if (rangeEl && typeof flatpickr !== 'undefined') {
+            var fromDate = parseLocalYmd(draftFrom);
+            var toDate = parseLocalYmd(draftTo);
+            if (!fromDate || !toDate) {
+                fromDate = parseLocalYmd(defaults.from);
+                toDate = parseLocalYmd(defaults.to);
+                draftFrom = defaults.from;
+                draftTo = defaults.to;
             }
-            window.location = url;
+
+            rangeEl.value = '';
+            periodPicker = flatpickr(rangeEl, {
+                mode: 'range',
+                dateFormat: 'd M Y',
+                allowInput: false,
+                maxDate: parseLocalYmd(defaults.to) || 'today',
+                locale: { rangeSeparator: ' — ' },
+                defaultDate: fromDate && toDate ? [fromDate, toDate] : null,
+                onReady: function (selectedDates, _dateStr, instance) {
+                    if (fromDate && toDate) {
+                        instance.setDate([fromDate, toDate], false);
+                    }
+                },
+                onChange: function (selectedDates) {
+                    if (selectedDates.length === 2) {
+                        draftFrom = toYmd(selectedDates[0]);
+                        draftTo = toYmd(selectedDates[1]);
+                        rangeEl.dataset.dateFrom = draftFrom;
+                        rangeEl.dataset.dateTo = draftTo;
+                    }
+                }
+            });
+        }
+
+        $('#btnApplyDashboardFilter').on('click', function () {
+            var from = draftFrom || defaults.from;
+            var to = draftTo || defaults.to;
+            if (periodPicker && periodPicker.selectedDates.length === 2) {
+                from = toYmd(periodPicker.selectedDates[0]);
+                to = toYmd(periodPicker.selectedDates[1]);
+            }
+            // period_custom=1 → server pakai date_from/date_to; tanpa flag → default bulan ini
+            var isCustom = from !== defaults.from || to !== defaults.to;
+            window.location = buildDashboardUrl($('#outlet-filter').val(), from, to, isCustom);
+        });
+
+        // Reset: URL bersih → server hitung ulang 1 bulan ini → hari ini
+        $('#btnResetDashboardFilter').on('click', function () {
+            window.location = '{{ route("dashboard") }}';
         });
 
         const baseOpts = {
