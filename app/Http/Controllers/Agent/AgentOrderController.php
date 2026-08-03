@@ -19,6 +19,7 @@ use App\Models\Training\Course;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
+use App\Services\Shipping\AgentShippingEstimator;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use App\Support\WmsContext;
@@ -44,6 +45,11 @@ class AgentOrderController extends Controller
     protected function checkoutService(): ShopCheckoutService
     {
         return app(ShopCheckoutService::class, ['context' => $this->context()]);
+    }
+
+    protected function shippingEstimator(): AgentShippingEstimator
+    {
+        return app(AgentShippingEstimator::class);
     }
 
     protected function resolveShippingAddress(): ?string
@@ -524,7 +530,7 @@ class AgentOrderController extends Controller
 
         $originCityId = $fgWarehouse?->city_id;
         $destCityId = $agent?->city_id;
-        $weightKg = $this->cartTotalWeightKg($cart);
+        $weightKg = $this->shippingEstimator()->cartTotalWeightKg($cart);
 
         $shippingOptions = [];
         if ($originCityId && $destCityId) {
@@ -544,7 +550,7 @@ class AgentOrderController extends Controller
                     'service_code' => $rate->service_code,
                     'service_name' => $rate->service_name,
                     'amount' => $rate->estimateForWeightKg($weightKg),
-                    'etd' => $this->formatShippingEtd($rate),
+                    'etd' => $this->shippingEstimator()->formatShippingEtd($rate),
                 ];
             }
         }
@@ -616,12 +622,12 @@ class AgentOrderController extends Controller
                 ->with('error', 'Ongkir tidak valid. Silakan pilih kurir lagi.');
         }
 
-        $shippingAmount = $rate->estimateForWeightKg($this->cartTotalWeightKg($cartService));
+        $shippingAmount = $rate->estimateForWeightKg($this->shippingEstimator()->cartTotalWeightKg($cartService));
         $shippingMeta = [
             'courier' => $rate->courier_code,
             'service' => $rate->service_code,
             'rate_id' => $rate->id,
-            'etd' => $this->formatShippingEtd($rate),
+            'etd' => $this->shippingEstimator()->formatShippingEtd($rate),
         ];
 
         $checkoutRequest = $cartService->toCheckoutRequest();
@@ -783,33 +789,5 @@ class AgentOrderController extends Controller
     {
         return ! $method->uses_payment_gateway
             && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
-    }
-
-    protected function cartTotalWeightKg(ShopCartService $cart): float
-    {
-        $items = $cart->get()['items'] ?? [];
-        if ($items === []) {
-            return 0;
-        }
-
-        $variantIds = array_column($items, 'variant_id');
-        $weights = ProductVariant::query()
-            ->whereIn('id', $variantIds)
-            ->pluck('weight', 'id');
-
-        $total = 0.0;
-        foreach ($items as $item) {
-            $weight = (float) ($weights[$item['variant_id']] ?? 0);
-            $total += $weight * (float) $item['quantity'];
-        }
-
-        return max(0, $total);
-    }
-
-    protected function formatShippingEtd(ShippingRate $rate): ?string
-    {
-        $text = trim(($rate->etd_min_days ?? '').'-'.($rate->etd_max_days ?? '').' hari', '- hari');
-
-        return $text !== '' ? $text : null;
     }
 }
