@@ -23,7 +23,11 @@ if (! function_exists('format_number')) {
 
         if ($thousands) {
             $formatted = number_format($num, $maxDecimals, ',', '.');
-            $formatted = rtrim(rtrim($formatted, '0'), ',');
+            // Only trim trailing zeros AFTER the decimal comma.
+            // Never rtrim the whole string — that would turn "249.000" into "249.".
+            if (str_contains($formatted, ',')) {
+                $formatted = rtrim(rtrim($formatted, '0'), ',');
+            }
 
             return $formatted === '' ? '0' : $formatted;
         }
