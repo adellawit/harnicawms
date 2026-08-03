@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessUnit;
 use App\Models\Marketing\Asset;
 use App\Models\Marketing\Category;
 use App\Models\MethodPayment;
@@ -24,6 +25,7 @@ use App\Services\StockMutationService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -897,6 +899,59 @@ class AgentOrderController extends Controller
             'warehouseName' => optional($agent?->defaultWarehouse)->name,
             'lowThreshold' => 5,
         ]);
+    }
+
+    protected function loadOrderForPrint(string $orderId): SalesOrder
+    {
+        $order = SalesOrder::with([
+            'items.product',
+            'items.variant.variantAttributes.attributeValue',
+            'items.unit',
+            'payments.methodPayment',
+            'methodPayment',
+            'customer.agent',
+        ])->findOrFail($orderId);
+
+        $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);
+
+        return $order;
+    }
+
+    protected function documentCompany(SalesOrder $order): ?BusinessUnit
+    {
+        return $order->company_id
+            ? (BusinessUnit::find($order->company_id) ?: WmsContext::distributor())
+            : WmsContext::distributor();
+    }
+
+    public function orderPoPdf(string $order)
+    {
+        $order = $this->loadOrderForPrint($order);
+
+        $pdf = Pdf::loadView('agent.order.pdf.po', [
+            'order' => $order,
+            'company' => $this->documentCompany($order),
+            'agent' => $order->customer?->agent,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'PO-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $order->sales_number).'.pdf';
+
+        return $pdf->stream($filename);
+    }
+
+    public function orderInvoicePdf(string $order)
+    {
+        $order = $this->loadOrderForPrint($order);
+
+        $pdf = Pdf::loadView('agent.order.pdf.invoice', [
+            'order' => $order,
+            'company' => $this->documentCompany($order),
+            'agent' => $order->customer?->agent,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'INV-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $order->sales_number).'.pdf';
+
+        return $pdf->stream($filename);
     }
 
     protected function minVariantPrice(string $productId, string $branchId, string $priceListId): float

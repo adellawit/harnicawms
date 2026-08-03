@@ -44,6 +44,14 @@
                 <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
             </div>
         </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <a href="{{ route('agent-order.orders.po-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                <i class="ti ti-file-text me-1"></i>Print PO
+            </a>
+            <a href="{{ route('agent-order.orders.invoice-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">
+                <i class="ti ti-receipt me-1"></i>Print Invoice
+            </a>
+        </div>
     </header>
 
     <div class="shop-order-detail-layout">
