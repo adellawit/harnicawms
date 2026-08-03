@@ -22,6 +22,7 @@
         };
         $statusBadge = match ($order->status) {
             'completed' => 'success',
+            'shipped' => 'primary',
             'pending' => 'info',
             'cancelled' => 'danger',
             default => 'secondary',
@@ -98,6 +99,22 @@
                     <a href="{{ $pendingPay->gateway_url }}" class="btn btn-primary w-100 mt-3 shop-order-pay-btn" target="_blank" rel="noopener">
                         Lanjutkan pembayaran
                     </a>
+                @endif
+
+                @if ($order->status === 'shipped' && ! $order->received_at)
+                    <form method="POST" action="{{ route('agent-order.orders.receive', $order->id) }}" class="mt-3"
+                          onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
+                        @csrf
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="ti ti-package-import me-1"></i>Terima Barang
+                        </button>
+                    </form>
+                @elseif ($order->received_at)
+                    <div class="mt-3">
+                        <span class="badge bg-label-success">
+                            Sudah diterima {{ $order->received_at->format('d M Y H:i') }}
+                        </span>
+                    </div>
                 @endif
             </div>
         </div>
