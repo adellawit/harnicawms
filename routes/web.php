@@ -62,6 +62,15 @@ use App\Http\Controllers\Admin\WarehouseController;
 use App\Http\Controllers\Ai\ChatController;
 use App\Http\Controllers\Ai\ConversationController;
 use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\Admin\Finance\AccountMappingController;
+use App\Http\Controllers\Admin\Finance\BeginningBalanceController;
+use App\Http\Controllers\Admin\Finance\CashBankController;
+use App\Http\Controllers\Admin\Finance\CashFlowCategoryController;
+use App\Http\Controllers\Admin\Finance\FinancialReportController;
+use App\Http\Controllers\Admin\Finance\ChartOfAccountController;
+use App\Http\Controllers\Admin\Finance\FiscalCalendarController;
+use App\Http\Controllers\Admin\Finance\JournalEntryController;
+use App\Http\Controllers\Admin\Finance\JurnalUmumController;
 use App\Http\Controllers\Telegram\WebhookController as TelegramWebhookController;
 use App\Http\Controllers\Xendit\WebhookController as XenditWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -412,6 +421,96 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/delete', [SupplierController::class, 'deleteData'])->name('product.supplier.delete.data')->middleware('permission:Supplier,is_delete');
             Route::post('/restore', [SupplierController::class, 'restoreData'])->name('product.supplier.restore.data')->middleware('permission:Supplier,is_delete');
         });
+    });
+
+    /*****************
+     ** FINANCE ROUTES **
+     *****************/
+    Route::group(['prefix' => 'finance'], function () {
+        Route::group(['prefix' => 'chart-of-accounts'], function () {
+            Route::get('/', [ChartOfAccountController::class, 'indexView'])->name('finance.chart-of-accounts.index.view')->middleware('permission:Chart of Accounts,is_read');
+            Route::post('/data', [ChartOfAccountController::class, 'indexData'])->name('finance.chart-of-accounts.index.data');
+            Route::get('/parents', [ChartOfAccountController::class, 'parentsData'])->name('finance.chart-of-accounts.parents')->middleware('permission:Chart of Accounts,is_read');
+            Route::get('/suggest-code', [ChartOfAccountController::class, 'suggestCode'])->name('finance.chart-of-accounts.suggest-code')->middleware('permission:Chart of Accounts,is_read');
+            Route::get('/insert', [ChartOfAccountController::class, 'insertView'])->name('finance.chart-of-accounts.insert.view')->middleware('permission:Chart of Accounts,is_create');
+            Route::post('/insert/data', [ChartOfAccountController::class, 'insertData'])->name('finance.chart-of-accounts.insert.data')->middleware('permission:Chart of Accounts,is_create');
+            Route::get('/edit/{id}', [ChartOfAccountController::class, 'editView'])->name('finance.chart-of-accounts.edit.view')->middleware('permission:Chart of Accounts,is_update');
+            Route::post('/edit/data', [ChartOfAccountController::class, 'editData'])->name('finance.chart-of-accounts.edit.data')->middleware('permission:Chart of Accounts,is_update');
+            Route::post('/delete', [ChartOfAccountController::class, 'deleteData'])->name('finance.chart-of-accounts.delete.data')->middleware('permission:Chart of Accounts,is_delete');
+            Route::post('/restore', [ChartOfAccountController::class, 'restoreData'])->name('finance.chart-of-accounts.restore.data')->middleware('permission:Chart of Accounts,is_delete');
+            Route::post('/seed', [ChartOfAccountController::class, 'seedTemplate'])->name('finance.chart-of-accounts.seed')->middleware('permission:Chart of Accounts,is_create');
+        });
+
+        Route::group(['prefix' => 'account-mapping'], function () {
+            Route::get('/', [AccountMappingController::class, 'indexView'])->name('finance.account-mapping.index.view')->middleware('permission:Account Mapping,is_read');
+            Route::post('/save', [AccountMappingController::class, 'saveData'])->name('finance.account-mapping.save')->middleware('permission:Account Mapping,is_update');
+        });
+
+        Route::group(['prefix' => 'cash-flow-category'], function () {
+            Route::get('/', [CashFlowCategoryController::class, 'indexView'])->name('finance.cash-flow-category.index.view')->middleware('permission:Cash Flow Category,is_read');
+            Route::get('/insert', [CashFlowCategoryController::class, 'insertView'])->name('finance.cash-flow-category.insert.view')->middleware('permission:Cash Flow Category,is_create');
+            Route::post('/insert/data', [CashFlowCategoryController::class, 'insertData'])->name('finance.cash-flow-category.insert.data')->middleware('permission:Cash Flow Category,is_create');
+            Route::get('/edit/{id}', [CashFlowCategoryController::class, 'editView'])->name('finance.cash-flow-category.edit.view')->middleware('permission:Cash Flow Category,is_update');
+            Route::post('/edit/data', [CashFlowCategoryController::class, 'editData'])->name('finance.cash-flow-category.edit.data')->middleware('permission:Cash Flow Category,is_update');
+            Route::post('/delete', [CashFlowCategoryController::class, 'deleteData'])->name('finance.cash-flow-category.delete.data')->middleware('permission:Cash Flow Category,is_delete');
+            Route::post('/restore', [CashFlowCategoryController::class, 'restoreData'])->name('finance.cash-flow-category.restore.data')->middleware('permission:Cash Flow Category,is_delete');
+        });
+
+        Route::group(['prefix' => 'fiscal-calendar'], function () {
+            Route::get('/', [FiscalCalendarController::class, 'indexView'])->name('finance.fiscal-calendar.index.view')->middleware('permission:Fiscal Calendar,is_read');
+            Route::get('/insert', [FiscalCalendarController::class, 'insertView'])->name('finance.fiscal-calendar.insert.view')->middleware('permission:Fiscal Calendar,is_create');
+            Route::post('/insert/data', [FiscalCalendarController::class, 'insertData'])->name('finance.fiscal-calendar.insert.data')->middleware('permission:Fiscal Calendar,is_create');
+            Route::get('/edit/{id}', [FiscalCalendarController::class, 'editView'])->name('finance.fiscal-calendar.edit.view')->middleware('permission:Fiscal Calendar,is_update');
+            Route::post('/edit/data', [FiscalCalendarController::class, 'editData'])->name('finance.fiscal-calendar.edit.data')->middleware('permission:Fiscal Calendar,is_update');
+            Route::post('/delete', [FiscalCalendarController::class, 'deleteData'])->name('finance.fiscal-calendar.delete.data')->middleware('permission:Fiscal Calendar,is_delete');
+            Route::post('/restore', [FiscalCalendarController::class, 'restoreData'])->name('finance.fiscal-calendar.restore.data')->middleware('permission:Fiscal Calendar,is_delete');
+            Route::post('/period/status', [FiscalCalendarController::class, 'setPeriodStatus'])->name('finance.fiscal-calendar.period.status')->middleware('permission:Fiscal Calendar,is_update');
+            Route::post('/close', [FiscalCalendarController::class, 'closeCalendar'])->name('finance.fiscal-calendar.close')->middleware('permission:Fiscal Calendar,is_update');
+            Route::post('/reopen', [FiscalCalendarController::class, 'reopenCalendar'])->name('finance.fiscal-calendar.reopen')->middleware('permission:Fiscal Calendar,is_update');
+            Route::get('/{id}', [FiscalCalendarController::class, 'showView'])->name('finance.fiscal-calendar.show.view')->middleware('permission:Fiscal Calendar,is_read');
+        });
+
+        Route::group(['prefix' => 'beginning-balance'], function () {
+            Route::get('/', [BeginningBalanceController::class, 'indexView'])->name('finance.beginning-balance.index.view')->middleware('permission:Beginning Balance,is_read');
+            Route::get('/edit/{fiscalCalendarId}', [BeginningBalanceController::class, 'editView'])->name('finance.beginning-balance.edit.view')->middleware('permission:Beginning Balance,is_read');
+            Route::post('/save', [BeginningBalanceController::class, 'saveData'])->name('finance.beginning-balance.save')->middleware('permission:Beginning Balance,is_update');
+            Route::post('/suggest', [BeginningBalanceController::class, 'suggestData'])->name('finance.beginning-balance.suggest')->middleware('permission:Beginning Balance,is_update');
+            Route::post('/book', [BeginningBalanceController::class, 'bookData'])->name('finance.beginning-balance.book')->middleware('permission:Beginning Balance,is_update');
+            Route::post('/unpost', [BeginningBalanceController::class, 'unpostData'])->name('finance.beginning-balance.unpost')->middleware('permission:Beginning Balance,is_update');
+        });
+
+        Route::group(['prefix' => 'journal-entry'], function () {
+            Route::get('/', [JournalEntryController::class, 'indexView'])->name('finance.journal-entry.index.view')->middleware('permission:Journal Entry,is_read');
+            Route::get('/insert', [JournalEntryController::class, 'insertView'])->name('finance.journal-entry.insert.view')->middleware('permission:Journal Entry,is_create');
+            Route::get('/edit/{id}', [JournalEntryController::class, 'editView'])->name('finance.journal-entry.edit.view')->middleware('permission:Journal Entry,is_read');
+            Route::post('/save', [JournalEntryController::class, 'saveData'])->name('finance.journal-entry.save')->middleware('permission:Journal Entry,is_read');
+            Route::post('/post', [JournalEntryController::class, 'postData'])->name('finance.journal-entry.post')->middleware('permission:Journal Entry,is_update');
+            Route::post('/unpost', [JournalEntryController::class, 'unpostData'])->name('finance.journal-entry.unpost')->middleware('permission:Journal Entry,is_update');
+            Route::post('/delete', [JournalEntryController::class, 'deleteData'])->name('finance.journal-entry.delete')->middleware('permission:Journal Entry,is_delete');
+            Route::post('/attachment/delete', [JournalEntryController::class, 'deleteAttachment'])->name('finance.journal-entry.attachment.delete')->middleware('permission:Journal Entry,is_update');
+            Route::get('/accounts', [JournalEntryController::class, 'accountsData'])->name('finance.journal-entry.accounts')->middleware('permission:Journal Entry,is_read');
+            Route::get('/suggest-no', [JournalEntryController::class, 'suggestNoData'])->name('finance.journal-entry.suggest-no')->middleware('permission:Journal Entry,is_read');
+        });
+
+        Route::group(['prefix' => 'jurnal-umum'], function () {
+            Route::get('/', [JurnalUmumController::class, 'indexView'])->name('finance.jurnal-umum.index.view')->middleware('permission:Jurnal Umum,is_read');
+            Route::get('/{id}', [JurnalUmumController::class, 'showView'])->name('finance.jurnal-umum.show.view')->middleware('permission:Jurnal Umum,is_read');
+        });
+
+        Route::group(['prefix' => 'cash-bank'], function () {
+            Route::get('/', [CashBankController::class, 'indexView'])->name('finance.cash-bank.index.view')->middleware('permission:Cash & Bank,is_read');
+            Route::get('/mutations/{accountId}', [CashBankController::class, 'mutationsView'])->name('finance.cash-bank.mutations.view')->middleware('permission:Cash & Bank,is_read');
+            Route::post('/reconciliation/start', [CashBankController::class, 'reconciliationStart'])->name('finance.cash-bank.reconciliation.start')->middleware('permission:Cash & Bank,is_update');
+            Route::get('/reconciliation/history/{accountId}', [CashBankController::class, 'reconciliationHistory'])->name('finance.cash-bank.reconciliation.history')->middleware('permission:Cash & Bank,is_read');
+            Route::get('/reconciliation/{id}', [CashBankController::class, 'reconciliationView'])->name('finance.cash-bank.reconciliation.view')->middleware('permission:Cash & Bank,is_read');
+            Route::post('/reconciliation/save', [CashBankController::class, 'reconciliationSave'])->name('finance.cash-bank.reconciliation.save')->middleware('permission:Cash & Bank,is_update');
+            Route::post('/reconciliation/reopen', [CashBankController::class, 'reconciliationReopen'])->name('finance.cash-bank.reconciliation.reopen')->middleware('permission:Cash & Bank,is_update');
+        });
+
+        Route::get('/balance-sheet', [FinancialReportController::class, 'balanceSheetView'])->name('finance.balance-sheet.index.view')->middleware('permission:Balance Sheet,is_read');
+        Route::get('/income-statement', [FinancialReportController::class, 'incomeStatementView'])->name('finance.income-statement.index.view')->middleware('permission:Income Statement,is_read');
+        Route::get('/cash-flow', [FinancialReportController::class, 'cashFlowView'])->name('finance.cash-flow.index.view')->middleware('permission:Cash Flow,is_read');
+        Route::get('/general-ledger', [FinancialReportController::class, 'generalLedgerView'])->name('finance.general-ledger.index.view')->middleware('permission:General Ledger,is_read');
     });
 
     /*****************
