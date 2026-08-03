@@ -44,7 +44,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null, string $orderType = 'web', ?string $shippingAddress = null): array
+    public function processXendit(Request $checkoutRequest, string $paymentMethodId, ?string $xenditChannel = null, string $orderType = 'web', ?string $shippingAddress = null, float $shippingAmount = 0, array $shippingMeta = []): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -66,7 +66,7 @@ class ShopCheckoutService
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($checkoutRequest);
-            $total = $totals['total'];
+            $total = $totals['total'] + $shippingAmount;
 
             if ($total <= 0) {
                 throw new \InvalidArgumentException('Total pesanan tidak valid.');
@@ -90,7 +90,12 @@ class ShopCheckoutService
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
                 'customer_address' => $shippingAddress ?: $customer->address,
-                'shipping_amount' => 0,
+                'shipping_amount' => $shippingAmount,
+                'total' => $total,
+                'shipping_courier' => $shippingMeta['courier'] ?? null,
+                'shipping_service' => $shippingMeta['service'] ?? null,
+                'shipping_rate_id' => $shippingMeta['rate_id'] ?? null,
+                'shipping_etd' => $shippingMeta['etd'] ?? null,
             ]);
 
             $payment = SalesOrderPayment::create([
@@ -167,7 +172,7 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null): array
+    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null, float $shippingAmount = 0, array $shippingMeta = []): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
@@ -177,7 +182,7 @@ class ShopCheckoutService
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($checkoutRequest);
-            $total = $totals['total'];
+            $total = $totals['total'] + $shippingAmount;
             $salesNumber = $this->generateSalesNumber($branchId);
 
             $order = $this->checkout->createSalesOrder(
@@ -197,7 +202,12 @@ class ShopCheckoutService
                 'customer_name' => $customer->name,
                 'customer_contact' => $customer->phone ?? $customer->mobile,
                 'customer_address' => $shippingAddress ?: $customer->address,
-                'shipping_amount' => 0,
+                'shipping_amount' => $shippingAmount,
+                'total' => $total,
+                'shipping_courier' => $shippingMeta['courier'] ?? null,
+                'shipping_service' => $shippingMeta['service'] ?? null,
+                'shipping_rate_id' => $shippingMeta['rate_id'] ?? null,
+                'shipping_etd' => $shippingMeta['etd'] ?? null,
             ]);
 
             SalesOrderPayment::create([

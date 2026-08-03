@@ -166,15 +166,7 @@
                         'label' => 'Kota (untuk ongkir)',
                         'required' => false,
                         'selectedId' => old('city_id', $warehouse?->city_id ?? null),
-                        'selectedText' => old('city_id')
-                            ? null
-                            : trim(
-                                ($warehouse?->cityRef?->name ?? '').(
-                                    $warehouse?->cityRef?->province?->name
-                                        ? ' ('.$warehouse->cityRef->province->name.')'
-                                        : ''
-                                )
-                            ) ?: null,
+                        'selectedText' => optional($warehouse?->cityRef)->name,
                         'tooltip' => 'Pilih kota resmi untuk kalkulasi ongkir (FK public.cities).',
                     ])
                 </div>

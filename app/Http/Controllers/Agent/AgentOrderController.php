@@ -14,6 +14,7 @@ use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
 use App\Models\Promotion;
 use App\Models\SalesOrder;
+use App\Models\ShippingRate;
 use App\Models\Training\Course;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
@@ -518,12 +519,42 @@ class AgentOrderController extends Controller
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
+        $fgWarehouse = WmsContext::finishedGoodsWarehouse();
         $originUnit = $ctx->branch();
 
+        $originCityId = $fgWarehouse?->city_id;
+        $destCityId = $agent?->city_id;
+        $weightKg = $this->cartTotalWeightKg($cart);
+
+        $shippingOptions = [];
+        if ($originCityId && $destCityId) {
+            $rates = ShippingRate::query()
+                ->where('origin_city_id', $originCityId)
+                ->where('destination_city_id', $destCityId)
+                ->where('is_active', true)
+                ->orderBy('courier_code')
+                ->orderBy('service_code')
+                ->get();
+
+            foreach ($rates as $rate) {
+                $shippingOptions[] = [
+                    'rate_id' => $rate->id,
+                    'courier_code' => $rate->courier_code,
+                    'courier_label' => ShippingRate::COURIERS[$rate->courier_code] ?? strtoupper($rate->courier_code),
+                    'service_code' => $rate->service_code,
+                    'service_name' => $rate->service_name,
+                    'amount' => $rate->estimateForWeightKg($weightKg),
+                    'etd' => $this->formatShippingEtd($rate),
+                ];
+            }
+        }
+
+        $shippingAvailable = $originCityId && $destCityId && count($shippingOptions) > 0;
+
         $shipping = [
-            'origin_city' => $originUnit?->city,
-            'origin_province' => $originUnit?->province,
-            'origin_name' => $originUnit?->brand_name ?: $originUnit?->name,
+            'origin_city' => $fgWarehouse?->city ?: $originUnit?->city,
+            'origin_province' => $fgWarehouse?->province ?: $originUnit?->province,
+            'origin_name' => $fgWarehouse?->name ?: ($originUnit?->brand_name ?: $originUnit?->name),
             'destination_city' => $agent?->city,
             'destination_province' => $agent?->province,
             'destination_name' => $agent?->name ?: $customer->name,
@@ -536,6 +567,9 @@ class AgentOrderController extends Controller
             'cart' => $cart->get(),
             'summary' => $cart->summarize(),
             'shipping' => $shipping,
+            'shippingOptions' => $shippingOptions,
+            'shippingAvailable' => $shippingAvailable,
+            'weightKg' => $weightKg,
             'codMethod' => null,
             'codIcon' => null,
             'xenditChannelGroups' => [],
@@ -548,6 +582,7 @@ class AgentOrderController extends Controller
     {
         $request->validate([
             'payment_method_id' => 'required|uuid',
+            'shipping_rate_id' => ['required', 'uuid', 'exists:master_data.shipping_rates,id'],
             'xendit_channel' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -556,6 +591,38 @@ class AgentOrderController extends Controller
         if ($cartService->count() < 1) {
             return redirect()->route('agent-order.index')->with('error', 'Keranjang kosong.');
         }
+
+        $customer = $this->context()->customer();
+        $agent = $customer->agent;
+        $originCityId = optional(WmsContext::finishedGoodsWarehouse())->city_id;
+        $destCityId = $agent?->city_id;
+
+        if (! $originCityId || ! $destCityId) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Ongkir belum tersedia untuk kota tujuan Anda. Hubungi admin untuk menambahkan tarif.');
+        }
+
+        $rate = ShippingRate::query()
+            ->where('id', $request->shipping_rate_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $rate || $rate->origin_city_id !== $originCityId || $rate->destination_city_id !== $destCityId) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Ongkir tidak valid. Silakan pilih kurir lagi.');
+        }
+
+        $shippingAmount = $rate->estimateForWeightKg($this->cartTotalWeightKg($cartService));
+        $shippingMeta = [
+            'courier' => $rate->courier_code,
+            'service' => $rate->service_code,
+            'rate_id' => $rate->id,
+            'etd' => $this->formatShippingEtd($rate),
+        ];
 
         $checkoutRequest = $cartService->toCheckoutRequest();
         if ($request->filled('notes')) {
@@ -580,6 +647,8 @@ class AgentOrderController extends Controller
                     $request->payment_method_id,
                     self::ORDER_TYPE,
                     $this->resolveShippingAddress(),
+                    $shippingAmount,
+                    $shippingMeta,
                 );
                 $cartService->clear();
 
@@ -714,5 +783,33 @@ class AgentOrderController extends Controller
     {
         return ! $method->uses_payment_gateway
             && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
+    }
+
+    protected function cartTotalWeightKg(ShopCartService $cart): float
+    {
+        $items = $cart->get();
+        if ($items === []) {
+            return 0;
+        }
+
+        $variantIds = array_column($items, 'variant_id');
+        $weights = ProductVariant::query()
+            ->whereIn('id', $variantIds)
+            ->pluck('weight', 'id');
+
+        $total = 0.0;
+        foreach ($items as $item) {
+            $weight = (float) ($weights[$item['variant_id']] ?? 0);
+            $total += $weight * (float) $item['quantity'];
+        }
+
+        return max(0, $total);
+    }
+
+    protected function formatShippingEtd(ShippingRate $rate): ?string
+    {
+        $text = trim(($rate->etd_min_days ?? '').'-'.($rate->etd_max_days ?? '').' hari', '- hari');
+
+        return $text !== '' ? $text : null;
     }
 }

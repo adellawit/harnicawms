@@ -60,7 +60,30 @@
                     @endunless
 
                     <div class="small text-muted mb-1">Alamat pengiriman</div>
-                    <div>{{ $shipping['address'] ?: '-' }}</div>
+                    <div class="mb-3">{{ $shipping['address'] ?: '-' }}</div>
+
+                    <div class="small text-muted mb-2">Pilih kurir @if($weightKg > 0)<span class="text-muted">(est. {{ number_format($weightKg, 2, ',', '.') }} kg)</span>@endif</div>
+                    @if (! $shippingAvailable)
+                        <div class="alert alert-warning small mb-0">
+                            Ongkir belum tersedia untuk kota tujuan Anda. Hubungi admin untuk menambahkan tarif.
+                        </div>
+                    @else
+                        @foreach ($shippingOptions as $opt)
+                            <label class="d-flex justify-content-between align-items-start border rounded p-2 mb-2 shop-shipping-option">
+                                <span class="me-2">
+                                    <input type="radio" name="shipping_rate_id" value="{{ $opt['rate_id'] }}" required
+                                           form="checkoutForm"
+                                           data-amount="{{ $opt['amount'] }}"
+                                           @checked($loop->first)>
+                                    {{ $opt['courier_label'] }} · {{ $opt['service_name'] ?: $opt['service_code'] }}
+                                    @if ($opt['etd'])
+                                        <small class="text-muted d-block">({{ $opt['etd'] }})</small>
+                                    @endif
+                                </span>
+                                <strong class="text-nowrap">Rp {{ number_format($opt['amount'], 0, ',', '.') }}</strong>
+                            </label>
+                        @endforeach
+                    @endif
                 </div>
             </div>
 
@@ -92,7 +115,7 @@
                         <input type="hidden" name="xendit_channel" id="xenditChannel" value="">
 
                         <button type="submit" class="btn btn-primary w-100 mt-3 d-none d-md-flex align-items-center justify-content-center"
-                            id="btnPlaceOrderDesktop" @disabled(! $hasPaymentOptions)>
+                            id="btnPlaceOrderDesktop" @disabled(! $hasPaymentOptions || ! $shippingAvailable)>
                             <i class="ti ti-shopping-cart-check me-1"></i> Checkout
                         </button>
                     </form>
@@ -120,7 +143,7 @@
                 </div>
             </div>
             <button type="submit" form="checkoutForm" class="btn btn-primary shop-checkout-bar-btn"
-                id="btnPlaceOrder" @disabled(! $hasPaymentOptions)>
+                id="btnPlaceOrder" @disabled(! $hasPaymentOptions || ! $shippingAvailable)>
                 Checkout
             </button>
         </div>
@@ -130,12 +153,48 @@
 @push('scripts')
     <script src="{{ asset('assets/js/shop-checkout.js') }}"></script>
     <script>
+        const checkoutBaseTotal = {{ $summary['total'] }};
+        const checkoutShippingAvailable = @json($shippingAvailable);
+        const checkoutHasPayment = @json($hasPaymentOptions);
+
+        function formatCheckoutRp(amount) {
+            return 'Rp ' + Number(amount || 0).toLocaleString('id-ID');
+        }
+
+        function selectedShippingAmount() {
+            const $selected = $('input[name="shipping_rate_id"]:checked');
+            return $selected.length ? parseFloat($selected.data('amount')) || 0 : 0;
+        }
+
+        function updateCheckoutTotals() {
+            const shipping = checkoutShippingAvailable ? selectedShippingAmount() : 0;
+            const total = checkoutBaseTotal + shipping;
+            $('#checkoutShipping').text(formatCheckoutRp(shipping));
+            $('#checkoutTotal, #checkoutBarTotal').text(formatCheckoutRp(total));
+        }
+
+        function updateCheckoutPayButtons() {
+            const canPay = checkoutHasPayment
+                && checkoutShippingAvailable
+                && $('input[name="shipping_rate_id"]:checked').length > 0;
+            $('#btnPlaceOrder, #btnPlaceOrderDesktop').prop('disabled', !canPay);
+        }
+
         function syncXenditChannel() {
             const $sel = $('input[name="payment_method_id"]:checked');
             $('#xenditChannel').val($sel.data('xendit-channel') || '');
         }
+
         syncXenditChannel();
+        updateCheckoutTotals();
+        updateCheckoutPayButtons();
+
         $(document).on('change', 'input[name="payment_method_id"]', syncXenditChannel);
+        $(document).on('change', 'input[name="shipping_rate_id"]', function () {
+            updateCheckoutTotals();
+            updateCheckoutPayButtons();
+        });
+
         $('#checkoutForm').on('submit', function () {
             syncXenditChannel();
             $('#btnPlaceOrder, #btnPlaceOrderDesktop').prop('disabled', true);

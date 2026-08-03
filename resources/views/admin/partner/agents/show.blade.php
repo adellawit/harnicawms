@@ -61,15 +61,7 @@
                             'label' => 'Kota (untuk ongkir)',
                             'required' => false,
                             'selectedId' => old('city_id', $agent->city_id),
-                            'selectedText' => old('city_id')
-                                ? null
-                                : trim(
-                                    ($agent->cityRef?->name ?? '').(
-                                        $agent->cityRef?->province?->name
-                                            ? ' ('.$agent->cityRef->province->name.')'
-                                            : ''
-                                    )
-                                ) ?: null,
+                            'selectedText' => optional($agent->cityRef)->name,
                             'tooltip' => 'Kota tujuan pengiriman stok dari distributor.',
                         ])
                         <div class="col-md-6">
