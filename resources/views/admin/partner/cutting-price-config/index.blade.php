@@ -17,7 +17,7 @@
 
         <x-page-header
             title="Cutting Price Config"
-            subtitle="Harga resmi & MAP floor untuk deteksi cutting price agen. Tidak terikat price list POS."
+            subtitle="Sesuai struktur harga operasional: H.K. Resmi, MAP, Reseller (30/60/120), Agen (600). Tidak terikat price list."
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Network', 'url' => route('partner.reports.index')],
@@ -41,10 +41,13 @@
                         <tr>
                             <th>No</th>
                             <th>Produk</th>
-                            <th>Kategori</th>
                             <th>Unit</th>
-                            <th>Harga Resmi</th>
-                            <th>MAP Floor</th>
+                            <th>H.K. Resmi</th>
+                            <th>MAP</th>
+                            <th>Reseller 30</th>
+                            <th>Reseller 60</th>
+                            <th>Reseller 120</th>
+                            <th>Agen 600</th>
                             <th>Aktif</th>
                             <th>Status</th>
                             @if($hasAnyActionPermission)<th>Actions</th>@endif
@@ -102,13 +105,24 @@
                     columns: [
                         { data: 'DT_RowIndex', orderable: false, searchable: false },
                         { data: 'product_label', orderable: false, searchable: true },
-                        { data: 'category_label', orderable: false, searchable: true },
                         { data: 'unit_code' },
                         { data: 'official_price', className: 'text-end', render: function(d) {
                             return Number(d).toLocaleString('id-ID');
                         }},
                         { data: 'map_price', className: 'text-end', render: function(d) {
                             return Number(d).toLocaleString('id-ID');
+                        }},
+                        { data: 'reseller_price_30', className: 'text-end', render: function(d) {
+                            return d == null ? '-' : Number(d).toLocaleString('id-ID');
+                        }},
+                        { data: 'reseller_price_60', className: 'text-end', render: function(d) {
+                            return d == null ? '-' : Number(d).toLocaleString('id-ID');
+                        }},
+                        { data: 'reseller_price_120', className: 'text-end', render: function(d) {
+                            return d == null ? '-' : Number(d).toLocaleString('id-ID');
+                        }},
+                        { data: 'agent_price_600', className: 'text-end', render: function(d) {
+                            return d == null ? '-' : Number(d).toLocaleString('id-ID');
                         }},
                         { data: 'is_active', render: function(d) {
                             return d ? '<span class="badge bg-label-success">Ya</span>' : '<span class="badge bg-label-secondary">Tidak</span>';

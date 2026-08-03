@@ -23,6 +23,10 @@ class CuttingPriceConfig extends Model
         'unit_code',
         'official_price',
         'map_price',
+        'reseller_price_30',
+        'reseller_price_60',
+        'reseller_price_120',
+        'agent_price_600',
         'sort_order',
         'is_active',
         'created_by',
@@ -33,6 +37,10 @@ class CuttingPriceConfig extends Model
     protected $casts = [
         'official_price' => 'decimal:4',
         'map_price' => 'decimal:4',
+        'reseller_price_30' => 'decimal:4',
+        'reseller_price_60' => 'decimal:4',
+        'reseller_price_120' => 'decimal:4',
+        'agent_price_600' => 'decimal:4',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];

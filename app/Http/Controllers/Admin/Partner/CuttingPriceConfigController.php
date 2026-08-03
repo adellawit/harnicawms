@@ -158,27 +158,47 @@ class CuttingPriceConfigController extends Controller
             'unit_code' => 'required|string|max:20',
             'official_price' => 'required',
             'map_price' => 'required',
+            'reseller_price_30' => 'required',
+            'reseller_price_60' => 'required',
+            'reseller_price_120' => 'required',
+            'agent_price_600' => 'required',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
         ]);
 
         $official = normalize_number_input($request->input('official_price'));
         $map = normalize_number_input($request->input('map_price'));
+        $reseller30 = normalize_number_input($request->input('reseller_price_30'));
+        $reseller60 = normalize_number_input($request->input('reseller_price_60'));
+        $reseller120 = normalize_number_input($request->input('reseller_price_120'));
+        $agent600 = normalize_number_input($request->input('agent_price_600'));
 
         if ($official === null || $official < 0) {
             throw ValidationException::withMessages([
-                'official_price' => 'Harga resmi harus angka ≥ 0.',
+                'official_price' => 'H.K. Resmi harus angka ≥ 0.',
             ]);
         }
         if ($map === null || $map < 0) {
             throw ValidationException::withMessages([
-                'map_price' => 'MAP harus angka ≥ 0.',
+                'map_price' => 'H. Minimum Advertised harus angka ≥ 0.',
             ]);
         }
         if ($map > $official) {
             throw ValidationException::withMessages([
-                'map_price' => 'MAP tidak boleh lebih tinggi dari harga resmi.',
+                'map_price' => 'H. Minimum Advertised tidak boleh lebih tinggi dari H.K. Resmi.',
             ]);
+        }
+        foreach ([
+            'reseller_price_30' => $reseller30,
+            'reseller_price_60' => $reseller60,
+            'reseller_price_120' => $reseller120,
+            'agent_price_600' => $agent600,
+        ] as $field => $value) {
+            if ($value === null || $value < 0) {
+                throw ValidationException::withMessages([
+                    $field => 'Harga harus angka ≥ 0.',
+                ]);
+            }
         }
 
         $product = Product::query()->findOrFail($validated['product_id']);
@@ -210,6 +230,10 @@ class CuttingPriceConfigController extends Controller
             'unit_code' => $unitCode,
             'official_price' => $official,
             'map_price' => $map,
+            'reseller_price_30' => $reseller30,
+            'reseller_price_60' => $reseller60,
+            'reseller_price_120' => $reseller120,
+            'agent_price_600' => $agent600,
             'sort_order' => (int) ($validated['sort_order'] ?? 10),
             'is_active' => $request->boolean('is_active'),
         ];

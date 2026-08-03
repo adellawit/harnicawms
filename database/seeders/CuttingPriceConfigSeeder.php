@@ -71,6 +71,10 @@ class CuttingPriceConfigSeeder extends Seeder
             'unit_code' => 'BOX',
             'official_price' => 249000,
             'map_price' => 229000,
+            'reseller_price_30' => 180000,
+            'reseller_price_60' => 175000,
+            'reseller_price_120' => 170000,
+            'agent_price_600' => 160000,
             'sort_order' => 10,
             'is_active' => true,
             'deleted_at' => null,
@@ -84,7 +88,7 @@ class CuttingPriceConfigSeeder extends Seeder
         }
 
         $this->command?->info(
-            'Cutting price config seeded: FOREDI-FG BOX official=249000 map=229000.'
+            'Cutting price config seeded: FOREDI-FG BOX resmi=249k MAP=229k reseller 30/60/120 agen 600.'
         );
     }
 }
