@@ -138,7 +138,7 @@
                                 <div class="surface-color-field ms-4" data-for="background_color">
                                     <label class="form-label" for="background_color">Background Color</label>
                                     <input type="color" class="form-control form-control-color w-100" name="background_color" id="background_color"
-                                           value="{{ old('background_color', $theme->background_color ?: '#F4F6F9') }}"
+                                           value="{{ old('background_color', $theme->background_color ?: '#EEF7EF') }}"
                                            @disabled(! $backgroundOverride)>
                                 </div>
                             </div>
@@ -223,7 +223,7 @@
                                         Sidebar
                                     </div>
                                     <div id="previewPageBg" class="flex-grow-1 small p-2 text-muted"
-                                         style="background:{{ $theme->background_color ?: '#f4f6f9' }};">
+                                         style="background:{{ $theme->background_color ?: 'linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)' }};">
                                         Content
                                     </div>
                                 </div>

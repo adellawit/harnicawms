@@ -25,7 +25,28 @@
     flex-direction: column;
     gap: 0.75rem;
     max-height: 560px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Scrollable agent cards — must not flex-shrink or heads overlap */
+.pnm-sidebar__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.15rem;
+}
+
+.pnm-sidebar__list > .pnm-group {
+    flex-shrink: 0;
+}
+
+.pnm-sidebar > .pnm-slice-note {
+    flex-shrink: 0;
 }
 
 .pnm-legend {
@@ -88,6 +109,7 @@
     border-radius: 10px;
     overflow: hidden;
     background: #fff;
+    flex-shrink: 0;
 }
 
 .pnm-group__head {
@@ -96,6 +118,8 @@
     align-items: flex-start;
     gap: 0.2rem;
     width: 100%;
+    min-height: auto;
+    height: auto;
     padding: 0.7rem 0.85rem;
     border: 0;
     background: rgba(var(--brand-primary-rgb), 0.07);
@@ -103,6 +127,7 @@
     text-align: left;
     cursor: pointer;
     position: relative;
+    flex-shrink: 0;
 }
 
 .pnm-group__head:hover {

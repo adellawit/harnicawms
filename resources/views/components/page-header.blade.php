@@ -20,13 +20,20 @@
     </nav>
 @endif
 
-@if($title || $subtitle)
-    <div class="mb-4">
-        @if($title)
-            <h4 class="fw-bold mb-1">{{ $title }}</h4>
-        @endif
-        @if($subtitle)
-            <p class="text-muted mb-0">{{ $subtitle }}</p>
-        @endif
+@if($title || $subtitle || isset($actions))
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+        <div class="min-w-0">
+            @if($title)
+                <h4 class="fw-bold mb-1">{{ $title }}</h4>
+            @endif
+            @if($subtitle)
+                <p class="text-muted mb-0">{{ $subtitle }}</p>
+            @endif
+        </div>
+        @isset($actions)
+            <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                {{ $actions }}
+            </div>
+        @endisset
     </div>
 @endif

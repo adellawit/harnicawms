@@ -193,10 +193,7 @@ body.app-glass-enabled.app-surface-sidebar .bg-menu-theme .app-brand.demo {
 }
 
 body.app-glass-enabled.app-surface-page {
-    background:
-        radial-gradient(100% 80% at 100% 0%, rgba(var(--brand-primary-rgb), 0.08) 0%, transparent 50%),
-        radial-gradient(90% 70% at 0% 100%, rgba(var(--brand-secondary-rgb), 0.08) 0%, transparent 50%),
-        var(--brand-page-bg) !important;
+    background: var(--brand-page-bg) !important;
 }
 
 body.app-glass-enabled.app-surface-page .layout-page,

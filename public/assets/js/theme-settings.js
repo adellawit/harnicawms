@@ -75,7 +75,9 @@
                 previewSidebar.style.color = contrastInk(sideBg);
             }
             if (previewPageBg && backgroundInput) {
-                var pageBg = overrideBackground && overrideBackground.checked ? backgroundInput.value : '#F4F6F9';
+                var pageBg = overrideBackground && overrideBackground.checked
+                    ? backgroundInput.value
+                    : 'linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)';
                 previewPageBg.style.background = pageBg;
             }
         }

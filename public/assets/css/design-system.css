@@ -18,6 +18,10 @@
     --brand-ink-soft: #5a6672;
     --brand-surface: rgba(255, 255, 255, 0.72);
     --brand-surface-soft: rgba(255, 255, 255, 0.45);
+    /* Soft mint page wash (sampled from brand surface reference) */
+    --brand-page-bg-soft: #F0F9F0;
+    --brand-page-bg-mint: #E3F5E7;
+    --brand-page-gradient: linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%);
     --brand-radius-lg: 24px;
     --brand-radius-md: 16px;
     --brand-radius-sm: 12px;
@@ -68,15 +72,14 @@
     border-radius: var(--brand-radius-md);
 }
 
-/* Global glass mode — subtle, keeps tables readable */
+/* Global glass mode — soft mint wash, keeps tables readable */
 body.app-glass-enabled {
-    background:
-        radial-gradient(100% 80% at 100% 0%, rgba(var(--brand-primary-rgb), 0.08) 0%, transparent 50%),
-        radial-gradient(90% 70% at 0% 100%, rgba(var(--brand-secondary-rgb), 0.08) 0%, transparent 50%),
-        #f4f6f9 !important;
+    background: var(--brand-page-gradient) !important;
 }
 
-body.app-glass-enabled .layout-page {
+body.app-glass-enabled .layout-page,
+body.app-glass-enabled .content-wrapper,
+body.app-glass-enabled .content-footer {
     background: transparent !important;
 }
 

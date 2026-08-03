@@ -68,60 +68,62 @@
                     <div id="partner-network-map"></div>
 
                     <aside class="pnm-sidebar">
-                        @forelse ($agents->sortBy('code')->values() as $agent)
-                            @php
-                                $agentLinks = $linksByAgent->get($agent['id'], collect());
-                                $resellerCount = $agentLinks->count();
-                            @endphp
-                            <div class="pnm-group" data-pnm-agent-card="{{ $agent['id'] }}">
-                                <button type="button" class="pnm-group__head" data-pnm-toggle aria-expanded="false">
-                                    <span class="pnm-group__title">
-                                        <i class="ti ti-briefcase"></i>
-                                        <span class="pnm-group__name">{{ $agent['label'] }}</span>
-                                    </span>
-                                    <span class="pnm-group__meta">
-                                        <span class="pnm-group__code">{{ $agent['code'] }}</span>
-                                        @if (!empty($agent['city']))
-                                            <span class="pnm-group__sep">·</span>
-                                            <span>{{ $agent['city'] }}</span>
-                                        @endif
-                                        <span class="pnm-group__sep">·</span>
-                                        <span>{{ $resellerCount }} reseller</span>
-                                    </span>
-                                    <span class="pnm-coords" id="pnm-coords-{{ $agent['id'] }}">
-                                        {{ number_format((float) $agent['lat'], 5, '.', '') }}, {{ number_format((float) $agent['lng'], 5, '.', '') }}
-                                    </span>
-                                    @if ($resellerCount > 0)
-                                        <span class="pnm-group__chevron" aria-hidden="true"><i class="ti ti-chevron-down"></i></span>
-                                    @endif
-                                </button>
-
-                                @if ($resellerCount > 0)
-                                    <ul class="pnm-group__list" hidden>
-                                        @foreach ($agentLinks as $link)
-                                            @php $reseller = $nodesById->get($link['resellerId']); @endphp
-                                            @if ($reseller)
-                                                <li>
-                                                    <div class="pnm-reseller">
-                                                        <span class="pnm-reseller__name">{{ $reseller['label'] }}</span>
-                                                        <span class="pnm-reseller__meta">
-                                                            {{ $reseller['code'] }}
-                                                            @if (($link['mode'] ?? '') === 'nearest')
-                                                                · nearest{{ isset($link['distanceKm']) ? ' '.$link['distanceKm'].' km' : '' }}
-                                                            @elseif (isset($link['distanceKm']))
-                                                                · {{ $link['distanceKm'] }} km
-                                                            @endif
-                                                        </span>
-                                                    </div>
-                                                </li>
+                        <div class="pnm-sidebar__list">
+                            @forelse ($agents->sortBy('code')->values() as $agent)
+                                @php
+                                    $agentLinks = $linksByAgent->get($agent['id'], collect());
+                                    $resellerCount = $agentLinks->count();
+                                @endphp
+                                <div class="pnm-group" data-pnm-agent-card="{{ $agent['id'] }}">
+                                    <button type="button" class="pnm-group__head" data-pnm-toggle aria-expanded="false">
+                                        <span class="pnm-group__title">
+                                            <i class="ti ti-briefcase"></i>
+                                            <span class="pnm-group__name">{{ $agent['label'] }}</span>
+                                        </span>
+                                        <span class="pnm-group__meta">
+                                            <span class="pnm-group__code">{{ $agent['code'] }}</span>
+                                            @if (!empty($agent['city']))
+                                                <span class="pnm-group__sep">·</span>
+                                                <span>{{ $agent['city'] }}</span>
                                             @endif
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </div>
-                        @empty
-                            <p class="text-muted small mb-0">Belum ada agent dengan koordinat (lat/long).</p>
-                        @endforelse
+                                            <span class="pnm-group__sep">·</span>
+                                            <span>{{ $resellerCount }} reseller</span>
+                                        </span>
+                                        <span class="pnm-coords" id="pnm-coords-{{ $agent['id'] }}">
+                                            {{ number_format((float) $agent['lat'], 5, '.', '') }}, {{ number_format((float) $agent['lng'], 5, '.', '') }}
+                                        </span>
+                                        @if ($resellerCount > 0)
+                                            <span class="pnm-group__chevron" aria-hidden="true"><i class="ti ti-chevron-down"></i></span>
+                                        @endif
+                                    </button>
+
+                                    @if ($resellerCount > 0)
+                                        <ul class="pnm-group__list" hidden>
+                                            @foreach ($agentLinks as $link)
+                                                @php $reseller = $nodesById->get($link['resellerId']); @endphp
+                                                @if ($reseller)
+                                                    <li>
+                                                        <div class="pnm-reseller">
+                                                            <span class="pnm-reseller__name">{{ $reseller['label'] }}</span>
+                                                            <span class="pnm-reseller__meta">
+                                                                {{ $reseller['code'] }}
+                                                                @if (($link['mode'] ?? '') === 'nearest')
+                                                                    · nearest{{ isset($link['distanceKm']) ? ' '.$link['distanceKm'].' km' : '' }}
+                                                                @elseif (isset($link['distanceKm']))
+                                                                    · {{ $link['distanceKm'] }} km
+                                                                @endif
+                                                            </span>
+                                                        </div>
+                                                    </li>
+                                                @endif
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
+                            @empty
+                                <p class="text-muted small mb-0">Belum ada agent dengan koordinat (lat/long).</p>
+                            @endforelse
+                        </div>
 
                         <p class="pnm-slice-note mb-0">
                             <i class="ti ti-info-circle me-1"></i>

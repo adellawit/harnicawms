@@ -1,5 +1,12 @@
 # Lessons
 
+## 2026-08-03 — Dashboard period flatpickr shows wrong dates (e.g. Jan)
+
+- **Symptom:** Badge/modal shows `20 Jan 2026 to 24 Jan 2026` instead of `01 Aug — 03 Aug`.
+- **Root cause:** Prefilling flatpickr input with `01 Aug 2026 — 03 Aug 2026` (em dash) while locale expects ` to `; flatpickr mis-parses, then Apply writes bad `date_from`/`date_to` into the URL permanently.
+- **Fix pattern:** Leave input `value` empty; init with `defaultDate`/`setDate` from server `Y-m-d` data attributes; set `locale.rangeSeparator`; Reset → clean `/dashboard` (no date query). Stale `date_from`/`date_to` without `period_custom=1` → server redirect scrub ke default bulan ini.
+- **Verify:** Open `/dashboard` (even with old Jan query) → redirect → badge `01 Aug 2026 — 03 Aug 2026`.
+
 ## 2026-07-15 — Login 500 / schema migrations
 
 - **Symptom:** Login HTTP 500 with `relation "auth.users" does not exist`.

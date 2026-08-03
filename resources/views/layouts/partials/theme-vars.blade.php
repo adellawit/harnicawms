@@ -17,6 +17,9 @@
     --brand-ink-soft: #5a6672;
     --brand-surface: rgba(255, 255, 255, 0.72);
     --brand-surface-soft: rgba(255, 255, 255, 0.45);
+    --brand-page-bg-soft: #F0F9F0;
+    --brand-page-bg-mint: #E3F5E7;
+    --brand-page-gradient: linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%);
     --brand-radius-lg: 24px;
     --brand-radius-md: 16px;
     --brand-radius-sm: 12px;

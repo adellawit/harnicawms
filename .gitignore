@@ -24,3 +24,10 @@ yarn-error.log
 .DS_Store
 /.claude/
 .cursorrules
+
+# Local demo seeders (jangan ikut push)
+/app/Services/Demo/
+/app/Console/Commands/DemoSeed*.php
+
+# Local planning docs (jangan ikut push)
+/docs/superpowers/
