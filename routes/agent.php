@@ -52,6 +52,7 @@ Route::prefix('agent-order')->name('agent-order.')->group(function () {
         Route::get('/orders', [AgentOrderController::class, 'orders'])->name('orders');
         Route::get('/orders/{order}', [AgentOrderController::class, 'orderShow'])->name('orders.show');
         Route::post('/orders/{order}/receive', [AgentOrderController::class, 'receiveOrder'])->name('orders.receive');
+        Route::get('/stok', [AgentOrderController::class, 'stock'])->name('stock');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
 });

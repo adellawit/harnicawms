@@ -871,6 +871,34 @@ class AgentOrderController extends Controller
         return back()->with('success', 'Barang diterima. Stok masuk ke gudang Anda.');
     }
 
+    public function stock(Request $request): View
+    {
+        $agent = $this->context()->customer()->agent;
+        $warehouseId = $agent?->default_warehouse_id;
+
+        $query = ProductVariantStock::query()
+            ->where('warehouse_id', $warehouseId)
+            ->with(['variant.product.defaultUnit', 'variant.variantAttributes.attributeValue'])
+            ->when(! $warehouseId, fn ($q) => $q->whereRaw('1 = 0'));
+
+        $search = trim((string) $request->get('q', ''));
+        if ($search !== '') {
+            $query->whereHas('variant', function ($v) use ($search) {
+                $v->where('sku', 'ilike', "%{$search}%")
+                    ->orWhereHas('product', fn ($p) => $p->where('name', 'ilike', "%{$search}%"));
+            });
+        }
+
+        $stocks = $query->orderByDesc('quantity')->paginate(30)->withQueryString();
+
+        return view('agent.order.stock', [
+            'stocks' => $stocks,
+            'search' => $search,
+            'warehouseName' => optional($agent?->defaultWarehouse)->name,
+            'lowThreshold' => 5,
+        ]);
+    }
+
     protected function minVariantPrice(string $productId, string $branchId, string $priceListId): float
     {
         return (float) ProductVariantPrice::query()

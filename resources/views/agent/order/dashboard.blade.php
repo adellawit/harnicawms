@@ -115,6 +115,18 @@
                 </div>
             </a>
         </div>
+        <div class="col-md-4">
+            <a href="{{ route('agent-order.stock') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <span class="agent-dashboard-nav-icon bg-label-success"><i class="ti ti-building-warehouse"></i></span>
+                    <div class="min-w-0">
+                        <div class="fw-semibold">Stok Gudang</div>
+                        <div class="small text-muted">Lihat stok di gudang Anda</div>
+                    </div>
+                    <i class="ti ti-chevron-right ms-auto text-muted flex-shrink-0"></i>
+                </div>
+            </a>
+        </div>
     </div>
 
     {{-- 5. Pesanan aktif --}}
