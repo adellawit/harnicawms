@@ -49,7 +49,6 @@
     <table class="meta">
         <tr>
             <td width="50%" style="padding-right: 12px;">
-                <div class="party-title">Penjual (Distributor)</div>
                 <strong>{{ $company?->brand_name ?: ($company?->name ?: '-') }}</strong><br>
                 @if ($company?->address){{ $company->address }}<br>@endif
                 @if ($company?->city || $company?->province)
@@ -57,7 +56,6 @@
                 @endif
             </td>
             <td width="50%">
-                <div class="party-title">Pembeli (Agen)</div>
                 <strong>{{ $agent?->name ?: ($order->customer_name ?: '-') }}</strong>
                 @if ($agent?->code)
                     <span style="color:#666;"> ({{ $agent->code }})</span>
@@ -118,6 +116,9 @@
                     <tr><td class="label">Subtotal</td><td class="value">{{ $fmt($order->subtotal) }}</td></tr>
                     @if ((float) $order->discount_amount > 0)
                         <tr><td class="label">Diskon</td><td class="value">- {{ $fmt($order->discount_amount) }}</td></tr>
+                    @endif
+                    @if ((float) $order->tax_amount > 0)
+                        <tr><td class="label">PPN ({{ rtrim(rtrim(number_format((float) $order->tax_rate, 2, ',', '.'), '0'), ',') }}%)</td><td class="value">{{ $fmt($order->tax_amount) }}</td></tr>
                     @endif
                     <tr>
                         <td class="label">Ongkir</td>
