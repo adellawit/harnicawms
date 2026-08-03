@@ -40,15 +40,5 @@
     @endpush
     @push('page-js')
         <script src="{{ asset('assets/js/forms-selects.js') }}"></script>
-        <script>
-            $(document).ready(function () {
-                $('#product_id').on('change', function () {
-                    var cat = $(this).find(':selected').data('category');
-                    if (cat && !$('#category_id').val()) {
-                        $('#category_id').val(cat).trigger('change');
-                    }
-                });
-            });
-        </script>
     @endpush
 </x-app-layout>

@@ -10,38 +10,29 @@ use Illuminate\Database\Seeder;
 class CuttingPriceConfigSeeder extends Seeder
 {
     /**
-     * Seed cutting price config (official + MAP) for FOREDI-FG.
-     * Report floor nanti: map_price.
+     * Seed cutting price config per kategori (FOREDI), bukan per produk.
+     * Report floor: map_price.
      */
     public function run(): void
     {
-        $product = Product::query()
-            ->where('code', 'FOREDI-FG')
-            ->whereNull('deleted_at')
-            ->first();
-
-        if (! $product) {
-            $this->command?->error(
-                'Produk FOREDI-FG tidak ditemukan. Jalankan ForediProductSeeder terlebih dahulu.'
-            );
-
-            return;
-        }
-
         $category = ProductCategory::withTrashed()
             ->where('code', 'FOREDI')
             ->first();
 
-        if ($category) {
-            if ($category->trashed()) {
-                $category->restore();
+        if (! $category) {
+            $product = Product::query()
+                ->where('code', 'FOREDI-FG')
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (! $product) {
+                $this->command?->error(
+                    'Kategori FOREDI / produk FOREDI-FG tidak ditemukan. Jalankan ForediProductSeeder terlebih dahulu.'
+                );
+
+                return;
             }
-            $category->fill([
-                'name' => 'FOREDI',
-                'company_id' => $category->company_id ?: $product->company_id,
-                'sort_order' => $category->sort_order ?: 10,
-            ])->save();
-        } else {
+
             $category = ProductCategory::query()->create([
                 'company_id' => $product->company_id,
                 'branch_id' => null,
@@ -53,21 +44,23 @@ class CuttingPriceConfigSeeder extends Seeder
                 'sort_order' => 10,
             ]);
             $this->command?->info('Kategori FOREDI dibuat otomatis.');
-        }
 
-        if ($product->category_id !== $category->id) {
-            $product->category_id = $category->id;
-            $product->save();
+            if ($product->category_id !== $category->id) {
+                $product->category_id = $category->id;
+                $product->save();
+            }
+        } elseif ($category->trashed()) {
+            $category->restore();
         }
 
         $row = CuttingPriceConfig::withTrashed()
-            ->where('product_id', $product->id)
+            ->where('category_id', $category->id)
             ->where('unit_code', 'BOX')
             ->first();
 
         $payload = [
             'category_id' => $category->id,
-            'product_id' => $product->id,
+            'product_id' => null,
             'unit_code' => 'BOX',
             'official_price' => 249000,
             'map_price' => 229000,
@@ -88,7 +81,7 @@ class CuttingPriceConfigSeeder extends Seeder
         }
 
         $this->command?->info(
-            'Cutting price config seeded: FOREDI-FG BOX resmi=249k MAP=229k reseller 30/60/120 agen 600.'
+            'Cutting price config seeded: kategori FOREDI / BOX resmi=249k MAP=229k reseller 30/60/120 agen 600.'
         );
     }
 }

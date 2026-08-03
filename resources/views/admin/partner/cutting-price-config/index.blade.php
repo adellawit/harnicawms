@@ -17,7 +17,7 @@
 
         <x-page-header
             title="Cutting Price Config"
-            subtitle="Sesuai struktur harga operasional: H.K. Resmi, MAP, Reseller (30/60/120), Agen (600). Tidak terikat price list."
+            subtitle="Konfigurasi per kategori: H.K. Resmi, MAP, Reseller (30/60/120), Agen (600). Tidak terikat price list."
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Network', 'url' => route('partner.reports.index')],
@@ -40,7 +40,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>No</th>
-                            <th>Produk</th>
+                            <th>Kategori</th>
                             <th>Unit</th>
                             <th>H.K. Resmi</th>
                             <th>MAP</th>
@@ -104,7 +104,7 @@
                     },
                     columns: [
                         { data: 'DT_RowIndex', orderable: false, searchable: false },
-                        { data: 'product_label', orderable: false, searchable: true },
+                        { data: 'category_label', orderable: false, searchable: true },
                         { data: 'unit_code' },
                         { data: 'official_price', className: 'text-end', render: function(d) {
                             return Number(d).toLocaleString('id-ID');
@@ -131,7 +131,7 @@
                             return d ? '<span class="badge bg-label-danger">Deleted</span>' : '<span class="badge bg-label-success">Active</span>';
                         }},
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, render: function(d,t,r) {
-                            var label = r.product_label || r.id;
+                            var label = r.category_label || r.id;
                             var html = '<div class="dropdown"><button type="button" class="btn btn-sm btn-icon dropdown-toggle hide-arrow" data-bs-toggle="dropdown"><i class="ti ti-dots-vertical text-primary"></i></button><ul class="dropdown-menu dropdown-menu-end">';
                             if (@json($hasUpdatePermission)) html += '<li><a class="dropdown-item" href="{{ url("partner-network/cutting-price-config/edit") }}/'+r.id+'"><i class="ti ti-pencil me-2 text-warning"></i>Edit</a></li>';
                             if (@json($hasDeletePermission)) html += r.deleted_at

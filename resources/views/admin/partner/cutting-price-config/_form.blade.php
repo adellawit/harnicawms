@@ -5,23 +5,10 @@
 @endphp
 
 <div class="row g-3">
-    <div class="col-md-6">
-        <label class="form-label" for="product_id">Produk <span class="text-danger">*</span></label>
-        <select id="product_id" name="product_id" class="form-select select2" required>
-            <option value="">Pilih produk</option>
-            @foreach($products as $product)
-                <option value="{{ $product->id }}"
-                    data-category="{{ $product->category_id }}"
-                    @selected(old('product_id', $config?->product_id) === $product->id)>
-                    {{ $product->code }} · {{ $product->name }}
-                </option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label" for="category_id">Kategori</label>
-        <select id="category_id" name="category_id" class="form-select select2" data-allow-clear="true">
-            <option value="">Ikuti kategori produk</option>
+    <div class="col-md-8">
+        <label class="form-label" for="category_id">Kategori <span class="text-danger">*</span></label>
+        <select id="category_id" name="category_id" class="form-select select2" required>
+            <option value="">Pilih kategori</option>
             @foreach($categories as $category)
                 <option value="{{ $category->id }}" @selected(old('category_id', $config?->category_id) === $category->id)>
                     {{ $category->code }} · {{ $category->name }}
@@ -29,7 +16,7 @@
             @endforeach
         </select>
     </div>
-    <div class="col-md-2">
+    <div class="col-md-4">
         <label class="form-label" for="unit_code">Unit <span class="text-danger">*</span></label>
         <input type="text" id="unit_code" name="unit_code" class="form-control text-uppercase"
                value="{{ $unit }}" required maxlength="20">
@@ -62,7 +49,6 @@
                        value="{{ format_number(old('map_price', $config?->map_price ?? 229000), 0, true) }}" required>
                 <span class="input-group-text">/ <span class="js-unit-label">{{ $unit }}</span></span>
             </div>
-            <div class="form-text">Floor report cutting price (jual di bawah MAP = melanggar).</div>
         </div>
     </div>
 

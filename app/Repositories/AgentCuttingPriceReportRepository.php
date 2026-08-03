@@ -268,7 +268,7 @@ class AgentCuttingPriceReportRepository
                 ON pu.id = soi.unit_id
                AND pu.deleted_at IS NULL
             INNER JOIN partner.cutting_price_configs cpc
-                ON cpc.product_id = soi.product_id
+                ON cpc.category_id = p.category_id
                AND cpc.deleted_at IS NULL
                AND cpc.is_active = true
                AND (

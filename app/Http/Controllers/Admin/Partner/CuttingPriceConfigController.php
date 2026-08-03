@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin\Partner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Partner\CuttingPriceConfig;
-use App\Models\Product;
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,7 +25,6 @@ class CuttingPriceConfigController extends Controller
         $data = CuttingPriceConfig::query()
             ->select('partner.cutting_price_configs.*')
             ->with([
-                'product:id,code,name',
                 'category:id,code,name',
             ]);
 
@@ -44,15 +42,10 @@ class CuttingPriceConfigController extends Controller
 
         return $dt->eloquent($data)
             ->addIndexColumn()
-            ->addColumn('product_label', function (CuttingPriceConfig $row) {
-                $p = $row->product;
-
-                return $p ? trim(($p->code ?? '').' · '.($p->name ?? '')) : '-';
-            })
             ->addColumn('category_label', function (CuttingPriceConfig $row) {
                 $c = $row->category;
 
-                return $c ? ($c->code ?: $c->name) : '-';
+                return $c ? trim(($c->code ?? '').' · '.($c->name ?? '')) : '-';
             })
             ->filter(function ($query) use ($request) {
                 $search = $request->input('search.value');
@@ -61,10 +54,6 @@ class CuttingPriceConfigController extends Controller
                 }
                 $query->where(function ($q) use ($search) {
                     $q->where('unit_code', 'ILIKE', "%{$search}%")
-                        ->orWhereHas('product', function ($p) use ($search) {
-                            $p->where('code', 'ILIKE', "%{$search}%")
-                                ->orWhere('name', 'ILIKE', "%{$search}%");
-                        })
                         ->orWhereHas('category', function ($c) use ($search) {
                             $c->where('code', 'ILIKE', "%{$search}%")
                                 ->orWhere('name', 'ILIKE', "%{$search}%");
@@ -77,7 +66,6 @@ class CuttingPriceConfigController extends Controller
     public function insertView()
     {
         return view('admin.partner.cutting-price-config.insert', [
-            'products' => $this->productOptions(),
             'categories' => $this->categoryOptions(),
         ]);
     }
@@ -102,7 +90,6 @@ class CuttingPriceConfigController extends Controller
 
         return view('admin.partner.cutting-price-config.edit', [
             'config' => $config,
-            'products' => $this->productOptions(),
             'categories' => $this->categoryOptions(),
         ]);
     }
@@ -153,8 +140,7 @@ class CuttingPriceConfigController extends Controller
     private function validatePayload(Request $request, ?string $ignoreId = null): array
     {
         $validated = $request->validate([
-            'product_id' => ['required', 'uuid', Rule::exists('product.products', 'id')],
-            'category_id' => ['nullable', 'uuid', Rule::exists('product.product_categories', 'id')],
+            'category_id' => ['required', 'uuid', Rule::exists('product.product_categories', 'id')],
             'unit_code' => 'required|string|max:20',
             'official_price' => 'required',
             'map_price' => 'required',
@@ -201,32 +187,23 @@ class CuttingPriceConfigController extends Controller
             }
         }
 
-        $product = Product::query()->findOrFail($validated['product_id']);
-        $categoryId = $validated['category_id'] ?: $product->category_id;
-
-        if (! $categoryId) {
-            throw ValidationException::withMessages([
-                'category_id' => 'Pilih kategori, atau set kategori pada produk terlebih dahulu.',
-            ]);
-        }
-
         $unitCode = strtoupper(trim($validated['unit_code']));
 
         $dup = CuttingPriceConfig::query()
-            ->where('product_id', $validated['product_id'])
+            ->where('category_id', $validated['category_id'])
             ->where('unit_code', $unitCode)
             ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->exists();
 
         if ($dup) {
             throw ValidationException::withMessages([
-                'unit_code' => 'Config untuk produk + unit ini sudah ada.',
+                'unit_code' => 'Config untuk kategori + unit ini sudah ada.',
             ]);
         }
 
         return [
-            'product_id' => $validated['product_id'],
-            'category_id' => $categoryId,
+            'category_id' => $validated['category_id'],
+            'product_id' => null,
             'unit_code' => $unitCode,
             'official_price' => $official,
             'map_price' => $map,
@@ -237,18 +214,6 @@ class CuttingPriceConfigController extends Controller
             'sort_order' => (int) ($validated['sort_order'] ?? 10),
             'is_active' => $request->boolean('is_active'),
         ];
-    }
-
-    /**
-     * @return \Illuminate\Support\Collection<int, Product>
-     */
-    private function productOptions()
-    {
-        return Product::query()
-            ->whereNull('deleted_at')
-            ->where('is_sale_item', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'category_id']);
     }
 
     /**
