@@ -787,7 +787,7 @@ class AgentOrderController extends Controller
 
     protected function cartTotalWeightKg(ShopCartService $cart): float
     {
-        $items = $cart->get();
+        $items = $cart->get()['items'] ?? [];
         if ($items === []) {
             return 0;
         }
