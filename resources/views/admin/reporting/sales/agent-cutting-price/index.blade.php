@@ -9,7 +9,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
             title="Agent Cutting Price"
-            subtitle="Deteksi penjualan Agent/Reseller yang harga bersihnya di bawah Price List Reguler (Distributor)."
+            subtitle="Deteksi penjualan Agent/Reseller di bawah MAP (Minimum Advertised) dari konfigurasi Cutting Price — tidak memakai price list."
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Reporting'],
@@ -209,7 +209,7 @@
                                     <th class="text-end">Qty</th>
                                     <th class="text-end">Unit Price</th>
                                     <th class="text-end">Net</th>
-                                    <th class="text-end">Reguler</th>
+                                    <th class="text-end">MAP Floor</th>
                                     <th class="text-end">Selisih</th>
                                     <th class="text-end">%</th>
                                 </tr>

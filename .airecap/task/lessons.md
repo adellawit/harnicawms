@@ -1,5 +1,11 @@
 # Lessons
 
+## 2026-08-04 — Menu "ganti bagian X" vs "menu terbaru"
+
+- **Symptom:** User bilang 11/12 Training/Pengaturan "masih belum ganti".
+- **Root cause:** Salah baca intent. "ini menu terbaru" = target; "tolong ganti bagian menu" + list 11/12 = yang harus diganti (bukan target).
+- **Fix pattern:** Kalau ada dua blok menu di request — blok "terbaru/seharusnya" vs blok "yang ada sekarang / ganti ini" — konfirmasi arah transformasi sebelum migrate. Nested parent sidebar butuh `has_page=true` atau children tidak tampil.
+
 ## 2026-08-03 — Dashboard period flatpickr shows wrong dates (e.g. Jan)
 
 - **Symptom:** Badge/modal shows `20 Jan 2026 to 24 Jan 2026` instead of `01 Aug — 03 Aug`.

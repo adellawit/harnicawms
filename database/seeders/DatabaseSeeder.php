@@ -44,6 +44,7 @@ class DatabaseSeeder extends Seeder
             BarcodeTrackingAccessSeeder::class,
             FgBarcodeStockAccessSeeder::class,
             AgentCuttingPriceAccessSeeder::class,
+            CuttingPriceConfigAccessSeeder::class,
             ResellerMappingAccessSeeder::class,
             AgenOrderAccessSeeder::class,
 
@@ -75,6 +76,14 @@ class DatabaseSeeder extends Seeder
             // Depends on: ProductUnitSeeder (+SACHET), ProductNatureSeeder, ProductParameterSeeder,
             //             ProductPriceListSeeder, WarehouseSeeder, BusinessUnitSeeder
             ForediProductSeeder::class,
+
+            // Foredi partner price tiers (RESMI/MAP/Reseller/Agen) — terpisah dari price list POS
+            // Depends on: ForediProductSeeder (FOREDI-FG) + kategori FOREDI
+            ForediPriceTierSeeder::class,
+
+            // Cutting price config (official + MAP floor) untuk report Agent Cutting Price
+            // Depends on: ForediProductSeeder (FOREDI-FG) + kategori FOREDI
+            CuttingPriceConfigSeeder::class,
         ]);
     }
 }
