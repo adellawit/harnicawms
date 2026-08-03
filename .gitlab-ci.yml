@@ -273,3 +273,44 @@ rollback-production:
   rules:
     - if: '$CI_COMMIT_BRANCH == "production" || $CI_COMMIT_BRANCH == "main"'
       when: manual
+
+# ---------------------------------------------------------------------------
+# Windows IIS deploy (branch: development-harnica)
+# Independent from the Docker pipeline above. Runs only on the dedicated
+# Windows runner (tag: harnica-windows) and deploys straight into the IIS
+# site wms-harnica (C:\projects\wms-3.0) on the Windows server. Uses the
+# persistent server checkout so the local .env / storage files survive.
+# ---------------------------------------------------------------------------
+
+deploy-harnica-windows:
+  stage: deploy
+  tags: [harnica-windows]
+  variables:
+    IIS_DEPLOY_PATH: "C:\\projects\\wms-3.0"
+    IIS_APP_POOL: "wmsharnica"
+    IIS_SITE_URL: "http://103.193.178.93:8002"
+  environment:
+    name: development-harnica
+    url: "$IIS_SITE_URL"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "development-harnica"'
+      when: on_success
+  script:
+    - |
+      if (-not (Test-Path "$env:IIS_DEPLOY_PATH\.git")) {
+        git clone "https://gitlab.wit.id/$CI_PROJECT_PATH.git" "$env:IIS_DEPLOY_PATH"
+      }
+    - Set-Location "$env:IIS_DEPLOY_PATH"
+    - git fetch --prune origin
+    - git reset --hard "origin/$CI_COMMIT_BRANCH"
+    - composer install --no-interaction --prefer-dist
+    - php artisan migrate --force
+    - php artisan optimize:clear
+    - |
+      $appcmd = "$env:SystemRoot\System32\inetsrv\appcmd.exe"
+      & $appcmd recycle apppool /apppool.name:"$env:IIS_APP_POOL"
+      if ($LASTEXITCODE -ne 0) { Write-Error "App pool recycle failed"; exit 1 }
+    - |
+      $res = Invoke-WebRequest -UseBasicParsing -Uri $env:IIS_SITE_URL -TimeoutSec 60
+      if ($res.StatusCode -ne 200) { throw "Health check failed: HTTP $($res.StatusCode)" }
+      Write-Host "Deploy OK - HTTP $($res.StatusCode)"
