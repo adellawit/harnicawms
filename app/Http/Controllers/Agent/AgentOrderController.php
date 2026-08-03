@@ -526,6 +526,7 @@ class AgentOrderController extends Controller
             ->get();
 
         $cashMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
+        $manualTransferMethod = $methodPayments->first(fn ($m) => $this->isManualTransferMethod($m));
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
@@ -584,7 +585,8 @@ class AgentOrderController extends Controller
             'codIcon' => null,
             'xenditChannelGroups' => [],
             'standardMethods' => $cashMethods,
-            'hasPaymentOptions' => $cashMethods->isNotEmpty(),
+            'manualTransferMethod' => $manualTransferMethod,
+            'hasPaymentOptions' => $cashMethods->isNotEmpty() || $manualTransferMethod !== null,
         ]);
     }
 
@@ -665,6 +667,37 @@ class AgentOrderController extends Controller
                 return redirect()
                     ->route('agent-order.orders.show', $result['order_id'])
                     ->with('success', 'Pesanan berhasil dibuat. Nomor: '.$result['sales_number']);
+            }
+
+            if ($this->isManualTransferMethod($method)) {
+                $result = $checkout->processCod(
+                    $checkoutRequest,
+                    $request->payment_method_id,
+                    self::ORDER_TYPE,
+                    $this->resolveShippingAddress(),
+                    $shippingAmount,
+                    $shippingMeta,
+                );
+
+                $order = SalesOrder::findOrFail($result['order_id']);
+                DB::transaction(function () use ($order, $request) {
+                    $seq = (int) SalesOrder::whereDate('created_at', now()->toDateString())
+                        ->whereNotNull('unique_code')
+                        ->lockForUpdate()
+                        ->max('unique_code');
+                    $seq = $seq + 1;
+                    $order->update([
+                        'unique_code' => $seq,
+                        'payable_amount' => (float) $order->total + $seq,
+                        'method_payment_id' => $request->payment_method_id,
+                    ]);
+                });
+
+                $cartService->clear();
+
+                return redirect()
+                    ->route('agent-order.orders.show', $result['order_id'])
+                    ->with('success', 'Pesanan berhasil dibuat. Transfer sesuai nominal unik di halaman detail.');
             }
 
             return redirect()
@@ -964,9 +997,34 @@ class AgentOrderController extends Controller
             ->min('selling_price');
     }
 
+    public function uploadPaymentProof(Request $request, string $order): RedirectResponse
+    {
+        $request->validate([
+            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $order = SalesOrder::findOrFail($order);
+        $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);
+        abort_if($order->payment_status === 'paid', 422, 'Order sudah lunas.');
+
+        $path = $request->file('proof')->store('web-order-proofs', 'public');
+        $order->update([
+            'payment_proof_path' => $path,
+            'payment_proof_uploaded_at' => now(),
+            'payment_status' => 'pending_verification',
+        ]);
+
+        return back()->with('success', 'Bukti transfer terkirim. Menunggu verifikasi admin.');
+    }
+
     protected function isCashPaymentMethod(MethodPayment $method): bool
     {
         return ! $method->uses_payment_gateway
             && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
+    }
+
+    protected function isManualTransferMethod(MethodPayment $method): bool
+    {
+        return strtoupper($method->code) === 'MANUAL_TRANSFER';
     }
 }

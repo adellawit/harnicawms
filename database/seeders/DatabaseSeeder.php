@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
 
             // Payment methods per branch (depends on: business_units)
             MethodPaymentSeeder::class,
+            ManualTransferMethodPaymentSeeder::class,
 
             // Employees & users (depends on: positions, divisions, business_units, roles)
             EmployeeSeeder::class,
