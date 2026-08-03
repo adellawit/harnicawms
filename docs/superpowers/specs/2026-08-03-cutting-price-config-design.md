@@ -3,7 +3,8 @@
 **Date:** 2026-08-03  
 **Status:** Approved  
 **Scope:** Master konfigurasi cutting price (official + MAP) untuk FOREDI-FG + seeder  
-**Out of scope:** Wiring report Agent Cutting Price, menu/UI admin, perubahan `foredi_price_tiers`
+**Out of scope (awal):** —  
+**Implemented also:** menu CRUD admin + report wiring ke `map_price` (bukan price list)
 
 ## Goal
 
@@ -34,7 +35,12 @@ Unique (active): `(product_id, unit_code) WHERE deleted_at IS NULL`
 - Seeder: `CuttingPriceConfigSeeder` — ensure kategori FOREDI, upsert 1 row; skip jika FOREDI-FG hilang
 - `DatabaseSeeder`: setelah `ForediProductSeeder`
 
-## Follow-up
+## Admin UI
 
-- Report: ganti pembanding REGULER → `map_price` dari config
-- Menu CRUD admin distributor only
+- Menu: Customer → Network → **Cutting Price Config**
+- Route: `/partner-network/cutting-price-config`
+- Permission name: `Cutting Price Config`
+
+## Report wiring
+
+Agent Cutting Price membandingkan `agent_net_price` vs `partner.cutting_price_configs.map_price` (unit match code/symbol/name). **Tidak** join `product_price_lists` / REGULER.

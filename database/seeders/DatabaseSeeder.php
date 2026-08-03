@@ -44,6 +44,7 @@ class DatabaseSeeder extends Seeder
             BarcodeTrackingAccessSeeder::class,
             FgBarcodeStockAccessSeeder::class,
             AgentCuttingPriceAccessSeeder::class,
+            CuttingPriceConfigAccessSeeder::class,
             ResellerMappingAccessSeeder::class,
             AgenOrderAccessSeeder::class,
 

@@ -167,7 +167,8 @@ class AgentCuttingPriceReportRepository
     }
 
     /**
-     * All comparable Agent/Reseller paid lines vs REGULER (includes non-cutting).
+     * All comparable Agent/Reseller paid lines vs cutting price MAP floor
+     * (partner.cutting_price_configs — NOT product price lists).
      *
      * @param  array<string, mixed>  $filters
      */
@@ -189,9 +190,11 @@ class AgentCuttingPriceReportRepository
                     WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
                     ELSE soi.unit_price
                 END AS agent_net_price,
-                pvp.selling_price AS distributor_price,
+                cpc.map_price AS distributor_price,
+                cpc.official_price AS official_price,
+                cpc.map_price AS map_price,
                 GREATEST(
-                    pvp.selling_price - CASE
+                    cpc.map_price - CASE
                         WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
                         ELSE soi.unit_price
                     END,
@@ -199,7 +202,7 @@ class AgentCuttingPriceReportRepository
                 ) AS gap_unit,
                 (
                     GREATEST(
-                        pvp.selling_price - CASE
+                        cpc.map_price - CASE
                             WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
                             ELSE soi.unit_price
                         END,
@@ -207,14 +210,14 @@ class AgentCuttingPriceReportRepository
                     ) * soi.quantity
                 ) AS gap_amount,
                 CASE
-                    WHEN pvp.selling_price > 0 THEN ROUND((
+                    WHEN cpc.map_price > 0 THEN ROUND((
                         GREATEST(
-                            pvp.selling_price - CASE
+                            cpc.map_price - CASE
                                 WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
                                 ELSE soi.unit_price
                             END,
                             0
-                        ) / pvp.selling_price * 100
+                        ) / cpc.map_price * 100
                     )::numeric, 2)
                     ELSE 0
                 END AS gap_percent,
@@ -223,7 +226,7 @@ class AgentCuttingPriceReportRepository
                         WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
                         ELSE soi.unit_price
                     END
-                ) < pvp.selling_price AS is_cutting,
+                ) < cpc.map_price AS is_cutting,
                 p.code AS product_code,
                 p.name AS product_name,
                 pv.sku AS variant_sku,
@@ -264,19 +267,18 @@ class AgentCuttingPriceReportRepository
             LEFT JOIN product.product_units pu
                 ON pu.id = soi.unit_id
                AND pu.deleted_at IS NULL
-            INNER JOIN product.product_price_lists pl
-                ON pl.code = 'REGULER'
-               AND pl.deleted_at IS NULL
-               AND pl.is_active = true
-            INNER JOIN product.product_variant_prices pvp
-                ON pvp.variant_id = soi.product_variant_id
-               AND pvp.unit_id = soi.unit_id
-               AND pvp.price_list_id = pl.id
-               AND pvp.deleted_at IS NULL
+            INNER JOIN partner.cutting_price_configs cpc
+                ON cpc.product_id = soi.product_id
+               AND cpc.deleted_at IS NULL
+               AND cpc.is_active = true
+               AND (
+                    UPPER(COALESCE(pu.code, '')) = UPPER(cpc.unit_code)
+                    OR UPPER(COALESCE(pu.symbol, '')) = UPPER(cpc.unit_code)
+                    OR UPPER(COALESCE(pu.name, '')) = UPPER(cpc.unit_code)
+               )
             WHERE soi.deleted_at IS NULL
               AND COALESCE(soi.is_promo_free, false) = false
               AND soi.quantity > 0
-              AND soi.product_variant_id IS NOT NULL
               AND COALESCE(a.id, ra.id) IS NOT NULL
               AND so.sales_date >= ?
               AND so.sales_date <= ?

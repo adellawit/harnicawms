@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ParameterController;
 use App\Http\Controllers\Admin\ParameterDetailController;
 use App\Http\Controllers\Admin\Partner\AgentController as PartnerAgentController;
+use App\Http\Controllers\Admin\Partner\CuttingPriceConfigController;
 use App\Http\Controllers\Admin\Partner\PartnerApplicationController;
 use App\Http\Controllers\Admin\Partner\PartnerNetworkMapController;
 use App\Http\Controllers\Admin\Partner\PartnerReportController;
@@ -164,6 +165,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/resellers/mapping', [PartnerResellerMappingController::class, 'update'])->name('partner.resellers.mapping.store')->middleware('permission:Partner Reseller Mapping,is_update');
         Route::get('/resellers/{id}', [PartnerResellerController::class, 'show'])->name('partner.resellers.show')->middleware('permission:Partner Reseller,is_read');
         Route::put('/resellers/{id}/mapping', [PartnerResellerController::class, 'updateMapping'])->name('partner.resellers.mapping.update')->middleware('permission:Partner Reseller,is_update');
+
+        Route::group(['prefix' => 'cutting-price-config'], function () {
+            Route::get('/', [CuttingPriceConfigController::class, 'indexView'])
+                ->name('partner.cutting-price-config.index.view')
+                ->middleware('permission:Cutting Price Config,is_read');
+            Route::post('/data', [CuttingPriceConfigController::class, 'indexData'])
+                ->name('partner.cutting-price-config.index.data');
+            Route::get('/insert', [CuttingPriceConfigController::class, 'insertView'])
+                ->name('partner.cutting-price-config.insert.view')
+                ->middleware('permission:Cutting Price Config,is_create');
+            Route::post('/insert/data', [CuttingPriceConfigController::class, 'insertData'])
+                ->name('partner.cutting-price-config.insert.data')
+                ->middleware('permission:Cutting Price Config,is_create');
+            Route::get('/edit/{id}', [CuttingPriceConfigController::class, 'editView'])
+                ->name('partner.cutting-price-config.edit.view')
+                ->middleware('permission:Cutting Price Config,is_update');
+            Route::post('/edit/data', [CuttingPriceConfigController::class, 'editData'])
+                ->name('partner.cutting-price-config.edit.data')
+                ->middleware('permission:Cutting Price Config,is_update');
+            Route::post('/delete', [CuttingPriceConfigController::class, 'deleteData'])
+                ->name('partner.cutting-price-config.delete.data')
+                ->middleware('permission:Cutting Price Config,is_delete');
+            Route::post('/restore', [CuttingPriceConfigController::class, 'restoreData'])
+                ->name('partner.cutting-price-config.restore.data')
+                ->middleware('permission:Cutting Price Config,is_delete');
+        });
     });
 
     /*****************
