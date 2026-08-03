@@ -160,6 +160,23 @@
                         <label class="form-label">Country</label>
                         <input type="text" name="country" class="form-control" value="{{ old('country', $warehouse?->country ?? 'Indonesia') }}">
                     </div>
+                    @include('admin.master-data.shipping-rate._city-select', [
+                        'fieldId' => 'warehouse_city_id',
+                        'fieldName' => 'city_id',
+                        'label' => 'Kota (untuk ongkir)',
+                        'required' => false,
+                        'selectedId' => old('city_id', $warehouse?->city_id ?? null),
+                        'selectedText' => old('city_id')
+                            ? null
+                            : trim(
+                                ($warehouse?->cityRef?->name ?? '').(
+                                    $warehouse?->cityRef?->province?->name
+                                        ? ' ('.$warehouse->cityRef->province->name.')'
+                                        : ''
+                                )
+                            ) ?: null,
+                        'tooltip' => 'Pilih kota resmi untuk kalkulasi ongkir (FK public.cities).',
+                    ])
                 </div>
             </div>
         </div>
