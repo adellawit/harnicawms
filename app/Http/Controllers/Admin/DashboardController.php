@@ -35,9 +35,35 @@ class DashboardController extends Controller
 
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
-        $startOfMonth = $today->copy()->startOfMonth();
-        $startOfLastMonth = $today->copy()->subMonth()->startOfMonth();
-        $endOfLastMonth = $today->copy()->subMonth()->endOfMonth();
+        $monthStart = $today->copy()->startOfMonth();
+
+        // Hanya terima periode custom jika Apply sengaja mengirim period_custom=1.
+        // Query date_from/date_to lama (tanpa flag) diabaikan & dibersihkan dari URL.
+        $useCustomPeriod = $request->boolean('period_custom');
+        if (! $useCustomPeriod && ($request->filled('date_from') || $request->filled('date_to'))) {
+            return redirect()->route('dashboard', array_filter([
+                'branch_id' => $request->query('branch_id'),
+            ]));
+        }
+
+        // Default periode: tanggal 1 bulan berjalan → hari ini (besok otomatis 1 → 4, dst.)
+        $periodEnd = $useCustomPeriod && $request->filled('date_to')
+            ? $this->parseDashboardDate($request->get('date_to'), $today)
+            : $today->copy();
+        if ($periodEnd->gt($today)) {
+            $periodEnd = $today->copy();
+        }
+
+        $periodStart = $useCustomPeriod && $request->filled('date_from')
+            ? $this->parseDashboardDate($request->get('date_from'), $monthStart)
+            : $monthStart->copy();
+        if ($periodStart->gt($periodEnd)) {
+            $periodStart = $periodEnd->copy()->startOfMonth();
+        }
+
+        $periodDays = $periodStart->diffInDays($periodEnd) + 1;
+        $prevPeriodEnd = $periodStart->copy()->subDay();
+        $prevPeriodStart = $prevPeriodEnd->copy()->subDays($periodDays - 1);
 
         $outlets = BusinessUnit::where('is_active', true)
             ->where('type_code', 'BRANCH')
@@ -50,10 +76,11 @@ class DashboardController extends Controller
             $data = $this->buildDashboardData(
                 $today,
                 $yesterday,
-                $startOfMonth,
-                $startOfLastMonth,
-                $endOfLastMonth,
-                $branchId
+                $periodStart,
+                $prevPeriodStart,
+                $prevPeriodEnd,
+                $branchId,
+                $periodEnd
             );
         } catch (\Throwable $e) {
             Log::error('Dashboard data error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -67,7 +94,26 @@ class DashboardController extends Controller
             'currentBranchId' => $branchId,
             'defaultBranchId' => $defaultBranchId,
             'today' => $today,
+            'periodStart' => $periodStart,
+            'periodEnd' => $periodEnd,
         ]));
+    }
+
+    private function parseDashboardDate(?string $value, Carbon $fallback): Carbon
+    {
+        if (! $value) {
+            return $fallback->copy();
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value)->startOfDay();
+        } catch (\Throwable) {
+            try {
+                return Carbon::parse($value)->startOfDay();
+            } catch (\Throwable) {
+                return $fallback->copy();
+            }
+        }
     }
 
     private function buildDashboardData(
@@ -76,9 +122,11 @@ class DashboardController extends Controller
         Carbon $startOfMonth,
         Carbon $startOfLastMonth,
         Carbon $endOfLastMonth,
-        ?string $branchId
+        ?string $branchId,
+        ?Carbon $periodEnd = null
     ): array
     {
+        $periodEnd = $periodEnd?->copy() ?? $today->copy();
         $validStatuses = ['completed', 'paid', 'fulfilled', 'process', 'payment'];
         $cancelledStatuses = ['cancelled', 'void', 'refund'];
 
@@ -94,7 +142,7 @@ class DashboardController extends Controller
             ->sum('total');
 
         $revenueThisMonth = SalesOrder::whereDate('sales_date', '>=', $startOfMonth)
-            ->whereDate('sales_date', '<=', $today)
+            ->whereDate('sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotIn('status', $cancelledStatuses)
             ->sum('total');
@@ -116,7 +164,7 @@ class DashboardController extends Controller
             ->count();
 
         $txThisMonth = SalesOrder::whereDate('sales_date', '>=', $startOfMonth)
-            ->whereDate('sales_date', '<=', $today)
+            ->whereDate('sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotIn('status', $cancelledStatuses)
             ->count();
@@ -159,7 +207,7 @@ class DashboardController extends Controller
             ->join('transaction.sales_orders as so', 'so.id', '=', 'sop.sales_order_id')
             ->join('master_data.method_payments as mp', 'mp.id', '=', 'sop.method_payment_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
-            ->whereDate('so.sales_date', '<=', $today)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('sop.deleted_at')
@@ -176,6 +224,7 @@ class DashboardController extends Controller
             ->join('transaction.sales_orders as so', 'so.id', '=', 'soi.sales_order_id')
             ->join('product.products as p', 'p.id', '=', 'soi.product_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('soi.deleted_at')
@@ -192,6 +241,7 @@ class DashboardController extends Controller
             ->join('product.products as p', 'p.id', '=', 'soi.product_id')
             ->leftJoin('product.product_categories as pc', 'pc.id', '=', 'p.category_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('soi.deleted_at')
@@ -206,6 +256,7 @@ class DashboardController extends Controller
         $salesPerOutlet = DB::table('transaction.sales_orders as so')
             ->join('master_data.business_units as bu', 'bu.id', '=', 'so.branch_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('so.deleted_at')
@@ -336,6 +387,7 @@ class DashboardController extends Controller
 
         // ── PROCUREMENT KPIs ──
         $totalPO = ProductPurchaseOrder::whereDate('purchase_date', '>=', $startOfMonth)
+            ->whereDate('purchase_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('deleted_at')
             ->count();
@@ -354,6 +406,7 @@ class DashboardController extends Controller
             ->whereNull('deleted_at')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereDate('purchase_date', '>=', $startOfMonth)
+            ->whereDate('purchase_date', '<=', $periodEnd)
             ->groupBy('status')
             ->get();
 
@@ -441,7 +494,7 @@ class DashboardController extends Controller
             ->join('transaction.sales_orders as so', 'so.id', '=', 'soi.sales_order_id')
             ->join('product.product_variants as pv', 'pv.id', '=', 'soi.product_variant_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
-            ->whereDate('so.sales_date', '<=', $today)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('soi.deleted_at')
@@ -457,6 +510,7 @@ class DashboardController extends Controller
             ->join('product.products as p', 'p.id', '=', 'soi.product_id')
             ->leftJoin('product.product_variants as pv', 'pv.id', '=', 'soi.product_variant_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('soi.deleted_at')
@@ -474,9 +528,13 @@ class DashboardController extends Controller
 
         // ── CUSTOMER KPIs ──
         $totalCustomers = Customer::whereNull('deleted_at')->count();
-        $newCustomersMonth = Customer::whereDate('created_at', '>=', $startOfMonth)->whereNull('deleted_at')->count();
+        $newCustomersMonth = Customer::whereDate('created_at', '>=', $startOfMonth)
+            ->whereDate('created_at', '<=', $periodEnd)
+            ->whereNull('deleted_at')
+            ->count();
 
         $customerWithOrders = SalesOrder::whereDate('sales_date', '>=', $startOfMonth)
+            ->whereDate('sales_date', '<=', $periodEnd)
             ->whereNotIn('status', $cancelledStatuses)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('customer_id')
@@ -485,6 +543,7 @@ class DashboardController extends Controller
 
         $returningCustomers = DB::table('transaction.sales_orders as so')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->whereNotIn('so.status', $cancelledStatuses)
             ->whereNull('so.deleted_at')
             ->whereNotNull('so.customer_id')
@@ -502,6 +561,7 @@ class DashboardController extends Controller
         $topCustomers = DB::table('transaction.sales_orders as so')
             ->join('customer.customers as c', 'c.id', '=', 'so.customer_id')
             ->whereDate('so.sales_date', '>=', $startOfMonth)
+            ->whereDate('so.sales_date', '<=', $periodEnd)
             ->whereNotIn('so.status', $cancelledStatuses)
             ->when($branchId, fn ($q) => $q->where('so.branch_id', $branchId))
             ->whereNull('so.deleted_at')

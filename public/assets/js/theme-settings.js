@@ -1,8 +1,33 @@
 /**
- * Theme settings admin — live preview + logo extract
+ * Theme settings admin — live preview + logo extract + surface overrides
  */
 (function () {
     'use strict';
+
+    function contrastInk(hex) {
+        var h = (hex || '').replace('#', '');
+        if (h.length !== 6) return '#2F3A44';
+
+        function luminance(hex6) {
+            var channels = [0, 2, 4].map(function (i) {
+                var c = parseInt(hex6.substr(i, 2), 16) / 255;
+                return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+        }
+
+        function ratio(a, b) {
+            var l1 = luminance(a);
+            var l2 = luminance(b);
+            var hi = Math.max(l1, l2);
+            var lo = Math.min(l1, l2);
+            return (hi + 0.05) / (lo + 0.05);
+        }
+
+        var dark = '2F3A44';
+        var light = 'FFFFFF';
+        return ratio(h, light) >= ratio(h, dark) ? '#FFFFFF' : '#2F3A44';
+    }
 
     function init() {
         var form = document.getElementById('theme-settings-form');
@@ -17,6 +42,15 @@
         var previewPrimary = document.getElementById('previewPrimary');
         var previewSecondary = document.getElementById('previewSecondary');
         var previewLogo = document.getElementById('previewLogo');
+        var previewNavbar = document.getElementById('previewNavbar');
+        var previewSidebar = document.getElementById('previewSidebar');
+        var previewPageBg = document.getElementById('previewPageBg');
+        var navbarInput = document.getElementById('navbar_color');
+        var sidebarInput = document.getElementById('sidebar_color');
+        var backgroundInput = document.getElementById('background_color');
+        var overrideNavbar = document.getElementById('override_navbar');
+        var overrideSidebar = document.getElementById('override_sidebar');
+        var overrideBackground = document.getElementById('override_background');
 
         function syncPreviewColors() {
             if (!primaryInput || !secondaryInput) return;
@@ -29,6 +63,25 @@
             }
         }
 
+        function syncSurfacePreview() {
+            if (previewNavbar && navbarInput) {
+                var navBg = overrideNavbar && overrideNavbar.checked ? navbarInput.value : '#FFFFFF';
+                previewNavbar.style.background = navBg;
+                previewNavbar.style.color = contrastInk(navBg);
+            }
+            if (previewSidebar && sidebarInput) {
+                var sideBg = overrideSidebar && overrideSidebar.checked ? sidebarInput.value : '#FFFFFF';
+                previewSidebar.style.background = sideBg;
+                previewSidebar.style.color = contrastInk(sideBg);
+            }
+            if (previewPageBg && backgroundInput) {
+                var pageBg = overrideBackground && overrideBackground.checked
+                    ? backgroundInput.value
+                    : 'linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)';
+                previewPageBg.style.background = pageBg;
+            }
+        }
+
         function toggleCustomFields() {
             var isCustom = modeCustom && modeCustom.checked;
             document.querySelectorAll('.theme-custom-field').forEach(function (el) {
@@ -37,10 +90,40 @@
             if (extractBtn) extractBtn.classList.toggle('d-none', isCustom);
         }
 
+        function syncSurfaceFields() {
+            document.querySelectorAll('.surface-override-toggle').forEach(function (toggle) {
+                var targetId = toggle.getAttribute('data-target');
+                var input = targetId ? document.getElementById(targetId) : null;
+                var field = document.querySelector('.surface-color-field[data-for="' + targetId + '"]');
+                var enabled = toggle.checked;
+                if (input) input.disabled = !enabled;
+                if (field) field.classList.toggle('opacity-50', !enabled);
+            });
+            syncSurfacePreview();
+        }
+
         primaryInput?.addEventListener('input', syncPreviewColors);
         secondaryInput?.addEventListener('input', syncPreviewColors);
         modeLogo?.addEventListener('change', toggleCustomFields);
         modeCustom?.addEventListener('change', toggleCustomFields);
+
+        [navbarInput, sidebarInput, backgroundInput].forEach(function (input) {
+            input?.addEventListener('input', syncSurfacePreview);
+        });
+        document.querySelectorAll('.surface-override-toggle').forEach(function (toggle) {
+            toggle.addEventListener('change', syncSurfaceFields);
+        });
+
+        // Disabled color inputs are omitted from POST — re-enable briefly on submit when override is on
+        form.addEventListener('submit', function () {
+            document.querySelectorAll('.surface-override-toggle').forEach(function (toggle) {
+                var targetId = toggle.getAttribute('data-target');
+                var input = targetId ? document.getElementById(targetId) : null;
+                if (input && toggle.checked) {
+                    input.disabled = false;
+                }
+            });
+        });
 
         logoInput?.addEventListener('change', function () {
             var file = this.files && this.files[0];
@@ -72,6 +155,7 @@
 
         toggleCustomFields();
         syncPreviewColors();
+        syncSurfaceFields();
     }
 
     if (document.readyState === 'loading') {

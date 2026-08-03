@@ -75,6 +75,78 @@
 
                     <div class="card mb-4">
                         <div class="card-header">
+                            <h5 class="mb-0">Warna Surface</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">
+                                Opsional: override warna navbar, sidebar, dan background halaman admin.
+                                Matikan override untuk kembali ke default template. Teks/ikon menyesuaikan otomatis.
+                            </p>
+
+                            @php
+                                $navbarOverride = old('override_navbar', filled($theme->navbar_color));
+                                $sidebarOverride = old('override_sidebar', filled($theme->sidebar_color));
+                                $backgroundOverride = old('override_background', filled($theme->background_color));
+                            @endphp
+
+                            <div class="mb-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input surface-override-toggle" type="checkbox"
+                                           name="override_navbar" id="override_navbar" value="1"
+                                           data-target="navbar_color"
+                                           @checked($navbarOverride)>
+                                    <label class="form-check-label" for="override_navbar">
+                                        Override Navbar <x-info-tip text="Aktifkan untuk memilih warna latar navbar admin." />
+                                    </label>
+                                </div>
+                                <div class="surface-color-field ms-4" data-for="navbar_color">
+                                    <label class="form-label" for="navbar_color">Navbar Color</label>
+                                    <input type="color" class="form-control form-control-color w-100" name="navbar_color" id="navbar_color"
+                                           value="{{ old('navbar_color', $theme->navbar_color ?: '#FFFFFF') }}"
+                                           @disabled(! $navbarOverride)>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input surface-override-toggle" type="checkbox"
+                                           name="override_sidebar" id="override_sidebar" value="1"
+                                           data-target="sidebar_color"
+                                           @checked($sidebarOverride)>
+                                    <label class="form-check-label" for="override_sidebar">
+                                        Override Sidebar <x-info-tip text="Aktifkan untuk memilih warna latar sidebar admin." />
+                                    </label>
+                                </div>
+                                <div class="surface-color-field ms-4" data-for="sidebar_color">
+                                    <label class="form-label" for="sidebar_color">Sidebar Color</label>
+                                    <input type="color" class="form-control form-control-color w-100" name="sidebar_color" id="sidebar_color"
+                                           value="{{ old('sidebar_color', $theme->sidebar_color ?: '#FFFFFF') }}"
+                                           @disabled(! $sidebarOverride)>
+                                </div>
+                            </div>
+
+                            <div class="mb-0">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input surface-override-toggle" type="checkbox"
+                                           name="override_background" id="override_background" value="1"
+                                           data-target="background_color"
+                                           @checked($backgroundOverride)>
+                                    <label class="form-check-label" for="override_background">
+                                        Override Background <x-info-tip text="Aktifkan untuk memilih warna background area konten admin." />
+                                    </label>
+                                </div>
+                                <div class="surface-color-field ms-4" data-for="background_color">
+                                    <label class="form-label" for="background_color">Background Color</label>
+                                    <input type="color" class="form-control form-control-color w-100" name="background_color" id="background_color"
+                                           value="{{ old('background_color', $theme->background_color ?: '#EEF7EF') }}"
+                                           @disabled(! $backgroundOverride)>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
                             <h5 class="mb-0">Logo & Favicon</h5>
                         </div>
                         <div class="card-body">
@@ -139,6 +211,24 @@
                                 <button type="button" class="btn btn-primary btn-sm me-2">Primary</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm">Secondary</button>
                             </div>
+
+                            <div class="theme-surface-preview border rounded overflow-hidden mb-3" style="height: 140px;">
+                                <div id="previewNavbar" class="px-2 py-1 small fw-semibold"
+                                     style="background:{{ $theme->navbar_color ?: '#fff' }};color:#2f3a44;border-bottom:1px solid rgba(0,0,0,.06);">
+                                    Navbar
+                                </div>
+                                <div class="d-flex" style="height: calc(100% - 28px);">
+                                    <div id="previewSidebar" class="small p-2"
+                                         style="width:34%;background:{{ $theme->sidebar_color ?: '#fff' }};color:#2f3a44;border-right:1px solid rgba(0,0,0,.06);">
+                                        Sidebar
+                                    </div>
+                                    <div id="previewPageBg" class="flex-grow-1 small p-2 text-muted"
+                                         style="background:{{ $theme->background_color ?: 'linear-gradient(90deg, #F0F9F0 0%, #EEF7EF 45%, #E3F5E7 100%)' }};">
+                                        Content
+                                    </div>
+                                </div>
+                            </div>
+
                             <p class="text-muted small mb-0">
                                 Perubahan warna kustom terlihat langsung di preview. Mode logo akan diterapkan saat halaman dimuat ulang.
                             </p>

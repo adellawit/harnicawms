@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             // Core/reference data first (no FK dependencies)
             ProvinceSeeder::class,
             CitySeeder::class,
+            ShippingRateSeeder::class,
             RoleSeeder::class,
             PositionSeeder::class,
             ParameterSeeder::class,
