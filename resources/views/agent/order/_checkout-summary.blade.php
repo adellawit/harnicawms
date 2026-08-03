@@ -9,10 +9,10 @@
     </div>
 @endif
 <div class="d-flex justify-content-between small text-muted mb-2">
-    <span>Ongkos Kirim</span>
+    <span>Estimasi ongkir</span>
     <span id="checkoutShipping">Rp {{ number_format($shippingAmount ?? 0, 0, ',', '.') }}</span>
 </div>
 <div class="d-flex justify-content-between fw-bold fs-5">
-    <span>Total</span>
+    <span>Total pembayaran</span>
     <span class="text-primary" id="checkoutTotal">Rp {{ number_format($summary['total'] + ($shippingAmount ?? 0), 0, ',', '.') }}</span>
 </div>
