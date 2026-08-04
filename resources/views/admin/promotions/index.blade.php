@@ -117,6 +117,8 @@
                 $('#table').DataTable({
                     order: [[1, 'asc']],
                     pageLength: 25,
+                    scrollX: true,
+                    autoWidth: false,
                     language: { emptyTable: 'No promotions yet. Create a buy-X-get-Y rule to start.' },
                 });
             });
