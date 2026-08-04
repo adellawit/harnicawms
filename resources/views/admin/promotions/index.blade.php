@@ -3,9 +3,12 @@
     @push('vendor-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}">
         <style>
-            #table td, #table th { white-space: normal; word-break: break-word; vertical-align: middle; }
-            #table td:nth-child(5) { min-width: 240px; }   /* Detail: beri ruang, boleh wrap */
-            #table td:nth-child(2) { white-space: nowrap; } /* Code: jangan patah */
+            #table th { white-space: nowrap; vertical-align: middle; }        /* header tak pernah wrap */
+            #table td { white-space: nowrap; vertical-align: middle; }
+            #table td:nth-child(3),                                            /* Name: boleh wrap */
+            #table td:nth-child(5) { white-space: normal; word-break: break-word; }  /* Detail: boleh wrap */
+            #table td:nth-child(5) { min-width: 240px; }
+            #table th:last-child, #table td:last-child { text-align: center; } /* Actions rata tengah */
         </style>
     @endpush
 
@@ -98,12 +101,14 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('promotions.edit', $p->id) }}" class="btn btn-sm btn-icon btn-text-secondary" title="Edit">
-                                        <i class="ti ti-pencil"></i>
-                                    </a>
-                                    <a href="{{ route('promotions.show', $p->id) }}" class="btn btn-sm btn-icon btn-text-secondary" title="View">
-                                        <i class="ti ti-eye"></i>
-                                    </a>
+                                    <div class="d-flex align-items-center justify-content-center gap-1">
+                                        <a href="{{ route('promotions.edit', $p->id) }}" class="btn btn-sm btn-icon btn-text-secondary" title="Edit">
+                                            <i class="ti ti-pencil"></i>
+                                        </a>
+                                        <a href="{{ route('promotions.show', $p->id) }}" class="btn btn-sm btn-icon btn-text-secondary" title="View">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -124,10 +129,10 @@
                     pageLength: 25,
                     autoWidth: false,
                     columnDefs: [
-                        { targets: 0, width: '36px', className: 'text-center' },   // No
-                        { targets: 3, width: '90px' },                            // Type
-                        { targets: 5, width: '80px' },                            // Status
-                        { targets: 6, width: '90px', orderable: false },          // Actions
+                        { targets: 0, width: '48px', className: 'text-center' },   // No
+                        { targets: 3, width: '96px' },                            // Type
+                        { targets: 5, width: '90px' },                            // Status
+                        { targets: 6, width: '110px', orderable: false },         // Actions
                     ],
                     language: { emptyTable: 'No promotions yet. Create a buy-X-get-Y rule to start.' },
                 });
