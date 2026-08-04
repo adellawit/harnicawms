@@ -125,6 +125,7 @@ class AgentPosController extends Controller
         });
 
         $campaigns = Promotion::activeNow()
+            ->productType()
             ->when($companyId, fn ($q) => $q->where(function ($qq) use ($companyId) {
                 $qq->whereNull('company_id')->orWhere('company_id', $companyId);
             }))

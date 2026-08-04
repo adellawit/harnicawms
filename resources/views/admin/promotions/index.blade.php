@@ -31,6 +31,7 @@
                             <th style="width:50px;">No</th>
                             <th>Code</th>
                             <th>Name</th>
+                            <th>Type</th>
                             <th>Buy</th>
                             <th>Get</th>
                             <th>Free WH</th>
@@ -47,18 +48,45 @@
                                 </td>
                                 <td>{{ $p->name }}</td>
                                 <td>
+                                    @if (($p->promotion_type ?? 'product') === 'marketing')
+                                        <span class="badge bg-label-info">Marketing</span>
+                                    @else
+                                        <span class="badge bg-label-primary">Product</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if (($p->promotion_type ?? 'product') === 'marketing')
+                                        <span class="text-muted">—</span>
+                                    @else
                                     ≥ {{ rtrim(rtrim(number_format((float) $p->buy_min_qty, 4, '.', ''), '0'), '.') }}
                                     @if($p->buyVariant)
                                         of {{ $p->buyVariant->display_name ?? $p->buyVariant->sku }}
                                     @elseif($p->buyProduct)
                                         of {{ $p->buyProduct->name }}
                                     @endif
+                                    @endif
                                 </td>
                                 <td>
+                                    @if (($p->promotion_type ?? 'product') === 'marketing')
+                                        @if ($p->discount_type === 'percent')
+                                            {{ rtrim(rtrim(number_format((float) $p->discount_value, 4, '.', ''), '0'), '.') }}%
+                                        @elseif ($p->discount_type === 'nominal')
+                                            Rp {{ number_format((float) $p->discount_value, 0, ',', '.') }}
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    @else
                                     {{ rtrim(rtrim(number_format((float) $p->get_qty, 4, '.', ''), '0'), '.') }}
                                     {{ $p->get_product_mode === 'same' ? '(same)' : ($p->getVariant?->display_name ?? $p->getProduct?->name) }}
+                                    @endif
                                 </td>
-                                <td>{{ $p->free_warehouse_type }}</td>
+                                <td>
+                                    @if (($p->promotion_type ?? 'product') === 'marketing')
+                                        <span class="text-muted">—</span>
+                                    @else
+                                    {{ $p->free_warehouse_type }}
+                                    @endif
+                                </td>
                                 <td>
                                     @if($p->is_active)
                                         <span class="badge bg-label-success">Active</span>

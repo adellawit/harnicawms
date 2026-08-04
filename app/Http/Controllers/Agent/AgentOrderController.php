@@ -322,6 +322,7 @@ class AgentOrderController extends Controller
         $categories = ProductCategory::whereIn('id', $categoryIds)->orderBy('name')->get(['id', 'name']);
 
         $promoProductIds = Promotion::activeNow()
+            ->productType()
             ->whereNotNull('buy_product_id')
             ->pluck('buy_product_id')
             ->unique()
