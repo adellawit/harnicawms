@@ -125,30 +125,31 @@ class AgentPosController extends Controller
         });
 
         $campaigns = Promotion::activeNow()
-            ->productType()
+            ->marketingType()
             ->when($companyId, fn ($q) => $q->where(function ($qq) use ($companyId) {
                 $qq->whereNull('company_id')->orWhere('company_id', $companyId);
             }))
-            ->with(['buyProduct:id,name', 'getProduct:id,name'])
+            ->with(['targetAgent:id,name', 'targetReseller:id,name,customer_id'])
             ->orderByDesc('priority')
             ->orderBy('code')
-            ->limit(6)
             ->get()
-            ->map(function (Promotion $promotion) {
-                $labelParts = [];
-                if ($promotion->buy_min_qty > 0) {
-                    $labelParts[] = 'Beli '.$this->formatPromoQty($promotion->buy_min_qty);
-                }
-                if ($promotion->get_qty > 0) {
-                    $labelParts[] = 'gratis '.$this->formatPromoQty($promotion->get_qty);
-                }
-
-                return [
-                    'name' => $promotion->name,
-                    'label' => trim(implode(' ', $labelParts)),
-                    'product' => $promotion->buyProduct?->name,
-                ];
-            });
+            ->map(fn (Promotion $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'discount_type' => $p->discount_type,
+                'discount_value' => (float) $p->discount_value,
+                'discount_label' => $p->discount_type === 'percent'
+                    ? rtrim(rtrim(number_format((float) $p->discount_value, 2, ',', '.'), '0'), ',').'%'
+                    : 'Rp '.number_format((float) $p->discount_value, 0, ',', '.'),
+                'min_type' => $p->min_purchase_type,
+                'min_value' => (float) $p->min_purchase_value,
+                'target_type' => $p->target_type,
+                'target_agent_id' => $p->target_agent_id,
+                'target_reseller_id' => $p->target_reseller_id,
+                'target_reseller_customer_id' => $p->targetReseller?->customer_id,
+                'reactivates' => (bool) $p->reactivates_reseller,
+            ])
+            ->values();
 
         return view('agent.pos.index', [
             'products' => $products,
@@ -169,6 +170,7 @@ class AgentPosController extends Controller
             'agentWarehouseId' => $this->agentWarehouseId(),
             'branchId' => $branchId,
             'campaigns' => $campaigns,
+            'agentId' => $this->agent()->id,
         ]);
     }
 
@@ -437,7 +439,38 @@ class AgentPosController extends Controller
             'amount_paid' => 'required|numeric|min:0',
             'xendit_channel' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
+            'marketing_promotion_id' => 'nullable|uuid|exists:product.promotions,id',
         ]);
+
+        $marketingPromo = null;
+        $reseller = null;
+
+        if ($request->filled('marketing_promotion_id')) {
+            $marketingPromo = Promotion::activeNow()
+                ->marketingType()
+                ->find($request->marketing_promotion_id);
+            abort_unless($marketingPromo, 422, 'Promo tidak valid.');
+
+            $reseller = $request->customer_id
+                ? Reseller::where('customer_id', $request->customer_id)->first()
+                : null;
+
+            $this->assertMarketingTargetMatches($marketingPromo, $this->agent()->id, $reseller);
+
+            [$subtotal, $qty] = $this->cartAmountAndQty($request->items);
+            $meets = $marketingPromo->min_purchase_type === 'qty'
+                ? $qty >= (float) $marketingPromo->min_purchase_value
+                : $subtotal >= (float) $marketingPromo->min_purchase_value;
+            abort_unless($meets, 422, 'Syarat promo belum terpenuhi.');
+
+            $request->merge([
+                'discount_type' => $marketingPromo->discount_type,
+                'discount_value' => (float) $marketingPromo->discount_value,
+            ]);
+        }
+
+        $request->attributes->set('marketing_promo', $marketingPromo);
+        $request->attributes->set('pos_reseller', $reseller);
 
         $userId = null;
 
@@ -505,6 +538,11 @@ class AgentPosController extends Controller
             ]);
 
             $this->checkout->completePaidOrder($order->fresh(), $userId);
+
+            $this->maybeReactivateReseller(
+                $request->attributes->get('marketing_promo'),
+                $request->attributes->get('pos_reseller'),
+            );
 
             DB::commit();
 
@@ -680,5 +718,83 @@ class AgentPosController extends Controller
         }
 
         return sprintf('%s-%s-%04d', $prefix, $dateKey, $seq);
+    }
+
+    protected function assertMarketingTargetMatches(Promotion $promo, string $agentId, ?Reseller $reseller): void
+    {
+        $targetType = $promo->target_type;
+
+        if ($targetType === 'agent') {
+            if ($promo->target_agent_id && $promo->target_agent_id !== $agentId) {
+                abort(422, 'Promo tidak berlaku untuk target ini.');
+            }
+
+            return;
+        }
+
+        if ($targetType === 'reseller') {
+            if (! $reseller) {
+                abort(422, 'Promo tidak berlaku untuk target ini.');
+            }
+            if ($promo->target_reseller_id && $promo->target_reseller_id !== $reseller->id) {
+                abort(422, 'Promo tidak berlaku untuk target ini.');
+            }
+
+            return;
+        }
+
+        if ($targetType === 'both') {
+            $agentOk = ! $promo->target_agent_id || $promo->target_agent_id === $agentId;
+            $resellerOk = $reseller && (
+                ! $promo->target_reseller_id || $promo->target_reseller_id === $reseller->id
+            );
+
+            if ($agentOk || $resellerOk) {
+                return;
+            }
+
+            abort(422, 'Promo tidak berlaku untuk target ini.');
+        }
+
+        abort(422, 'Promo tidak berlaku untuk target ini.');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return array{0: float, 1: float}
+     */
+    protected function cartAmountAndQty(array $items): array
+    {
+        $subtotal = 0.0;
+        $qty = 0.0;
+
+        foreach ($items as $item) {
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $quantity = (float) ($item['quantity'] ?? 0);
+            $lineTotal = $unitPrice * $quantity;
+            $discType = $item['discount_type'] ?? 'percent';
+            $discValue = (float) ($item['discount_value'] ?? 0);
+            $discAmt = 0.0;
+
+            if ($discType === 'percent') {
+                $discAmt = round($lineTotal * $discValue / 100);
+            } else {
+                $discAmt = min(round($discValue), round($lineTotal));
+            }
+
+            $subtotal += ($lineTotal - $discAmt);
+            $qty += $quantity;
+        }
+
+        return [$subtotal, $qty];
+    }
+
+    protected function maybeReactivateReseller(?Promotion $marketingPromo, ?Reseller $reseller): void
+    {
+        if (! $marketingPromo?->reactivates_reseller || ! $reseller || $reseller->status === 'active') {
+            return;
+        }
+
+        $reseller->update(['status' => 'active']);
     }
 }

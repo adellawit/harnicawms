@@ -103,16 +103,24 @@
                     <div id="posCampaignStrip" class="row g-2 mt-2 px-2 pb-2">
                         @foreach ($campaigns as $c)
                             <div class="col-6 col-xl-4">
-                                <div class="card border-0 shadow-sm h-100 bg-label-primary">
+                                <div class="card border-0 shadow-sm h-100 bg-label-primary pos-campaign-card" role="button" tabindex="0"
+                                     data-promo-id="{{ $c['id'] }}"
+                                     data-discount-type="{{ $c['discount_type'] }}"
+                                     data-discount-value="{{ $c['discount_value'] }}"
+                                     data-min-type="{{ $c['min_type'] }}"
+                                     data-min-value="{{ $c['min_value'] }}"
+                                     data-target-type="{{ $c['target_type'] }}"
+                                     data-target-agent="{{ $c['target_agent_id'] }}"
+                                     data-target-reseller="{{ $c['target_reseller_id'] }}"
+                                     data-target-reseller-customer="{{ $c['target_reseller_customer_id'] }}"
+                                     data-reactivates="{{ $c['reactivates'] ? 1 : 0 }}">
                                     <div class="card-body p-3">
-                                        <span class="badge bg-primary mb-1">CAMPAIGN</span>
+                                        <span class="badge bg-primary mb-1">PROMO</span>
                                         <div class="fw-semibold small text-truncate">{{ $c['name'] }}</div>
-                                        @if (!empty($c['label']))
-                                            <div class="text-muted small">{{ $c['label'] }}</div>
-                                        @endif
-                                        @if (!empty($c['product']))
-                                            <div class="text-muted small text-truncate">{{ $c['product'] }}</div>
-                                        @endif
+                                        <div class="text-muted small">
+                                            Diskon {{ $c['discount_label'] }}
+                                            · min {{ $c['min_type'] === 'qty' ? rtrim(rtrim(number_format($c['min_value'], 2, '.', ''), '0'), '.').' item' : 'Rp '.number_format($c['min_value'], 0, ',', '.') }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -185,6 +193,8 @@
                     <i class="ti ti-gift me-1"></i>
                     <span id="promoHintText">Promo diterapkan</span>
                 </div>
+
+                <div id="marketingPromoAlert" class="pos-marketing-promo-alert" style="display:none"></div>
 
                 <div class="pos-toolbar-row">
                     <button type="button" class="pos-tool-btn" id="btnDiscToolbar">Diskon</button>
@@ -396,6 +406,9 @@
             taxRate: {{ (int) ($taxRate ?? 0) }},
             cashMethodId: @json($cashMethodId),
             fallbackMethodId: @json($fallbackMethodId),
+        };
+        window.agentPosCtx = {
+            agentId: @json($agentId ?? null),
         };
     </script>
     <script src="{{ asset('assets/js/agent-pos.js') }}"></script>

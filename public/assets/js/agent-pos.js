@@ -17,6 +17,10 @@
     var xenditPendingInvoiceUrl = null;
     var paymentModal = null;
     var variantModal = null;
+    var selectedMarketingPromo = null;
+    var marketingPromoBlocked = false;
+    var marketingPromoBlockMessage = '';
+    var discountFromMarketingPromo = false;
 
     $(document).ready(function () {
         $('#priceListSelect').select2({
@@ -67,11 +71,18 @@
         bindToolbar();
         bindCatalog();
         bindCartEvents();
+        bindMarketingCampaigns();
         handleXenditReturn();
 
         $('#priceListSelect').on('change select2:select', function () {
             $('#priceListWrapper').attr('data-selected-id', $(this).val() || '');
         }).trigger('change');
+
+        $('#customerSelect').on('change select2:select select2:clear', function () {
+            if (selectedMarketingPromo) {
+                revalidateSelectedMarketingPromo(true);
+            }
+        });
 
         setInterval(function () {
             var d = new Date();
@@ -84,6 +95,9 @@
 
     function bindDiscountControls() {
         $('.pos-disc-toggle').on('click', '.disc-type', function () {
+            if (discountFromMarketingPromo) {
+                clearMarketingPromo(false);
+            }
             $('.disc-type').removeClass('active');
             $(this).addClass('active');
             discountType = $(this).data('type');
@@ -92,9 +106,221 @@
             updateCartTotals();
         });
         $('#discountInput').on('input', function () {
+            if (discountFromMarketingPromo) {
+                clearMarketingPromo(false);
+            }
             handleDiscInputInput(this, discountType);
             updateCartTotals();
         });
+    }
+
+    function bindMarketingCampaigns() {
+        $(document).on('click keypress', '.pos-campaign-card', function (e) {
+            if (e.type === 'keypress' && e.which !== 13 && e.which !== 32) {
+                return;
+            }
+            e.preventDefault();
+            toggleMarketingPromoCard($(this));
+        });
+    }
+
+    function getMarketingPromoDataFromCard($card) {
+        return {
+            id: String($card.data('promo-id') || ''),
+            discount_type: String($card.data('discount-type') || 'percent'),
+            discount_value: parseFloat($card.data('discount-value')) || 0,
+            min_type: String($card.data('min-type') || 'amount'),
+            min_value: parseFloat($card.data('min-value')) || 0,
+            target_type: String($card.data('target-type') || 'both'),
+            target_agent_id: String($card.data('target-agent') || ''),
+            target_reseller_customer_id: String($card.data('target-reseller-customer') || ''),
+            name: $.trim($card.find('.fw-semibold').first().text()),
+        };
+    }
+
+    function checkMarketingPromoTarget(promo) {
+        var agentId = String((window.agentPosCtx || {}).agentId || '');
+        var customerId = String($('#customerSelect').val() || '');
+
+        if (promo.target_type === 'agent') {
+            return !promo.target_agent_id || promo.target_agent_id === agentId;
+        }
+        if (promo.target_type === 'reseller') {
+            if (!customerId) {
+                return false;
+            }
+            return !promo.target_reseller_customer_id || promo.target_reseller_customer_id === customerId;
+        }
+        if (promo.target_type === 'both') {
+            var agentOk = !promo.target_agent_id || promo.target_agent_id === agentId;
+            var resellerOk = customerId && (
+                !promo.target_reseller_customer_id || promo.target_reseller_customer_id === customerId
+            );
+            return agentOk || resellerOk;
+        }
+        return false;
+    }
+
+    function getCartSubtotalNet() {
+        var subtotalNet = 0;
+        $cartPaidItems().each(function () {
+            var $el = $(this);
+            var inp = $el.find('.quantity-input');
+            var unitPrice = parseFloat(inp.data('unit-price')) || 0;
+            var qty = parseInt(inp.val(), 10) || 1;
+            var lineTotal = unitPrice * qty;
+            var itemDiscAmt = 0;
+            if ($el.hasClass('has-discount')) {
+                var dt = $el.find('.item-disc-type.active').data('type') || 'percent';
+                var dv = parseDiscValue($el.find('.item-disc-input').val(), dt);
+                if (dt === 'percent') {
+                    itemDiscAmt = Math.round(lineTotal * dv / 100);
+                } else {
+                    itemDiscAmt = Math.round(dv);
+                    if (itemDiscAmt > lineTotal) {
+                        itemDiscAmt = lineTotal;
+                    }
+                }
+            }
+            subtotalNet += (lineTotal - itemDiscAmt);
+        });
+        return subtotalNet;
+    }
+
+    function checkMarketingPromoRequirement(promo) {
+        if (promo.min_type === 'qty') {
+            return getCartItemQty() >= promo.min_value;
+        }
+        return getCartSubtotalNet() >= promo.min_value;
+    }
+
+    function formatMarketingMinLabel(promo) {
+        if (promo.min_type === 'qty') {
+            return promo.min_value + ' item';
+        }
+        return 'Rp ' + Math.round(promo.min_value).toLocaleString('id-ID');
+    }
+
+    function showMarketingPromoAlert(message, isError) {
+        var $alert = $('#marketingPromoAlert');
+        if (!message) {
+            $alert.hide().text('');
+            return;
+        }
+        $alert.text(message)
+            .toggleClass('is-error', !!isError)
+            .show();
+    }
+
+    function updatePayButtonState() {
+        var disabled = marketingPromoBlocked && !!selectedMarketingPromo;
+        $('#btnPayment').prop('disabled', disabled);
+        if (disabled) {
+            $('#btnPayment').attr('title', marketingPromoBlockMessage || 'Syarat promo belum terpenuhi');
+        } else {
+            $('#btnPayment').removeAttr('title');
+        }
+    }
+
+    function applyMarketingPromoDiscount(promo) {
+        discountFromMarketingPromo = true;
+        discountType = promo.discount_type;
+        $('.disc-type').removeClass('active');
+        $('.disc-type[data-type="' + promo.discount_type + '"]').addClass('active');
+        $('#discountInput')
+            .val(formatDiscInputDisplay(String(promo.discount_value), promo.discount_type))
+            .prop('readonly', true);
+    }
+
+    function clearMarketingPromoDiscountFields() {
+        discountFromMarketingPromo = false;
+        $('#discountInput').prop('readonly', false);
+        if (selectedMarketingPromo) {
+            return;
+        }
+        $('#discountInput').val('0');
+        discountType = 'percent';
+        $('.disc-type').removeClass('active');
+        $('.disc-type[data-type="percent"]').addClass('active');
+    }
+
+    function clearMarketingPromo(resetDiscount) {
+        selectedMarketingPromo = null;
+        marketingPromoBlocked = false;
+        marketingPromoBlockMessage = '';
+        $('.pos-campaign-card').removeClass('pos-campaign-card-active');
+        showMarketingPromoAlert('');
+        if (resetDiscount !== false) {
+            clearMarketingPromoDiscountFields();
+        } else {
+            discountFromMarketingPromo = false;
+            $('#discountInput').prop('readonly', false);
+        }
+        updatePayButtonState();
+    }
+
+    function revalidateSelectedMarketingPromo(fromCustomerChange) {
+        if (!selectedMarketingPromo) {
+            updatePayButtonState();
+            return;
+        }
+
+        if (!checkMarketingPromoTarget(selectedMarketingPromo)) {
+            marketingPromoBlocked = true;
+            marketingPromoBlockMessage = 'Promo tidak berlaku untuk target ini';
+            showMarketingPromoAlert(marketingPromoBlockMessage, true);
+            discountFromMarketingPromo = false;
+            $('#discountInput').prop('readonly', false).val('0');
+            discountType = 'percent';
+            $('.disc-type').removeClass('active');
+            $('.disc-type[data-type="percent"]').addClass('active');
+            updatePayButtonState();
+            updateCartTotals(false);
+            return;
+        }
+
+        if (!checkMarketingPromoRequirement(selectedMarketingPromo)) {
+            marketingPromoBlocked = true;
+            marketingPromoBlockMessage = 'Min belanja ' + formatMarketingMinLabel(selectedMarketingPromo) + ' belum tercapai';
+            showMarketingPromoAlert(marketingPromoBlockMessage, true);
+            discountFromMarketingPromo = false;
+            $('#discountInput').prop('readonly', false).val('0');
+            discountType = 'percent';
+            $('.disc-type').removeClass('active');
+            $('.disc-type[data-type="percent"]').addClass('active');
+            updatePayButtonState();
+            updateCartTotals(false);
+            return;
+        }
+
+        marketingPromoBlocked = false;
+        marketingPromoBlockMessage = '';
+        showMarketingPromoAlert('Promo "' + selectedMarketingPromo.name + '" diterapkan.', false);
+        applyMarketingPromoDiscount(selectedMarketingPromo);
+        updatePayButtonState();
+        updateCartTotals(false);
+    }
+
+    function toggleMarketingPromoCard($card) {
+        var promo = getMarketingPromoDataFromCard($card);
+        if (selectedMarketingPromo && selectedMarketingPromo.id === promo.id) {
+            clearMarketingPromo(true);
+            updateCartTotals(false);
+            return;
+        }
+
+        if (!checkMarketingPromoTarget(promo)) {
+            showMarketingPromoAlert('Promo tidak berlaku untuk target ini', true);
+            marketingPromoBlocked = true;
+            marketingPromoBlockMessage = 'Promo tidak berlaku untuk target ini';
+            updatePayButtonState();
+            return;
+        }
+
+        selectedMarketingPromo = promo;
+        $('.pos-campaign-card').removeClass('pos-campaign-card-active');
+        $card.addClass('pos-campaign-card-active');
+        revalidateSelectedMarketingPromo(false);
     }
 
     function bindMobileTabs() {
@@ -386,6 +612,15 @@
         });
 
         $('#btnPayment').on('click', function () {
+            if (marketingPromoBlocked && selectedMarketingPromo) {
+                Swal.fire({
+                    icon: 'warning',
+                    text: marketingPromoBlockMessage || 'Syarat promo belum terpenuhi.',
+                    customClass: { confirmButton: 'btn btn-primary' },
+                    buttonsStyling: false,
+                });
+                return;
+            }
             if (getCartItemQty() === 0) {
                 Swal.fire({
                     icon: 'warning',
@@ -709,8 +944,12 @@
         checkEmptyCart();
     }
 
-    function updateCartTotals() {
-        var subtotalNet = 0;
+    function updateCartTotals(revalidateMarketing) {
+        if (revalidateMarketing !== false && selectedMarketingPromo) {
+            revalidateSelectedMarketingPromo(false);
+        }
+
+        var subtotalNet = getCartSubtotalNet();
         var totalItemDisc = 0;
         $cartPaidItems().each(function () {
             var $el = $(this);
@@ -733,7 +972,6 @@
                 $el.find('.item-disc-display').text('Rp ' + itemDiscAmt.toLocaleString('id-ID'));
             }
             totalItemDisc += itemDiscAmt;
-            subtotalNet += (lineTotal - itemDiscAmt);
         });
 
         var discVal = parseDiscValue($('#discountInput').val(), discountType);
@@ -761,6 +999,7 @@
         $('#discountDisplay').text(formatRp(txnDiscAmt));
         $('#total').text(formatRp(total));
         updateCartBadgeOnly();
+        updatePayButtonState();
         refreshPromoPreview();
     }
 
@@ -770,6 +1009,9 @@
         } else {
             $('#emptyCart').show();
             $('#promoHintRow').hide();
+            if (selectedMarketingPromo) {
+                clearMarketingPromo(true);
+            }
         }
     }
 
@@ -782,8 +1024,9 @@
         $('.disc-type').removeClass('active');
         $('.disc-type[data-type="percent"]').addClass('active');
         orderNotes = '';
+        clearMarketingPromo(true);
         $('#customerSelect').val(null).trigger('change');
-        updateCartTotals();
+        updateCartTotals(false);
         checkEmptyCart();
     }
 
@@ -928,6 +1171,9 @@
             amount_paid: amountPaid,
             notes: orderNotes || null,
         };
+        if (selectedMarketingPromo && !marketingPromoBlocked) {
+            payload.marketing_promotion_id = selectedMarketingPromo.id;
+        }
         if (useXendit && xenditChannel) {
             payload.xendit_channel = xenditChannel;
         }
