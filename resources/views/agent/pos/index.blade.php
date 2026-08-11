@@ -264,6 +264,39 @@
         </div>
     </div>
 
+    {{-- Modal tambah item (unit + harga + qty) --}}
+    <div class="modal fade" id="addItemModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah ke Keranjang</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="addItemVariantName" class="fw-semibold mb-3"></div>
+                    <div class="mb-3" id="addItemUnitWrap">
+                        <label class="form-label" for="addItemUnitSelect">Unit</label>
+                        <select id="addItemUnitSelect" class="form-select"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="addItemPriceInput">Harga</label>
+                        <input type="number" id="addItemPriceInput" class="form-control" min="0" step="any" placeholder="0">
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="addItemQtyInput">Qty</label>
+                        <input type="number" id="addItemQtyInput" class="form-control" min="1" step="1" value="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnAddItemConfirm">
+                        <i class="ti ti-shopping-cart-plus me-1"></i> Tambah ke Keranjang
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Modal pembayaran --}}
     <div class="modal fade" id="paymentModal" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-md-down modal-dialog-scrollable">

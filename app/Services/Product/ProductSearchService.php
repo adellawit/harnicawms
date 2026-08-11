@@ -306,4 +306,57 @@ class ProductSearchService
             ->whereNull('deleted_at')
             ->first();
     }
+
+    /**
+     * @return list<array{unit_id: string, unit_label: string, suggested_price: float}>
+     */
+    public function buildPosUnitOptions(ProductVariant $variant, string $branchId, string $priceListId): array
+    {
+        $product = $variant->product;
+        if (! $product) {
+            return [];
+        }
+
+        $units = $product->getBarcodeUnits();
+        if ($units->isEmpty() && $product->default_unit_id) {
+            $defaultUnit = ProductUnit::query()->find($product->default_unit_id, ['id', 'symbol', 'name']);
+            if ($defaultUnit) {
+                $units = collect([$defaultUnit]);
+            }
+        }
+
+        $largestUnitId = $product->default_unit_id;
+        $largestPriceRow = $largestUnitId
+            ? $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $largestUnitId)
+            : null;
+        $largestPrice = (float) ($largestPriceRow?->selling_price ?? 0);
+
+        if ($largestPrice <= 0) {
+            $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
+            $largestUnitId = $pricing['unit_id'] ?? $largestUnitId;
+            $largestPrice = (float) $pricing['selling_price'];
+        }
+
+        if (! $largestUnitId || $units->isEmpty()) {
+            return [];
+        }
+
+        return $units->map(function (ProductUnit $unit) use ($variant, $product, $branchId, $priceListId, $largestUnitId, $largestPrice) {
+            $priceRow = $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $unit->id);
+            if ($priceRow && (float) $priceRow->selling_price > 0) {
+                $suggested = (float) $priceRow->selling_price;
+            } else {
+                $perLarge = $product->convertQuantity(1, $largestUnitId, $unit->id);
+                $suggested = ($perLarge !== null && $perLarge > 0)
+                    ? round($largestPrice / $perLarge, 2)
+                    : $largestPrice;
+            }
+
+            return [
+                'unit_id' => $unit->id,
+                'unit_label' => $unit->symbol ?: ($unit->name ?: $unit->code),
+                'suggested_price' => $suggested,
+            ];
+        })->values()->all();
+    }
 }

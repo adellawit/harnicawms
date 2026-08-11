@@ -248,10 +248,14 @@ class AgentPosController extends Controller
                 continue;
             }
 
+            $unitOptions = $this->productSearch->buildPosUnitOptions($variant, $branchId, $request->price_list_id);
+
             $result[] = array_merge($mapped, [
                 'barcode' => $variant->barcode,
                 'image' => $variant->image ?? null,
                 'product_id' => $product->id,
+                'default_unit_id' => $product->default_unit_id,
+                'unit_options' => $unitOptions,
             ]);
         }
 
