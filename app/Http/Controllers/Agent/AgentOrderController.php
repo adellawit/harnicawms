@@ -17,6 +17,7 @@ use App\Models\Promotion;
 use App\Models\SalesOrder;
 use App\Models\ShippingRate;
 use App\Models\Training\Course;
+use App\Services\Product\StockDisplayService;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
@@ -29,6 +30,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -907,32 +910,123 @@ class AgentOrderController extends Controller
         return back()->with('success', 'Barang diterima. Stok masuk ke gudang Anda.');
     }
 
-    public function stock(Request $request): View
+    public function stock(Request $request, StockDisplayService $stockDisplay): View
     {
         $agent = $this->context()->customer()->agent;
         $warehouseId = $agent?->default_warehouse_id;
+        $lowThreshold = 5;
 
-        $query = ProductVariantStock::query()
-            ->where('warehouse_id', $warehouseId)
-            ->with(['variant.product.defaultUnit', 'variant.variantAttributes.attributeValue'])
-            ->when(! $warehouseId, fn ($q) => $q->whereRaw('1 = 0'));
+        $displayUnitMode = in_array($request->get('display_unit'), ['large', 'small'], true)
+            ? $request->get('display_unit')
+            : 'large';
 
         $search = trim((string) $request->get('q', ''));
+
+        $stockQuery = ProductVariantStock::query()
+            ->whereNull('deleted_at')
+            ->where('warehouse_id', $warehouseId)
+            ->with([
+                'unit:id,name,symbol',
+                'variant.product.defaultUnit',
+                'variant.product.unitConversions.fromUnit:id,name,symbol',
+                'variant.product.unitConversions.toUnit:id,name,symbol',
+                'variant.variantAttributes.attributeValue',
+            ])
+            ->when(! $warehouseId, fn ($q) => $q->whereRaw('1 = 0'));
+
         if ($search !== '') {
-            $query->whereHas('variant', function ($v) use ($search) {
+            $stockQuery->whereHas('variant', function ($v) use ($search) {
                 $v->where('sku', 'ilike', "%{$search}%")
                     ->orWhereHas('product', fn ($p) => $p->where('name', 'ilike', "%{$search}%"));
             });
         }
 
-        $stocks = $query->orderByDesc('quantity')->paginate(30)->withQueryString();
+        $allStocks = $stockQuery->get();
+        $groupedByVariant = $this->groupVariantStocksByUnit($allStocks);
+
+        $rows = collect();
+        foreach ($groupedByVariant as $variantId => $unitStockRows) {
+            $firstStock = $allStocks->firstWhere('product_variant_id', $variantId);
+            $variant = $firstStock?->variant;
+            $product = $variant?->product;
+            if (! $variant || ! $product) {
+                continue;
+            }
+
+            $display = $stockDisplay->build($product, $unitStockRows, $displayUnitMode);
+
+            $variantLabel = $variant->variantAttributes
+                ?->map(fn ($va) => $va->attributeValue?->value)
+                ->filter()
+                ->implode(' / ');
+            $variantLabel = $variantLabel ?: ($variant->display_name ?? $variant->sku ?? '-');
+
+            $qtyForBadge = (float) ($display['smallest_quantity'] ?? $display['quantity']);
+
+            $rows->push([
+                'variant_id' => $variant->id,
+                'product_name' => $product->name,
+                'variant_name' => $variantLabel,
+                'sku' => $variant->sku ?? '-',
+                'quantity' => $display['quantity'],
+                'unit' => $display['unit'],
+                'unit_id' => $display['unit_id'],
+                'stock_by_units' => $display['stock_by_units'],
+                'show_unit_detail' => $display['show_unit_detail'],
+                'conversion_chain_hint' => $display['conversion_chain_hint'],
+                'conversion_hint' => $display['conversion_hint'],
+                'smallest_quantity' => $display['smallest_quantity'],
+                'smallest_unit' => $display['smallest_unit'],
+                'smallest_unit_id' => $display['smallest_unit_id'],
+                'has_smallest_display' => $display['has_smallest_display'],
+                'packaging_hint' => $display['packaging_hint'],
+                'out' => $qtyForBadge <= 0,
+                'low' => $qtyForBadge > 0 && $qtyForBadge <= $lowThreshold,
+                'sort_qty' => $qtyForBadge,
+            ]);
+        }
+
+        $rows = $rows->sortByDesc('sort_qty')->values();
+
+        $perPage = 30;
+        $page = max(1, (int) $request->get('page', 1));
+        $stocks = new LengthAwarePaginator(
+            $rows->slice(($page - 1) * $perPage, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('agent.order.stock', [
             'stocks' => $stocks,
             'search' => $search,
             'warehouseName' => optional($agent?->defaultWarehouse)->name,
-            'lowThreshold' => 5,
+            'lowThreshold' => $lowThreshold,
+            'displayUnitMode' => $displayUnitMode,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, ProductVariantStock>  $rows
+     * @return Collection<string, Collection<int, array{unit_id: ?string, unit: mixed, quantity: float}>>
+     */
+    protected function groupVariantStocksByUnit(Collection $rows): Collection
+    {
+        return $rows->groupBy('product_variant_id')->map(function ($variantRows) {
+            return $variantRows
+                ->groupBy('unit_id')
+                ->map(function ($unitRows) {
+                    $first = $unitRows->first();
+
+                    return [
+                        'unit_id' => $first->unit_id,
+                        'unit' => $first->unit,
+                        'quantity' => $unitRows->sum(fn (ProductVariantStock $row) => (float) $row->quantity),
+                    ];
+                })
+                ->values();
+        });
     }
 
     protected function loadOrderForPrint(string $orderId): SalesOrder

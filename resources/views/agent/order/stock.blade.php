@@ -2,7 +2,26 @@
 
 @section('title', 'Stok Gudang | ')
 
+@push('styles')
+    <style>
+        .agent-stock-table td { vertical-align: top; }
+        .agent-stock-table .stock-col-qty { min-width: 160px; max-width: 280px; }
+        .agent-stock-unit-detail .stock-unit-line { word-break: break-word; }
+        .agent-stock-header-actions .btn-group .btn { font-size: 0.8125rem; }
+    </style>
+@endpush
+
 @section('content')
+    @php
+        $displayUnitMode = $displayUnitMode ?? request('display_unit', 'large');
+        $unitToggleQuery = collect(request()->query())
+            ->except('display_unit')
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->all();
+        $largeUnitUrl = route('agent-order.stock', array_merge($unitToggleQuery, ['display_unit' => 'large']));
+        $smallUnitUrl = route('agent-order.stock', array_merge($unitToggleQuery, ['display_unit' => 'small']));
+    @endphp
+
     <header class="shop-page-header d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <a href="{{ route('agent-order.dashboard') }}" class="shop-back-link d-inline-flex align-items-center gap-1 small text-muted text-decoration-none mb-2">
@@ -13,11 +32,24 @@
                 {{ $warehouseName ?: 'Gudang belum diset' }}
             </p>
         </div>
+        <div class="agent-stock-header-actions">
+            <div class="btn-group" role="group" aria-label="Tampilan satuan">
+                <a href="{{ $largeUnitUrl }}" class="btn btn-sm btn-{{ $displayUnitMode === 'large' ? 'primary' : 'outline-primary' }}">
+                    Satuan Besar
+                </a>
+                <a href="{{ $smallUnitUrl }}" class="btn btn-sm btn-{{ $displayUnitMode === 'small' ? 'primary' : 'outline-primary' }}">
+                    Satuan Kecil
+                </a>
+            </div>
+        </div>
     </header>
 
     <div class="card border-0 shadow-sm shop-order-card mb-3">
         <div class="card-body py-3">
             <form method="GET" action="{{ route('agent-order.stock') }}" class="row g-2 align-items-center">
+                @if ($displayUnitMode !== 'large')
+                    <input type="hidden" name="display_unit" value="{{ $displayUnitMode }}">
+                @endif
                 <div class="col-md-8">
                     <input type="search" name="q" class="form-control" value="{{ $search }}"
                            placeholder="Cari nama produk atau SKU…" autocomplete="off">
@@ -25,7 +57,7 @@
                 <div class="col-md-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1"><i class="ti ti-search me-1"></i>Cari</button>
                     @if ($search !== '')
-                        <a href="{{ route('agent-order.stock') }}" class="btn btn-outline-secondary">Reset</a>
+                        <a href="{{ route('agent-order.stock', $displayUnitMode !== 'large' ? ['display_unit' => $displayUnitMode] : []) }}" class="btn btn-outline-secondary">Reset</a>
                     @endif
                 </div>
             </form>
@@ -34,43 +66,74 @@
 
     <div class="card border-0 shadow-sm shop-order-card">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle agent-stock-table">
                 <thead class="table-light">
                     <tr>
                         <th>Produk</th>
                         <th>Varian</th>
                         <th>SKU</th>
-                        <th>Satuan</th>
-                        <th class="text-end">Stok</th>
+                        <th class="text-end stock-col-qty">Stok</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($stocks as $s)
+                    @forelse ($stocks as $item)
                         @php
-                            $qty = (float) $s->quantity;
-                            $variantLabel = $s->variant?->variantAttributes
-                                ?->map(fn ($va) => $va->attributeValue?->value)
-                                ->filter()
-                                ->implode(' / ');
-                            $variantLabel = $variantLabel ?: ($s->variant?->display_name ?? '-');
+                            $displayQty = (float) ($item['quantity'] ?? 0);
                         @endphp
                         <tr>
-                            <td>{{ $s->variant?->product?->name ?? '-' }}</td>
-                            <td>{{ $variantLabel }}</td>
-                            <td class="text-muted">{{ $s->variant?->sku ?? '-' }}</td>
-                            <td>{{ optional($s->variant?->product?->defaultUnit)->symbol ?? optional($s->variant?->product?->defaultUnit)->name ?? '-' }}</td>
-                            <td class="text-end text-nowrap">
-                                {{ rtrim(rtrim(number_format($qty, 2, ',', '.'), '0'), ',') }}
-                                @if ($qty <= 0)
-                                    <span class="badge bg-label-danger ms-1">Habis</span>
-                                @elseif ($qty <= $lowThreshold)
-                                    <span class="badge bg-label-warning ms-1">Rendah</span>
+                            <td>{{ $item['product_name'] ?? '-' }}</td>
+                            <td>{{ $item['variant_name'] ?? '-' }}</td>
+                            <td class="text-muted">{{ $item['sku'] ?? '-' }}</td>
+                            <td class="text-end stock-col-qty">
+                                <div class="fw-semibold">
+                                    {{ format_number($displayQty, 2, true) }}
+                                    <small class="text-muted">{{ $item['unit'] ?? '' }}</small>
+                                </div>
+                                @if (!empty($item['has_smallest_display']) && $displayUnitMode === 'large' && (float) ($item['smallest_quantity'] ?? 0) > 0)
+                                    <small class="text-primary d-block">
+                                        = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
+                                    </small>
                                 @endif
+                                @if (!empty($item['packaging_hint']))
+                                    <small class="text-muted d-block mt-1">
+                                        Breakdown: {{ $item['packaging_hint'] }}
+                                    </small>
+                                @endif
+                                @if (!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
+                                    <div class="agent-stock-unit-detail stock-unit-detail mt-1">
+                                        <small class="text-muted d-block fw-semibold">Tersimpan per satuan:</small>
+                                        @foreach ($item['stock_by_units'] as $unitStock)
+                                            <small class="text-muted d-block stock-unit-line">
+                                                {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
+                                                @if (
+                                                    $displayUnitMode === 'large'
+                                                    && isset($unitStock['smallest_quantity'])
+                                                    && $unitStock['smallest_quantity'] !== null
+                                                    && ($unitStock['unit_id'] ?? null) !== ($item['smallest_unit_id'] ?? null)
+                                                )
+                                                    <span class="text-primary">(= {{ format_number((float) $unitStock['smallest_quantity'], 2, true) }} {{ $unitStock['smallest_unit'] ?? $item['smallest_unit'] }})</span>
+                                                @endif
+                                            </small>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if (!empty($item['conversion_chain_hint']))
+                                    <small class="text-muted d-block fst-italic mt-1">{{ $item['conversion_chain_hint'] }}</small>
+                                @elseif (!empty($item['conversion_hint']))
+                                    <small class="text-muted d-block fst-italic mt-1">{{ $item['conversion_hint'] }}</small>
+                                @endif
+                                <div class="mt-1">
+                                    @if (!empty($item['out']))
+                                        <span class="badge bg-label-danger">Habis</span>
+                                    @elseif (!empty($item['low']))
+                                        <span class="badge bg-label-warning">Rendah</span>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">Belum ada stok di gudang Anda.</td>
+                            <td colspan="4" class="text-center text-muted py-4">Belum ada stok di gudang Anda.</td>
                         </tr>
                     @endforelse
                 </tbody>
