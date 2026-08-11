@@ -21,14 +21,13 @@
             </div>
             <div class="table-responsive">
                 <table class="table mb-0">
-                    <thead><tr><th>Urutan</th><th>Nama</th><th>Warna</th><th>Ikon</th><th>Aset</th><th>Status</th><th></th></tr></thead>
+                    <thead><tr><th>Urutan</th><th>Nama</th><th>Warna</th><th>Aset</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                         @forelse ($categories as $cat)
                             <tr>
                                 <td>{{ $cat->sort_order }}</td>
                                 <td>{{ $cat->name }}</td>
                                 <td><span class="badge" style="background: {{ $cat->color ?: '#e7e7e7' }}">{{ $cat->color ?: '-' }}</span></td>
-                                <td>@if($cat->icon)<i class="ti {{ $cat->icon }}"></i> <code>{{ $cat->icon }}</code>@else - @endif</td>
                                 <td>{{ $cat->assets_count }}</td>
                                 <td><span class="badge bg-label-{{ $cat->is_active ? 'success' : 'secondary' }}">{{ $cat->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                                 <td class="text-end">
@@ -40,7 +39,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted">Belum ada kategori.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted">Belum ada kategori.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -56,20 +55,28 @@
                 <div class="modal-header"><h5 class="modal-title" id="catModalTitle">Tambah Kategori</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <div class="mb-3"><label class="form-label">Nama <span class="text-danger">*</span></label>
-                        <input type="text" name="name" id="catName" class="form-control" required></div>
-                    <div class="row g-3">
-                        <div class="col-6"><label class="form-label">Warna</label>
-                            <input type="color" name="color" id="catColor" class="form-control form-control-color" value="#5C9E84"></div>
-                        <div class="col-6"><label class="form-label">Ikon (Tabler)</label>
-                            <input type="text" name="icon" id="catIcon" class="form-control" placeholder="ti-photo"></div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-8">
+                            <label class="form-label" for="catName">Nama <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="catName" class="form-control" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label" for="catColor">Warna</label>
+                            <input type="color" name="color" id="catColor" class="form-control form-control-color w-100" value="#5C9E84">
+                        </div>
                     </div>
-                    <div class="row g-3 mt-1">
-                        <div class="col-6"><label class="form-label">Urutan</label>
-                            <input type="number" name="sort_order" id="catSort" class="form-control" value="0" min="0"></div>
-                        <div class="col-6 d-flex align-items-end"><div class="form-check">
-                            <input type="checkbox" name="is_active" id="catActive" class="form-check-input" value="1" checked>
-                            <label class="form-check-label" for="catActive">Aktif</label></div></div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-6">
+                            <label class="form-label" for="catSort">Urutan</label>
+                            <input type="number" name="sort_order" id="catSort" class="form-control" value="0" min="0">
+                        </div>
+                        <div class="col-6">
+                            <input type="hidden" name="is_active" value="0">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="catActive" name="is_active" value="1" checked>
+                                <label class="form-check-label" for="catActive">Aktif</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -91,7 +98,6 @@
             document.getElementById('catMethod').value = isEdit ? 'PUT' : 'POST';
             document.getElementById('catName').value = c.name || '';
             document.getElementById('catColor').value = c.color || '#5C9E84';
-            document.getElementById('catIcon').value = c.icon || '';
             document.getElementById('catSort').value = c.sort_order ?? 0;
             document.getElementById('catActive').checked = c.id ? !!c.is_active : true;
         }

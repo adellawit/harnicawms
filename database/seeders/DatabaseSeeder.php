@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
             IamHasAccessSeeder::class,
             TrainingAccessSeeder::class,
             MarketingAccessSeeder::class,
+            CategoryMenuPolishSeeder::class,
             BarcodeTrackingAccessSeeder::class,
             FgBarcodeStockAccessSeeder::class,
             AgentCuttingPriceAccessSeeder::class,
