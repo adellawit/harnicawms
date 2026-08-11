@@ -49,6 +49,16 @@
             </div>
         @endif
     </div>
+    <div class="col-12">
+        <label class="form-label">Thumbnail (opsional)</label>
+        <input type="file" name="thumbnail" class="form-control" accept="image/*">
+        <small class="text-muted">Gambar cover untuk kartu materi di portal agen (.jpg/.png/.webp, max 4 MB).</small>
+        @if (!empty($asset?->thumbnail_url))
+            <div class="mt-2">
+                <img src="{{ $asset->thumbnail_url }}" alt="Thumbnail" style="max-height:90px" class="rounded border">
+            </div>
+        @endif
+    </div>
     <div class="col-12 asset-link d-none" id="assetLinkWrap">
         <label class="form-label">URL Video (IG/TikTok/YouTube/dll)</label>
         <input type="text" name="link_url" class="form-control" value="{{ old('link_url', $asset->link_url ?? '') }}" placeholder="https://...">

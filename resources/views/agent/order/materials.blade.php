@@ -55,8 +55,9 @@
                 <div class="card border-0 shadow-sm h-100 agent-marketing-asset-card">
                     <div class="agent-marketing-asset-thumb position-relative">
                         <span class="badge bg-dark position-absolute top-0 start-0 m-2">{{ $typeLabel }}</span>
-                        @if ($type === 'image' && $asset->file_url)
-                            <img src="{{ $asset->file_url }}" alt="{{ $asset->title }}" class="w-100" loading="lazy">
+                        @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
+                        @if ($thumb)
+                            <img src="{{ $thumb }}" alt="{{ $asset->title }}" class="w-100" loading="lazy">
                         @else
                             <div class="agent-marketing-asset-thumb-placeholder d-flex align-items-center justify-content-center">
                                 <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
