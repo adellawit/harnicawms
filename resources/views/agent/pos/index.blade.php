@@ -235,7 +235,10 @@
                     </div>
                     <div class="pos-summary-row pos-shipping-row">
                         <label class="mb-0" for="shippingInput">Ongkir</label>
-                        <input type="text" inputmode="numeric" id="shippingInput" class="form-control form-control-sm pos-shipping-input" value="0" placeholder="0" autocomplete="off">
+                        <div class="input-group input-group-sm pos-shipping-group">
+                            <span class="input-group-text">Rp</span>
+                            <input type="text" inputmode="numeric" id="shippingInput" class="form-control pos-shipping-input" value="0" placeholder="0" autocomplete="off">
+                        </div>
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>TOTAL</span>

@@ -1410,8 +1410,10 @@ body.agent-pos-body {
 .pos-shipping-row {
     align-items: center;
 }
+.pos-shipping-group {
+    max-width: 150px;
+}
 .pos-shipping-input {
-    max-width: 140px;
     text-align: right;
 }
 .pos-reseller-address {
