@@ -258,26 +258,38 @@
                 <a href="{{ route('agent-order.materials') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
             @endif
         </div>
-        <div class="card border-0 shadow-sm shop-order-card">
-            <div class="list-group list-group-flush">
-                @forelse ($marketingAssets as $asset)
-                    <div class="list-group-item agent-dashboard-asset-row">
-                        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-2">
-                            <div class="min-w-0">
+        <div class="row g-2 g-md-3">
+            @forelse ($marketingAssets as $asset)
+                @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm h-100 agent-asset-card">
+                        <div class="agent-asset-thumb position-relative">
+                            @if ($thumb)
+                                <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy">
+                            @else
+                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
+                                    <i class="ti {{ ['pdf' => 'ti-file-type-pdf', 'video' => 'ti-video', 'text' => 'ti-brand-whatsapp'][$asset->type] ?? 'ti-photo' }} fs-1 text-muted"></i>
+                                </div>
+                            @endif
+                            <span class="agent-asset-badge position-absolute top-0 start-0 m-2">
                                 @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
-                                <span class="fw-semibold ms-1">{{ $asset->title }}</span>
-                            </div>
-                            <div class="d-flex flex-wrap gap-1 flex-shrink-0">
+                            </span>
+                        </div>
+                        <div class="card-body p-2 p-md-3 d-flex flex-column">
+                            <div class="fw-semibold small text-truncate mb-2" title="{{ $asset->title }}">{{ $asset->title }}</div>
+                            <div class="mt-auto d-flex flex-wrap gap-1">
                                 @include('agent.order.partials._marketing-asset-actions', ['asset' => $asset])
                             </div>
                         </div>
                     </div>
-                @empty
-                    <div class="list-group-item text-center text-muted py-4">
-                        Belum ada materi.
+                </div>
+            @empty
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center text-muted py-4">Belum ada materi.</div>
                     </div>
-                @endforelse
-            </div>
+                </div>
+            @endforelse
         </div>
     </section>
 
@@ -292,24 +304,26 @@
         <div class="row g-2 g-md-3">
             @forelse ($courses as $course)
                 <div class="col-md-6 col-lg-4">
-                    <a href="{{ route('agent-order.training.show', $course->id) }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
-                        <div class="card-body d-flex flex-column">
-                            <div class="fw-semibold mb-1">{{ $course->title }}</div>
-                            @if ($course->description)
-                                <p class="small text-muted mb-3 flex-grow-1">{{ Str::limit(strip_tags($course->description), 120) }}</p>
+                    <a href="{{ route('agent-order.training.show', $course->id) }}" class="card border-0 shadow-sm h-100 text-decoration-none text-body agent-course-card">
+                        <div class="agent-asset-thumb position-relative">
+                            @if ($course->thumbnail_url)
+                                <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy">
                             @else
-                                <p class="small text-muted mb-3 flex-grow-1">Materi pelatihan</p>
+                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
+                                    <i class="ti ti-school fs-1 text-muted"></i>
+                                </div>
                             @endif
-                            <span class="small text-primary align-self-start">Buka course →</span>
+                        </div>
+                        <div class="card-body p-2 p-md-3">
+                            <div class="fw-semibold mb-1 text-truncate" title="{{ $course->title }}">{{ $course->title }}</div>
+                            <p class="small text-muted mb-0">{{ $course->category?->name ?: 'Materi pelatihan untuk agen' }}</p>
                         </div>
                     </a>
                 </div>
             @empty
                 <div class="col-12">
                     <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center text-muted py-4">
-                            Belum ada materi pelatihan.
-                        </div>
+                        <div class="card-body text-center text-muted py-4">Belum ada materi pelatihan.</div>
                     </div>
                 </div>
             @endforelse
