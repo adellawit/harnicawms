@@ -208,11 +208,24 @@ class AgentPosController extends Controller
         $rows = $base->orderBy('name')->limit(30)->get();
 
         return response()->json([
-            'results' => $rows->map(fn (Reseller $r) => [
-                'id' => $r->customer_id,
-                'text' => trim(($r->name ?: $r->customer?->name).($r->customer?->code ? ' · '.$r->customer->code : '')),
-                'own' => $r->agent_id === $agent->id,
-            ])->values(),
+            'results' => $rows->map(function (Reseller $r) {
+                $addressParts = array_filter([
+                    $r->address,
+                    trim(($r->city ?: '').($r->province ? ', '.$r->province : '')),
+                    $r->postal_code,
+                ]);
+
+                return [
+                    'id' => $r->customer_id,
+                    'text' => trim(($r->name ?: $r->customer?->name).($r->customer?->code ? ' · '.$r->customer->code : '')),
+                    'own' => $r->agent_id === $this->agent()->id,
+                    'address' => $r->address,
+                    'city' => $r->city,
+                    'province' => $r->province,
+                    'postal_code' => $r->postal_code,
+                    'address_label' => $addressParts !== [] ? implode(', ', $addressParts) : null,
+                ];
+            })->values(),
         ]);
     }
 
@@ -409,6 +422,128 @@ class AgentPosController extends Controller
         ]);
     }
 
+    public function orderOnly(Request $request): JsonResponse
+    {
+        $branchId = $this->branchId();
+        $companyId = $this->companyId();
+
+        if (! $branchId) {
+            return response()->json(['success' => false, 'message' => 'Branch not selected'], 422);
+        }
+
+        $request->merge([
+            'branch_id' => $branchId,
+            'company_id' => $companyId,
+            'tax_rate' => 0,
+            'tax_enabled' => false,
+        ]);
+
+        $request->validate($this->posOrderValidationRules(requirePayment: false));
+        $this->applyPosMarketingPromo($request);
+
+        DB::beginTransaction();
+        try {
+            $totals = $this->checkout->buildCartTotals($request);
+            $shipping = $this->resolveShippingAmount($request);
+            $salesNumber = $this->generateSalesNumber($branchId);
+            $order = $this->checkout->createSalesOrder(
+                $request,
+                $totals,
+                $salesNumber,
+                $branchId,
+                $companyId,
+                null,
+                'pending',
+                'unpaid',
+                'agent-pos',
+                $this->agentWarehouseId(),
+            );
+
+            $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
+            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+
+            DB::commit();
+
+            $order->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi disimpan sebagai pending, bisa dibayar di History.',
+                'data' => [
+                    'sales_order_id' => $order->id,
+                    'sales_number' => $order->sales_number,
+                    'total' => (float) $order->total,
+                    'shipping_amount' => (float) $order->shipping_amount,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Agent POS order-only failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Order failed: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function payPendingOrder(Request $request, string $order): JsonResponse
+    {
+        $branchId = $this->branchId();
+
+        if (! $branchId) {
+            return response()->json(['success' => false, 'message' => 'Branch not selected'], 422);
+        }
+
+        $request->validate([
+            'payment_method_id' => 'required|uuid',
+            'amount_paid' => 'required|numeric|min:0',
+            'xendit_channel' => 'nullable|string|max:50',
+        ]);
+
+        $orderModel = SalesOrder::query()
+            ->where('id', $order)
+            ->where('order_type', 'agent-pos')
+            ->where('branch_id', $branchId)
+            ->first();
+
+        if (! $orderModel) {
+            return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+        }
+
+        $this->assertPendingOrderOwnedByAgent($orderModel);
+
+        if ($orderModel->payment_status === 'paid') {
+            return response()->json(['success' => false, 'message' => 'Order sudah lunas.'], 422);
+        }
+
+        $methodPayment = MethodPayment::find($request->payment_method_id);
+        if (! $methodPayment) {
+            return response()->json(['success' => false, 'message' => 'Payment method not found'], 422);
+        }
+
+        $methodCode = strtoupper((string) $methodPayment->code);
+        if (in_array($methodCode, ['DEBIT', 'CREDIT'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pembayaran kartu debit/kredit belum tersedia di POS. Gunakan metode Xendit atau tunai.',
+            ], 422);
+        }
+
+        if ($this->xendit->usesXenditForMethod($methodPayment->code, $methodPayment)) {
+            return $this->payPendingOrderXendit($request, $orderModel, $methodPayment);
+        }
+
+        return $this->payPendingOrderCash($request, $orderModel);
+    }
+
     public function processPayment(Request $request): JsonResponse
     {
         $branchId = $this->branchId();
@@ -425,56 +560,8 @@ class AgentPosController extends Controller
             'tax_enabled' => false,
         ]);
 
-        $request->validate([
-            'price_list_id' => 'required|uuid',
-            'items' => 'required|array|min:1',
-            'items.*.variant_id' => 'required|uuid',
-            'items.*.unit_id' => 'required|uuid',
-            'items.*.quantity' => 'required|numeric|min:0.000001',
-            'items.*.unit_price' => 'required|numeric|min:0',
-            'items.*.discount_type' => 'nullable|in:percent,nominal',
-            'items.*.discount_value' => 'nullable|numeric|min:0',
-            'payment_method_id' => 'required|uuid',
-            'customer_id' => 'nullable|uuid',
-            'tax_rate' => 'required|numeric|min:0|max:100',
-            'tax_enabled' => 'required|boolean',
-            'discount_type' => 'nullable|in:percent,nominal',
-            'discount_value' => 'nullable|numeric|min:0',
-            'amount_paid' => 'required|numeric|min:0',
-            'xendit_channel' => 'nullable|string|max:50',
-            'notes' => 'nullable|string|max:1000',
-            'marketing_promotion_id' => 'nullable|uuid|exists:product.promotions,id',
-        ]);
-
-        $marketingPromo = null;
-        $reseller = null;
-
-        if ($request->filled('marketing_promotion_id')) {
-            $marketingPromo = Promotion::activeNow()
-                ->marketingType()
-                ->find($request->marketing_promotion_id);
-            abort_unless($marketingPromo, 422, 'Promo tidak valid.');
-
-            $reseller = $request->customer_id
-                ? Reseller::where('customer_id', $request->customer_id)->first()
-                : null;
-
-            $this->assertMarketingTargetMatches($marketingPromo, $this->agent()->id, $reseller);
-
-            [$subtotal, $qty] = $this->cartAmountAndQty($request->items);
-            $meets = $marketingPromo->min_purchase_type === 'qty'
-                ? $qty >= (float) $marketingPromo->min_purchase_value
-                : $subtotal >= (float) $marketingPromo->min_purchase_value;
-            abort_unless($meets, 422, 'Syarat promo belum terpenuhi.');
-
-            $request->merge([
-                'discount_type' => $marketingPromo->discount_type,
-                'discount_value' => (float) $marketingPromo->discount_value,
-            ]);
-        }
-
-        $request->attributes->set('marketing_promo', $marketingPromo);
-        $request->attributes->set('pos_reseller', $reseller);
+        $request->validate($this->posOrderValidationRules(requirePayment: true));
+        $this->applyPosMarketingPromo($request);
 
         $userId = null;
 
@@ -505,15 +592,8 @@ class AgentPosController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
-            $total = $totals['total'];
+            $shipping = $this->resolveShippingAmount($request);
             $amountPaid = (float) $request->amount_paid;
-
-            if ($amountPaid < $total) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cash amount is less than total',
-                ], 422);
-            }
 
             $salesNumber = $this->generateSalesNumber($branchId);
             $order = $this->checkout->createSalesOrder(
@@ -528,6 +608,20 @@ class AgentPosController extends Controller
                 'agent-pos',
                 $this->agentWarehouseId(),
             );
+
+            $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
+            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+            $order->refresh();
+
+            $total = (float) $order->total;
+            if ($amountPaid < $total) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cash amount is less than total',
+                ], 422);
+            }
 
             $changeAmount = max($amountPaid - $total, 0);
 
@@ -592,11 +686,7 @@ class AgentPosController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
-            $total = $totals['total'];
-
-            if ($total <= 0) {
-                return response()->json(['success' => false, 'message' => 'Invalid order total'], 422);
-            }
+            $shipping = $this->resolveShippingAmount($request);
 
             $salesNumber = $this->generateSalesNumber($branchId);
             $order = $this->checkout->createSalesOrder(
@@ -611,6 +701,18 @@ class AgentPosController extends Controller
                 'agent-pos',
                 $this->agentWarehouseId(),
             );
+
+            $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
+            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+            $order->refresh();
+
+            $total = (float) $order->total;
+
+            if ($total <= 0) {
+                DB::rollBack();
+
+                return response()->json(['success' => false, 'message' => 'Invalid order total'], 422);
+            }
 
             $payment = SalesOrderPayment::create([
                 'sales_order_id' => $order->id,
@@ -722,6 +824,300 @@ class AgentPosController extends Controller
         }
 
         return sprintf('%s-%s-%04d', $prefix, $dateKey, $seq);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function posOrderValidationRules(bool $requirePayment = true): array
+    {
+        $rules = [
+            'price_list_id' => 'required|uuid',
+            'items' => 'required|array|min:1',
+            'items.*.variant_id' => 'required|uuid',
+            'items.*.unit_id' => 'required|uuid',
+            'items.*.quantity' => 'required|numeric|min:0.000001',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.discount_type' => 'nullable|in:percent,nominal',
+            'items.*.discount_value' => 'nullable|numeric|min:0',
+            'customer_id' => 'nullable|uuid',
+            'tax_rate' => 'required|numeric|min:0|max:100',
+            'tax_enabled' => 'required|boolean',
+            'discount_type' => 'nullable|in:percent,nominal',
+            'discount_value' => 'nullable|numeric|min:0',
+            'shipping_amount' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:1000',
+            'marketing_promotion_id' => 'nullable|uuid|exists:product.promotions,id',
+        ];
+
+        if ($requirePayment) {
+            $rules['payment_method_id'] = 'required|uuid';
+            $rules['amount_paid'] = 'required|numeric|min:0';
+            $rules['xendit_channel'] = 'nullable|string|max:50';
+        }
+
+        return $rules;
+    }
+
+    protected function applyPosMarketingPromo(Request $request): void
+    {
+        $marketingPromo = null;
+        $reseller = null;
+
+        if ($request->filled('marketing_promotion_id')) {
+            $marketingPromo = Promotion::activeNow()
+                ->marketingType()
+                ->find($request->marketing_promotion_id);
+            abort_unless($marketingPromo, 422, 'Promo tidak valid.');
+
+            $reseller = $this->resolveResellerFromRequest($request);
+
+            $this->assertMarketingTargetMatches($marketingPromo, $this->agent()->id, $reseller);
+
+            [$subtotal, $qty] = $this->cartAmountAndQty($request->items);
+            $meets = $marketingPromo->min_purchase_type === 'qty'
+                ? $qty >= (float) $marketingPromo->min_purchase_value
+                : $subtotal >= (float) $marketingPromo->min_purchase_value;
+            abort_unless($meets, 422, 'Syarat promo belum terpenuhi.');
+
+            $request->merge([
+                'discount_type' => $marketingPromo->discount_type,
+                'discount_value' => (float) $marketingPromo->discount_value,
+            ]);
+        }
+
+        $request->attributes->set('marketing_promo', $marketingPromo);
+        $request->attributes->set('pos_reseller', $reseller);
+    }
+
+    protected function resolveShippingAmount(Request $request): float
+    {
+        return max(0, (float) $request->input('shipping_amount', 0));
+    }
+
+    protected function resolveResellerFromRequest(Request $request): ?Reseller
+    {
+        if (! $request->customer_id) {
+            return null;
+        }
+
+        return Reseller::where('customer_id', $request->customer_id)->first();
+    }
+
+    protected function formatResellerAddress(?Reseller $reseller): ?string
+    {
+        if (! $reseller) {
+            return null;
+        }
+
+        $parts = array_filter([
+            $reseller->address,
+            trim(($reseller->city ?: '').($reseller->province ? ', '.$reseller->province : '')),
+            $reseller->postal_code,
+        ]);
+
+        return $parts !== [] ? implode(', ', $parts) : null;
+    }
+
+    protected function applyOrderShippingAndAddress(SalesOrder $order, float $shipping, ?Reseller $reseller): void
+    {
+        $order->update([
+            'shipping_amount' => $shipping,
+            'total' => (float) $order->total + $shipping,
+            'customer_address' => $this->formatResellerAddress($reseller),
+        ]);
+    }
+
+    protected function assertPendingOrderOwnedByAgent(SalesOrder $order): void
+    {
+        abort_unless($order->order_type === 'agent-pos', 403);
+        abort_unless($order->payment_status !== 'paid', 422, 'Order sudah lunas.');
+
+        $agentWarehouseId = $this->agentWarehouseId();
+        abort_unless($agentWarehouseId && $order->warehouse_id === $agentWarehouseId, 403);
+    }
+
+    protected function payPendingOrderCash(Request $request, SalesOrder $order): JsonResponse
+    {
+        DB::beginTransaction();
+        try {
+            $order = SalesOrder::lockForUpdate()->findOrFail($order->id);
+
+            if ($order->payment_status === 'paid') {
+                DB::rollBack();
+
+                return response()->json(['success' => false, 'message' => 'Order sudah lunas.'], 422);
+            }
+
+            $total = (float) $order->total;
+            $amountPaid = (float) $request->amount_paid;
+
+            if ($amountPaid < $total) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cash amount is less than total',
+                ], 422);
+            }
+
+            $changeAmount = max($amountPaid - $total, 0);
+
+            SalesOrderPayment::create([
+                'sales_order_id' => $order->id,
+                'method_payment_id' => $request->payment_method_id,
+                'payment_code' => 'PAY-'.$order->sales_number,
+                'amount' => $amountPaid,
+                'change_amount' => $changeAmount,
+                'status' => 'completed',
+                'created_by' => null,
+            ]);
+
+            $this->checkout->completePaidOrder($order->fresh(), null);
+
+            DB::commit();
+
+            $order->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction completed successfully',
+                'data' => [
+                    'sales_order_id' => $order->id,
+                    'sales_number' => $order->sales_number,
+                    'total' => (float) $order->total,
+                    'amount_paid' => $amountPaid,
+                    'change_amount' => $changeAmount,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Agent POS pay pending (cash) failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment failed: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    protected function payPendingOrderXendit(Request $request, SalesOrder $order, MethodPayment $methodPayment): JsonResponse
+    {
+        DB::beginTransaction();
+        try {
+            $order = SalesOrder::lockForUpdate()->findOrFail($order->id);
+
+            if ($order->payment_status === 'paid') {
+                DB::rollBack();
+
+                return response()->json(['success' => false, 'message' => 'Order sudah lunas.'], 422);
+            }
+
+            $total = (float) $order->total;
+
+            if ($total <= 0) {
+                DB::rollBack();
+
+                return response()->json(['success' => false, 'message' => 'Invalid order total'], 422);
+            }
+
+            $payment = SalesOrderPayment::create([
+                'sales_order_id' => $order->id,
+                'method_payment_id' => $request->payment_method_id,
+                'payment_code' => 'PAY-'.$order->sales_number,
+                'gateway' => 'xendit',
+                'amount' => $total,
+                'change_amount' => 0,
+                'status' => 'pending',
+                'created_by' => null,
+            ]);
+
+            $xenditChannel = $request->xendit_channel ?: $methodPayment->gateway_channel_code;
+            $channelLabel = $xenditChannel
+                ? strtoupper((string) $xenditChannel)
+                : $methodPayment->name;
+
+            $invoicePayload = [
+                'external_id' => 'agent-pos-'.$order->id,
+                'amount' => (int) round($total),
+                'description' => 'Agent POS '.$order->sales_number.' - '.$channelLabel,
+                'invoice_duration' => config('xendit.invoice_duration', 900),
+                'currency' => 'IDR',
+                'success_redirect_url' => route('agent-order.pos.payment.return', [
+                    'status' => 'success',
+                    'order_id' => $order->id,
+                ]),
+                'failure_redirect_url' => route('agent-order.pos.payment.return', [
+                    'status' => 'failed',
+                    'order_id' => $order->id,
+                ]),
+            ];
+
+            $xenditMethods = $this->xendit->resolvePaymentMethods(
+                $methodPayment->resolvesPgGroupCode(),
+                $xenditChannel
+            );
+            if ($xenditMethods !== null) {
+                $invoicePayload['payment_methods'] = $xenditMethods;
+            }
+
+            if ($xenditChannel) {
+                $payment->update([
+                    'notes' => 'xendit_channel:'.strtoupper((string) $xenditChannel),
+                ]);
+            }
+
+            $invoice = $this->xendit->createInvoice($invoicePayload);
+
+            $invoiceUrl = $invoice['invoice_url'] ?? null;
+            $invoiceId = $invoice['id'] ?? null;
+
+            if (! $invoiceUrl) {
+                throw new \RuntimeException('Xendit did not return invoice_url');
+            }
+
+            $payment->update([
+                'gateway_reference' => $invoiceId,
+                'gateway_url' => $invoiceUrl,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Redirect to Xendit to complete payment',
+                'xendit' => true,
+                'data' => [
+                    'sales_order_id' => $order->id,
+                    'sales_number' => $order->sales_number,
+                    'total' => (float) $order->total,
+                    'invoice_url' => $invoiceUrl,
+                    'invoice_id' => $invoiceId,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Agent POS pay pending (Xendit) failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Xendit payment failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     protected function assertMarketingTargetMatches(Promotion $promo, string $agentId, ?Reseller $reseller): void

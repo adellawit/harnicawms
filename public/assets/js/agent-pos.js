@@ -86,9 +86,14 @@
         }).trigger('change');
 
         $('#customerSelect').on('change select2:select select2:clear', function () {
+            updateResellerAddressDisplay();
             if (selectedMarketingPromo) {
                 revalidateSelectedMarketingPromo(true);
             }
+        });
+
+        $('#shippingInput').on('input change', function () {
+            updateCartTotals(false);
         });
 
         setInterval(function () {
@@ -221,12 +226,48 @@
 
     function updatePayButtonState() {
         var disabled = marketingPromoBlocked && !!selectedMarketingPromo;
-        $('#btnPayment').prop('disabled', disabled);
+        $('#btnPayment, #btnOrder').prop('disabled', disabled);
         if (disabled) {
-            $('#btnPayment').attr('title', marketingPromoBlockMessage || 'Syarat promo belum terpenuhi');
+            $('#btnPayment, #btnOrder').attr('title', marketingPromoBlockMessage || 'Syarat promo belum terpenuhi');
         } else {
-            $('#btnPayment').removeAttr('title');
+            $('#btnPayment, #btnOrder').removeAttr('title');
         }
+    }
+
+    function updateResellerAddressDisplay() {
+        var data = $('#customerSelect').select2('data');
+        var selected = data && data.length ? data[0] : null;
+        if (selected && selected.id && selected.address_label) {
+            $('#resellerAddressText').text(selected.address_label);
+            $('#resellerAddressBlock').show();
+        } else {
+            $('#resellerAddressText').text('');
+            $('#resellerAddressBlock').hide();
+        }
+    }
+
+    function getShippingAmount() {
+        return Math.max(0, parseFloat($('#shippingInput').val()) || 0);
+    }
+
+    function buildPosOrderPayload() {
+        var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
+        var payload = {
+            price_list_id: priceListId,
+            items: collectCartItems(),
+            customer_id: $('#customerSelect').val() || null,
+            tax_rate: cfg.taxRate || 0,
+            tax_enabled: false,
+            discount_type: discountType,
+            discount_value: parseDiscValue($('#discountInput').val(), discountType),
+            shipping_amount: getShippingAmount(),
+            redeem_points: 0,
+            notes: orderNotes || null,
+        };
+        if (selectedMarketingPromo && !marketingPromoBlocked) {
+            payload.marketing_promotion_id = selectedMarketingPromo.id;
+        }
+        return payload;
     }
 
     function applyMarketingPromoDiscount(promo) {
@@ -805,6 +846,38 @@
             }
         });
 
+        $('#btnOrder').on('click', function () {
+            if (marketingPromoBlocked && selectedMarketingPromo) {
+                Swal.fire({
+                    icon: 'warning',
+                    text: marketingPromoBlockMessage || 'Syarat promo belum terpenuhi.',
+                    customClass: { confirmButton: 'btn btn-primary' },
+                    buttonsStyling: false,
+                });
+                return;
+            }
+            if (getCartItemQty() === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    text: 'Tambahkan item ke keranjang terlebih dahulu.',
+                    customClass: { confirmButton: 'btn btn-primary' },
+                    buttonsStyling: false,
+                });
+                return;
+            }
+            var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
+            if (!priceListId) {
+                Swal.fire({
+                    icon: 'warning',
+                    text: 'Pilih daftar harga.',
+                    customClass: { confirmButton: 'btn btn-primary' },
+                    buttonsStyling: false,
+                });
+                return;
+            }
+            submitOrderOnly();
+        });
+
         $(document).on('click', '.pay-denom[data-val]', function () {
             var val = parseInt($(this).data('val'), 10);
             var cur = parseInt($('#payCashInput').val().replace(/\D/g, ''), 10) || 0;
@@ -1143,7 +1216,7 @@
             }
         }
 
-        var total = Math.max(0, subtotalNet - txnDiscAmt);
+        var total = Math.max(0, subtotalNet - txnDiscAmt + getShippingAmount());
         var itemCount = getCartItemQty();
 
         $('#subtotal').text(formatRp(subtotalNet));
@@ -1183,7 +1256,9 @@
         $('.disc-type[data-type="percent"]').addClass('active');
         orderNotes = '';
         clearMarketingPromo(true);
+        $('#shippingInput').val('0');
         $('#customerSelect').val(null).trigger('change');
+        updateResellerAddressDisplay();
         updateCartTotals(false);
         checkEmptyCart();
     }
@@ -1310,31 +1385,70 @@
         showXenditCheckout(res.data, methodName);
     }
 
-    function processPayment(methodId, methodName, amountPaid, useXendit, xenditChannel) {
-        var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
-        var items = collectCartItems();
-        $('#paymentModal .pay-denom-cash-pay, #paymentModal .pay-other-btn, #paymentModal .pay-channel-btn').prop('disabled', true);
-        $('#payCashPay').html('<span class="spinner-border spinner-border-sm me-1"></span>Memproses...');
+    function submitOrderOnly() {
+        var $btn = $('#btnOrder');
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...');
 
-        var payload = {
-            price_list_id: priceListId,
-            items: items,
-            payment_method_id: methodId,
-            customer_id: $('#customerSelect').val() || null,
-            tax_rate: cfg.taxRate || 0,
-            tax_enabled: false,
-            discount_type: discountType,
-            discount_value: parseDiscValue($('#discountInput').val(), discountType),
-            redeem_points: 0,
-            amount_paid: amountPaid,
-            notes: orderNotes || null,
-        };
-        if (selectedMarketingPromo && !marketingPromoBlocked) {
-            payload.marketing_promotion_id = selectedMarketingPromo.id;
-        }
+        $.ajax({
+            url: routes.order,
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                Accept: 'application/json',
+            },
+            contentType: 'application/json',
+            data: JSON.stringify(buildPosOrderPayload()),
+            success: function (res) {
+                if (res.success) {
+                    resetPosUiAfterPayment();
+                    if (res.data && res.data.sales_number) {
+                        $('#posTrxNumber').text(res.data.sales_number);
+                        $('#posTrxNumberWrap').show();
+                    }
+                    Swal.fire({
+                        title: 'Order tersimpan',
+                        text: res.message || 'Transaksi disimpan sebagai pending, bisa dibayar di History.',
+                        icon: 'success',
+                        customClass: { confirmButton: 'btn btn-primary' },
+                        buttonsStyling: false,
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: res.message || 'Gagal menyimpan order.',
+                        icon: 'error',
+                        customClass: { confirmButton: 'btn btn-primary' },
+                        buttonsStyling: false,
+                    });
+                }
+            },
+            error: function (xhr) {
+                var msg = xhr.responseJSON?.message || 'Gagal menyimpan order.';
+                Swal.fire({
+                    title: 'Error',
+                    text: msg,
+                    icon: 'error',
+                    customClass: { confirmButton: 'btn btn-primary' },
+                    buttonsStyling: false,
+                });
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="ti ti-clipboard-list me-1"></i> Order');
+                updatePayButtonState();
+            },
+        });
+    }
+
+    function processPayment(methodId, methodName, amountPaid, useXendit, xenditChannel) {
+        var payload = buildPosOrderPayload();
+        payload.payment_method_id = methodId;
+        payload.amount_paid = amountPaid;
         if (useXendit && xenditChannel) {
             payload.xendit_channel = xenditChannel;
         }
+
+        $('#paymentModal .pay-denom-cash-pay, #paymentModal .pay-other-btn, #paymentModal .pay-channel-btn').prop('disabled', true);
+        $('#payCashPay').html('<span class="spinner-border spinner-border-sm me-1"></span>Memproses...');
 
         $.ajax({
             url: routes.payment,

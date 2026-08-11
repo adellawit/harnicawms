@@ -37,7 +37,9 @@ Route::prefix('agent-order')->name('agent-order.')->group(function () {
         Route::get('/pos/resellers-search', [AgentPosController::class, 'resellerSearch'])->name('pos.resellers-search');
         Route::get('/pos/product-variants', [AgentPosController::class, 'getProductVariants'])->name('pos.product-variants');
         Route::post('/pos/preview-promo', [AgentPosController::class, 'previewPromo'])->name('pos.preview-promo');
+        Route::post('/pos/order', [AgentPosController::class, 'orderOnly'])->name('pos.order');
         Route::post('/pos/payment', [AgentPosController::class, 'processPayment'])->name('pos.payment');
+        Route::post('/pos/payment/{order}/pay-pending', [AgentPosController::class, 'payPendingOrder'])->name('pos.pay-pending');
         Route::get('/pos/payment/{orderId}/status', [AgentPosController::class, 'paymentStatus'])->name('pos.payment.status');
         Route::get('/pos/payment/return', [AgentPosController::class, 'paymentReturn'])->name('pos.payment.return');
         Route::post('/reorder/{order}', [AgentOrderController::class, 'reorder'])->name('reorder');

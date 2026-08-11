@@ -136,6 +136,10 @@
                         <select id="customerSelect" style="width:100%">
                             <option value="">Pelanggan Umum (Walk-in)</option>
                         </select>
+                        <div id="resellerAddressBlock" class="pos-reseller-address mt-2" style="display:none">
+                            <div class="small text-muted mb-1">Alamat pengiriman</div>
+                            <div id="resellerAddressText" class="small text-body"></div>
+                        </div>
                     </div>
                     <div id="priceListWrapper" class="pos-cart-top-price-list flex-shrink-0" data-selected-id="{{ $defaultPriceListId ?? '' }}">
                         <select id="priceListSelect" style="width:160px">
@@ -224,17 +228,20 @@
                         <div class="pos-discount-display">- <span id="discountDisplay">Rp 0</span></div>
                     </div>
                     <div class="pos-summary-row pos-shipping-row">
-                        <span>Ongkir</span>
-                        <span class="shipping-val">Rp 0</span>
+                        <label class="mb-0" for="shippingInput">Ongkir</label>
+                        <input type="number" id="shippingInput" class="form-control form-control-sm pos-shipping-input" min="0" step="any" value="0" placeholder="0">
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>TOTAL</span>
                         <span class="total-val" id="total">Rp 0</span>
                     </div>
 
-                    <div class="pos-action-row">
-                        <button type="button" class="btn btn-primary btn-sm pos-btn-bayar w-100" id="btnPayment">
-                            <i class="ti ti-cash me-1"></i> BAYAR
+                    <div class="pos-action-row d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm flex-fill" id="btnOrder">
+                            <i class="ti ti-clipboard-list me-1"></i> Order
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm flex-fill pos-btn-bayar" id="btnPayment">
+                            <i class="ti ti-cash me-1"></i> Bayar
                         </button>
                     </div>
                 </div>
@@ -425,6 +432,8 @@
             productVariants: @json(route('agent-order.pos.product-variants')),
             previewPromo: @json(route('agent-order.pos.preview-promo')),
             payment: @json(route('agent-order.pos.payment')),
+            order: @json(route('agent-order.pos.order')),
+            payPendingBase: @json(url('/agent-order/pos/payment')),
             paymentStatus: @json(url('/agent-order/pos/payment')),
             resellerSearch: @json(route('agent-order.pos.resellers-search')),
         };
@@ -433,6 +442,8 @@
                 productVariants: window.agentPosRoutes.productVariants,
                 previewPromo: window.agentPosRoutes.previewPromo,
                 payment: window.agentPosRoutes.payment,
+                order: window.agentPosRoutes.order,
+                payPendingBase: window.agentPosRoutes.payPendingBase,
                 paymentStatusBase: window.agentPosRoutes.paymentStatus,
                 resellerSearch: window.agentPosRoutes.resellerSearch,
             },
