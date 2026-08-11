@@ -27,6 +27,7 @@ class CategoryMenuPolishSeeder extends Seeder
     {
         $this->ensureMarketingCenterMenu();
         $this->ensureMarketingAssetCategoryMenu();
+        $this->ensureTrainingAcademyMenu();
         $this->ensureCourseCategoryMenu();
 
         foreach ([self::ADMINISTRATOR_ROLE_ID, self::MARKETING_ROLE_ID] as $roleId) {
@@ -120,6 +121,37 @@ class CategoryMenuPolishSeeder extends Seeder
         }
     }
 
+    protected function ensureTrainingAcademyMenu(): void
+    {
+        $menu = Menu::withTrashed()->updateOrCreate(['id' => self::TRAINING_ACADEMY_ID], [
+            'parent_id' => null,
+            'name' => 'Training Academy',
+            'code' => 'training-academy',
+            'text_sidebar' => 'Training Academy',
+            'icon' => 'ti ti-school',
+            'has_page' => false,
+            'url_path' => 'training/academy',
+            'route_name' => 'training.academy.home',
+            'slug' => 'training-academy',
+            'level_sidebar' => 1,
+            'order_number' => 900,
+            'is_label' => false,
+            'has_create' => true,
+            'has_update' => true,
+            'has_read' => true,
+            'has_delete' => true,
+            'has_custom1' => false,
+            'has_custom2' => false,
+            'has_custom3' => false,
+            'has_custom4' => false,
+            'has_custom5' => false,
+        ]);
+
+        if ($menu->trashed()) {
+            $menu->restore();
+        }
+    }
+
     protected function ensureCourseCategoryMenu(): void
     {
         $menu = Menu::withTrashed()->updateOrCreate(['id' => self::COURSE_CATEGORY_ID], [
@@ -148,11 +180,6 @@ class CategoryMenuPolishSeeder extends Seeder
 
         if ($menu->trashed()) {
             $menu->restore();
-        }
-
-        $trainingAcademy = Menu::withTrashed()->find(self::TRAINING_ACADEMY_ID);
-        if ($trainingAcademy && $trainingAcademy->has_page) {
-            $trainingAcademy->update(['has_page' => false]);
         }
     }
 
