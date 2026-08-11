@@ -34,6 +34,8 @@ Route::prefix('agent-order')->name('agent-order.')->group(function () {
         Route::get('/pelatihan/{course}', [AgentOrderController::class, 'trainingShow'])->name('training.show');
         Route::get('/materi', [AgentOrderController::class, 'materials'])->name('materials');
         Route::get('/pos', [AgentPosController::class, 'index'])->name('pos');
+        Route::get('/pos/history', [AgentPosController::class, 'history'])->name('pos.history');
+        Route::get('/pos/history/{order}', [AgentPosController::class, 'historyShow'])->name('pos.history.show');
         Route::get('/pos/resellers-search', [AgentPosController::class, 'resellerSearch'])->name('pos.resellers-search');
         Route::get('/pos/product-variants', [AgentPosController::class, 'getProductVariants'])->name('pos.product-variants');
         Route::post('/pos/preview-promo', [AgentPosController::class, 'previewPromo'])->name('pos.preview-promo');

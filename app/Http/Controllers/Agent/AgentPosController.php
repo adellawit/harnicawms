@@ -174,6 +174,63 @@ class AgentPosController extends Controller
         ]);
     }
 
+    public function history(Request $request): View
+    {
+        $query = $this->agentPosOrdersQuery()
+            ->with('customer:id,name,code')
+            ->latest('created_at');
+
+        $status = $request->get('status');
+        if (in_array($status, ['paid', 'unpaid'], true)) {
+            $query->where('payment_status', $status);
+        }
+
+        $search = trim((string) $request->get('q', ''));
+        if ($search !== '') {
+            $query->where(function ($w) use ($search) {
+                $w->where('sales_number', 'ilike', '%'.$search.'%')
+                    ->orWhere('customer_name', 'ilike', '%'.$search.'%');
+            });
+        }
+
+        $orders = $query->paginate(20)->withQueryString();
+        $paymentOptions = $this->posPaymentOptions();
+
+        return view('agent.pos.history', [
+            'orders' => $orders,
+            'statusFilter' => $status,
+            'searchQuery' => $search,
+            'cashMethodId' => $paymentOptions['cashMethodId'],
+            'xenditChannelGroups' => $paymentOptions['xenditChannelGroups'],
+            'nonXenditMethods' => $paymentOptions['nonXenditMethods'],
+            'xenditEnabled' => $paymentOptions['xenditEnabled'],
+        ]);
+    }
+
+    public function historyShow(string $order): View
+    {
+        $orderModel = $this->agentPosOrdersQuery()
+            ->with([
+                'customer',
+                'items.product',
+                'items.variant',
+                'items.unit',
+            ])
+            ->findOrFail($order);
+
+        $this->assertAgentPosOrderOwned($orderModel);
+
+        $paymentOptions = $this->posPaymentOptions();
+
+        return view('agent.pos.history-show', [
+            'order' => $orderModel,
+            'cashMethodId' => $paymentOptions['cashMethodId'],
+            'xenditChannelGroups' => $paymentOptions['xenditChannelGroups'],
+            'nonXenditMethods' => $paymentOptions['nonXenditMethods'],
+            'xenditEnabled' => $paymentOptions['xenditEnabled'],
+        ]);
+    }
+
     protected function formatPromoQty(float $qty): string
     {
         if (fmod($qty, 1.0) === 0.0) {
@@ -930,11 +987,75 @@ class AgentPosController extends Controller
 
     protected function assertPendingOrderOwnedByAgent(SalesOrder $order): void
     {
-        abort_unless($order->order_type === 'agent-pos', 403);
+        $this->assertAgentPosOrderOwned($order);
         abort_unless($order->payment_status !== 'paid', 422, 'Order sudah lunas.');
+    }
+
+    protected function assertAgentPosOrderOwned(SalesOrder $order): void
+    {
+        abort_unless($order->order_type === 'agent-pos', 403);
 
         $agentWarehouseId = $this->agentWarehouseId();
         abort_unless($agentWarehouseId && $order->warehouse_id === $agentWarehouseId, 403);
+
+        $branchId = $this->branchId();
+        if ($branchId) {
+            abort_unless($order->branch_id === $branchId, 403);
+        }
+    }
+
+    protected function agentPosOrdersQuery()
+    {
+        $branchId = $this->branchId();
+        $warehouseId = $this->agentWarehouseId();
+
+        return SalesOrder::query()
+            ->where('order_type', 'agent-pos')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId));
+    }
+
+    /**
+     * @return array{
+     *   cashMethodId: ?string,
+     *   xenditChannelGroups: array<int, mixed>,
+     *   nonXenditMethods: \Illuminate\Support\Collection,
+     *   xenditEnabled: bool
+     * }
+     */
+    protected function posPaymentOptions(): array
+    {
+        $branchId = $this->branchId();
+        $methodPayments = MethodPayment::whereNull('deleted_at')
+            ->where('is_active', true)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'uses_payment_gateway', 'gateway_provider', 'payment_group_code', 'gateway_channel_code']);
+
+        $cashMethodId = $methodPayments->first(fn ($mp) => strtoupper($mp->code) === 'CASH')?->id
+            ?: $methodPayments->first()?->id;
+
+        $nonXenditMethods = $methodPayments->filter(function ($mp) {
+            $code = strtoupper($mp->code);
+
+            return ! in_array($code, ['CASH', 'COD', 'DEBIT', 'CREDIT'], true)
+                && ! $this->xendit->usesXenditForMethod($mp->code, $mp);
+        })->values()->map(function ($mp) {
+            return (object) [
+                'id' => $mp->id,
+                'code' => $mp->code,
+                'name' => $mp->name,
+                'icon' => $this->xendit->channelIconUrl($mp->code, $mp->name),
+            ];
+        });
+
+        return [
+            'cashMethodId' => $cashMethodId,
+            'xenditChannelGroups' => $this->xendit->buildPaymentChannelGroups($methodPayments),
+            'nonXenditMethods' => $nonXenditMethods,
+            'xenditEnabled' => $this->xendit->isPaymentGatewayReady(),
+        ];
     }
 
     protected function payPendingOrderCash(Request $request, SalesOrder $order): JsonResponse

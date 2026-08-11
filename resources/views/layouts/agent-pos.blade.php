@@ -39,6 +39,16 @@
                 <a href="{{ route('agent-order.dashboard') }}" class="btn btn-sm btn-label-secondary">
                     <i class="ti ti-arrow-left me-1"></i> Beranda
                 </a>
+                @if (request()->routeIs('agent-order.pos') || request()->routeIs('agent-order.pos.history*'))
+                    <a href="{{ route('agent-order.pos.history') }}" class="btn btn-sm btn-label-secondary @if(request()->routeIs('agent-order.pos.history*')) active @endif">
+                        <i class="ti ti-history me-1"></i> Riwayat
+                    </a>
+                @endif
+                @if (request()->routeIs('agent-order.pos.history*'))
+                    <a href="{{ route('agent-order.pos') }}" class="btn btn-sm btn-primary">
+                        <i class="ti ti-receipt me-1"></i> POS
+                    </a>
+                @endif
             </div>
         </header>
 
