@@ -4,7 +4,7 @@
 
 @push('styles')
     <style>
-        .agent-stock-table td { vertical-align: top; }
+        .agent-stock-table td { vertical-align: middle; }
         .agent-stock-table .stock-col-qty { min-width: 160px; max-width: 280px; }
         .agent-stock-unit-detail .stock-unit-line { word-break: break-word; }
         .agent-stock-header-actions .btn-group .btn { font-size: 0.8125rem; }
