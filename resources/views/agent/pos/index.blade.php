@@ -173,19 +173,25 @@
                                 <button type="button" class="btn-plus">+</button>
                             </div>
                             <span class="ci-qty-unit"></span>
-                            <button type="button" class="ci-disc-btn btn-item-disc" title="Diskon Item">
-                                <i class="ti ti-discount-2" style="font-size:0.7rem"></i>
+                            <button type="button" class="ci-disc-btn btn-item-disc" title="Edit item">
+                                <i class="ti ti-pencil" style="font-size:0.7rem"></i>
                             </button>
                             <button type="button" class="ci-delete btn-delete" title="Hapus">
                                 <i class="ti ti-trash" style="font-size:0.7rem"></i>
                             </button>
                         </div>
                         <div class="ci-bottom">
-                            <div class="ci-disc-group">
-                                <input type="text" class="item-disc-input" value="0" placeholder="0" autocomplete="off">
-                                <div class="ci-disc-toggle">
-                                    <button type="button" class="item-disc-type active" data-type="percent">%</button>
-                                    <button type="button" class="item-disc-type" data-type="nominal">Rp</button>
+                            <div class="ci-edit-group">
+                                <div class="input-group input-group-sm ci-price-edit-group">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="text" class="form-control item-price-input" inputmode="numeric" placeholder="0" autocomplete="off">
+                                </div>
+                                <div class="ci-disc-group">
+                                    <input type="text" class="item-disc-input" value="0" placeholder="0" autocomplete="off">
+                                    <div class="ci-disc-toggle">
+                                        <button type="button" class="item-disc-type active" data-type="percent">%</button>
+                                        <button type="button" class="item-disc-type" data-type="nominal">Rp</button>
+                                    </div>
                                 </div>
                             </div>
                             <span class="ci-disc-label">- <span class="item-disc-display">Rp 0</span></span>
@@ -285,13 +291,18 @@
                         <label class="form-label" for="addItemUnitSelect">Unit</label>
                         <select id="addItemUnitSelect" class="form-select"></select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="addItemPriceInput">Harga</label>
-                        <input type="number" id="addItemPriceInput" class="form-control" min="0" step="any" placeholder="0">
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label" for="addItemQtyInput">Qty</label>
-                        <input type="number" id="addItemQtyInput" class="form-control" min="1" step="1" value="1">
+                    <div class="row g-2 mb-0">
+                        <div class="col-6">
+                            <label class="form-label" for="addItemPriceInput">Harga</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" id="addItemPriceInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="0">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="addItemQtyInput">Qty</label>
+                            <input type="number" id="addItemQtyInput" class="form-control" min="1" step="1" value="1">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">

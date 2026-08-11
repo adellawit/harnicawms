@@ -563,6 +563,11 @@
             syncAddItemPriceFromUnit();
         });
 
+        $('#addItemPriceInput').on('input', function () {
+            var raw = this.value.replace(/\D/g, '');
+            this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
+        });
+
         $('#btnAddItemConfirm').on('click', function () {
             submitAddItemModal();
         });
@@ -642,8 +647,9 @@
         var $selected = $('#addItemUnitSelect option:selected');
         var suggested = parseFloat($selected.attr('data-suggested')) || 0;
         var $priceInput = $('#addItemPriceInput');
-        $priceInput.attr('placeholder', suggested > 0 ? String(suggested) : '0');
-        $priceInput.val(suggested > 0 ? suggested : '');
+        var formatted = suggested > 0 ? formatRupiah(suggested) : '';
+        $priceInput.attr('placeholder', formatted || '0');
+        $priceInput.val(formatted);
     }
 
     function submitAddItemModal() {
@@ -657,7 +663,7 @@
         var unitLabel = $.trim($selected.text());
         var suggested = parseFloat($selected.attr('data-suggested')) || 0;
         var priceRaw = $('#addItemPriceInput').val();
-        var price = priceRaw === '' ? suggested : parseFloat(priceRaw);
+        var price = priceRaw === '' ? suggested : parseRupiah(priceRaw);
         var qty = parseInt($('#addItemQtyInput').val(), 10) || 1;
 
         if (!unitId) {
@@ -771,8 +777,19 @@
                 item.find('.item-disc-input').val('0');
                 updateCartTotals();
             } else {
+                var unitPrice = parseFloat(item.find('.quantity-input').data('unit-price')) || 0;
+                item.find('.item-price-input').val(formatRupiah(unitPrice));
                 item.find('.item-disc-input').focus();
             }
+        });
+        $(document).on('input', '.item-price-input', function () {
+            var raw = this.value.replace(/\D/g, '');
+            this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
+            var item = $(this).closest('.pos-cart-item');
+            var unitPrice = parseRupiah(this.value);
+            item.find('.quantity-input').data('unit-price', unitPrice);
+            updateCartItemPriceDisplay(item);
+            updateCartTotals();
         });
         $(document).on('click', '.item-disc-type', function () {
             var toggle = $(this).closest('.ci-disc-toggle');
@@ -989,6 +1006,24 @@
         return 'Rp ' + Number(n).toLocaleString('id-ID');
     }
 
+    function formatRupiah(num) {
+        var n = parseFloat(num) || 0;
+        if (n === 0) {
+            return '0';
+        }
+        return Math.round(n).toLocaleString('id-ID');
+    }
+
+    function parseRupiah(str) {
+        return parseInt(String(str || '').replace(/\D/g, ''), 10) || 0;
+    }
+
+    function updateCartItemPriceDisplay($item) {
+        var unitPrice = parseFloat($item.find('.quantity-input').data('unit-price')) || 0;
+        var unitLabel = $item.data('unit-label') || '';
+        $item.find('.ci-price').text('Rp ' + formatRupiah(unitPrice) + (unitLabel ? ' / ' + unitLabel : ''));
+    }
+
     function escapeHtml(t) {
         var d = document.createElement('div');
         d.textContent = t;
@@ -1164,7 +1199,7 @@
         item.attr('data-unit-label', unitLabel || '');
         item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
         item.find('.ci-name').text(name);
-        item.find('.ci-price').text('Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : ''));
+        item.find('.ci-price').text('Rp ' + formatRupiah(price) + (unitLabel ? ' / ' + unitLabel : ''));
         item.find('.ci-qty-unit').text(unitLabel || '');
         item.find('.quantity-input').val(qty).data('unit-price', price);
         $('#cartItems').append(item);
