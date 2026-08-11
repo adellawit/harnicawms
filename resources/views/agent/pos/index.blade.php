@@ -235,7 +235,7 @@
                     </div>
                     <div class="pos-summary-row pos-shipping-row">
                         <label class="mb-0" for="shippingInput">Ongkir</label>
-                        <input type="number" id="shippingInput" class="form-control form-control-sm pos-shipping-input" min="0" step="any" value="0" placeholder="0">
+                        <input type="text" inputmode="numeric" id="shippingInput" class="form-control form-control-sm pos-shipping-input" value="0" placeholder="0" autocomplete="off">
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>TOTAL</span>

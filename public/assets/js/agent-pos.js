@@ -93,6 +93,8 @@
         });
 
         $('#shippingInput').on('input change', function () {
+            var raw = this.value.replace(/\D/g, '');
+            this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
             updateCartTotals(false);
         });
 
@@ -247,7 +249,7 @@
     }
 
     function getShippingAmount() {
-        return Math.max(0, parseFloat($('#shippingInput').val()) || 0);
+        return Math.max(0, parseRupiah($('#shippingInput').val()) || 0);
     }
 
     function buildPosOrderPayload() {
