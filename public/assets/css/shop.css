@@ -1064,6 +1064,23 @@ a.agent-training-course-card:hover {
     border-bottom: 0 !important;
 }
 
+.agent-training-timer {
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+    min-width: 3.5rem;
+}
+
+.agent-training-material-meta {
+    justify-content: flex-end;
+}
+
+@media (max-width: 575.98px) {
+    .agent-training-material-meta {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
 .agent-marketing-asset-card {
     overflow: hidden;
 }

@@ -16,7 +16,9 @@ use App\Models\ProductVariantStock;
 use App\Models\Promotion;
 use App\Models\SalesOrder;
 use App\Models\ShippingRate;
+use App\Models\Training\AgentMaterialProgress;
 use App\Models\Training\Course;
+use App\Models\Training\CourseMaterial;
 use App\Services\Product\StockDisplayService;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
@@ -203,7 +205,75 @@ class AgentOrderController extends Controller
             ])
             ->findOrFail($courseId);
 
-        return view('agent.order.training.show', ['course' => $course]);
+        $materialIds = $course->modules
+            ->flatMap(fn ($module) => $module->materials)
+            ->pluck('id');
+
+        $customerId = auth('customer')->id();
+        $materialProgress = AgentMaterialProgress::query()
+            ->where('customer_id', $customerId)
+            ->whereIn('material_id', $materialIds)
+            ->get()
+            ->mapWithKeys(fn (AgentMaterialProgress $row) => [
+                $row->material_id => [
+                    'elapsed_seconds' => (int) $row->elapsed_seconds,
+                    'completed' => $row->isCompleted(),
+                ],
+            ])
+            ->all();
+
+        return view('agent.order.training.show', [
+            'course' => $course,
+            'materialProgress' => $materialProgress,
+        ]);
+    }
+
+    public function trainingSaveProgress(Request $request, string $material): JsonResponse
+    {
+        $request->validate([
+            'elapsed_seconds' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $this->resolvePublishedMaterial($material);
+
+        $customerId = auth('customer')->id();
+        $progress = AgentMaterialProgress::firstOrNew([
+            'customer_id' => $customerId,
+            'material_id' => $material,
+        ]);
+
+        $progress->elapsed_seconds = max(
+            (int) $progress->elapsed_seconds,
+            (int) $request->input('elapsed_seconds')
+        );
+        $progress->save();
+
+        return response()->json([
+            'success' => true,
+            'elapsed_seconds' => $progress->elapsed_seconds,
+        ]);
+    }
+
+    public function trainingCompleteMaterial(string $material): JsonResponse
+    {
+        $this->resolvePublishedMaterial($material);
+
+        $customerId = auth('customer')->id();
+        $progress = AgentMaterialProgress::firstOrNew([
+            'customer_id' => $customerId,
+            'material_id' => $material,
+        ]);
+        $progress->completed_at = now();
+        $progress->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    protected function resolvePublishedMaterial(string $materialId): CourseMaterial
+    {
+        return CourseMaterial::query()
+            ->whereHas('module.course', fn ($q) => $q->published())
+            ->findOrFail($materialId);
     }
 
     public function materials(Request $request): View
