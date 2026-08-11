@@ -89,30 +89,12 @@
                                     {{ format_number($displayQty, 2, true) }}
                                     <small class="text-muted">{{ $item['unit'] ?? '' }}</small>
                                 </div>
-                                @if (!empty($item['has_smallest_display']) && $displayUnitMode === 'large' && (float) ($item['smallest_quantity'] ?? 0) > 0)
-                                    <small class="text-primary d-block">
-                                        = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
-                                    </small>
-                                @endif
-                                @if (!empty($item['packaging_hint']))
-                                    <small class="text-muted d-block mt-1">
-                                        Breakdown: {{ $item['packaging_hint'] }}
-                                    </small>
-                                @endif
-                                @if (!empty($item['show_unit_detail']) && !empty($item['stock_by_units']))
+                                @if (!empty($item['all_units']) && count($item['all_units']) > 1)
                                     <div class="agent-stock-unit-detail stock-unit-detail mt-1">
-                                        <small class="text-muted d-block fw-semibold">Tersimpan per satuan:</small>
-                                        @foreach ($item['stock_by_units'] as $unitStock)
+                                        <small class="text-muted d-block fw-semibold">Setara di semua satuan:</small>
+                                        @foreach ($item['all_units'] as $unitStock)
                                             <small class="text-muted d-block stock-unit-line">
                                                 {{ format_number((float) $unitStock['quantity'], 2, true) }} {{ $unitStock['unit'] }}
-                                                @if (
-                                                    $displayUnitMode === 'large'
-                                                    && isset($unitStock['smallest_quantity'])
-                                                    && $unitStock['smallest_quantity'] !== null
-                                                    && ($unitStock['unit_id'] ?? null) !== ($item['smallest_unit_id'] ?? null)
-                                                )
-                                                    <span class="text-primary">(= {{ format_number((float) $unitStock['smallest_quantity'], 2, true) }} {{ $unitStock['smallest_unit'] ?? $item['smallest_unit'] }})</span>
-                                                @endif
                                             </small>
                                         @endforeach
                                     </div>

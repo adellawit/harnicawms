@@ -979,6 +979,7 @@ class AgentOrderController extends Controller
                 'smallest_unit' => $display['smallest_unit'],
                 'smallest_unit_id' => $display['smallest_unit_id'],
                 'has_smallest_display' => $display['has_smallest_display'],
+                'all_units' => $this->stockAllUnits($product, (float) ($display['smallest_quantity'] ?? 0), $display['smallest_unit_id'] ?? null),
                 'packaging_hint' => $display['packaging_hint'],
                 'out' => $qtyForBadge <= 0,
                 'low' => $qtyForBadge > 0 && $qtyForBadge <= $lowThreshold,
@@ -1027,6 +1028,30 @@ class AgentOrderController extends Controller
                 })
                 ->values();
         });
+    }
+
+    /**
+     * Total stok (dalam unit terkecil) dinyatakan di SETIAP unit produk (besar→kecil).
+     *
+     * @return array<int, array{unit_id: string, unit: string, quantity: float}>
+     */
+    protected function stockAllUnits(Product $product, float $totalSmallest, ?string $smallestUnitId): array
+    {
+        if (! $smallestUnitId) {
+            return [];
+        }
+
+        return $product->getBarcodeUnits()->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
+            $qty = $unit->id === $smallestUnitId
+                ? $totalSmallest
+                : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
+
+            return [
+                'unit_id' => $unit->id,
+                'unit' => $unit->symbol ?: ($unit->name ?: '-'),
+                'quantity' => (float) $qty,
+            ];
+        })->values()->all();
     }
 
     protected function loadOrderForPrint(string $orderId): SalesOrder
