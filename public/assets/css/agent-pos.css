@@ -1416,11 +1416,51 @@ body.agent-pos-body {
 .pos-shipping-input {
     text-align: right;
 }
-.pos-reseller-address {
-    padding: 0.5rem 0.625rem;
-    border-radius: 0.375rem;
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+.pos-ship-address {
+    margin-top: 4px;
+}
+.pos-ship-address-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 0;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+.pos-ship-address-icon {
+    font-size: 15px;
+    color: var(--pos-accent, #5C9E84);
+    flex-shrink: 0;
+}
+.pos-ship-address-summary {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pos-ship-address-toggle[aria-expanded="true"] .pos-ship-address-summary {
+    white-space: normal;
+}
+.pos-ship-address-chevron {
+    font-size: 14px;
+    color: #a0a7b3;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+.pos-ship-address-toggle[aria-expanded="true"] .pos-ship-address-chevron {
+    transform: rotate(180deg);
+}
+.pos-ship-address-detail {
+    font-size: 12px;
+    color: #384551;
+    line-height: 1.6;
+    padding: 2px 0 6px 21px;
 }
 
 /* ── POS History page ─────────────────────────────────────────── */

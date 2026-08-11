@@ -92,6 +92,12 @@
             }
         });
 
+        $(document).on('click', '#resellerAddressToggle', function () {
+            var expanded = $(this).attr('aria-expanded') === 'true';
+            $(this).attr('aria-expanded', String(!expanded));
+            $('#resellerAddressDetail').toggle(!expanded);
+        });
+
         $('#shippingInput').on('input change', function () {
             var raw = this.value.replace(/\D/g, '');
             this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
@@ -239,13 +245,16 @@
     function updateResellerAddressDisplay() {
         var data = $('#customerSelect').select2('data');
         var selected = data && data.length ? data[0] : null;
-        if (selected && selected.id && selected.address_label) {
-            $('#resellerAddressText').text(selected.address_label);
-            $('#resellerAddressBlock').show();
+        var addr = selected && selected.id ? (selected.address_label || '') : '';
+        if (addr) {
+            $('#resellerAddressSummary').text('Kirim ke: ' + addr);
+            $('#resellerAddressDetail').text(addr);
+            $('#resellerShipAddress').show();
         } else {
-            $('#resellerAddressText').text('');
-            $('#resellerAddressBlock').hide();
+            $('#resellerShipAddress').hide();
         }
+        $('#resellerAddressToggle').attr('aria-expanded', 'false');
+        $('#resellerAddressDetail').hide();
     }
 
     function getShippingAmount() {

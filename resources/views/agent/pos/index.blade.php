@@ -136,10 +136,6 @@
                         <select id="customerSelect" style="width:100%">
                             <option value="">Pelanggan Umum (Walk-in)</option>
                         </select>
-                        <div id="resellerAddressBlock" class="pos-reseller-address mt-2" style="display:none">
-                            <div class="small text-muted mb-1">Alamat pengiriman</div>
-                            <div id="resellerAddressText" class="small text-body"></div>
-                        </div>
                     </div>
                     <div id="priceListWrapper" class="pos-cart-top-price-list flex-shrink-0" data-selected-id="{{ $defaultPriceListId ?? '' }}">
                         <select id="priceListSelect" style="width:160px">
@@ -239,6 +235,14 @@
                             <span class="input-group-text">Rp</span>
                             <input type="text" inputmode="numeric" id="shippingInput" class="form-control pos-shipping-input" value="0" placeholder="0" autocomplete="off">
                         </div>
+                    </div>
+                    <div id="resellerShipAddress" class="pos-ship-address" style="display:none">
+                        <button type="button" class="pos-ship-address-toggle" id="resellerAddressToggle" aria-expanded="false" aria-controls="resellerAddressDetail">
+                            <i class="ti ti-map-pin pos-ship-address-icon" aria-hidden="true"></i>
+                            <span class="pos-ship-address-summary" id="resellerAddressSummary"></span>
+                            <i class="ti ti-chevron-down pos-ship-address-chevron" aria-hidden="true"></i>
+                        </button>
+                        <div id="resellerAddressDetail" class="pos-ship-address-detail" style="display:none"></div>
                     </div>
                     <div class="pos-summary-row total-row">
                         <span>TOTAL</span>
