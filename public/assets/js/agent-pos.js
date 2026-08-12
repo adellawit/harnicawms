@@ -570,6 +570,16 @@
         });
     }
 
+    function variantHasTrackableSerials(variant) {
+        if (!variant) {
+            return false;
+        }
+        if (variant.has_trackable_serials === true || variant.has_trackable_serials === 1 || variant.has_trackable_serials === '1') {
+            return true;
+        }
+        return (variant.unit_options || []).length > 1;
+    }
+
     function bindAddItemModal() {
         $('#addItemUnitSelect').on('change', function () {
             syncAddItemPriceFromUnit();
@@ -596,7 +606,7 @@
         });
 
         $('#addItemModal').on('shown.bs.modal', function () {
-            if (pendingAddItem && pendingAddItem.variant && pendingAddItem.variant.has_trackable_serials) {
+            if (pendingAddItem && variantHasTrackableSerials(pendingAddItem.variant)) {
                 $('#addItemSerialInput').trigger('focus');
             }
         });
@@ -613,7 +623,7 @@
         $('#addItemSerialInput').val('');
         $('#addItemSerialFeedback').empty().removeClass('text-success text-danger');
         $('#addItemUnitSelect').prop('disabled', false);
-        $('#addItemSerialWrap').addClass('d-none');
+        $('#addItemSerialWrap').addClass('d-none').hide();
     }
 
     function showSerialFeedback(message, type) {
@@ -788,8 +798,10 @@
             $('#addItemUnitWrap').show();
         }
 
-        if (variant.has_trackable_serials) {
-            $('#addItemSerialWrap').removeClass('d-none');
+        if (variantHasTrackableSerials(variant)) {
+            $('#addItemSerialWrap').removeClass('d-none').show();
+        } else {
+            $('#addItemSerialWrap').addClass('d-none').hide();
         }
 
         syncAddItemPriceFromUnit();

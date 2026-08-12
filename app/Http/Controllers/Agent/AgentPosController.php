@@ -328,11 +328,23 @@ class AgentPosController extends Controller
                 'product_id' => $product->id,
                 'default_unit_id' => $product->default_unit_id,
                 'unit_options' => $unitOptions,
-                'has_trackable_serials' => $this->barcodeDispatch->productHasTrackableSerials($product->id, $variant->id),
+                'has_trackable_serials' => $this->variantHasTrackableSerialsForAgentPos($product, $variant->id),
             ]);
         }
 
         return response()->json(['variants' => $result]);
+    }
+
+    /**
+     * Produk ber-serial POS agen: ada master serial ATAU barang jadi ber-QR (rantai satuan barcode).
+     */
+    protected function variantHasTrackableSerialsForAgentPos(Product $product, ?string $variantId = null): bool
+    {
+        if ($this->barcodeDispatch->productHasTrackableSerials($product->id, $variantId)) {
+            return true;
+        }
+
+        return $product->getBarcodeUnits()->count() > 1;
     }
 
     public function lookupBarcode(Request $request): JsonResponse
