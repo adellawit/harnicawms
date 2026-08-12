@@ -56,11 +56,15 @@ class CustomerAuthController extends Controller
 
         $request->session()->regenerate();
 
-        $defaultRedirect = $portal === 'agent'
-            ? route('agent-order.dashboard')
-            : route('customer.shop');
+        if ($portal === 'agent') {
+            $request->session()->forget('url.intended');
 
-            return redirect()->route('agent-order.index');
+            // Prefer dashboard if registered; fall back to catalog index.
+            $target = \Illuminate\Support\Facades\Route::has('agent-order.dashboard')
+                ? 'agent-order.dashboard'
+                : 'agent-order.index';
+
+            return redirect()->route($target);
         }
 
         return redirect()->intended(route('customer.shop'));

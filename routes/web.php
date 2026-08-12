@@ -169,6 +169,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/applications/{id}/convert-reseller', [PartnerApplicationController::class, 'convertReseller'])->name('partner.applications.convert-reseller')->middleware('permission:Partner Application,is_update');
         Route::get('/agents', [PartnerAgentController::class, 'index'])->name('partner.agents.index')->middleware('permission:Partner Agent,is_read');
         Route::get('/agents/{id}', [PartnerAgentController::class, 'show'])->name('partner.agents.show')->middleware('permission:Partner Agent,is_read');
+        Route::post('/agents/{id}/pks', [PartnerAgentController::class, 'storePks'])->name('partner.agents.pks.store')->middleware('permission:Partner Agent,is_update');
+        Route::get('/agents/{id}/pks/{pksId}/download', [PartnerAgentController::class, 'downloadPks'])->name('partner.agents.pks.download')->middleware('permission:Partner Agent,is_read');
         Route::get('/resellers', [PartnerResellerController::class, 'index'])->name('partner.resellers.index')->middleware('permission:Partner Reseller,is_read');
         Route::get('/resellers/mapping', [PartnerResellerMappingController::class, 'index'])->name('partner.resellers.mapping.index')->middleware('permission:Partner Reseller Mapping,is_read');
         Route::post('/resellers/mapping', [PartnerResellerMappingController::class, 'update'])->name('partner.resellers.mapping.store')->middleware('permission:Partner Reseller Mapping,is_update');

@@ -99,6 +99,28 @@
             </x-slot:footer>
         </x-modal>
 
+        @php $partnerPksStats = $partnerPksStats ?? ['expiring' => 0, 'missing' => 0, 'expired' => 0]; @endphp
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <x-dashboard.section-header icon="ti ti-file-certificate" title="Partner Agent PKS" subtitle="Monitoring perjanjian kerja sama agent." />
+            </div>
+            <div class="col-md-4">
+                <a href="{{ route('partner.agents.index', ['pks_status' => 'expiring']) }}" class="text-decoration-none">
+                    <x-dashboard.kpi-card title="PKS Segera Berakhir" :value="$fmtNum($partnerPksStats['expiring'] ?? 0)" subtitle="≤ 30 hari" icon="ti ti-alert-triangle" iconColor="danger" />
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{{ route('partner.agents.index', ['pks_status' => 'missing']) }}" class="text-decoration-none">
+                    <x-dashboard.kpi-card title="Belum Upload PKS" :value="$fmtNum($partnerPksStats['missing'] ?? 0)" subtitle="Sudah transaksi pertama" icon="ti ti-file-off" iconColor="warning" />
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{{ route('partner.agents.index', ['pks_status' => 'expired']) }}" class="text-decoration-none">
+                    <x-dashboard.kpi-card title="PKS Expired" :value="$fmtNum($partnerPksStats['expired'] ?? 0)" icon="ti ti-calendar-x" iconColor="secondary" />
+                </a>
+            </div>
+        </div>
+
         @if($sectionVisible('executive_overview'))
         {{-- EXECUTIVE OVERVIEW --}}
         <x-dashboard.section-header icon="ti ti-dashboard" title="Executive Overview" subtitle="Ringkasan performa bisnis untuk owner & manajemen." />

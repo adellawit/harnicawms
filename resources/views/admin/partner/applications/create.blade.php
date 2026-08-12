@@ -48,21 +48,6 @@
                             <p class="pr-hero__lead">Lengkapi data sesuai formulir resmi Harnica. Pendaftaran akan masuk ke daftar application untuk ditindaklanjuti.</p>
                         </div>
 
-                        <div class="pr-download pr-reveal pr-reveal--instant" id="download-form-section">
-                            <p class="pr-download__text" id="download-form-text">
-                                <i class="ti ti-file-download"></i>
-                                <span>Unduh formulir resmi PDF Agen untuk referensi sebelum mengisi data di bawah.</span>
-                            </p>
-                            <div class="pr-download__actions d-flex flex-wrap gap-2">
-                                <a href="{{ route('partner.register.form-agent') }}" class="btn btn-sm btn-primary" id="download-form-agent">
-                                    <i class="ti ti-download me-1"></i> Unduh Form Agen
-                                </a>
-                                <a href="{{ route('partner.register.form-reseller') }}" class="btn btn-sm btn-primary d-none" id="download-form-reseller">
-                                    <i class="ti ti-download me-1"></i> Unduh Form Reseller
-                                </a>
-                            </div>
-                        </div>
-
                         @if ($errors->any())
                             <x-alert type="danger" class="mb-3 pr-reveal">
                                 <ul class="m-0">
@@ -93,36 +78,27 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const title = document.getElementById('form-title');
-            const downloadText = document.getElementById('download-form-text');
-            const downloadAgent = document.getElementById('download-form-agent');
-            const downloadReseller = document.getElementById('download-form-reseller');
 
-            function syncDownloadForm(isReseller) {
+            function syncFormTitle(isReseller) {
+                if (!title) return;
                 title.textContent = isReseller
                     ? 'Formulir Registrasi Reseller'
                     : 'Formulir Registrasi Agen';
-
-                downloadText.innerHTML = isReseller
-                    ? '<i class="ti ti-file-download"></i><span>Unduh formulir resmi PDF Reseller untuk referensi sebelum mengisi data di bawah.</span>'
-                    : '<i class="ti ti-file-download"></i><span>Unduh formulir resmi PDF Agen untuk referensi sebelum mengisi data di bawah.</span>';
-
-                downloadAgent?.classList.toggle('d-none', isReseller);
-                downloadReseller?.classList.toggle('d-none', !isReseller);
             }
 
             document.querySelectorAll('.partner-type-radio').forEach((radio) => {
                 radio.addEventListener('change', function () {
-                    syncDownloadForm(this.value === 'RESELLER');
+                    syncFormTitle(this.value === 'RESELLER');
                 });
             });
 
             const checked = document.querySelector('.partner-type-radio:checked');
             if (checked) {
-                syncDownloadForm(checked.value === 'RESELLER');
+                syncFormTitle(checked.value === 'RESELLER');
             } else {
                 const hiddenType = document.querySelector('input[name="partner_type"][type="hidden"]');
                 if (hiddenType?.value === 'RESELLER') {
-                    syncDownloadForm(true);
+                    syncFormTitle(true);
                 }
             }
 

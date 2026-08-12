@@ -17,6 +17,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesOrderPayment;
 use App\Models\Supplier;
+use App\Services\Partner\AgentPksService;
 use App\Support\WmsContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -87,6 +88,15 @@ class DashboardController extends Controller
             $data = $this->emptyDashboardData();
         }
 
+        $partnerPksStats = ['expiring' => 0, 'missing' => 0, 'expired' => 0];
+        try {
+            $partnerPksStats = app(AgentPksService::class)->dashboardStats(
+                WmsContext::distributor()?->id
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard PKS stats error: ' . $e->getMessage());
+        }
+
         return view('dashboard', array_merge($data, [
             'dashboardVisibility' => $dashboardVisibility,
             'roleId' => $roleId,
@@ -96,6 +106,7 @@ class DashboardController extends Controller
             'today' => $today,
             'periodStart' => $periodStart,
             'periodEnd' => $periodEnd,
+            'partnerPksStats' => $partnerPksStats,
         ]));
     }
 

@@ -14,7 +14,6 @@ trait ValidatesPartnerApplication
     protected function partnerApplicationRules(bool $isUpdate = false, ?PartnerApplication $application = null): array
     {
         $hasSignature = $application?->documents()->where('document_type', 'signature')->exists() ?? false;
-        $hasSignedForm = $application?->documents()->where('document_type', 'signed_registration_form')->exists() ?? false;
 
         return [
             'partner_type' => ['required', Rule::in([PartnerApplication::TYPE_AGENT, PartnerApplication::TYPE_RESELLER])],
@@ -33,6 +32,8 @@ trait ValidatesPartnerApplication
             'marketplace_tokopedia' => ['nullable', 'boolean'],
             'marketplace_shopee' => ['nullable', 'boolean'],
             'marketplace_others' => ['nullable', 'boolean'],
+            'marketplace_tokopedia_account' => ['nullable', 'string', 'max:200', 'required_if:marketplace_tokopedia,1'],
+            'marketplace_shopee_account' => ['nullable', 'string', 'max:200', 'required_if:marketplace_shopee,1'],
             'marketplace_other' => ['nullable', 'string', 'max:200', 'required_if:marketplace_others,1'],
             'reseller_package' => [
                 Rule::requiredIf($this->input('partner_type') === PartnerApplication::TYPE_RESELLER),
@@ -49,7 +50,6 @@ trait ValidatesPartnerApplication
                 Rule::when($this->filled('signature_data'), ['regex:/^data:image\/png;base64,/']),
             ],
             'signed_form' => [
-                Rule::requiredIf(! $isUpdate || ! $hasSignedForm),
                 'nullable',
                 'file',
                 'mimes:pdf,jpg,jpeg,png',
@@ -70,9 +70,11 @@ trait ValidatesPartnerApplication
             'declaration_accepted.accepted' => 'Anda harus menyetujui pernyataan kebenaran data.',
             'signature_data.required' => 'Tanda tangan digital wajib diisi.',
             'signature_data.regex' => 'Format tanda tangan digital tidak valid.',
-            'signed_form.required' => 'Formulir registrasi wajib diunggah.',
             'signed_form.mimes' => 'Formulir harus berformat PDF, JPG, atau PNG.',
             'signed_form.max' => 'Ukuran formulir maksimal 5MB.',
+            'marketplace_tokopedia_account.required_if' => 'Akun Tokopedia wajib diisi jika Tokopedia dipilih.',
+            'marketplace_shopee_account.required_if' => 'Akun Shopee wajib diisi jika Shopee dipilih.',
+            'marketplace_other.required_if' => 'Nama marketplace lainnya wajib diisi.',
             'reseller_package.required' => 'Pilih salah satu paket pembelian Reseller.',
             'latitude.required' => 'Lokasi pada peta wajib ditentukan.',
             'longitude.required' => 'Lokasi pada peta wajib ditentukan.',

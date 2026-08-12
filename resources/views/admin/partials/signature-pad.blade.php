@@ -35,8 +35,8 @@
 
     <div class="signed-form-upload-wrapper mb-2">
         <label class="form-label" for="signedFormUpload">
-            Upload Formulir @if ($requireSignedForm)<span class="text-danger">*</span>@endif
-            <span class="info-tip" tabindex="0" data-tip="Unggah formulir hasil unduhan yang sudah diisi & ditandatangani basah. Format PDF/JPG/PNG, maks. 5MB.">?</span>
+            Upload Formulir @if ($requireSignedForm)<span class="text-danger">*</span>@else<span class="text-muted">(opsional)</span>@endif
+            <span class="info-tip" tabindex="0" data-tip="Opsional. Unggah formulir yang sudah diisi & ditandatangani. Format PDF/JPG/PNG, maks. 5MB.">?</span>
         </label>
         @if ($existingSignedForm ?? null)
             <p class="small text-muted mb-2">
@@ -46,7 +46,7 @@
             </p>
         @endif
         <input type="file" name="signed_form" id="signedFormUpload" class="form-control" accept=".pdf,.jpg,.jpeg,.png" @if ($requireSignedForm) required @endif>
-        <small class="text-muted">Unggah formulir PDF Agen/Reseller yang sudah diisi dan ditandatangani (hasil unduhan). Maks. 5MB.</small>
+        <small class="text-muted">Opsional — unggah formulir PDF/JPG/PNG yang sudah diisi. Maks. 5MB.</small>
         <div id="signed-form-filename" class="small text-success mt-1 d-none"></div>
         @error('signed_form')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
     </div>

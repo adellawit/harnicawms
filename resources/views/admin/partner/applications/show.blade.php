@@ -63,8 +63,12 @@
                                 <div>
                                     @php
                                         $marketplaces = array_filter([
-                                            $application->marketplace_tokopedia ? 'Tokopedia' : null,
-                                            $application->marketplace_shopee ? 'Shopee' : null,
+                                            $application->marketplace_tokopedia
+                                                ? 'Tokopedia' . ($application->marketplace_tokopedia_account ? ' ('.$application->marketplace_tokopedia_account.')' : '')
+                                                : null,
+                                            $application->marketplace_shopee
+                                                ? 'Shopee' . ($application->marketplace_shopee_account ? ' ('.$application->marketplace_shopee_account.')' : '')
+                                                : null,
                                             $application->marketplace_other,
                                         ]);
                                     @endphp

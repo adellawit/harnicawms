@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Agent extends Model
@@ -77,6 +78,21 @@ class Agent extends Model
     public function resellers(): HasMany
     {
         return $this->hasMany(Reseller::class, 'agent_id', 'id');
+    }
+
+    public function pksDocuments(): HasMany
+    {
+        return $this->hasMany(AgentPks::class, 'agent_id', 'id')
+            ->orderByDesc('start_date')
+            ->orderByDesc('created_at');
+    }
+
+    public function activePks(): HasOne
+    {
+        // Avoid ofMany()/latestOfMany() — PostgreSQL cannot MAX(uuid) as tie-breaker.
+        return $this->hasOne(AgentPks::class, 'agent_id', 'id')
+            ->where('status', AgentPks::STATUS_ACTIVE)
+            ->orderByDesc('created_at');
     }
 
     public function scopeActive(Builder $query): Builder

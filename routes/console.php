@@ -17,3 +17,5 @@ Artisan::command('inspire', function () {
 | Example: Schedule::command('inspire')->hourly();
 |
 */
+
+Schedule::command('partners:remind-pks-expiring')->dailyAt('08:00');

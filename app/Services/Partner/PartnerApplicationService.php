@@ -91,8 +91,16 @@ class PartnerApplicationService
             'latitude' => $request->filled('latitude') ? $request->input('latitude') : null,
             'longitude' => $request->filled('longitude') ? $request->input('longitude') : null,
             'marketplace_tokopedia' => $request->boolean('marketplace_tokopedia'),
+            'marketplace_tokopedia_account' => $request->boolean('marketplace_tokopedia')
+                ? ($request->input('marketplace_tokopedia_account') ?: null)
+                : null,
             'marketplace_shopee' => $request->boolean('marketplace_shopee'),
-            'marketplace_other' => $request->input('marketplace_other') ?: null,
+            'marketplace_shopee_account' => $request->boolean('marketplace_shopee')
+                ? ($request->input('marketplace_shopee_account') ?: null)
+                : null,
+            'marketplace_other' => $request->boolean('marketplace_others')
+                ? ($request->input('marketplace_other') ?: null)
+                : null,
             'reseller_package' => $request->input('reseller_package') ?: null,
             'terms_accepted' => $request->input('terms_accepted', []),
             'declaration_accepted' => $request->boolean('declaration_accepted'),

@@ -7,7 +7,7 @@
     $hasSignature = $application?->documents?->where('document_type', 'signature')->isNotEmpty() ?? false;
     $hasSignedForm = $application?->documents?->where('document_type', 'signed_registration_form')->isNotEmpty() ?? false;
     $requireSignature = ! $hasSignature;
-    $requireSignedForm = ! $hasSignedForm;
+    $requireSignedForm = false; // Upload formulir opsional
     $existingSignature = $application?->documents?->firstWhere('document_type', 'signature');
     $existingSignedForm = $application?->documents?->firstWhere('document_type', 'signed_registration_form');
 @endphp
@@ -154,8 +154,22 @@
                 <span class="pr-chip__label">Lainnya</span>
             </label>
         </div>
+        <div id="marketplace-tokopedia-wrap" class="mb-2 {{ old('marketplace_tokopedia', $application?->marketplace_tokopedia) ? '' : 'd-none' }}">
+            <label class="form-label">Akun Tokopedia <span class="text-danger">*</span></label>
+            <input type="text" name="marketplace_tokopedia_account" id="marketplaceTokopediaAccount" class="form-control"
+                value="{{ old('marketplace_tokopedia_account', $application?->marketplace_tokopedia_account) }}"
+                placeholder="Nama toko / akun Tokopedia">
+            @error('marketplace_tokopedia_account')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+        <div id="marketplace-shopee-wrap" class="mb-2 {{ old('marketplace_shopee', $application?->marketplace_shopee) ? '' : 'd-none' }}">
+            <label class="form-label">Akun Shopee <span class="text-danger">*</span></label>
+            <input type="text" name="marketplace_shopee_account" id="marketplaceShopeeAccount" class="form-control"
+                value="{{ old('marketplace_shopee_account', $application?->marketplace_shopee_account) }}"
+                placeholder="Nama toko / akun Shopee">
+            @error('marketplace_shopee_account')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
         <div id="marketplace-other-wrap" class="{{ old('marketplace_others') || old('marketplace_other', $application?->marketplace_other) ? '' : 'd-none' }}">
-            <label class="form-label">Nama Marketplace Lainnya</label>
+            <label class="form-label">Nama Marketplace Lainnya <span class="text-danger">*</span></label>
             <input type="text" name="marketplace_other" id="marketplaceOtherText" class="form-control" value="{{ old('marketplace_other', $application?->marketplace_other) }}" placeholder="Contoh: TikTok Shop, Lazada, dll.">
             @error('marketplace_other')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
@@ -390,25 +404,39 @@
             }
         });
 
+        const mpTokopedia = document.getElementById('mpTokopedia');
+        const mpShopee = document.getElementById('mpShopee');
         const mpOthers = document.getElementById('mpOthers');
+        const mpTokopediaWrap = document.getElementById('marketplace-tokopedia-wrap');
+        const mpShopeeWrap = document.getElementById('marketplace-shopee-wrap');
         const mpOtherWrap = document.getElementById('marketplace-other-wrap');
+        const mpTokopediaAccount = document.getElementById('marketplaceTokopediaAccount');
+        const mpShopeeAccount = document.getElementById('marketplaceShopeeAccount');
         const mpOtherText = document.getElementById('marketplaceOtherText');
 
-        function syncMarketplaceOther() {
-            const show = mpOthers?.checked;
-            mpOtherWrap?.classList.toggle('d-none', !show);
-            if (mpOtherText) {
+        function syncMarketplaceField(checkbox, wrap, input) {
+            const show = checkbox?.checked;
+            wrap?.classList.toggle('d-none', !show);
+            if (input) {
                 if (show) {
-                    mpOtherText.setAttribute('required', 'required');
+                    input.setAttribute('required', 'required');
                 } else {
-                    mpOtherText.removeAttribute('required');
-                    mpOtherText.value = '';
+                    input.removeAttribute('required');
+                    input.value = '';
                 }
             }
         }
 
-        mpOthers?.addEventListener('change', syncMarketplaceOther);
-        syncMarketplaceOther();
+        function syncMarketplaceFields() {
+            syncMarketplaceField(mpTokopedia, mpTokopediaWrap, mpTokopediaAccount);
+            syncMarketplaceField(mpShopee, mpShopeeWrap, mpShopeeAccount);
+            syncMarketplaceField(mpOthers, mpOtherWrap, mpOtherText);
+        }
+
+        mpTokopedia?.addEventListener('change', syncMarketplaceFields);
+        mpShopee?.addEventListener('change', syncMarketplaceFields);
+        mpOthers?.addEventListener('change', syncMarketplaceFields);
+        syncMarketplaceFields();
 
         syncPartnerSections();
     });
