@@ -24,6 +24,7 @@ class PromotionEngineService
     ): array {
         $promotions = Promotion::query()
             ->activeNow()
+            ->productType()
             ->where('trigger_level', 'line')
             ->when($companyId, fn ($q) => $q->where(function ($qq) use ($companyId) {
                 $qq->whereNull('company_id')->orWhere('company_id', $companyId);

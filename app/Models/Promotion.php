@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Partner\Agent;
+use App\Models\Partner\Reseller;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,15 @@ class Promotion extends Model
     protected $fillable = [
         'company_id',
         'code',
+        'promotion_type',
+        'target_type',
+        'target_agent_id',
+        'target_reseller_id',
+        'reactivates_reseller',
+        'min_purchase_type',
+        'min_purchase_value',
+        'discount_type',
+        'discount_value',
         'name',
         'description',
         'is_active',
@@ -46,6 +57,9 @@ class Promotion extends Model
         'ends_at' => 'datetime',
         'buy_min_qty' => 'float',
         'get_qty' => 'float',
+        'min_purchase_value' => 'decimal:4',
+        'discount_value' => 'decimal:4',
+        'reactivates_reseller' => 'boolean',
         'priority' => 'integer',
         'max_applications_per_line' => 'integer',
     ];
@@ -73,6 +87,26 @@ class Promotion extends Model
     public function getUnit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class, 'get_unit_id');
+    }
+
+    public function targetAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'target_agent_id');
+    }
+
+    public function targetReseller(): BelongsTo
+    {
+        return $this->belongsTo(Reseller::class, 'target_reseller_id');
+    }
+
+    public function scopeProductType($query)
+    {
+        return $query->where('promotion_type', 'product');
+    }
+
+    public function scopeMarketingType($query)
+    {
+        return $query->where('promotion_type', 'marketing');
     }
 
     public function scopeActiveNow($query, ?string $at = null)

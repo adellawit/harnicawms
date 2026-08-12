@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessUnit;
 use App\Models\Marketing\Asset;
 use App\Models\Marketing\Category;
 use App\Models\MethodPayment;
@@ -14,16 +15,26 @@ use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
 use App\Models\Promotion;
 use App\Models\SalesOrder;
+use App\Models\ShippingRate;
+use App\Models\Training\AgentMaterialProgress;
 use App\Models\Training\Course;
+use App\Models\Training\CourseMaterial;
+use App\Services\Product\StockDisplayService;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
+use App\Services\Shipping\AgentShippingEstimator;
+use App\Services\StockMutationService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AgentOrderController extends Controller
@@ -43,6 +54,11 @@ class AgentOrderController extends Controller
     protected function checkoutService(): ShopCheckoutService
     {
         return app(ShopCheckoutService::class, ['context' => $this->context()]);
+    }
+
+    protected function shippingEstimator(): AgentShippingEstimator
+    {
+        return app(AgentShippingEstimator::class);
     }
 
     protected function resolveShippingAddress(): ?string
@@ -189,7 +205,75 @@ class AgentOrderController extends Controller
             ])
             ->findOrFail($courseId);
 
-        return view('agent.order.training.show', ['course' => $course]);
+        $materialIds = $course->modules
+            ->flatMap(fn ($module) => $module->materials)
+            ->pluck('id');
+
+        $customerId = auth('customer')->id();
+        $materialProgress = AgentMaterialProgress::query()
+            ->where('customer_id', $customerId)
+            ->whereIn('material_id', $materialIds)
+            ->get()
+            ->mapWithKeys(fn (AgentMaterialProgress $row) => [
+                $row->material_id => [
+                    'elapsed_seconds' => (int) $row->elapsed_seconds,
+                    'completed' => $row->isCompleted(),
+                ],
+            ])
+            ->all();
+
+        return view('agent.order.training.show', [
+            'course' => $course,
+            'materialProgress' => $materialProgress,
+        ]);
+    }
+
+    public function trainingSaveProgress(Request $request, string $material): JsonResponse
+    {
+        $request->validate([
+            'elapsed_seconds' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $this->resolvePublishedMaterial($material);
+
+        $customerId = auth('customer')->id();
+        $progress = AgentMaterialProgress::firstOrNew([
+            'customer_id' => $customerId,
+            'material_id' => $material,
+        ]);
+
+        $progress->elapsed_seconds = max(
+            (int) $progress->elapsed_seconds,
+            (int) $request->input('elapsed_seconds')
+        );
+        $progress->save();
+
+        return response()->json([
+            'success' => true,
+            'elapsed_seconds' => $progress->elapsed_seconds,
+        ]);
+    }
+
+    public function trainingCompleteMaterial(string $material): JsonResponse
+    {
+        $this->resolvePublishedMaterial($material);
+
+        $customerId = auth('customer')->id();
+        $progress = AgentMaterialProgress::firstOrNew([
+            'customer_id' => $customerId,
+            'material_id' => $material,
+        ]);
+        $progress->completed_at = now();
+        $progress->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    protected function resolvePublishedMaterial(string $materialId): CourseMaterial
+    {
+        return CourseMaterial::query()
+            ->whereHas('module.course', fn ($q) => $q->published())
+            ->findOrFail($materialId);
     }
 
     public function materials(Request $request): View
@@ -311,6 +395,7 @@ class AgentOrderController extends Controller
         $categories = ProductCategory::whereIn('id', $categoryIds)->orderBy('name')->get(['id', 'name']);
 
         $promoProductIds = Promotion::activeNow()
+            ->productType()
             ->whereNotNull('buy_product_id')
             ->pluck('buy_product_id')
             ->unique()
@@ -515,15 +600,46 @@ class AgentOrderController extends Controller
             ->get();
 
         $cashMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
+        $manualTransferMethod = $methodPayments->first(fn ($m) => $this->isManualTransferMethod($m));
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
+        $fgWarehouse = WmsContext::finishedGoodsWarehouse();
         $originUnit = $ctx->branch();
 
+        $originCityId = $fgWarehouse?->city_id;
+        $destCityId = $agent?->city_id;
+        $weightKg = $this->shippingEstimator()->cartTotalWeightKg($cart);
+
+        $shippingOptions = [];
+        if ($originCityId && $destCityId) {
+            $rates = ShippingRate::query()
+                ->where('origin_city_id', $originCityId)
+                ->where('destination_city_id', $destCityId)
+                ->where('is_active', true)
+                ->orderBy('courier_code')
+                ->orderBy('service_code')
+                ->get();
+
+            foreach ($rates as $rate) {
+                $shippingOptions[] = [
+                    'rate_id' => $rate->id,
+                    'courier_code' => $rate->courier_code,
+                    'courier_label' => ShippingRate::COURIERS[$rate->courier_code] ?? strtoupper($rate->courier_code),
+                    'service_code' => $rate->service_code,
+                    'service_name' => $rate->service_name,
+                    'amount' => $rate->estimateForWeightKg($weightKg),
+                    'etd' => $this->shippingEstimator()->formatShippingEtd($rate),
+                ];
+            }
+        }
+
+        $shippingAvailable = $originCityId && $destCityId && count($shippingOptions) > 0;
+
         $shipping = [
-            'origin_city' => $originUnit?->city,
-            'origin_province' => $originUnit?->province,
-            'origin_name' => $originUnit?->brand_name ?: $originUnit?->name,
+            'origin_city' => $fgWarehouse?->city ?: $originUnit?->city,
+            'origin_province' => $fgWarehouse?->province ?: $originUnit?->province,
+            'origin_name' => $fgWarehouse?->name ?: ($originUnit?->brand_name ?: $originUnit?->name),
             'destination_city' => $agent?->city,
             'destination_province' => $agent?->province,
             'destination_name' => $agent?->name ?: $customer->name,
@@ -536,11 +652,15 @@ class AgentOrderController extends Controller
             'cart' => $cart->get(),
             'summary' => $cart->summarize(),
             'shipping' => $shipping,
+            'shippingOptions' => $shippingOptions,
+            'shippingAvailable' => $shippingAvailable,
+            'weightKg' => $weightKg,
             'codMethod' => null,
             'codIcon' => null,
             'xenditChannelGroups' => [],
             'standardMethods' => $cashMethods,
-            'hasPaymentOptions' => $cashMethods->isNotEmpty(),
+            'manualTransferMethod' => $manualTransferMethod,
+            'hasPaymentOptions' => $cashMethods->isNotEmpty() || $manualTransferMethod !== null,
         ]);
     }
 
@@ -548,6 +668,7 @@ class AgentOrderController extends Controller
     {
         $request->validate([
             'payment_method_id' => 'required|uuid',
+            'shipping_rate_id' => ['required', 'uuid', 'exists:master_data.shipping_rates,id'],
             'xendit_channel' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -556,6 +677,38 @@ class AgentOrderController extends Controller
         if ($cartService->count() < 1) {
             return redirect()->route('agent-order.index')->with('error', 'Keranjang kosong.');
         }
+
+        $customer = $this->context()->customer();
+        $agent = $customer->agent;
+        $originCityId = optional(WmsContext::finishedGoodsWarehouse())->city_id;
+        $destCityId = $agent?->city_id;
+
+        if (! $originCityId || ! $destCityId) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Ongkir belum tersedia untuk kota tujuan Anda. Hubungi admin untuk menambahkan tarif.');
+        }
+
+        $rate = ShippingRate::query()
+            ->where('id', $request->shipping_rate_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $rate || $rate->origin_city_id !== $originCityId || $rate->destination_city_id !== $destCityId) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Ongkir tidak valid. Silakan pilih kurir lagi.');
+        }
+
+        $shippingAmount = $rate->estimateForWeightKg($this->shippingEstimator()->cartTotalWeightKg($cartService));
+        $shippingMeta = [
+            'courier' => $rate->courier_code,
+            'service' => $rate->service_code,
+            'rate_id' => $rate->id,
+            'etd' => $this->shippingEstimator()->formatShippingEtd($rate),
+        ];
 
         $checkoutRequest = $cartService->toCheckoutRequest();
         if ($request->filled('notes')) {
@@ -580,12 +733,45 @@ class AgentOrderController extends Controller
                     $request->payment_method_id,
                     self::ORDER_TYPE,
                     $this->resolveShippingAddress(),
+                    $shippingAmount,
+                    $shippingMeta,
                 );
                 $cartService->clear();
 
                 return redirect()
                     ->route('agent-order.orders.show', $result['order_id'])
                     ->with('success', 'Pesanan berhasil dibuat. Nomor: '.$result['sales_number']);
+            }
+
+            if ($this->isManualTransferMethod($method)) {
+                $result = $checkout->processCod(
+                    $checkoutRequest,
+                    $request->payment_method_id,
+                    self::ORDER_TYPE,
+                    $this->resolveShippingAddress(),
+                    $shippingAmount,
+                    $shippingMeta,
+                );
+
+                $order = SalesOrder::findOrFail($result['order_id']);
+                DB::transaction(function () use ($order, $request) {
+                    $seq = (int) SalesOrder::whereDate('created_at', now()->toDateString())
+                        ->whereNotNull('unique_code')
+                        ->lockForUpdate()
+                        ->max('unique_code');
+                    $seq = $seq + 1;
+                    $order->update([
+                        'unique_code' => $seq,
+                        'payable_amount' => (float) $order->total + $seq,
+                        'method_payment_id' => $request->payment_method_id,
+                    ]);
+                });
+
+                $cartService->clear();
+
+                return redirect()
+                    ->route('agent-order.orders.show', $result['order_id'])
+                    ->with('success', 'Pesanan berhasil dibuat. Transfer sesuai nominal unik di halaman detail.');
             }
 
             return redirect()
@@ -700,6 +886,297 @@ class AgentOrderController extends Controller
         ]);
     }
 
+    public function receiveOrder(string $order): RedirectResponse
+    {
+        $order = SalesOrder::with('items')->findOrFail($order);
+        $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);
+
+        if ($order->received_at || $order->status === 'completed') {
+            return back()->with('error', 'Order sudah diterima.');
+        }
+
+        if ($order->status !== 'shipped') {
+            return back()->with('error', 'Order belum dikirim, belum bisa diterima.');
+        }
+
+        $agent = $this->context()->customer()->agent;
+        abort_unless($agent, 403, 'Akun bukan agent.');
+
+        $sourceWh = WmsContext::finishedGoodsWarehouse($order->company_id);
+        $agentWh = WmsContext::defaultAgentWarehouse($agent->id) ?: $agent->defaultWarehouse;
+        abort_unless($agentWh, 422, 'Gudang agen belum diset.');
+
+        $actorId = auth('customer')->id();
+
+        try {
+            DB::transaction(function () use ($order, $sourceWh, $agentWh, $actorId) {
+                $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
+
+                if ($order->received_at || $order->status === 'completed') {
+                    throw new \RuntimeException('Order sudah diterima.');
+                }
+
+                if ($order->status !== 'shipped') {
+                    throw new \RuntimeException('Order belum dikirim, belum bisa diterima.');
+                }
+
+                $sourceWhId = $sourceWh?->id;
+                $srcBranch = $sourceWh?->branch_id ?: ($order->branch_id ?: $sourceWhId);
+                $agentBranchId = $agentWh->branch_id ?: ($order->branch_id ?: $agentWh->company_id);
+                $inboundCompanyId = $agentWh->company_id ?: $order->company_id;
+
+                foreach ($order->items as $item) {
+                    $product = Product::find($item->product_id);
+                    if (! $product?->is_stock_item) {
+                        continue;
+                    }
+
+                    $outboundWarehouseId = $item->source_warehouse_id ?: ($sourceWhId ?: $order->warehouse_id);
+                    abort_unless($outboundWarehouseId && $srcBranch, 422, 'Gudang asal pengiriman belum diset.');
+
+                    $outbound = StockMutationService::outbound(
+                        $item->product_id,
+                        $item->product_variant_id,
+                        $order->company_id,
+                        (string) $srcBranch,
+                        $item->unit_id,
+                        (float) $item->quantity,
+                        SalesOrder::class,
+                        $order->id,
+                        $actorId,
+                        'Kirim ke Agen - '.$order->sales_number,
+                        $outboundWarehouseId
+                    );
+
+                    StockMutationService::inbound(
+                        $item->product_id,
+                        $item->product_variant_id,
+                        $inboundCompanyId,
+                        (string) $agentBranchId,
+                        $item->unit_id,
+                        (float) $item->quantity,
+                        (float) $item->unit_price,
+                        SalesOrder::class,
+                        $order->id,
+                        $actorId,
+                        'Terima di gudang Agen - '.$order->sales_number,
+                        null,
+                        $outbound['earliest_expiry'] ?? null,
+                        $agentWh->id
+                    );
+                }
+
+                $order->update([
+                    'status' => 'completed',
+                    'received_at' => now(),
+                    'fulfilled_at' => $order->fulfilled_at ?: now(),
+                    'updated_by' => $actorId,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Barang diterima. Stok masuk ke gudang Anda.');
+    }
+
+    public function stock(Request $request, StockDisplayService $stockDisplay): View
+    {
+        $agent = $this->context()->customer()->agent;
+        $warehouseId = $agent?->default_warehouse_id;
+        $lowThreshold = 5;
+
+        $displayUnitMode = in_array($request->get('display_unit'), ['large', 'small'], true)
+            ? $request->get('display_unit')
+            : 'large';
+
+        $search = trim((string) $request->get('q', ''));
+
+        $stockQuery = ProductVariantStock::query()
+            ->whereNull('deleted_at')
+            ->where('warehouse_id', $warehouseId)
+            ->with([
+                'unit:id,name,symbol',
+                'variant.product.defaultUnit',
+                'variant.product.unitConversions.fromUnit:id,name,symbol',
+                'variant.product.unitConversions.toUnit:id,name,symbol',
+                'variant.variantAttributes.attributeValue',
+            ])
+            ->when(! $warehouseId, fn ($q) => $q->whereRaw('1 = 0'));
+
+        if ($search !== '') {
+            $stockQuery->whereHas('variant', function ($v) use ($search) {
+                $v->where('sku', 'ilike', "%{$search}%")
+                    ->orWhereHas('product', fn ($p) => $p->where('name', 'ilike', "%{$search}%"));
+            });
+        }
+
+        $allStocks = $stockQuery->get();
+        $groupedByVariant = $this->groupVariantStocksByUnit($allStocks);
+
+        $rows = collect();
+        foreach ($groupedByVariant as $variantId => $unitStockRows) {
+            $firstStock = $allStocks->firstWhere('product_variant_id', $variantId);
+            $variant = $firstStock?->variant;
+            $product = $variant?->product;
+            if (! $variant || ! $product) {
+                continue;
+            }
+
+            $display = $stockDisplay->build($product, $unitStockRows, $displayUnitMode);
+
+            $variantLabel = $variant->variantAttributes
+                ?->map(fn ($va) => $va->attributeValue?->value)
+                ->filter()
+                ->implode(' / ');
+            $variantLabel = $variantLabel ?: ($variant->display_name ?? $variant->sku ?? '-');
+
+            $qtyForBadge = (float) ($display['smallest_quantity'] ?? $display['quantity']);
+
+            $rows->push([
+                'variant_id' => $variant->id,
+                'product_name' => $product->name,
+                'variant_name' => $variantLabel,
+                'sku' => $variant->sku ?? '-',
+                'quantity' => $display['quantity'],
+                'unit' => $display['unit'],
+                'unit_id' => $display['unit_id'],
+                'stock_by_units' => $display['stock_by_units'],
+                'show_unit_detail' => $display['show_unit_detail'],
+                'conversion_chain_hint' => $display['conversion_chain_hint'],
+                'conversion_hint' => $display['conversion_hint'],
+                'smallest_quantity' => $display['smallest_quantity'],
+                'smallest_unit' => $display['smallest_unit'],
+                'smallest_unit_id' => $display['smallest_unit_id'],
+                'has_smallest_display' => $display['has_smallest_display'],
+                'all_units' => $this->stockAllUnits($product, (float) ($display['smallest_quantity'] ?? 0), $display['smallest_unit_id'] ?? null),
+                'packaging_hint' => $display['packaging_hint'],
+                'out' => $qtyForBadge <= 0,
+                'low' => $qtyForBadge > 0 && $qtyForBadge <= $lowThreshold,
+                'sort_qty' => $qtyForBadge,
+            ]);
+        }
+
+        $rows = $rows->sortByDesc('sort_qty')->values();
+
+        $perPage = 30;
+        $page = max(1, (int) $request->get('page', 1));
+        $stocks = new LengthAwarePaginator(
+            $rows->slice(($page - 1) * $perPage, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('agent.order.stock', [
+            'stocks' => $stocks,
+            'search' => $search,
+            'warehouseName' => optional($agent?->defaultWarehouse)->name,
+            'lowThreshold' => $lowThreshold,
+            'displayUnitMode' => $displayUnitMode,
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, ProductVariantStock>  $rows
+     * @return Collection<string, Collection<int, array{unit_id: ?string, unit: mixed, quantity: float}>>
+     */
+    protected function groupVariantStocksByUnit(Collection $rows): Collection
+    {
+        return $rows->groupBy('product_variant_id')->map(function ($variantRows) {
+            return $variantRows
+                ->groupBy('unit_id')
+                ->map(function ($unitRows) {
+                    $first = $unitRows->first();
+
+                    return [
+                        'unit_id' => $first->unit_id,
+                        'unit' => $first->unit,
+                        'quantity' => $unitRows->sum(fn (ProductVariantStock $row) => (float) $row->quantity),
+                    ];
+                })
+                ->values();
+        });
+    }
+
+    /**
+     * Total stok (dalam unit terkecil) dinyatakan di SETIAP unit produk (besar→kecil).
+     *
+     * @return array<int, array{unit_id: string, unit: string, quantity: float}>
+     */
+    protected function stockAllUnits(Product $product, float $totalSmallest, ?string $smallestUnitId): array
+    {
+        if (! $smallestUnitId) {
+            return [];
+        }
+
+        return $product->getBarcodeUnits()->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
+            $qty = $unit->id === $smallestUnitId
+                ? $totalSmallest
+                : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
+
+            return [
+                'unit_id' => $unit->id,
+                'unit' => $unit->symbol ?: ($unit->name ?: '-'),
+                'quantity' => (float) $qty,
+            ];
+        })->values()->all();
+    }
+
+    protected function loadOrderForPrint(string $orderId): SalesOrder
+    {
+        $order = SalesOrder::with([
+            'items.product',
+            'items.variant.variantAttributes.attributeValue',
+            'items.unit',
+            'payments.methodPayment',
+            'methodPayment',
+            'customer.agent',
+        ])->findOrFail($orderId);
+
+        $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);
+
+        return $order;
+    }
+
+    protected function documentCompany(SalesOrder $order): ?BusinessUnit
+    {
+        return $order->company_id
+            ? (BusinessUnit::find($order->company_id) ?: WmsContext::distributor())
+            : WmsContext::distributor();
+    }
+
+    public function orderPoPdf(string $order)
+    {
+        $order = $this->loadOrderForPrint($order);
+
+        $pdf = Pdf::loadView('agent.order.pdf.po', [
+            'order' => $order,
+            'company' => $this->documentCompany($order),
+            'agent' => $order->customer?->agent,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'PO-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $order->sales_number).'.pdf';
+
+        return $pdf->stream($filename);
+    }
+
+    public function orderInvoicePdf(string $order)
+    {
+        $order = $this->loadOrderForPrint($order);
+
+        $pdf = Pdf::loadView('agent.order.pdf.invoice', [
+            'order' => $order,
+            'company' => $this->documentCompany($order),
+            'agent' => $order->customer?->agent,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'INV-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $order->sales_number).'.pdf';
+
+        return $pdf->stream($filename);
+    }
+
     protected function minVariantPrice(string $productId, string $branchId, string $priceListId): float
     {
         return (float) ProductVariantPrice::query()
@@ -710,9 +1187,34 @@ class AgentOrderController extends Controller
             ->min('selling_price');
     }
 
+    public function uploadPaymentProof(Request $request, string $order): RedirectResponse
+    {
+        $request->validate([
+            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $order = SalesOrder::findOrFail($order);
+        $this->checkoutService()->assertOrderOwnedByCustomer($order, self::ORDER_TYPE);
+        abort_if($order->payment_status === 'paid', 422, 'Order sudah lunas.');
+
+        $path = $request->file('proof')->store('web-order-proofs', 'public');
+        $order->update([
+            'payment_proof_path' => $path,
+            'payment_proof_uploaded_at' => now(),
+            'payment_status' => 'pending_verification',
+        ]);
+
+        return back()->with('success', 'Bukti transfer terkirim. Menunggu verifikasi admin.');
+    }
+
     protected function isCashPaymentMethod(MethodPayment $method): bool
     {
         return ! $method->uses_payment_gateway
             && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
+    }
+
+    protected function isManualTransferMethod(MethodPayment $method): bool
+    {
+        return strtoupper($method->code) === 'MANUAL_TRANSFER';
     }
 }

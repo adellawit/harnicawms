@@ -19,7 +19,7 @@ class Asset extends Model
 
     protected $fillable = [
         'company_id', 'category_id', 'title', 'description', 'type',
-        'file_path', 'link_url', 'body_text',
+        'file_path', 'thumbnail_path', 'link_url', 'body_text',
         'usable_in_marketing', 'usable_in_training', 'can_be_thumbnail',
         'status', 'sort_order', 'created_by', 'updated_by', 'deleted_by',
     ];
@@ -49,6 +49,11 @@ class Asset extends Model
     public function getFileUrlAttribute(): ?string
     {
         return $this->file_path ? Storage::url($this->file_path) : null;
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return $this->thumbnail_path ? Storage::disk('public')->url($this->thumbnail_path) : null;
     }
 
     /** YouTube embed id for a video link, or null if the link isn't YouTube. */

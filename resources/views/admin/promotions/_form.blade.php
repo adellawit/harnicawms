@@ -7,9 +7,29 @@
 <div class="card mb-4">
     <div class="card-header">
         <h5 class="card-title mb-0">{{ $isEdit ? 'Edit Promotion' : 'Promotion Rule' }}</h5>
-        <p class="text-muted small mb-0 mt-1">Per-line buy X get Y. Free items can be fulfilled from Marketing or Product warehouse.</p>
+        <p class="text-muted small mb-0 mt-1">Product = buy X get Y per line. Marketing = diskon berdasarkan target agent/reseller (evaluasi POS = fase berikutnya).</p>
     </div>
     <div class="card-body">
+        <div class="row g-3 mb-1">
+            <div class="col-md-12">
+                <label class="form-label d-block">
+                    Promotion type <span class="text-danger">*</span>
+                </label>
+                @php $promoType = old('promotion_type', $p?->promotion_type ?? 'product'); @endphp
+                <div class="d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="promotion_type" id="promotion_type_product"
+                               value="product" @checked($promoType === 'product')>
+                        <label class="form-check-label" for="promotion_type_product">Product (Buy X Get Y)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="promotion_type" id="promotion_type_marketing"
+                               value="marketing" @checked($promoType === 'marketing')>
+                        <label class="form-check-label" for="promotion_type_marketing">Marketing (Target &amp; diskon)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="row g-3">
             <div class="col-md-3">
                 <label class="form-label">
@@ -108,6 +128,7 @@
     </div>
 </div>
 
+<div id="promoProductBlock">
 <div class="card mb-4">
     <div class="card-header"><h5 class="card-title mb-0">Buy condition</h5></div>
     <div class="card-body">
@@ -120,7 +141,7 @@
                        title="Customer must buy at least this qty on one line. Free = floor(qty / X) × Y."></i>
                 </label>
                 <input type="number" step="any" min="0.000001" name="buy_min_qty" class="form-control"
-                       value="{{ old('buy_min_qty', $p?->buy_min_qty ?? 1) }}" required>
+                       value="{{ old('buy_min_qty', $p?->buy_min_qty ?? 1) }}">
             </div>
             <div class="col-md-4">
                 <label class="form-label">
@@ -171,7 +192,7 @@
                        title="Free qty awarded per application. Buy 100 get 1 → X=100, Y=1."></i>
                 </label>
                 <input type="number" step="any" min="0.000001" name="get_qty" class="form-control"
-                       value="{{ old('get_qty', $p?->get_qty ?? 1) }}" required>
+                       value="{{ old('get_qty', $p?->get_qty ?? 1) }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label">
@@ -224,7 +245,7 @@
                        data-bs-toggle="tooltip"
                        title="Where free stock is deducted. Marketing = Gudang Marketing, FG = Gudang Product, ORDER = same warehouse as the sales order."></i>
                 </label>
-                <select name="free_warehouse_type" id="free_warehouse_type" class="form-select select2" required>
+                <select name="free_warehouse_type" id="free_warehouse_type" class="form-select select2">
                     @foreach ($warehouseTypes as $code => $label)
                         <option value="{{ $code }}" @selected(old('free_warehouse_type', $p?->free_warehouse_type ?? 'MARKETING') === $code)>
                             {{ $label }}
@@ -237,5 +258,86 @@
             Example: Min qty 100, Get qty 1, Same product, Marketing warehouse → buy 100 get 1 free from Marketing.
             Buy 250 → floor(250/100)×1 = 2 free.
         </p>
+    </div>
+</div>
+</div>
+
+<div id="promoMarketingBlock" style="display:none;">
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="card-title mb-0">Marketing target</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Target <span class="text-danger">*</span></label>
+                    <select name="target_type" id="target_type" class="form-select select2">
+                        <option value="agent" @selected(old('target_type', $p?->target_type) === 'agent')>Agent</option>
+                        <option value="reseller" @selected(old('target_type', $p?->target_type) === 'reseller')>Reseller</option>
+                        <option value="both" @selected(old('target_type', $p?->target_type ?? 'both') === 'both')>Keduanya</option>
+                    </select>
+                </div>
+                <div class="col-md-4 target-agent-picker">
+                    <label class="form-label">Agent spesifik</label>
+                    <select name="target_agent_id" id="target_agent_id" class="form-select select2">
+                        <option value="">-- Semua agent --</option>
+                        @foreach ($agents ?? [] as $agent)
+                            <option value="{{ $agent->id }}" @selected(old('target_agent_id', $p?->target_agent_id) === $agent->id)>
+                                {{ $agent->code }} — {{ $agent->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-4 target-reseller-picker">
+                    <label class="form-label">Reseller spesifik</label>
+                    <select name="target_reseller_id" id="target_reseller_id" class="form-select select2">
+                        <option value="">-- Semua reseller --</option>
+                        @foreach ($resellers ?? [] as $reseller)
+                            <option value="{{ $reseller->id }}" @selected(old('target_reseller_id', $p?->target_reseller_id) === $reseller->id)>
+                                {{ $reseller->code }} — {{ $reseller->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <input type="hidden" name="reactivates_reseller" value="0">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="reactivates_reseller" value="1" id="reactivates_reseller"
+                               @checked(old('reactivates_reseller', $p?->reactivates_reseller ?? false))>
+                        <label class="form-check-label" for="reactivates_reseller">Reaktivasi reseller yang memenuhi syarat</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="card-title mb-0">Syarat &amp; diskon</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Syarat belanja <span class="text-danger">*</span></label>
+                    <select name="min_purchase_type" id="min_purchase_type" class="form-select select2">
+                        <option value="amount" @selected(old('min_purchase_type', $p?->min_purchase_type ?? 'amount') === 'amount')>Nominal belanja</option>
+                        <option value="qty" @selected(old('min_purchase_type', $p?->min_purchase_type) === 'qty')>Qty belanja</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Nilai syarat <span class="text-danger">*</span></label>
+                    <input type="number" step="any" min="0.000001" name="min_purchase_value" class="form-control"
+                           value="{{ old('min_purchase_value', $p?->min_purchase_value) }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tipe diskon <span class="text-danger">*</span></label>
+                    <select name="discount_type" id="discount_type" class="form-select select2">
+                        <option value="percent" @selected(old('discount_type', $p?->discount_type ?? 'percent') === 'percent')>Persen (%)</option>
+                        <option value="nominal" @selected(old('discount_type', $p?->discount_type) === 'nominal')>Nominal (Rp)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Nilai diskon <span class="text-danger">*</span></label>
+                    <input type="number" step="any" min="0.000001" name="discount_value" class="form-control"
+                           value="{{ old('discount_value', $p?->discount_value) }}">
+                </div>
+            </div>
+        </div>
     </div>
 </div>

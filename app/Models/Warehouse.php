@@ -33,6 +33,7 @@ class Warehouse extends Model
         'phone',
         'address',
         'city',
+        'city_id',
         'province',
         'postal_code',
         'country',
@@ -60,6 +61,11 @@ class Warehouse extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(BusinessUnit::class, 'branch_id', 'id');
+    }
+
+    public function cityRef(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
     }
 
     public function warehouseType(): BelongsTo

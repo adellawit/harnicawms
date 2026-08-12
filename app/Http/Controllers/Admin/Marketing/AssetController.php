@@ -40,6 +40,8 @@ class AssetController extends Controller
             $data['file_path'] = $request->file('file')->store('marketing/assets', 'public');
         }
 
+        $this->applyThumbnailUpload($request, $data);
+
         Asset::create($data);
 
         return redirect()->route('marketing.assets.index')->with('success', 'Aset ditambahkan.');
@@ -74,6 +76,8 @@ class AssetController extends Controller
             $data['file_path'] = null;
         }
 
+        $this->applyThumbnailUpload($request, $data, $asset);
+
         $asset->update($data);
 
         return redirect()->route('marketing.assets.index')->with('success', 'Aset diperbarui.');
@@ -92,6 +96,9 @@ class AssetController extends Controller
 
         if ($asset->file_path) {
             Storage::disk('public')->delete($asset->file_path);
+        }
+        if ($asset->thumbnail_path) {
+            Storage::disk('public')->delete($asset->thumbnail_path);
         }
         $asset->deleted_by = Auth::id();
         $asset->save();
@@ -138,5 +145,19 @@ class AssetController extends Controller
             'status' => $request->input('status'),
             'sort_order' => (int) $request->input('sort_order', 0),
         ];
+    }
+
+    /** @param  array<string, mixed>  $data */
+    private function applyThumbnailUpload(AssetRequest $request, array &$data, ?Asset $asset = null): void
+    {
+        if (! $request->hasFile('thumbnail')) {
+            return;
+        }
+
+        if ($asset?->thumbnail_path) {
+            Storage::disk('public')->delete($asset->thumbnail_path);
+        }
+
+        $data['thumbnail_path'] = $request->file('thumbnail')->store('marketing/asset-thumbnails', 'public');
     }
 }

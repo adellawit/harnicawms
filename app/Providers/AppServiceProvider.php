@@ -15,6 +15,7 @@ use App\Services\Ai\Contracts\LlmProviderInterface;
 use App\Services\Ai\LlmProviderManager;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopContextService;
+use App\Services\Shipping\AgentShippingEstimator;
 use App\Services\Theme\AppThemeService;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrapFive();
         Paginator::defaultView('pagination.bootstrap-compact');
 
-        View::composer(['layouts.customer', 'layouts.agent-order', 'customer.auth.login'], function ($view) {
+        View::composer(['layouts.customer', 'layouts.agent-order', 'layouts.agent-pos', 'customer.auth.login'], function ($view) {
             $companyName = (string) config('shop.default_company_name', config('app.name'));
             $companyAddress = null;
             $companyPhone = null;
@@ -70,7 +71,7 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
-        View::composer('layouts.agent-order', function ($view) {
+        View::composer(['layouts.agent-order', 'layouts.agent-pos'], function ($view) {
             $emptyCart = ['price_list_id' => null, 'items' => []];
             $emptySummary = [
                 'item_count' => 0,
@@ -79,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
                 'tax_rate' => 0,
                 'tax_enabled' => false,
                 'total' => 0,
+                'shipping_estimate' => null,
             ];
 
             if (! auth('customer')->check()) {
@@ -89,9 +91,16 @@ class AppServiceProvider extends ServiceProvider
 
             try {
                 $cartService = new ShopCartService(new ShopContextService(auth('customer')->user()));
+                $summary = $cartService->summarize();
+                $agent = auth('customer')->user()?->agent;
+                $estimator = app(AgentShippingEstimator::class);
+                $summary['shipping_estimate'] = $agent
+                    ? $estimator->lowestEstimate($cartService, $agent)
+                    : null;
+
                 $view->with([
                     'navCart' => $cartService->get(),
-                    'navCartSummary' => $cartService->summarize(),
+                    'navCartSummary' => $summary,
                 ]);
             } catch (\Throwable) {
                 $view->with(['navCart' => $emptyCart, 'navCartSummary' => $emptySummary]);

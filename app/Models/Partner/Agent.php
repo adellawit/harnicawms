@@ -3,6 +3,7 @@
 namespace App\Models\Partner;
 
 use App\Models\BusinessUnit;
+use App\Models\City;
 use App\Models\Customer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -33,6 +34,7 @@ class Agent extends Model
         'phone',
         'address',
         'city',
+        'city_id',
         'province',
         'postal_code',
         'status',
@@ -67,6 +69,11 @@ class Agent extends Model
     public function defaultWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'default_warehouse_id', 'id');
+    }
+
+    public function cityRef(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
     }
 
     public function warehouses(): HasMany

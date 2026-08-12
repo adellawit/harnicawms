@@ -31,6 +31,7 @@ class AssetRequest extends FormRequest
             'can_be_thumbnail' => ['nullable', 'boolean'],
             'status' => ['required', Rule::in(['draft', 'active'])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
+            'thumbnail' => ['nullable', 'image', 'max:4096'],
         ];
     }
 

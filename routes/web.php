@@ -171,6 +171,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/agents/{id}', [PartnerAgentController::class, 'show'])->name('partner.agents.show')->middleware('permission:Partner Agent,is_read');
         Route::post('/agents/{id}/pks', [PartnerAgentController::class, 'storePks'])->name('partner.agents.pks.store')->middleware('permission:Partner Agent,is_update');
         Route::get('/agents/{id}/pks/{pksId}/download', [PartnerAgentController::class, 'downloadPks'])->name('partner.agents.pks.download')->middleware('permission:Partner Agent,is_read');
+        Route::put('/agents/{id}/city', [PartnerAgentController::class, 'updateCity'])->name('partner.agents.update-city')->middleware('permission:Partner Agent,is_update');
         Route::get('/resellers', [PartnerResellerController::class, 'index'])->name('partner.resellers.index')->middleware('permission:Partner Reseller,is_read');
         Route::get('/resellers/mapping', [PartnerResellerMappingController::class, 'index'])->name('partner.resellers.mapping.index')->middleware('permission:Partner Reseller Mapping,is_read');
         Route::post('/resellers/mapping', [PartnerResellerMappingController::class, 'update'])->name('partner.resellers.mapping.store')->middleware('permission:Partner Reseller Mapping,is_update');
