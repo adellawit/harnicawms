@@ -40,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrapFive();
         Paginator::defaultView('pagination.bootstrap-compact');
 
-        View::composer(['layouts.customer', 'layouts.agent-order', 'customer.auth.login'], function ($view) {
+        View::composer(['layouts.customer', 'layouts.agent-order', 'layouts.agent-pos', 'customer.auth.login'], function ($view) {
             $companyName = (string) config('shop.default_company_name', config('app.name'));
             $companyAddress = null;
             $companyPhone = null;
@@ -71,7 +71,7 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
-        View::composer('layouts.agent-order', function ($view) {
+        View::composer(['layouts.agent-order', 'layouts.agent-pos'], function ($view) {
             $emptyCart = ['price_list_id' => null, 'items' => []];
             $emptySummary = [
                 'item_count' => 0,

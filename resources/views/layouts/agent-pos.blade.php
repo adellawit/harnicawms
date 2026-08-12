@@ -17,12 +17,13 @@
     <link rel="stylesheet" href="{{ asset('assets/css/design-system.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/css/theme-bridge.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/css/shop.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
     @stack('styles')
 </head>
-<body class="agent-pos-body">
+<body class="agent-pos-body agent-order-body">
     <div class="agent-pos-shell">
         <header class="agent-pos-header">
             <div class="agent-pos-brand">
@@ -32,25 +33,21 @@
                     <i class="ti ti-receipt"></i>
                 @endif
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="agent-pos-identity">
                 @auth('customer')
-                    <span class="small text-muted d-none d-md-inline">{{ auth('customer')->user()->name }}</span>
+                    <span class="agent-pos-agent-name">{{ auth('customer')->user()->name }}</span>
                 @endauth
-                <a href="{{ route('agent-order.dashboard') }}" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-arrow-left me-1"></i> Beranda
-                </a>
-                @if (request()->routeIs('agent-order.pos') || request()->routeIs('agent-order.pos.history*'))
-                    <a href="{{ route('agent-order.pos.history') }}" class="btn btn-sm btn-label-secondary @if(request()->routeIs('agent-order.pos.history*')) active @endif">
-                        <i class="ti ti-history me-1"></i> Riwayat
-                    </a>
-                @endif
-                @if (request()->routeIs('agent-order.pos.history*'))
-                    <a href="{{ route('agent-order.pos') }}" class="btn btn-sm btn-primary">
-                        <i class="ti ti-receipt me-1"></i> POS
-                    </a>
-                @endif
+                <span class="pos-meta-sep">·</span>
+                <span>{{ date('d M Y') }}</span>
+                <span class="pos-meta-sep">·</span>
+                <span id="posClock">{{ date('H:i') }}</span>
+                <span class="pos-meta-sep">·</span>
+                <span><span id="cartItemCount" class="meta-val">0</span> item</span>
             </div>
+            @include('agent.partials._shop-nav-actions')
         </header>
+
+        @include('agent.partials._shop-cart-offcanvas')
 
         @yield('content')
     </div>
@@ -59,6 +56,21 @@
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+    @auth('customer')
+        <script>
+            window.shopRoutes = {
+                shop: @json(route('agent-order.index')),
+                variants: @json(route('agent-order.products.variants')),
+                cartAdd: @json(route('agent-order.cart.add')),
+                cartUpdate: @json(route('agent-order.cart.update')),
+                cartRemove: @json(route('agent-order.cart.remove')),
+                csrf: @json(csrf_token()),
+            };
+            window.shopCheckoutUrl = @json(route('agent-order.checkout'));
+            $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': window.shopRoutes.csrf } });
+        </script>
+        <script src="{{ asset('assets/js/shop.js') }}"></script>
+    @endauth
     @stack('scripts')
 </body>
 </html>

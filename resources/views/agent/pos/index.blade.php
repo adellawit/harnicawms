@@ -20,15 +20,11 @@
         @endif
 
         <div class="pos-top-bar">
-            <div class="pos-title-line">
-                <span class="pos-title">POS Agen</span>
-                <span class="pos-meta-sep">·</span>
-                <span>{{ date('d M Y') }}</span>
-                <span class="pos-meta-sep">·</span>
-                <span id="posClock">{{ date('H:i') }}</span>
-                <span class="pos-meta-sep">·</span>
-                <span><span id="cartItemCount" class="meta-val">0</span> item</span>
-                <span id="posTrxNumberWrap" class="ms-2" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
+            <span id="posTrxNumberWrap" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
+            <div class="pos-top-bar-actions ms-auto">
+                <a href="{{ route('agent-order.pos.history') }}" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-history me-1"></i> Riwayat
+                </a>
             </div>
         </div>
 
