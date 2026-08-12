@@ -130,7 +130,7 @@ class ShopController extends Controller
             ->get();
 
         $result = [];
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
         foreach ($variants as $v) {
             $unitId = $defaultUnitId ?? ProductVariantPrice::where('variant_id', $v->id)
                 ->where('branch_id', $branchId)

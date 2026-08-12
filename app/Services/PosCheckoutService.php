@@ -75,7 +75,7 @@ class PosCheckoutService
         $branchId = $this->resolveBranchId($request);
         $companyId = $request->company_id ?: optional(WmsContext::distributor())->id;
         $orderWarehouseId = $branchId
-            ? optional(WmsContext::defaultWarehouse($branchId))->id
+            ? optional(WmsContext::salesSourceWarehouse($branchId))->id
             : null;
 
         $itemsData = PromotionEngineService::applyToCartLines(
@@ -174,7 +174,7 @@ class PosCheckoutService
             $customerName = $customer?->name;
         }
 
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
 
         $order = SalesOrder::create([
             'sales_number' => $salesNumber,

@@ -164,6 +164,40 @@ class WmsContext
         return Warehouse::defaultForBranch($branchId);
     }
 
+    /**
+     * Gudang sumber penjualan (POS / shop / agent order).
+     * Prefer gudang Barang Jadi (FG) cabang; fallback ke default warehouse cabang.
+     * Default cabang sering RAW_MATERIAL (manufaktur), sementara stok jual ada di FG.
+     */
+    public static function salesSourceWarehouse(?string $branchId = null): ?Warehouse
+    {
+        $authUser = Auth::user();
+        $branchId = $branchId ?: ($authUser instanceof User ? $authUser->getBranchIdForTransaction() : null);
+
+        if (! $branchId) {
+            return null;
+        }
+
+        $fg = Warehouse::inventoryActive()
+            ->where('warehouse_type_code', 'FG')
+            ->forBranchAccess($branchId)
+            ->orderByDesc('is_default')
+            ->orderBy('code')
+            ->first();
+
+        if ($fg) {
+            return $fg;
+        }
+
+        $businessUnit = BusinessUnit::find($branchId);
+        $companyId = $businessUnit?->type_code === 'BRANCH'
+            ? $businessUnit->parent_id
+            : ($businessUnit?->type_code === 'COMPANY' ? $businessUnit->id : null);
+
+        return self::finishedGoodsWarehouse($companyId)
+            ?? Warehouse::defaultForBranch($branchId);
+    }
+
     public static function defaultAgentWarehouse(?string $agentId = null): ?Warehouse
     {
         if (! $agentId) {

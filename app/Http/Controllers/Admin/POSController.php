@@ -48,7 +48,7 @@ class POSController extends Controller
     public function indexView(Request $request)
     {
         $branchId = $this->getBranchId();
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
         $companyId = $this->getCompanyId();
 
         // Type Transaction = Price Lists
@@ -271,7 +271,7 @@ class POSController extends Controller
 
         $branchId = $this->getBranchId();
         $companyId = $this->getCompanyId() ?: optional(WmsContext::distributor())->id;
-        $orderWarehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $orderWarehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
 
         $itemsData = [];
         foreach ($request->items as $item) {

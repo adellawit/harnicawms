@@ -250,7 +250,7 @@ class ProductSearchService
      */
     protected function resolveVariantPricing(ProductVariant $variant, string $branchId, string $priceListId): array
     {
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
         $product = $variant->product;
 
         $unitId = $product?->default_unit_id;

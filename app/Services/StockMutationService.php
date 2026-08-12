@@ -148,10 +148,12 @@ class StockMutationService
         if ($after < -1e-6) {
             $variant = ProductVariant::with('product')->find($variantId);
             $label = $variant?->display_name ?? $variant?->product?->name ?? 'Produk';
+            $warehouseLabel = Warehouse::query()->whereKey($warehouseId)->value('code');
 
             throw new \RuntimeException(sprintf(
-                'Stok %s tidak cukup. Tersedia: %s, diminta: %s.',
+                'Stok %s tidak cukup%s. Tersedia: %s, diminta: %s.',
                 $label,
+                $warehouseLabel ? ' di gudang '.$warehouseLabel : '',
                 rtrim(rtrim(number_format(max($before, 0), 4, '.', ''), '0'), '.'),
                 rtrim(rtrim(number_format($deductInStockUnit, 4, '.', ''), '0'), '.')
             ));

@@ -92,7 +92,7 @@ class ShopCartService
             throw new \InvalidArgumentException('Harga produk belum diatur.');
         }
 
-        $warehouseId = optional(WmsContext::defaultWarehouse($branchId))->id;
+        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
 
         $stockRow = ProductVariantStock::where('product_variant_id', $variant->id)
             ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
