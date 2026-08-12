@@ -17,6 +17,7 @@ use App\Models\SalesOrderPayment;
 use App\Services\PosCheckoutService;
 use App\Services\Product\ProductSearchService;
 use App\Services\Promotion\PromotionEngineService;
+use App\Services\Sales\BarcodeDispatchService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
@@ -33,6 +34,7 @@ class AgentPosController extends Controller
     public function __construct(
         protected PosCheckoutService $checkout,
         protected ProductSearchService $productSearch,
+        protected BarcodeDispatchService $barcodeDispatch,
         protected XenditService $xendit,
         protected PaymentSyncService $paymentSync,
     ) {}
@@ -326,10 +328,42 @@ class AgentPosController extends Controller
                 'product_id' => $product->id,
                 'default_unit_id' => $product->default_unit_id,
                 'unit_options' => $unitOptions,
+                'has_trackable_serials' => $this->barcodeDispatch->productHasTrackableSerials($product->id, $variant->id),
             ]);
         }
 
         return response()->json(['variants' => $result]);
+    }
+
+    public function lookupBarcode(Request $request): JsonResponse
+    {
+        $request->validate([
+            'serial_number' => 'required|string|max:20',
+            'price_list_id' => 'required|uuid',
+            'pending_product_id' => 'nullable|uuid',
+            'pending_variant_id' => 'nullable|uuid',
+            'pending_unit_id' => 'nullable|uuid',
+        ]);
+
+        $branchId = $this->branchId();
+        if (! $branchId) {
+            return response()->json(['success' => false, 'message' => 'Konteks agen tidak ditemukan'], 422);
+        }
+
+        try {
+            $payload = $this->barcodeDispatch->lookupForPos(
+                $request->serial_number,
+                $branchId,
+                $request->price_list_id,
+                $request->pending_product_id,
+                $request->pending_variant_id,
+                $request->pending_unit_id,
+            );
+
+            return response()->json(['success' => true, 'data' => $payload]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
     }
 
     public function previewPromo(Request $request): JsonResponse
@@ -516,6 +550,13 @@ class AgentPosController extends Controller
                 $this->agentWarehouseId(),
             );
 
+            $this->barcodeDispatch->assignSerialsForNewOrder(
+                $order,
+                $order->pending_serials_by_item_id ?? [],
+                null,
+                $branchId,
+            );
+
             $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
             $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
 
@@ -670,6 +711,13 @@ class AgentPosController extends Controller
             $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
             $order->refresh();
 
+            $this->barcodeDispatch->assignSerialsForNewOrder(
+                $order,
+                $order->pending_serials_by_item_id ?? [],
+                $userId,
+                $branchId,
+            );
+
             $total = (float) $order->total;
             if ($amountPaid < $total) {
                 DB::rollBack();
@@ -693,6 +741,7 @@ class AgentPosController extends Controller
             ]);
 
             $this->checkout->completePaidOrder($order->fresh(), $userId);
+            $this->barcodeDispatch->finalizeIfEligible($order->id, $userId, $branchId);
 
             $this->maybeReactivateReseller(
                 $request->attributes->get('marketing_promo'),
@@ -762,6 +811,13 @@ class AgentPosController extends Controller
             $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
             $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
             $order->refresh();
+
+            $this->barcodeDispatch->assignSerialsForNewOrder(
+                $order,
+                $order->pending_serials_by_item_id ?? [],
+                $userId,
+                $branchId,
+            );
 
             $total = (float) $order->total;
 
@@ -897,6 +953,8 @@ class AgentPosController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_type' => 'nullable|in:percent,nominal',
             'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.serial_numbers' => 'nullable|array',
+            'items.*.serial_numbers.*' => 'string|max:20',
             'customer_id' => 'nullable|uuid',
             'tax_rate' => 'required|numeric|min:0|max:100',
             'tax_enabled' => 'required|boolean',
@@ -1095,6 +1153,7 @@ class AgentPosController extends Controller
             ]);
 
             $this->checkout->completePaidOrder($order->fresh(), null);
+            $this->barcodeDispatch->finalizeIfEligible($order->id, null, (string) $order->branch_id);
 
             DB::commit();
 

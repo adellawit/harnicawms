@@ -156,6 +156,7 @@
                         <img src="" class="ci-img" alt="" onerror="this.src='https://placehold.co/44x44/f8f9fa/b0b7c3?text=?'">
                         <div class="ci-info">
                             <div class="ci-name">Produk</div>
+                            <div class="ci-serial small text-muted" style="display:none"></div>
                             <div class="ci-price">Rp 0</div>
                         </div>
                         <div class="ci-right">
@@ -290,6 +291,19 @@
                 </div>
                 <div class="modal-body">
                     <div id="addItemVariantName" class="fw-semibold mb-3"></div>
+                    <div id="addItemSerialWrap" class="mb-3 d-none">
+                        <label class="form-label d-flex align-items-center gap-1" for="addItemSerialInput">
+                            <i class="ti ti-barcode"></i> Scan atau ketik serial
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ti ti-barcode"></i></span>
+                            <input type="text" id="addItemSerialInput" class="form-control" placeholder="Scan / ketik serial..." autocomplete="off" inputmode="text">
+                            <button type="button" class="btn btn-outline-primary" id="addItemSerialBtn">Tambah</button>
+                        </div>
+                        <div class="form-text">Serial menentukan satuan otomatis. Untuk kasus scanner error, ketik manual lalu tekan Tambah/Enter.</div>
+                        <div id="addItemSerialFeedback" class="small mt-1"></div>
+                        <ul id="addItemSerialList" class="list-unstyled small mt-2 mb-0"></ul>
+                    </div>
                     <div class="mb-3" id="addItemUnitWrap">
                         <label class="form-label" for="addItemUnitSelect">Unit</label>
                         <select id="addItemUnitSelect" class="form-select"></select>
@@ -447,6 +461,7 @@
             previewPromo: @json(route('agent-order.pos.preview-promo')),
             payment: @json(route('agent-order.pos.payment')),
             order: @json(route('agent-order.pos.order')),
+            barcodeLookup: @json(route('agent-order.pos.barcode-lookup')),
             payPendingBase: @json(url('/agent-order/pos/payment')),
             paymentStatus: @json(url('/agent-order/pos/payment')),
             resellerSearch: @json(route('agent-order.pos.resellers-search')),
@@ -469,5 +484,6 @@
             agentId: @json($agentId ?? null),
         };
     </script>
+    <script src="{{ asset('assets/js/pos-barcode-scan.js') }}"></script>
     <script src="{{ asset('assets/js/agent-pos.js') }}"></script>
 @endpush

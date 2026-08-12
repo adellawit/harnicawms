@@ -19,6 +19,7 @@
     var variantModal = null;
     var addItemModal = null;
     var pendingAddItem = null;
+    var pendingModalSerials = [];
     var selectedMarketingPromo = null;
     var marketingPromoBlocked = false;
     var marketingPromoBlockMessage = '';
@@ -583,8 +584,147 @@
             submitAddItemModal();
         });
 
+        $('#addItemSerialBtn').on('click', function () {
+            lookupAgentSerial($('#addItemSerialInput').val());
+        });
+
+        $('#addItemSerialInput').on('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                lookupAgentSerial($(this).val());
+            }
+        });
+
+        $('#addItemModal').on('shown.bs.modal', function () {
+            if (pendingAddItem && pendingAddItem.variant && pendingAddItem.variant.has_trackable_serials) {
+                $('#addItemSerialInput').trigger('focus');
+            }
+        });
+
         $('#addItemModal').on('hidden.bs.modal', function () {
             pendingAddItem = null;
+            resetAddItemSerialState();
+        });
+    }
+
+    function resetAddItemSerialState() {
+        pendingModalSerials = [];
+        $('#addItemSerialList').empty();
+        $('#addItemSerialInput').val('');
+        $('#addItemSerialFeedback').empty().removeClass('text-success text-danger');
+        $('#addItemUnitSelect').prop('disabled', false);
+        $('#addItemSerialWrap').addClass('d-none');
+    }
+
+    function showSerialFeedback(message, type) {
+        $('#addItemSerialFeedback')
+            .text(message || '')
+            .removeClass('text-success text-danger')
+            .addClass(type === 'success' ? 'text-success' : 'text-danger');
+    }
+
+    function serialExistsInCart(serialNumber) {
+        var found = false;
+        $cartPaidItems().each(function () {
+            var raw = $(this).attr('data-serial-numbers');
+            if (!raw) {
+                return;
+            }
+            try {
+                var serials = JSON.parse(raw);
+                if (Array.isArray(serials) && serials.indexOf(String(serialNumber)) !== -1) {
+                    found = true;
+                    return false;
+                }
+            } catch (err) {
+                // ignore malformed data
+            }
+        });
+        return found;
+    }
+
+    function appendSerialChip(serialNumber) {
+        pendingModalSerials.push({ serial_number: String(serialNumber) });
+        $('#addItemSerialList').append(
+            $('<li class="d-flex align-items-center gap-2 mb-1"></li>').append(
+                $('<span class="badge bg-label-primary"></span>').text(serialNumber)
+            )
+        );
+    }
+
+    function bumpQtyToSerialCount() {
+        $('#addItemQtyInput').val(Math.max(1, pendingModalSerials.length));
+    }
+
+    function lookupAgentSerial(serial) {
+        serial = $.trim(String(serial || ''));
+        if (!serial) {
+            showSerialFeedback('Masukkan nomor serial.', 'danger');
+            return;
+        }
+
+        if (pendingModalSerials.some(function (row) {
+            return row.serial_number === serial;
+        })) {
+            showSerialFeedback('Serial sudah ada di daftar.', 'danger');
+            return;
+        }
+
+        if (serialExistsInCart(serial)) {
+            showSerialFeedback('Serial sudah ada di keranjang.', 'danger');
+            return;
+        }
+
+        var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val();
+        if (!priceListId) {
+            showSerialFeedback('Pilih daftar harga dulu.', 'danger');
+            return;
+        }
+
+        if (!pendingAddItem || !pendingAddItem.variant) {
+            showSerialFeedback('Produk belum dipilih.', 'danger');
+            return;
+        }
+
+        var pendingUnitId = $('#addItemUnitSelect').prop('disabled') ? ($('#addItemUnitSelect').val() || null) : null;
+
+        $.ajax({
+            url: window.agentPosRoutes && window.agentPosRoutes.barcodeLookup,
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                Accept: 'application/json',
+            },
+            data: {
+                serial_number: serial,
+                price_list_id: priceListId,
+                pending_product_id: pendingAddItem.variant.product_id,
+                pending_variant_id: pendingAddItem.variant.id,
+                pending_unit_id: pendingUnitId,
+            },
+        }).done(function (res) {
+            if (!res.success) {
+                showSerialFeedback(res.message || 'Serial tidak valid.', 'danger');
+                return;
+            }
+
+            var d = res.data || {};
+            $('#addItemUnitSelect').val(d.unit_id).prop('disabled', true);
+            if ($('#addItemUnitWrap').is(':hidden') && d.unit_label) {
+                $('#addItemUnitWrap').show();
+            }
+
+            var currentPrice = parseRupiah($('#addItemPriceInput').val());
+            if (!currentPrice || currentPrice <= 0) {
+                $('#addItemPriceInput').val(formatRupiah(d.price || d.selling_price || 0));
+            }
+
+            appendSerialChip(d.serial_number);
+            bumpQtyToSerialCount();
+            $('#addItemSerialInput').val('').trigger('focus');
+            showSerialFeedback('Serial ' + d.serial_number + ' ditambahkan.', 'success');
+        }).fail(function (xhr) {
+            showSerialFeedback((xhr.responseJSON && xhr.responseJSON.message) || 'Serial tidak ditemukan.', 'danger');
         });
     }
 
@@ -604,6 +744,8 @@
     }
 
     function openAddItemModal(variant, productImage) {
+        resetAddItemSerialState();
+
         var unitOptions = resolveUnitOptions(variant);
         if (!unitOptions.length) {
             Swal.fire({
@@ -623,7 +765,7 @@
 
         $('#addItemVariantName').text(variant.display_name || variant.name || 'Produk');
         var $unitSelect = $('#addItemUnitSelect');
-        $unitSelect.empty();
+        $unitSelect.empty().prop('disabled', false);
         unitOptions.forEach(function (opt) {
             $unitSelect.append(
                 $('<option></option>')
@@ -646,8 +788,12 @@
             $('#addItemUnitWrap').show();
         }
 
+        if (variant.has_trackable_serials) {
+            $('#addItemSerialWrap').removeClass('d-none');
+        }
+
         syncAddItemPriceFromUnit();
-        $('#addItemQtyInput').val(1);
+        $('#addItemQtyInput').val(1).prop('readonly', false);
 
         if (addItemModal) {
             addItemModal.show();
@@ -705,6 +851,10 @@
             return;
         }
 
+        var serialNumbers = pendingModalSerials.map(function (row) {
+            return row.serial_number;
+        });
+
         addToCart(
             variant.id,
             variant.display_name,
@@ -712,7 +862,8 @@
             pendingAddItem.image,
             unitId,
             unitLabel,
-            qty
+            serialNumbers.length ? serialNumbers.length : qty,
+            serialNumbers.length ? { serial_numbers: serialNumbers } : null
         );
 
         if (addItemModal) {
@@ -754,7 +905,7 @@
     function bindCartEvents() {
         $(document).on('click', '.btn-minus', function () {
             var $item = $(this).closest('.pos-cart-item');
-            if ($item.hasClass('is-promo-free')) {
+            if ($item.hasClass('is-promo-free') || $item.hasClass('is-serial-tracked')) {
                 return;
             }
             var inp = $(this).siblings('.quantity-input');
@@ -766,7 +917,7 @@
         });
         $(document).on('click', '.btn-plus', function () {
             var $item = $(this).closest('.pos-cart-item');
-            if ($item.hasClass('is-promo-free')) {
+            if ($item.hasClass('is-promo-free') || $item.hasClass('is-serial-tracked')) {
                 return;
             }
             var inp = $(this).siblings('.quantity-input');
@@ -1089,6 +1240,18 @@
                 discType = $el.find('.item-disc-type.active').data('type') || 'percent';
                 discVal = parseDiscValue($el.find('.item-disc-input').val(), discType);
             }
+            var serialNumbers = [];
+            var serialRaw = $el.attr('data-serial-numbers');
+            if (serialRaw) {
+                try {
+                    var parsed = JSON.parse(serialRaw);
+                    if (Array.isArray(parsed)) {
+                        serialNumbers = parsed.map(String);
+                    }
+                } catch (err) {
+                    serialNumbers = [];
+                }
+            }
             items.push({
                 variant_id: $el.data('variant-id'),
                 unit_id: $el.data('unit-id'),
@@ -1096,7 +1259,7 @@
                 unit_price: unitPrice,
                 discount_type: discType,
                 discount_value: discVal,
-                serial_numbers: [],
+                serial_numbers: serialNumbers,
             });
         });
         return items;
@@ -1188,26 +1351,42 @@
         $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(paidQty + freeQty);
     }
 
-    function addToCart(variantId, name, price, image, unitId, unitLabel, qty) {
+    function addToCart(variantId, name, price, image, unitId, unitLabel, qty, options) {
         qty = parseInt(qty, 10) || 1;
+        options = options || null;
+        var serialNumbers = options && options.serial_numbers ? options.serial_numbers.slice() : [];
         $('#emptyCart').hide();
-        var existing = $cartPaidItems().filter(function () {
-            return $(this).data('variant-id') == variantId && String($(this).data('unit-id') || '') === String(unitId || '');
-        });
-        if (existing.length > 0) {
-            var inp = existing.find('.quantity-input');
-            inp.val(parseInt(inp.val(), 10) + qty);
-            if (window.agentPosIsMobile && window.agentPosIsMobile()) {
-                window.agentPosSetMobileView('cart');
+
+        if (!serialNumbers.length) {
+            var existing = $cartPaidItems().filter(function () {
+                return $(this).data('variant-id') == variantId
+                    && String($(this).data('unit-id') || '') === String(unitId || '')
+                    && !$(this).hasClass('is-serial-tracked');
+            });
+            if (existing.length > 0) {
+                var inp = existing.find('.quantity-input');
+                inp.val(parseInt(inp.val(), 10) + qty);
+                if (window.agentPosIsMobile && window.agentPosIsMobile()) {
+                    window.agentPosSetMobileView('cart');
+                }
+                updateCartTotals();
+                checkEmptyCart();
+                return;
             }
-            updateCartTotals();
-            checkEmptyCart();
-            return;
         }
+
         var item = $('#sampleCartItem').clone().removeAttr('id').show();
         item.attr('data-variant-id', variantId);
         item.attr('data-unit-id', unitId || '');
         item.attr('data-unit-label', unitLabel || '');
+        if (serialNumbers.length) {
+            item.addClass('is-serial-tracked');
+            item.attr('data-serial-numbers', JSON.stringify(serialNumbers));
+            item.find('.ci-serial').text('Serial: ' + serialNumbers.join(', ')).show();
+            item.find('.btn-minus, .btn-plus').prop('disabled', true).addClass('disabled');
+        } else {
+            item.find('.ci-serial').hide().text('');
+        }
         item.find('.ci-img').attr('src', image || 'https://placehold.co/44x44/f8f9fa/b0b7c3?text=?');
         item.find('.ci-name').text(name);
         item.find('.ci-price').text('Rp ' + formatRupiah(price) + (unitLabel ? ' / ' + unitLabel : ''));
