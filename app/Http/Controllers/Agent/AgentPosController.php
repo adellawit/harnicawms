@@ -22,6 +22,7 @@ use App\Services\Shop\ShopContextService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
 use App\Support\WmsContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -231,6 +232,31 @@ class AgentPosController extends Controller
             'nonXenditMethods' => $paymentOptions['nonXenditMethods'],
             'xenditEnabled' => $paymentOptions['xenditEnabled'],
         ]);
+    }
+
+    public function invoicePdf(string $order)
+    {
+        $orderModel = $this->agentPosOrdersQuery()
+            ->with([
+                'items.product',
+                'items.variant.variantAttributes.attributeValue',
+                'items.unit',
+                'payments.methodPayment',
+                'methodPayment',
+                'customer',
+            ])
+            ->findOrFail($order);
+
+        $this->assertAgentPosOrderOwned($orderModel);
+
+        $pdf = Pdf::loadView('agent.pos.pdf.invoice', [
+            'order' => $orderModel,
+            'agent' => $this->agent(),
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'INV-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $orderModel->sales_number).'.pdf';
+
+        return $pdf->stream($filename);
     }
 
     protected function formatPromoQty(float $qty): string

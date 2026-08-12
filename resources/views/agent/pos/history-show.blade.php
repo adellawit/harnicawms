@@ -30,6 +30,10 @@
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                 <span class="badge bg-label-{{ $payBadge }}">{{ $payLabel }}</span>
+                <a href="{{ route('agent-order.pos.history.invoice-pdf', $order->id) }}" target="_blank"
+                    class="btn btn-outline-primary btn-sm">
+                    <i class="ti ti-file-invoice me-1"></i> Cetak Invoice
+                </a>
                 @if ($order->payment_status === 'unpaid')
                     <button type="button"
                         class="btn btn-success btn-sm btn-history-pay"
