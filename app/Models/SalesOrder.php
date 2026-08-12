@@ -59,6 +59,7 @@ class SalesOrder extends Model
         'membership_redeem_discount_amount',
         'membership_configuration_id',
         'notes',
+        'pending_serials_by_item_id',
         'reference',
         'created_by',
         'updated_by',
@@ -85,6 +86,7 @@ class SalesOrder extends Model
         'membership_points_earned' => 'integer',
         'membership_points_redeemed' => 'integer',
         'membership_redeem_discount_amount' => 'decimal:4',
+        'pending_serials_by_item_id' => 'array',
     ];
 
     public function items(): HasMany

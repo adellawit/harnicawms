@@ -28,7 +28,6 @@
                 <time class="text-muted small">{{ $order->created_at->format('d M Y, H:i') }}</time>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
-                <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                 <span class="badge bg-label-{{ $payBadge }}">{{ $payLabel }}</span>
                 <a href="{{ route('agent-order.pos.history.invoice-pdf', $order->id) }}" target="_blank"
                     class="btn btn-outline-primary btn-sm">
