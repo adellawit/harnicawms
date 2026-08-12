@@ -11,7 +11,7 @@
             </p>
             <p class="footer-powered-by mb-0 text-muted small d-none d-md-block">
                 <span>Powered by</span>
-                <span class="fw-semibold text-primary">ags.</span>
+                <span class="fw-semibold text-primary">WIT.ID</span>
             </p>
         </div>
     </div>

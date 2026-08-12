@@ -1,29 +1,27 @@
-# Restore nested Training + Marketing menus
-
-## Root cause
-Request sebelumnya dibaca terbalik: "tolong ganti bagian menu 11/12" = **ganti yang ini**,
-bukan target. Target = nested order 6/7 dari "ini menu terbaru".
-
-## Target
-```
-6 Training Academy (training/academy)
-  1 Course (training/courses)
-  2 Academy (academy)
-  3 Pengaturan Academy (training/settings)
-7 Marketing Center (—)
-  1 Marketing Category (marketing/categories)
-  2 Marketing Assets (marketing/assets)
-```
+# Theme Appearance Studio
 
 ## Checklist
-- [x] Migrasi restore nested + shift CRM+ order
-- [x] Update TrainingAccessSeeder
-- [x] Update MarketingAccessSeeder (create, bukan delete)
-- [x] Grant IAM admin/marketing/agent
-- [x] Verify DB tree
-- [x] lessons.md
+- [x] Explore context + clarify (A upgrade, A full tokens, B mock preview)
+- [x] Approach 1 approved
+- [x] Design sections approved (layout, tokens, components)
+- [x] Spec written
+- [x] User review spec → implementation
+- [x] Implementation plan
+- [x] Migration + model
+- [x] AppThemeService tokens + ThemePaletteGenerator
+- [x] Controller + generate route
+- [x] CSS + Blade studio UI + theme-appearance.js
+- [ ] Manual verify on `/settings/theme-configuration` (hard refresh)
+
+## Spec
+`docs/superpowers/specs/2026-08-06-theme-appearance-studio-design.md`
+
+## Plan
+`docs/superpowers/plans/2026-08-06-theme-appearance-studio.md`
 
 ## Review
-- Migrasi: `2026_08_04_000021_restore_nested_training_marketing_menus`
-- Flat 11/12 Training/Pengaturan sudah diganti → nested 6/7
-- **Relogin** wajib agar session sidebar refresh
+- Page Appearance & Theme di-upgrade jadi studio: preview mock dashboard (sidebar+navbar+scenes) + panel token kanan
+- Token light/dark JSONB, AI generate, Save sync ke legacy primary/secondary/surfaces
+- Navbar tokens custom (`navbar-background` / `navbar-foreground`); Import/Export dihapus
+- Dark mode: preview + persist saja (belum global app toggle)
+- Verified: migration OK, routes registered, Blade cache compiles, token resolve includes navbar

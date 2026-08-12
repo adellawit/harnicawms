@@ -50,10 +50,26 @@
                 padding: 1rem;
                 height: 100%;
                 background: rgba(38, 43, 67, 0.015);
+                overflow: visible;
+                position: relative;
             }
             .am-map-card.is-filled {
                 border-color: rgba(40, 199, 111, 0.35);
                 background: rgba(40, 199, 111, 0.04);
+            }
+            /* Keep Select2 inside local parent (avoids body offset) but unclip ancestors */
+            .am-layout .fin-section,
+            .am-layout .card,
+            .am-layout .card-body,
+            .am-layout .card-footer {
+                overflow: visible !important;
+            }
+            .am-select-wrap {
+                position: relative;
+            }
+            .am-layout .select2-container--open,
+            .am-layout .select2-container--open .select2-dropdown {
+                z-index: 1080;
             }
         </style>
     @endpush
@@ -277,6 +293,34 @@
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     @endpush
     @push('page-js')
-        <script src="{{ asset('assets/js/forms-selects.js') }}"></script>
+        <script>
+            (function ($) {
+                'use strict';
+                $(function () {
+                    $('.select2').each(function () {
+                        var $el = $(this);
+                        if ($el.hasClass('select2-hidden-accessible')) {
+                            $el.select2('destroy');
+                        }
+
+                        // Prefer mapping card; else wrap so position stays aligned to the field
+                        var $parent = $el.closest('.am-map-card');
+                        if (! $parent.length) {
+                            if (! $el.parent().hasClass('am-select-wrap')) {
+                                $el.wrap('<div class="am-select-wrap"></div>');
+                            }
+                            $parent = $el.parent();
+                        }
+
+                        $el.select2({
+                            width: '100%',
+                            placeholder: 'Select value',
+                            allowClear: $el.data('allow-clear') === true || $el.data('allow-clear') === 'true',
+                            dropdownParent: $parent,
+                        });
+                    });
+                });
+            })(jQuery);
+        </script>
     @endpush
 </x-app-layout>

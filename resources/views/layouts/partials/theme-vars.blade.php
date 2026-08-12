@@ -1,6 +1,7 @@
 {{-- Injected server-side theme tokens (custom mode) + body flags --}}
 @php
     $t = $appTheme ?? [];
+    $tokens = $t['tokens_light'] ?? [];
 @endphp
 <style id="app-theme-vars">
 :root {
@@ -43,5 +44,8 @@
     --brand-page-bg: {{ $t['page_bg'] }};
     --brand-page-bg-rgb: {{ $t['page_bg_rgb'] }};
 @endif
+@foreach ($tokens as $tokenKey => $tokenValue)
+    --app-{{ $tokenKey }}: {{ $tokenValue }};
+@endforeach
 }
 </style>

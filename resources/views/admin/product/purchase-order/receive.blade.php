@@ -222,7 +222,7 @@
                         </div>
 
                         <div class="row g-3 receive-row__fields align-items-start">
-                            <div class="col-md-4 col-lg-3 batch-fields">
+                            <div class="col-md-5 col-lg-4 batch-fields">
                                 <label class="form-label">Kode Batch <span class="text-danger batch-required-mark">*</span></label>
                                 @if($fullyReceived)
                                     <input type="text" class="form-control bg-light" value="{{ $item->batch_number ?: '-' }}" readonly disabled />
@@ -235,14 +235,14 @@
                                     @endphp
                                     <div class="input-group">
                                         <input type="text" name="items[{{ $idx }}][batch_number]" class="form-control item-batch" maxlength="100" value="{{ $defaultBatch }}" placeholder="BATCH-26071601" data-auto-batch="1" />
-                                        <button type="button" class="btn btn-outline-secondary btn-gen-batch" title="Generate ulang">
-                                            <i class="ti ti-refresh"></i>
+                                        <button type="button" class="btn btn-outline-secondary btn-gen-batch" title="Generate ulang kode batch" aria-label="Generate ulang kode batch">
+                                            <i class="ti ti-refresh me-1"></i>Generate
                                         </button>
                                     </div>
                                     <span class="receive-hint">Format: BATCH-YYMMDD + no. unik</span>
                                 @endif
                             </div>
-                            <div class="col-md-3 col-lg-2 batch-fields">
+                            <div class="col-md-2 col-lg-2 batch-fields">
                                 <label class="form-label">Expired <span class="text-danger batch-required-mark">*</span></label>
                                 @if($fullyReceived)
                                     <input type="text" class="form-control bg-light" value="{{ $item->expiry_date?->format('d/m/Y') ?: '-' }}" readonly disabled />
@@ -259,7 +259,7 @@
                                     <input type="number" name="items[{{ $idx }}][quantity_received]" class="form-control item-receive-qty" value="{{ old('items.'.$idx.'.quantity_received', 0) }}" min="0" max="{{ $remaining }}" step="any" data-max="{{ $remaining }}" />
                                 @endif
                             </div>
-                            <div class="col-md-3 col-lg-5">
+                            <div class="col-md-3 col-lg-4">
                                 <label class="form-label">Notes</label>
                                 <input type="text" name="items[{{ $idx }}][notes]" class="form-control" value="{{ old('items.'.$idx.'.notes') }}" placeholder="Optional..." {{ $fullyReceived ? 'disabled' : '' }} />
                             </div>

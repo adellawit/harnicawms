@@ -545,6 +545,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/theme-configuration', [ThemeConfigurationController::class, 'update'])
             ->name('settings.theme-configuration.update')
             ->middleware('permission:Appearance & Theme,is_update');
+        Route::post('/theme-configuration/generate', [ThemeConfigurationController::class, 'generate'])
+            ->name('settings.theme-configuration.generate')
+            ->middleware('permission:Appearance & Theme,is_update');
     });
 
     /*****************
