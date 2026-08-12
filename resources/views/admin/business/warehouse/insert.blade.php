@@ -31,4 +31,5 @@
     </div>
 
     @include('admin.business.warehouse._form-scripts')
+    @include('admin.master-data.shipping-rate._city-select-js')
 </x-app-layout>

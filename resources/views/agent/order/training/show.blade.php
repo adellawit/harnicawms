@@ -21,6 +21,7 @@
 
     @php
         $hasMaterials = $course->modules->contains(fn ($module) => $module->materials->isNotEmpty());
+        $materialProgress = $materialProgress ?? [];
     @endphp
 
     @forelse ($course->modules as $module)
@@ -33,11 +34,39 @@
             </div>
             <div class="card-body pt-3">
                 @forelse ($module->materials as $material)
-                    <article class="agent-training-material mb-4 pb-4 border-bottom">
-                        <h3 class="h6 fw-semibold mb-2">
-                            <i class="ti {{ $material->effective_type === 'video' ? 'ti-brand-youtube' : ($material->effective_type === 'pdf' ? 'ti-file-type-pdf' : 'ti-photo') }} me-1 text-muted"></i>
-                            {{ $material->title }}
-                        </h3>
+                    @php
+                        $progress = $materialProgress[$material->id] ?? null;
+                        $elapsed = (int) ($progress['elapsed_seconds'] ?? 0);
+                        $completed = ! empty($progress['completed']);
+                        $durationSeconds = (int) ($material->estimated_minutes ?? 0) * 60;
+                    @endphp
+                    <article class="agent-training-material mb-4 pb-4 border-bottom"
+                        data-agent-training-material
+                        data-material-id="{{ $material->id }}"
+                        @if ($durationSeconds > 0)
+                            data-duration="{{ $durationSeconds }}"
+                            data-elapsed="{{ $elapsed }}"
+                        @endif
+                        data-completed="{{ $completed ? '1' : '0' }}">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                            <h3 class="h6 fw-semibold mb-0">
+                                <i class="ti {{ $material->effective_type === 'video' ? 'ti-brand-youtube' : ($material->effective_type === 'pdf' ? 'ti-file-type-pdf' : 'ti-photo') }} me-1 text-muted"></i>
+                                {{ $material->title }}
+                            </h3>
+                            <div class="d-flex flex-wrap align-items-center gap-2 agent-training-material-meta">
+                                @if ($durationSeconds > 0)
+                                    <span class="agent-training-timer badge bg-label-primary font-monospace" aria-live="polite">--:--</span>
+                                    <span class="small text-muted agent-training-timer-hint">estimasi {{ $material->estimated_minutes }} menit</span>
+                                @endif
+                                @if ($completed)
+                                    <span class="badge bg-label-success agent-training-done-badge"><i class="ti ti-check me-1"></i>Selesai</span>
+                                @else
+                                    <button type="button" class="btn btn-sm btn-outline-success agent-training-mark-done">
+                                        <i class="ti ti-circle-check me-1"></i>Tandai selesai
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
                         @php($et = $material->effective_type)
                         @if ($et === 'video')
                             @if ($material->effective_video_embed_id)
@@ -81,4 +110,32 @@
     @if ($course->modules->isNotEmpty() && ! $hasMaterials)
         <div class="alert alert-info mb-0">Course ini belum memiliki materi.</div>
     @endif
+
+    <div class="modal fade" id="agentTrainingDurationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Durasi estimasi habis</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Durasi estimasi materi ini habis. Sudah selesai belajar?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-action="continue">Belum, lanjut</button>
+                    <button type="button" class="btn btn-success" data-action="complete">Ya, tandai selesai</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        window.agentTrainingProgressConfig = {
+            progressUrl: @json(url('/agent-order/pelatihan/materi')),
+            saveIntervalSec: 15,
+        };
+    </script>
+    <script src="{{ asset('assets/js/agent-training-progress.js') }}"></script>
+@endpush

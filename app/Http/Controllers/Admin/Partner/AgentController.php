@@ -81,9 +81,11 @@ class AgentController extends Controller
             'defaultWarehouse',
             'warehouses',
             'resellers',
+            'cityRef.province',
             'activePks',
             'pksDocuments.uploader',
         ])->findOrFail($id);
+
 
         $currentAgent = $this->currentAgent();
         abort_if($currentAgent && $currentAgent->id !== $agent->id, 403);
@@ -131,6 +133,26 @@ class AgentController extends Controller
             $this->pksService->absoluteFilePath($pks),
             $pks->file_name
         );
+    }
+
+    public function updateCity(Request $request, string $id): RedirectResponse
+    {
+        $agent = Agent::findOrFail($id);
+        $currentAgent = $this->currentAgent();
+        abort_if($currentAgent && $currentAgent->id !== $agent->id, 403);
+
+        $validated = $request->validate([
+            'city_id' => ['nullable', 'uuid', 'exists:public.cities,id'],
+        ]);
+
+        $agent->update([
+            'city_id' => $validated['city_id'] ?? null,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('partner.agents.show', $agent->id)
+            ->with('success', 'Kota agen (ongkir) diperbarui.');
     }
 
     private function currentAgent(): ?Agent

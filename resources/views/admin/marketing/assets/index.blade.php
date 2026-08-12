@@ -13,7 +13,6 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Materi Promosi (Pustaka Aset)</h5>
                 <div>
-                    <a href="{{ route('marketing.categories.index') }}" class="btn btn-outline-secondary btn-sm"><i class="ti ti-tags me-1"></i>Kategori</a>
                     <a href="{{ route('marketing.assets.create') }}" class="btn btn-primary btn-sm"><i class="ti ti-plus me-1"></i>Tambah Aset</a>
                 </div>
             </div>

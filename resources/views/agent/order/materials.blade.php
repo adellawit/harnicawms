@@ -48,22 +48,24 @@
         @forelse ($assets as $asset)
             @php
                 $type = $asset->type;
-                $typeLabel = ['image' => 'IMG', 'pdf' => 'PDF', 'video' => 'VIDEO', 'text' => 'WA'][$type] ?? strtoupper((string) $type);
                 $typeIcon = ['pdf' => 'ti-file-type-pdf', 'video' => 'ti-video', 'text' => 'ti-brand-whatsapp'][$type] ?? 'ti-photo';
             @endphp
             <div class="col-6 col-md-4 col-xl-3">
-                <div class="card border-0 shadow-sm h-100 agent-marketing-asset-card">
-                    <div class="agent-marketing-asset-thumb position-relative">
-                        <span class="badge bg-dark position-absolute top-0 start-0 m-2">{{ $typeLabel }}</span>
-                        @if ($type === 'image' && $asset->file_url)
-                            <img src="{{ $asset->file_url }}" alt="{{ $asset->title }}" class="w-100" loading="lazy">
+                <div class="card border-0 shadow-sm h-100 agent-asset-card">
+                    <div class="agent-asset-thumb position-relative">
+                        <span class="agent-asset-badge position-absolute top-0 start-0 m-2">
+                            @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
+                        </span>
+                        @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
+                        @if ($thumb)
+                            <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy">
                         @else
-                            <div class="agent-marketing-asset-thumb-placeholder d-flex align-items-center justify-content-center">
+                            <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
                                 <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
                             </div>
                         @endif
                     </div>
-                    <div class="card-body d-flex flex-column">
+                    <div class="card-body p-2 p-md-3 d-flex flex-column">
                         <div class="fw-semibold small text-truncate">{{ $asset->title }}</div>
                         @if ($asset->category)
                             <div class="text-muted small">{{ $asset->category->name }}</div>

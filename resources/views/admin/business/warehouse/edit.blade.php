@@ -32,4 +32,5 @@
     </div>
 
     @include('admin.business.warehouse._form-scripts', ['selectedProvinceId' => $selectedProvinceId ?? null])
+    @include('admin.master-data.shipping-rate._city-select-js')
 </x-app-layout>
