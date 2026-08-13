@@ -50,6 +50,28 @@
         </div>
     @endif
 
+    @if ($manualTransferMethod ?? null)
+        <div class="shop-pay-group">
+            <div class="shop-pay-group-title">
+                <i class="ti ti-building-bank"></i>
+                <span>Transfer bank manual</span>
+            </div>
+            <div class="shop-pay-grid">
+                <label class="shop-pay-option">
+                    <input type="radio" name="payment_method_id" class="shop-pay-radio"
+                        value="{{ $manualTransferMethod->id }}" data-xendit-channel=""
+                        @checked($pickFirst)>
+                    @php $pickFirst = false; @endphp
+                    <span class="shop-pay-option-card">
+                        <img src="{{ asset('assets/img/payments/default.svg') }}" alt="{{ $manualTransferMethod->name }}" class="shop-pay-icon" loading="lazy">
+                        <span class="shop-pay-label">{{ $manualTransferMethod->name }}</span>
+                        <span class="shop-pay-sub">Transfer + kode unik</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    @endif
+
     @foreach ($xenditChannelGroups as $group)
         @if (!empty($group['channels']))
             <div class="shop-pay-group">

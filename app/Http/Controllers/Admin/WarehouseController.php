@@ -233,7 +233,7 @@ class WarehouseController extends Controller
     public function editView(string $id)
     {
         $warehouse = Warehouse::where('id', $id)
-            ->with(['branches'])
+            ->with(['branches', 'cityRef.province'])
             ->withTrashed()
             ->first();
 
@@ -343,6 +343,7 @@ class WarehouseController extends Controller
             'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
             'city' => 'nullable|string|max:100',
+            'city_id' => 'nullable|uuid|exists:public.cities,id',
             'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:10',
             'country' => 'nullable|string|max:100',
@@ -372,6 +373,7 @@ class WarehouseController extends Controller
             'phone' => $request->phone,
             'address' => $request->address,
             'city' => $request->city,
+            'city_id' => $request->input('city_id') ?: null,
             'province' => $request->province,
             'postal_code' => $request->postal_code,
             'country' => $request->country,

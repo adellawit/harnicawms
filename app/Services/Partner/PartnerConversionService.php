@@ -138,6 +138,7 @@ class PartnerConversionService
                 'phone' => $agent->phone,
                 'address' => $agent->address,
                 'city' => $agent->city,
+                'city_id' => $agent->city_id,
                 'province' => $agent->province,
                 'postal_code' => $agent->postal_code,
                 'country' => 'Indonesia',

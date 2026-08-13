@@ -18,24 +18,25 @@
         @forelse ($courses as $course)
             <div class="col-md-6 col-lg-4">
                 <a href="{{ route('agent-order.training.show', $course->id) }}"
-                    class="card border-0 shadow-sm h-100 agent-training-course-card text-decoration-none text-body">
-                    <div class="agent-training-course-thumb rounded-top"
-                        style="background: {{ $course->category?->color ?: '#5C9E84' }};">
+                    class="card border-0 shadow-sm h-100 agent-course-card text-decoration-none text-body">
+                    <div class="agent-asset-thumb position-relative">
                         @if ($course->thumbnail_url)
                             <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy">
                         @else
-                            <i class="ti {{ $course->category?->icon ?: 'ti-book' }}"></i>
+                            <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
+                                <i class="ti ti-school fs-1 text-muted"></i>
+                            </div>
                         @endif
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-2 p-md-3">
                         @if ($course->category)
                             <span class="badge bg-label-secondary mb-2">{{ $course->category->name }}</span>
                         @endif
-                        <h2 class="h6 fw-semibold mb-1">{{ $course->title }}</h2>
+                        <h2 class="h6 fw-semibold mb-1 text-truncate" title="{{ $course->title }}">{{ $course->title }}</h2>
                         @if ($course->description)
                             <p class="small text-muted mb-0">{{ Str::limit(strip_tags($course->description), 120) }}</p>
                         @else
-                            <p class="small text-muted mb-0">Materi pelatihan</p>
+                            <p class="small text-muted mb-0">Materi pelatihan untuk agen</p>
                         @endif
                     </div>
                 </a>

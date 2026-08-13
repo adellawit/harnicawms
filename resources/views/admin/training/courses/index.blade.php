@@ -13,7 +13,6 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Courses</h5>
                 <div>
-                    <a href="{{ route('training.categories.index') }}" class="btn btn-outline-secondary btn-sm"><i class="ti ti-tags me-1"></i>Kategori</a>
                     <a href="{{ route('training.reports.index') }}" class="btn btn-outline-secondary btn-sm"><i class="ti ti-chart-bar me-1"></i>Laporan</a>
                     <a href="{{ route('training.courses.create') }}" class="btn btn-primary btn-sm"><i class="ti ti-plus me-1"></i>Buat Course</a>
                 </div>

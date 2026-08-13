@@ -265,6 +265,7 @@ class ProductController extends Controller
             ->addColumn('item_type_name', fn ($row) => $row->itemType?->value ?? '-')
             ->addColumn('product_nature_name', fn ($row) => $row->productNature?->value ?? '-')
             ->addColumn('procurement_type_name', fn ($row) => $row->procurementType?->value ?? '-')
+            ->addColumn('procurement_type_key', fn ($row) => $row->procurementType?->key)
             ->addColumn('lifecycle_flags', function ($row) {
                 $badges = [];
                 $badges[] = $row->is_stock_item
