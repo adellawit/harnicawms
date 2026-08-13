@@ -53,6 +53,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}/receive', [ProductionOrderController::class, 'receiveView'])->name('production.receive')->middleware('permission:Production Order,is_update');
         Route::post('/{id}/receive', [ProductionOrderController::class, 'receive'])->name('production.receive.store')->middleware('permission:Production Order,is_update');
         Route::get('/{id}/receive/print', [ProductionOrderController::class, 'receivePrint'])->name('production.receive.print')->middleware('permission:Production Order,is_update');
+        Route::get('/{id}/barcodes', [ProductionOrderController::class, 'barcodes'])->name('production.barcodes')->middleware('permission:Production Order,is_read');
     });
 
     // --- Promotions (buy X get Y rules) ---

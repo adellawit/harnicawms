@@ -22,18 +22,38 @@ class TransactionController extends Controller
         $status = $request->get('status', '');
         $paymentStatus = $request->get('payment_status', '');
         $orderType = $request->get('order_type', '');
-        $isFilter = $status !== '' || $paymentStatus !== '' || $orderType !== '' || $branchId !== $defaultBranchId;
+        $dateFrom = $this->normalizeFilterDate($request->get('date_from'));
+        $dateTo = $this->normalizeFilterDate($request->get('date_to'));
+        $isFilter = $status !== ''
+            || $paymentStatus !== ''
+            || $orderType !== ''
+            || $branchId !== $defaultBranchId
+            || $dateFrom !== null
+            || $dateTo !== null;
 
-        return view('admin.transaction.index', compact('status', 'paymentStatus', 'orderType', 'isFilter', 'branchId', 'defaultBranchId'));
+        return view('admin.transaction.index', compact(
+            'status',
+            'paymentStatus',
+            'orderType',
+            'isFilter',
+            'branchId',
+            'defaultBranchId',
+            'dateFrom',
+            'dateTo'
+        ));
     }
 
     public function indexData(Request $request)
     {
         $defaultBranchId = $this->getBranchId();
         $branchId = $request->get('branch_id', $defaultBranchId);
+        $dateFrom = $this->normalizeFilterDate($request->get('date_from'));
+        $dateTo = $this->normalizeFilterDate($request->get('date_to'));
 
         $query = SalesOrder::with(['methodPayment:id,name', 'priceList:id,name,code'])
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($dateFrom, fn ($q) => $q->whereDate('sales_date', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('sales_date', '<=', $dateTo));
 
         if ($request->status === 'deleted') {
             $query->onlyTrashed();
@@ -84,6 +104,32 @@ class TransactionController extends Controller
             ->toJson();
     }
 
+    /**
+     * Accept Y-m-d or d/m/Y; return Y-m-d or null.
+     */
+    private function normalizeFilterDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        try {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                return $value;
+            }
+
+            if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', $value)) {
+                return \Carbon\Carbon::createFromFormat('d/m/Y', $value)->toDateString();
+            }
+
+            return \Carbon\Carbon::parse($value)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function detailView(string $id)
     {
         $order = SalesOrder::with([
@@ -106,7 +152,31 @@ class TransactionController extends Controller
 
     public function printInvoice(string $id)
     {
-        $order = SalesOrder::with([
+        $order = $this->loadOrderForPrint($id);
+
+        return view('admin.transaction.print-invoice', [
+            'order' => $order,
+            'backUrl' => route('transaction.detail', $order->id),
+            'autoPrint' => request()->boolean('print'),
+            'printButtonLabel' => 'Print Invoice',
+        ]);
+    }
+
+    public function printShipping(string $id)
+    {
+        $order = $this->loadOrderForPrint($id);
+
+        return view('admin.transaction.print-shipping', [
+            'order' => $order,
+            'backUrl' => route('transaction.detail', $order->id),
+            'autoPrint' => request()->boolean('print'),
+            'printButtonLabel' => 'Print Surat Jalan',
+        ]);
+    }
+
+    private function loadOrderForPrint(string $id): SalesOrder
+    {
+        return SalesOrder::with([
             'items.product:id,name,sku',
             'items.variant:id,sku',
             'items.variant.variantAttributes.attributeValue',
@@ -114,15 +184,10 @@ class TransactionController extends Controller
             'items.unit:id,name,symbol',
             'payments.methodPayment:id,name',
             'methodPayment:id,name',
-            'customer:id,name,code',
+            'customer:id,name,code,phone,address',
             'branch:id,name,brand_name,address,phone,email,parent_id',
             'branch.parent:id,name,brand_name',
+            'warehouse:id,name,code',
         ])->withTrashed()->findOrFail($id);
-
-        return view('admin.transaction.print-invoice', [
-            'order' => $order,
-            'backUrl' => route('transaction.detail', $order->id),
-            'autoPrint' => request()->boolean('print'),
-        ]);
     }
 }

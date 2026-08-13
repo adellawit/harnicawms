@@ -37,10 +37,81 @@
             ]"
         />
 
+        @php
+            $stockPageStats = $stockPageStats ?? [
+                'sku_count' => 0,
+                'attention_count' => 0,
+                'serial_ready' => 0,
+                'serial_dispatched' => 0,
+            ];
+        @endphp
+
+        <div class="row g-3 mb-4 stock-kpi-row">
+            <div class="col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 stock-kpi-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="avatar stock-kpi-avatar">
+                            <span class="avatar-initial rounded bg-label-primary"><i class="ti ti-package"></i></span>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <small class="text-muted d-block">Produk</small>
+                            <div class="fw-semibold fs-4 lh-1">{{ format_number($stockPageStats['sku_count'], 0, true) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 stock-kpi-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="avatar stock-kpi-avatar">
+                            <span class="avatar-initial rounded bg-label-danger"><i class="ti ti-alert-triangle"></i></span>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <small class="text-muted d-block">Perlu perhatian</small>
+                            <div class="fw-semibold fs-4 lh-1 {{ ($stockPageStats['attention_count'] ?? 0) > 0 ? 'text-danger' : '' }}">
+                                {{ format_number($stockPageStats['attention_count'], 0, true) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 stock-kpi-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="avatar stock-kpi-avatar">
+                            <span class="avatar-initial rounded bg-label-success"><i class="ti ti-barcode"></i></span>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <small class="text-muted d-block">Serial Ready</small>
+                            <div class="fw-semibold fs-4 lh-1 text-success">{{ format_number($stockPageStats['serial_ready'], 0, true) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 stock-kpi-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="avatar stock-kpi-avatar">
+                            <span class="avatar-initial rounded bg-label-warning"><i class="ti ti-truck-delivery"></i></span>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <small class="text-muted d-block">Serial Keluar</small>
+                            <div class="fw-semibold fs-4 lh-1 text-warning">{{ format_number($stockPageStats['serial_dispatched'], 0, true) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <small class="text-muted">Ringkasan halaman ini (ikut filter)</small>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
                 <div>
-                    <h5 class="card-title mb-0">Product Stock</h5>
+                    <h5 class="card-title mb-0">
+                        <i class="ti ti-building-warehouse me-1"></i>Product Stock
+                    </h5>
                     @if($selectedWarehouseName)
                         <small class="text-muted">
                             Gudang: <strong>{{ $selectedWarehouse->code }} - {{ $selectedWarehouseName }}</strong>
@@ -78,6 +149,9 @@
                             <th>Product Type</th>
                             <th>Category</th>
                             <th class="text-end">Qty / Unit</th>
+                            <th class="text-end">Serial Ready</th>
+                            <th class="text-end">Serial Keluar</th>
+                            <th class="text-center" style="width:90px">Barcode</th>
                             <th class="text-end">Min Stock</th>
                             <th class="text-end">HPP / Purchase</th>
                             <th class="text-end">Selling Price</th>
@@ -107,7 +181,7 @@
                                     </td>
                                     <td>{{ $item['nature'] }}</td>
                                     <td>{{ $item['category'] }}</td>
-                                    <td class="text-center" colspan="5">
+                                    <td class="text-center" colspan="8">
                                         <small class="text-muted">{{ $item['variant_count'] }} variants</small>
                                     </td>
                                 </tr>
@@ -134,12 +208,12 @@
                                 <td>{{ $isSingleRow ? $item['nature'] : '' }}</td>
                                 <td>{{ $isSingleRow ? $item['category'] : '' }}</td>
                                 <td class="text-end {{ $displayQty < 0 ? 'text-danger fw-semibold' : '' }}">
-                                    <div class="fw-semibold">
-                                        {{ format_number($displayQty, 2, true) }}
+                                    <div class="stock-qty-chip {{ $displayQty < 0 ? 'stock-qty-chip--danger' : '' }}">
+                                        <span class="fw-semibold">{{ format_number($displayQty, 2, true) }}</span>
                                         <small class="text-muted">{{ $item['unit'] }}</small>
                                     </div>
                                     @if(!empty($item['has_smallest_display']) && ($displayUnitMode ?? 'large') === 'large' && (float) ($item['smallest_quantity'] ?? 0) > 0)
-                                        <small class="text-primary d-block">
+                                        <small class="text-primary d-block mt-1">
                                             = {{ format_number((float) $item['smallest_quantity'], 2, true) }} {{ $item['smallest_unit'] }}
                                         </small>
                                     @endif
@@ -232,6 +306,34 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @if (!empty($item['is_finished_good']))
+                                        <span class="badge bg-label-success stock-serial-pill">{{ format_number($item['serial_ready'] ?? 0, 0, true) }}</span>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-end">
+                                    @if (!empty($item['is_finished_good']))
+                                        <span class="badge bg-label-warning stock-serial-pill">{{ format_number($item['serial_dispatched'] ?? 0, 0, true) }}</span>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-center">
+                                    @if (!empty($item['is_finished_good']))
+                                        <button type="button"
+                                            class="btn btn-sm btn-label-primary btn-stock-barcode-detail"
+                                            title="Detail barcode"
+                                            data-product-id="{{ $item['product_id'] }}"
+                                            data-variant-id="{{ $item['variant_id'] }}"
+                                            data-title="{{ $item['product_name'] }} · {{ $item['variant_name'] ?: ($item['sku'] ?: '') }}">
+                                            <i class="ti ti-barcode"></i>
+                                        </button>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-end">
                                     {{ format_number($displayMinStock, 2, true) }}
                                     <small class="text-muted">{{ $item['unit'] }}</small>
                                 </td>
@@ -249,21 +351,27 @@
                                 </td>
                                 <td class="text-center">
                                     @if($displayQty < 0)
-                                        <x-badge color="danger">Negative</x-badge>
+                                        <span class="badge bg-label-danger"><i class="ti ti-arrow-down me-1"></i>Negative</span>
                                     @elseif($displayMinStock > 0)
                                         @if($displayQty < $displayMinStock)
-                                            <x-badge color="danger">Low Stock</x-badge>
+                                            <span class="badge bg-label-danger"><i class="ti ti-alert-triangle me-1"></i>Low Stock</span>
                                         @else
-                                            <x-badge color="success">OK</x-badge>
+                                            <span class="badge bg-label-success"><i class="ti ti-circle-check me-1"></i>OK</span>
                                         @endif
                                     @else
-                                        <x-badge color="secondary">-</x-badge>
+                                        <span class="badge bg-label-secondary">—</span>
                                     @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="text-center text-muted py-4">No stock data found.</td>
+                                <td colspan="13" class="text-center text-muted py-5">
+                                    <div class="stock-empty">
+                                        <i class="ti ti-package-off mb-2 d-block" style="font-size:2rem;opacity:.45"></i>
+                                        <div class="fw-medium">Tidak ada data stok untuk filter ini.</div>
+                                        <small>Ubah filter gudang / produk, atau reset filter.</small>
+                                    </div>
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -302,6 +410,50 @@
                 line-height: 1;
             }
 
+            .stock-kpi-card .card-body {
+                padding: 1rem 1.15rem;
+            }
+
+            .stock-kpi-avatar {
+                flex-shrink: 0;
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+
+            .stock-kpi-avatar .avatar-initial {
+                width: 2.5rem;
+                height: 2.5rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.15rem;
+            }
+
+            .stock-qty-chip {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 0.35rem;
+                padding: 0.3rem 0.55rem;
+                border-radius: 0.45rem;
+                background: rgba(67, 89, 113, 0.06);
+                white-space: nowrap;
+            }
+
+            .stock-qty-chip--danger {
+                background: rgba(255, 62, 29, 0.1);
+                color: #ff3e1d;
+            }
+
+            .stock-serial-pill {
+                font-variant-numeric: tabular-nums;
+                min-width: 2.25rem;
+            }
+
+            .stock-empty {
+                max-width: 280px;
+                margin: 0 auto;
+            }
+
             .stock-batch-table {
                 font-size: 0.75rem;
                 min-width: 220px;
@@ -315,6 +467,10 @@
             }
             .stock-batch-toggle {
                 font-size: 0.72rem;
+            }
+
+            .barcode-tree-node .barcode-tree-toggle:hover {
+                opacity: 0.85;
             }
         </style>
     @endpush
@@ -388,12 +544,200 @@
         </x-slot>
     </x-modal>
 
+    <div class="modal fade" id="stockBarcodeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stockBarcodeModalTitle">Detail Barcode</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="stockBarcodeLoading" class="text-center text-muted py-4">Memuat…</div>
+                    <div id="stockBarcodeContent" class="d-none">
+                        <div class="row g-3 mb-3" id="stockBarcodeKpis"></div>
+                        <div class="mb-3" id="stockBarcodeConversion"></div>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Unit</th>
+                                        <th class="text-end">Total</th>
+                                        <th class="text-end">Ready</th>
+                                        <th class="text-end">Keluar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockBarcodeSummary"></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <h6 class="mb-0">Hierarki barcode</h6>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary" id="stockBarcodeExpandAll">Expand all</button>
+                                <button type="button" class="btn btn-outline-secondary" id="stockBarcodeCollapseAll">Collapse</button>
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-2">Tampil per Karton. Klik untuk buka Pack / Box di dalamnya.</p>
+                        <div id="stockBarcodeTree" class="barcode-tree border rounded p-2" style="max-height: 420px; overflow: auto;"></div>
+                        <small class="text-muted d-block mt-2" id="stockBarcodeNote"></small>
+                    </div>
+                    <div id="stockBarcodeEmpty" class="text-center text-muted py-4 d-none">Belum ada barcode untuk item ini.</div>
+                    <div id="stockBarcodeError" class="alert alert-danger d-none mb-0"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     @endpush
     @push('page-js')
         <script>
             $(document).ready(function() {
+                var barcodesUrl = @json($barcodesDetailUrl ?? route('product.stock.barcodes'));
+                var barcodeModalEl = document.getElementById('stockBarcodeModal');
+                var barcodeModal = barcodeModalEl ? new bootstrap.Modal(barcodeModalEl) : null;
+
+                function barcodeStatusBadge(status) {
+                    return status === 'dispatched'
+                        ? '<span class="badge bg-label-warning">Keluar</span>'
+                        : '<span class="badge bg-label-success">Ready</span>';
+                }
+
+                function renderBarcodeTreeNode(node, depth) {
+                    var hasChildren = node.children && node.children.length > 0;
+                    var pad = Math.min(depth, 6) * 14;
+                    var html = '<div class="barcode-tree-node py-1" style="padding-left:' + pad + 'px">';
+
+                    if (hasChildren) {
+                        var childId = 'stock-bc-' + node.id;
+                        html += '<button type="button" class="btn btn-sm btn-link text-body text-start text-decoration-none p-0 barcode-tree-toggle" data-target="#' + childId + '" aria-expanded="false">' +
+                            '<i class="ti ti-chevron-right barcode-tree-icon align-middle"></i> ' +
+                            '<span class="badge bg-label-secondary me-1">' + node.unit_label + '</span>' +
+                            '<code class="font-monospace">' + node.serial + '</code> ' +
+                            barcodeStatusBadge(node.status) +
+                            ' <small class="text-muted">(' + node.children.length + ')</small>' +
+                            '</button>';
+                        html += '<div id="' + childId + '" class="barcode-tree-children d-none mt-1">';
+                        node.children.forEach(function(child) {
+                            html += renderBarcodeTreeNode(child, depth + 1);
+                        });
+                        html += '</div>';
+                    } else {
+                        html += '<div class="d-flex flex-wrap align-items-center gap-1 py-1">' +
+                            '<span class="badge bg-label-secondary">' + node.unit_label + '</span>' +
+                            '<code class="font-monospace">' + node.serial + '</code> ' +
+                            barcodeStatusBadge(node.status) +
+                            '</div>';
+                    }
+
+                    html += '</div>';
+                    return html;
+                }
+
+                function setBarcodeTreeExpanded($children, expanded) {
+                    $children.toggleClass('d-none', !expanded);
+                    var $btn = $children.prev('.barcode-tree-toggle');
+                    $btn.attr('aria-expanded', expanded ? 'true' : 'false');
+                    $btn.find('.barcode-tree-icon')
+                        .toggleClass('ti-chevron-right', !expanded)
+                        .toggleClass('ti-chevron-down', expanded);
+                }
+
+                $(document).on('click', '#stockBarcodeTree .barcode-tree-toggle', function(e) {
+                    e.preventDefault();
+                    var $children = $($(this).data('target'));
+                    setBarcodeTreeExpanded($children, $children.hasClass('d-none'));
+                });
+
+                $('#stockBarcodeExpandAll').on('click', function() {
+                    $('#stockBarcodeTree .barcode-tree-children').each(function() {
+                        setBarcodeTreeExpanded($(this), true);
+                    });
+                });
+
+                $('#stockBarcodeCollapseAll').on('click', function() {
+                    $('#stockBarcodeTree .barcode-tree-children').each(function() {
+                        setBarcodeTreeExpanded($(this), false);
+                    });
+                });
+
+                $(document).on('click', '.btn-stock-barcode-detail', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!barcodeModal) return;
+
+                    var productId = $(this).data('product-id');
+                    var variantId = $(this).data('variant-id') || '';
+                    var title = $(this).data('title') || 'Detail Barcode';
+
+                    $('#stockBarcodeModalTitle').text(title);
+                    $('#stockBarcodeLoading').removeClass('d-none');
+                    $('#stockBarcodeContent, #stockBarcodeEmpty, #stockBarcodeError').addClass('d-none');
+                    barcodeModal.show();
+
+                    $.get(barcodesUrl, { product_id: productId, variant_id: variantId || null })
+                        .done(function(res) {
+                            $('#stockBarcodeLoading').addClass('d-none');
+                            if (!res.success) {
+                                $('#stockBarcodeError').removeClass('d-none').text(res.message || 'Gagal memuat barcode.');
+                                return;
+                            }
+
+                            var totals = res.totals || {};
+                            if (!totals.total) {
+                                $('#stockBarcodeEmpty').removeClass('d-none');
+                                return;
+                            }
+
+                            $('#stockBarcodeKpis').html(
+                                '<div class="col-md-4"><small class="text-muted d-block">Total</small><div class="fw-semibold fs-5">' + (totals.total || 0) + '</div></div>' +
+                                '<div class="col-md-4"><small class="text-muted d-block">Ready</small><div class="fw-semibold fs-5 text-success">' + (totals.ready || 0) + '</div></div>' +
+                                '<div class="col-md-4"><small class="text-muted d-block">Keluar (terjual)</small><div class="fw-semibold fs-5 text-warning">' + (totals.dispatched || 0) + '</div></div>'
+                            );
+
+                            if (res.conversion_chain && res.conversion_chain.length) {
+                                $('#stockBarcodeConversion').html(
+                                    '<small class="text-muted d-block">Aturan konversi</small><div class="fw-medium">' +
+                                    res.conversion_chain.join(' · ') + '</div>'
+                                );
+                            } else {
+                                $('#stockBarcodeConversion').empty();
+                            }
+
+                            var summaryHtml = '';
+                            (res.summary || []).forEach(function(row) {
+                                summaryHtml += '<tr>' +
+                                    '<td>L' + row.unit_level + ' · ' + row.unit_label + '</td>' +
+                                    '<td class="text-end">' + row.total + '</td>' +
+                                    '<td class="text-end text-success">' + row.ready + '</td>' +
+                                    '<td class="text-end text-warning">' + row.dispatched + '</td>' +
+                                    '</tr>';
+                            });
+                            $('#stockBarcodeSummary').html(summaryHtml || '<tr><td colspan="4" class="text-muted text-center">—</td></tr>');
+
+                            var tree = res.tree || [];
+                            var treeHtml = '';
+                            tree.forEach(function(node) {
+                                treeHtml += renderBarcodeTreeNode(node, 0);
+                            });
+                            $('#stockBarcodeTree').html(
+                                treeHtml || '<div class="text-muted text-center py-3">Tidak ada hierarki Karton/Pack/Box.</div>'
+                            );
+                            $('#stockBarcodeNote').text(
+                                tree.length
+                                    ? ('Menampilkan ' + tree.length + ' group level atas. Klik untuk membuka isi.')
+                                    : ''
+                            );
+                            $('#stockBarcodeContent').removeClass('d-none');
+                        })
+                        .fail(function(xhr) {
+                            $('#stockBarcodeLoading').addClass('d-none');
+                            $('#stockBarcodeError').removeClass('d-none').text(
+                                (xhr.responseJSON && xhr.responseJSON.message) || 'Gagal memuat barcode.'
+                            );
+                        });
+                });
+
                 $(document).on('click', '.parent-row', function() {
                     var productId = $(this).data('product-id');
                     var icon = $(this).find('.toggle-icon');

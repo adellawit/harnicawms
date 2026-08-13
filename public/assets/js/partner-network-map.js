@@ -200,11 +200,12 @@
                         [reseller.lat, reseller.lng],
                     ],
                     {
+                        // Assigned: agent green; nearest: reseller blue (dashed)
                         color: isAssigned
                             ? brandCssVar('--brand-primary', '#5C9E84')
-                            : brandCssVar('--brand-secondary', '#7BB5A0'),
+                            : '#3b82f6',
                         weight: isAssigned ? 2.5 : 2,
-                        opacity: isAssigned ? 0.85 : 0.65,
+                        opacity: isAssigned ? 0.85 : 0.7,
                         dashArray: isAssigned ? null : '5 7',
                         lineCap: 'round',
                     }
@@ -276,7 +277,7 @@
             marker.bindTooltip(
                 '<strong>' +
                     escapeHtml(node.label) +
-                    '</strong><br><span class="text-muted">' +
+                    '</strong><br><small>Agent</small><br><span class="text-muted">' +
                     escapeHtml(node.code || '') +
                     (node.city ? ' · ' + escapeHtml(node.city) : '') +
                     '</span>',
@@ -303,7 +304,7 @@
             marker.bindTooltip(
                 '<strong>' +
                     escapeHtml(node.label) +
-                    '</strong><br><span class="text-muted">' +
+                    '</strong><br><small>Reseller</small><br><span class="text-muted">' +
                     escapeHtml(node.code || '') +
                     (node.city ? ' · ' + escapeHtml(node.city) : '') +
                     '</span>' +

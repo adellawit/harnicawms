@@ -66,6 +66,62 @@ class ProductLabelSerialService
     }
 
     /**
+     * Allocate hierarchy serials for a source (e.g. production receive).
+     * Idempotent: if source already has serials, returns existing counts per unit.
+     *
+     * @return array{locked: bool, breakdown: list<array{unit_id: string, level: int, qty: int, label: string, serials: list<string>}>}
+     */
+    public function allocateHierarchyForSource(
+        Product $product,
+        string $parentUnitId,
+        int $parentQuantity,
+        ?string $variantId = null,
+        ?string $userId = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        bool $includeSmallestUnit = false
+    ): array {
+        if ($parentQuantity < 1) {
+            return ['locked' => false, 'breakdown' => []];
+        }
+
+        $alreadyLocked = $sourceType && $sourceId && $this->hasSourceAllocation($sourceType, $sourceId);
+        $breakdown = $product->getBarcodeQuantityBreakdown($parentQuantity, $parentUnitId, $includeSmallestUnit);
+        $rows = [];
+
+        foreach ($breakdown as $item) {
+            $levelUnit = $product->getBarcodeUnits()->firstWhere('id', $item['unit_id']);
+            if (! $levelUnit) {
+                continue;
+            }
+
+            $serials = $this->allocateSerials(
+                (int) $item['qty'],
+                $product->id,
+                $levelUnit->id,
+                (int) $item['level'],
+                $variantId,
+                $userId,
+                $sourceType,
+                $sourceId
+            );
+
+            $rows[] = [
+                'unit_id' => $levelUnit->id,
+                'level' => (int) $item['level'],
+                'qty' => count($serials),
+                'label' => (string) ($item['label'] ?? strtoupper($levelUnit->symbol ?: $levelUnit->name)),
+                'serials' => $serials,
+            ];
+        }
+
+        return [
+            'locked' => $alreadyLocked || ($sourceType && $sourceId && $this->hasSourceAllocation($sourceType, $sourceId)),
+            'breakdown' => $rows,
+        ];
+    }
+
+    /**
      * Ambil nomor yang sudah terkunci untuk source, atau peek nomor berikutnya (belum persist).
      *
      * @return array{serials: array<int, string>, locked: bool}

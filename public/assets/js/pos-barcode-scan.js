@@ -93,6 +93,27 @@
     return false
   }
 
+  function ensurePartnerCustomerSelected() {
+    syncPartnerRoleFromCustomer()
+    if (isPartnerCustomer()) return true
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Agent / Reseller belum dipilih',
+      text: 'Pilih Agent atau Reseller terlebih dahulu sebelum menambah item ke keranjang.',
+      customClass: { confirmButton: 'btn btn-primary' },
+      buttonsStyling: false
+    }).then(function () {
+      var $select = $('#customerSelect')
+      if ($select.length && $select.data('select2')) {
+        $select.select2('open')
+      } else if ($select.length) {
+        $select.trigger('focus')
+      }
+    })
+    return false
+  }
+
   function applyLookupSuccess(data) {
     var config = getConfig()
     if (typeof config.onScanSuccess === 'function') {
@@ -104,6 +125,10 @@
 
   function lookupSerial(serialNumber, options) {
     options = options || {}
+
+    if (!ensurePartnerCustomerSelected()) {
+      return $.Deferred().reject().promise()
+    }
 
     if (!ensurePriceListSelected()) {
       return $.Deferred().reject().promise()
@@ -193,6 +218,9 @@
   }
 
   function promptForProduct(product) {
+    if (!ensurePartnerCustomerSelected()) {
+      return
+    }
     setPending(product)
 
     Swal.fire({
@@ -213,16 +241,22 @@
         class: 'form-control font-monospace',
         id: 'posSwalSerialInput'
       },
+      showCloseButton: true,
       showCancelButton: true,
+      showDenyButton: true,
       confirmButtonText: 'Tambah ke cart',
+      denyButtonText: 'Tutup',
       cancelButtonText: 'Scan di header',
       reverseButtons: true,
       focusConfirm: false,
       allowOutsideClick: false,
+      allowEscapeKey: true,
       customClass: {
         confirmButton: 'btn btn-primary',
+        denyButton: 'btn btn-outline-secondary',
         cancelButton: 'btn btn-label-secondary',
-        input: 'form-control font-monospace'
+        input: 'form-control font-monospace',
+        closeButton: 'btn btn-icon btn-sm'
       },
       buttonsStyling: false,
       didOpen: function () {
@@ -241,16 +275,23 @@
         return serial
       }
     }).then(function (result) {
-      if (!result.isConfirmed) {
+      if (result.isConfirmed) {
+        lookupSerial(result.value, { silentDuplicate: true }).fail(function (err) {
+          invalidBarcodeAlert(err, function () {
+            promptForProduct(product)
+          })
+        })
+        return
+      }
+
+      // "Scan di header" — keep pending product, focus header scanner
+      if (result.dismiss === Swal.DismissReason.cancel) {
         $('#posSerialScanInput').trigger('focus')
         return
       }
 
-      lookupSerial(result.value, { silentDuplicate: true }).fail(function (err) {
-        invalidBarcodeAlert(err, function () {
-          promptForProduct(product)
-        })
-      })
+      // Close (X / Tutup / Esc) — cancel serial flow
+      clearPending()
     })
   }
 
@@ -263,6 +304,7 @@
   window.PosBarcodeScan = {
     isPartnerCustomer: isPartnerCustomer,
     syncPartnerRoleFromCustomer: syncPartnerRoleFromCustomer,
+    ensurePartnerCustomerSelected: ensurePartnerCustomerSelected,
     setPending: setPending,
     clearPending: clearPending,
     lookupSerial: lookupSerial,

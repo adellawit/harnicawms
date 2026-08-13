@@ -5,6 +5,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.css') }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}">
         <script src="{{ asset('assets/vendor/libs/moment/moment.js') }}"></script>
     @endpush
 
@@ -43,7 +44,7 @@
                             <th>Status</th>
                             <th>Payment</th>
                             <th class="text-end">Total</th>
-                            <th>Actions</th>
+                            <th class="text-nowrap">Actions</th>
                         </tr>
                     </thead>
                 </table>
@@ -60,6 +61,18 @@
                     <option value="{{ $b->id }}" @if($filterBranchId === $b->id) selected @endif>{{ $b->name }}</option>
                 @endforeach
             </select>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Date From</label>
+                <input type="text" id="filterDateFrom" class="form-control flatpickr-date"
+                       value="{{ format_date_id($dateFrom ?? '') }}" placeholder="DD/MM/YYYY" autocomplete="off">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Date To</label>
+                <input type="text" id="filterDateTo" class="form-control flatpickr-date"
+                       value="{{ format_date_id($dateTo ?? '') }}" placeholder="DD/MM/YYYY" autocomplete="off">
+            </div>
         </div>
         <div class="mb-3">
             <label class="form-label">Status</label>
@@ -101,10 +114,45 @@
         <script src="{{ asset('assets/vendor/libs/datatables-buttons/datatables-buttons.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+    @endpush
+    @push('page-css')
+        <style>
+            #table .trx-actions {
+                display: inline-flex;
+                flex-wrap: nowrap;
+                align-items: center;
+                gap: 0.35rem;
+                white-space: nowrap;
+            }
+            #table td:last-child {
+                white-space: nowrap;
+                width: 1%;
+            }
+        </style>
     @endpush
     @push('page-js')
         <script>
             $(document).ready(function() {
+                function toIsoDate(value) {
+                    if (!value) return '';
+                    value = String(value).trim();
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+                    var m = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    if (m) {
+                        var d = ('0' + m[1]).slice(-2);
+                        var mo = ('0' + m[2]).slice(-2);
+                        return m[3] + '-' + mo + '-' + d;
+                    }
+                    return value;
+                }
+
+                $('.flatpickr-date').flatpickr({
+                    dateFormat: 'd/m/Y',
+                    allowInput: true,
+                    disableMobile: true
+                });
+
                 $('#table').DataTable({
                     processing: true, serverSide: true, paging: true, scrollX: true,
                     ajax: {
@@ -115,7 +163,9 @@
                             branch_id: "{{ $branchId }}",
                             status: "{{ $status }}",
                             payment_status: "{{ $paymentStatus }}",
-                            order_type: "{{ $orderType }}"
+                            order_type: "{{ $orderType }}",
+                            date_from: "{{ $dateFrom ?? '' }}",
+                            date_to: "{{ $dateTo ?? '' }}"
                         }
                     },
                     columns: [
@@ -128,12 +178,14 @@
                         { data: 'status_badge', orderable: false, searchable: false },
                         { data: 'payment_badge', orderable: false, searchable: false },
                         { data: 'total_fmt', orderable: false, searchable: false, className: 'text-end' },
-                        { data: null, orderable: false, searchable: false, render: function(d, t, r) {
+                        { data: null, orderable: false, searchable: false, className: 'text-nowrap', render: function(d, t, r) {
                             var detailUrl = "{{ url('transaction/detail') }}/" + r.id;
                             var printUrl = "{{ url('transaction') }}/" + r.id + "/print-invoice?print=1";
-                            return '<div class="d-flex gap-1">'
-                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary"><i class="ti ti-eye me-1"></i>Detail</a>'
-                                + '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="ti ti-printer me-1"></i>Print Invoice</a>'
+                            var shippingUrl = "{{ url('transaction') }}/" + r.id + "/print-shipping?print=1";
+                            return '<div class="trx-actions">'
+                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>'
+                                + '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
+                                + '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>'
                                 + '</div>';
                         } }
                     ],
@@ -158,10 +210,14 @@
                     var s = $('#filterStatus').val();
                     var ps = $('#filterPaymentStatus').val();
                     var ot = $('#filterOrderType').val();
-                    if (b) params.push('branch_id=' + b);
-                    if (s) params.push('status=' + s);
-                    if (ps) params.push('payment_status=' + ps);
-                    if (ot) params.push('order_type=' + ot);
+                    var df = toIsoDate($('#filterDateFrom').val());
+                    var dt = toIsoDate($('#filterDateTo').val());
+                    if (b) params.push('branch_id=' + encodeURIComponent(b));
+                    if (s) params.push('status=' + encodeURIComponent(s));
+                    if (ps) params.push('payment_status=' + encodeURIComponent(ps));
+                    if (ot) params.push('order_type=' + encodeURIComponent(ot));
+                    if (df) params.push('date_from=' + encodeURIComponent(df));
+                    if (dt) params.push('date_to=' + encodeURIComponent(dt));
                     window.location = '{{ route("transaction.index") }}' + (params.length ? '?' + params.join('&') : '');
                 });
                 $('#btnResetFilter').click(function() { window.location = '{{ route("transaction.index") }}'; });

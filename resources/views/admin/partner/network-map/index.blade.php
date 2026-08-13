@@ -45,14 +45,14 @@
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <span class="badge bg-label-primary" id="pnm-zoom-level">Zoom —</span>
                     <span class="badge bg-label-success">{{ $agents->count() }} Agent</span>
-                    <span class="badge bg-label-info">{{ $resellers->count() }} Reseller</span>
+                    <span class="badge pnm-badge-reseller">{{ $resellers->count() }} Reseller</span>
                     <span class="badge bg-label-secondary">{{ $links->count() }} garis</span>
                 </div>
             </div>
             <div class="card-body">
                 <div class="pnm-legend mb-3">
-                    <span class="pnm-legend__item"><span class="pnm-legend__dot pnm-legend__dot--agent"></span> Agen</span>
-                    <span class="pnm-legend__item"><span class="pnm-legend__dot pnm-legend__dot--reseller"></span> Reseller (muncul saat zoom)</span>
+                    <span class="pnm-legend__item"><span class="pnm-legend__dot pnm-legend__dot--agent"></span> Agen (hijau)</span>
+                    <span class="pnm-legend__item"><span class="pnm-legend__dot pnm-legend__dot--reseller"></span> Reseller biru (muncul saat zoom)</span>
                     <span class="pnm-legend__item"><span class="pnm-legend__area"></span> Coverage area agen</span>
                     <span class="pnm-legend__item"><i class="ti ti-minus text-success"></i> Garis solid = assigned ({{ $assignedCount }})</span>
                     <span class="pnm-legend__item"><i class="ti ti-line-dashed text-muted"></i> Garis putus = nearest agent ({{ $nearestCount }})</span>
