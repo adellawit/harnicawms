@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductBatchStock;
 use App\Models\ProductCategory;
+use App\Models\ProductLabelSerial;
 use App\Models\ProductNature;
 use App\Models\ProductUnit;
 use App\Models\ProductVariant;
@@ -19,6 +20,7 @@ use App\Support\InventoryWarehouseContext;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ProductStockController extends Controller
 {
@@ -67,7 +69,7 @@ class ProductStockController extends Controller
                 'defaultUnit:id,name,symbol',
                 'unitConversions.fromUnit:id,name,symbol',
                 'unitConversions.toUnit:id,name,symbol',
-                'nature:id,name',
+                'nature:id,name,code',
                 'category:id,name',
                 'variants' => function ($q) {
                     $q->with(['variantAttributes.attributeValue.attributeDefinition:id,name'])
@@ -152,15 +154,19 @@ class ProductStockController extends Controller
             $accessibleWarehouseIds
         );
 
+        $barcodeStats = $this->loadBarcodeStatsForProducts($products->pluck('id')->all());
+
         // Build product data with variants
         $productData = [];
         foreach ($products as $product) {
             $variants = $product->variants;
             $hasVariants = $variants->isNotEmpty();
             $productBatches = $batchStocksByProduct->get($product->id, collect());
+            $isFinishedGood = ($product->nature?->code ?? '') === 'FINISHED_GOOD';
 
             if ($hasVariants) {
                 foreach ($variants as $variant) {
+                    $statsKey = $product->id.'|'.$variant->id;
                     $productData[] = $this->buildVariantStockRow(
                         $product,
                         $variant,
@@ -173,6 +179,8 @@ class ProductStockController extends Controller
                         $variants->count(),
                         useProductSku: false,
                         batchStocks: $productBatches,
+                        barcodeStats: $isFinishedGood ? ($barcodeStats[$statsKey] ?? null) : null,
+                        isFinishedGood: $isFinishedGood,
                     );
                 }
             } else {
@@ -186,6 +194,7 @@ class ProductStockController extends Controller
                     continue;
                 }
 
+                $statsKey = $product->id.'|'.$defaultVariant->id;
                 $productData[] = $this->buildVariantStockRow(
                     $product,
                     $defaultVariant,
@@ -198,12 +207,30 @@ class ProductStockController extends Controller
                     1,
                     useProductSku: true,
                     batchStocks: $productBatches,
+                    barcodeStats: $isFinishedGood ? ($barcodeStats[$statsKey] ?? null) : null,
+                    isFinishedGood: $isFinishedGood,
                 );
             }
         }
 
+        $pageRows = collect($productData);
+        $stockPageStats = [
+            'sku_count' => $pageRows->count(),
+            'attention_count' => $pageRows->filter(function (array $row) {
+                $qty = (float) ($row['quantity'] ?? 0);
+                $min = (float) ($row['min_stock'] ?? 0);
+                if ($qty < 0) {
+                    return true;
+                }
+
+                return $min > 0 && $qty < $min;
+            })->count(),
+            'serial_ready' => (int) $pageRows->sum(fn (array $row) => (int) ($row['serial_ready'] ?? 0)),
+            'serial_dispatched' => (int) $pageRows->sum(fn (array $row) => (int) ($row['serial_dispatched'] ?? 0)),
+        ];
+
         return view('admin.product.stock.index', [
-            'products' => collect($productData),
+            'products' => $pageRows,
             'paginator' => $products,
             'allProducts' => $allProducts,
             'allNatures' => $allNatures,
@@ -213,7 +240,275 @@ class ProductStockController extends Controller
             'selectedWarehouse' => $selectedWarehouse,
             'filterWarehouseId' => $warehouseId,
             'displayUnitMode' => $displayUnitMode,
+            'barcodesDetailUrl' => route('product.stock.barcodes'),
+            'stockPageStats' => $stockPageStats,
         ]);
+    }
+
+    /**
+     * JSON detail barcode for a product/variant on Stock page.
+     */
+    public function barcodesDetail(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'uuid'],
+            'variant_id' => ['nullable', 'uuid'],
+        ]);
+
+        $product = Product::with([
+            'defaultUnit:id,name,symbol',
+            'unitConversions.fromUnit:id,name,symbol',
+            'unitConversions.toUnit:id,name,symbol',
+            'nature:id,name,code',
+        ])->findOrFail($data['product_id']);
+
+        $variantId = $data['variant_id'] ?? null;
+        $variant = $variantId
+            ? ProductVariant::find($variantId)
+            : null;
+
+        $summary = DB::table('product.product_label_serials as pls')
+            ->leftJoin('product.product_units as pu', 'pu.id', '=', 'pls.unit_id')
+            ->where('pls.product_id', $product->id)
+            ->when(
+                $variantId,
+                fn ($q) => $q->where('pls.product_variant_id', $variantId),
+                fn ($q) => $q->whereNull('pls.product_variant_id')
+            )
+            ->groupBy('pls.unit_id', 'pls.unit_level', 'pu.name', 'pu.symbol')
+            ->orderBy('pls.unit_level')
+            ->selectRaw('
+                pls.unit_id,
+                pls.unit_level,
+                pu.name as unit_name,
+                pu.symbol as unit_symbol,
+                COUNT(*)::int as total,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM transaction.sales_order_item_serial_assignments a
+                        WHERE a.product_label_serial_id = pls.id
+                    )
+                )::int as dispatched
+            ')
+            ->get()
+            ->map(function ($row) {
+                $total = (int) $row->total;
+                $dispatched = (int) $row->dispatched;
+
+                return [
+                    'unit_id' => $row->unit_id,
+                    'unit_level' => $row->unit_level,
+                    'unit_label' => strtoupper($row->unit_symbol ?: ($row->unit_name ?: ('L'.$row->unit_level))),
+                    'total' => $total,
+                    'ready' => $total - $dispatched,
+                    'dispatched' => $dispatched,
+                ];
+            })
+            ->values();
+
+        $conversionChain = [];
+        $chain = $product->getBarcodeUnits()->values();
+        if ($chain->isNotEmpty()) {
+            $parts = [];
+            for ($j = 0; $j < $chain->count() - 1; $j++) {
+                $from = $chain[$j];
+                $to = $chain[$j + 1];
+                $factor = null;
+                foreach ($product->unitConversions as $conv) {
+                    if ($conv->from_unit_id === $from->id && $conv->to_unit_id === $to->id) {
+                        $factor = (float) $conv->conversion_factor;
+                        break;
+                    }
+                }
+                if ($factor === null || $factor <= 0) {
+                    break;
+                }
+                $parts[] = '1 '.strtoupper($from->symbol ?: $from->name)
+                    .' = '.(int) $factor.' '.strtoupper($to->symbol ?: $to->name);
+            }
+            $conversionChain = $parts;
+        }
+
+        $tree = $this->buildStockBarcodeTree($product, $variantId);
+
+        return response()->json([
+            'success' => true,
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'code' => $product->code ?? $product->sku,
+            ],
+            'variant' => $variant ? [
+                'id' => $variant->id,
+                'sku' => $variant->sku,
+            ] : null,
+            'conversion_chain' => $conversionChain,
+            'summary' => $summary,
+            'totals' => [
+                'total' => (int) $summary->sum('total'),
+                'ready' => (int) $summary->sum('ready'),
+                'dispatched' => (int) $summary->sum('dispatched'),
+            ],
+            'tree' => $tree,
+        ]);
+    }
+
+    /**
+     * Reconstruct karton → pack → box tree from sequential hierarchy allocation.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildStockBarcodeTree(Product $product, ?string $variantId): array
+    {
+        $units = $product->getBarcodeUnits()->values();
+        if ($units->count() < 1) {
+            return [];
+        }
+
+        // Exclude smallest unit (sachet) from tree display — same as receive print.
+        $treeUnits = $units->count() > 1 ? $units->slice(0, $units->count() - 1)->values() : $units;
+
+        $serialsByLevel = [];
+        $dispatchedIds = DB::table('transaction.sales_order_item_serial_assignments as a')
+            ->join('product.product_label_serials as pls', 'pls.id', '=', 'a.product_label_serial_id')
+            ->where('pls.product_id', $product->id)
+            ->when(
+                $variantId,
+                fn ($q) => $q->where('pls.product_variant_id', $variantId),
+                fn ($q) => $q->whereNull('pls.product_variant_id')
+            )
+            ->pluck('a.product_label_serial_id')
+            ->flip();
+
+        foreach ($treeUnits as $index => $unit) {
+            $level = $index + 1;
+            $rows = ProductLabelSerial::query()
+                ->where('product_id', $product->id)
+                ->where('unit_id', $unit->id)
+                ->when(
+                    $variantId,
+                    fn ($q) => $q->where('product_variant_id', $variantId),
+                    fn ($q) => $q->whereNull('product_variant_id')
+                )
+                ->orderBy('sequence')
+                ->get(['id', 'serial_number', 'unit_level', 'sequence', 'created_at']);
+
+            $serialsByLevel[$level] = $rows->map(function (ProductLabelSerial $s) use ($dispatchedIds, $unit) {
+                return [
+                    'id' => $s->id,
+                    'serial' => $s->serial_number,
+                    'level' => (int) $s->unit_level,
+                    'unit_label' => strtoupper($unit->symbol ?: $unit->name),
+                    'status' => isset($dispatchedIds[$s->id]) ? 'dispatched' : 'ready',
+                    'created_at' => optional($s->created_at)->format('d M Y H:i'),
+                    'children' => [],
+                ];
+            })->values()->all();
+        }
+
+        $levels = array_keys($serialsByLevel);
+        sort($levels);
+        if ($levels === []) {
+            return [];
+        }
+
+        $childFactors = [];
+        for ($i = 0; $i < count($levels) - 1; $i++) {
+            $fromUnit = $treeUnits[$i] ?? null;
+            $toUnit = $treeUnits[$i + 1] ?? null;
+            $factor = 0;
+            if ($fromUnit && $toUnit) {
+                foreach ($product->unitConversions as $conv) {
+                    if ($conv->from_unit_id === $fromUnit->id && $conv->to_unit_id === $toUnit->id) {
+                        $factor = (int) $conv->conversion_factor;
+                        break;
+                    }
+                }
+            }
+            $childFactors[$levels[$i]] = $factor;
+        }
+
+        $cursors = array_fill_keys($levels, 0);
+
+        $build = function (int $level) use (&$build, &$cursors, $serialsByLevel, $childFactors, $levels): ?array {
+            $list = $serialsByLevel[$level] ?? [];
+            $idx = $cursors[$level] ?? 0;
+            if (! isset($list[$idx])) {
+                return null;
+            }
+            $node = $list[$idx];
+            $cursors[$level] = $idx + 1;
+
+            $levelPos = array_search($level, $levels, true);
+            $hasChildLevel = $levelPos !== false && isset($levels[$levelPos + 1]);
+            if ($hasChildLevel) {
+                $childLevel = $levels[$levelPos + 1];
+                $childrenCount = $childFactors[$level] ?? 0;
+                for ($c = 0; $c < $childrenCount; $c++) {
+                    $child = $build($childLevel);
+                    if ($child === null) {
+                        break;
+                    }
+                    $node['children'][] = $child;
+                }
+            }
+
+            return $node;
+        };
+
+        $rootLevel = $levels[0];
+        $tree = [];
+        $rootCount = count($serialsByLevel[$rootLevel] ?? []);
+        for ($i = 0; $i < $rootCount; $i++) {
+            $node = $build($rootLevel);
+            if ($node === null) {
+                break;
+            }
+            $tree[] = $node;
+        }
+
+        return $tree;
+    }
+
+    /**
+     * @param  list<string>  $productIds
+     * @return array<string, array{total: int, ready: int, dispatched: int}>
+     */
+    private function loadBarcodeStatsForProducts(array $productIds): array
+    {
+        if ($productIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('product.product_label_serials as pls')
+            ->whereIn('pls.product_id', $productIds)
+            ->groupBy('pls.product_id', 'pls.product_variant_id')
+            ->selectRaw('
+                pls.product_id,
+                pls.product_variant_id,
+                COUNT(*)::int as total,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM transaction.sales_order_item_serial_assignments a
+                        WHERE a.product_label_serial_id = pls.id
+                    )
+                )::int as dispatched
+            ')
+            ->get();
+
+        $stats = [];
+        foreach ($rows as $row) {
+            $key = $row->product_id.'|'.($row->product_variant_id ?? '');
+            $total = (int) $row->total;
+            $dispatched = (int) $row->dispatched;
+            $stats[$key] = [
+                'total' => $total,
+                'ready' => $total - $dispatched,
+                'dispatched' => $dispatched,
+            ];
+        }
+
+        return $stats;
     }
 
     /**
@@ -323,6 +618,8 @@ class ProductStockController extends Controller
         int $variantCount,
         bool $useProductSku = false,
         $batchStocks = null,
+        ?array $barcodeStats = null,
+        bool $isFinishedGood = false,
     ): array {
         $stockDisplay = $this->stockDisplay->build($product, $unitStockRows, $displayUnitMode);
         $unitId = $stockDisplay['unit_id'];
@@ -348,6 +645,8 @@ class ProductStockController extends Controller
             'sku' => $useProductSku ? $product->sku : $variant->sku,
             'barcode' => $useProductSku ? $product->barcode : $variant->barcode,
             'nature' => $product->nature?->name ?? '-',
+            'nature_code' => $product->nature?->code ?? '',
+            'is_finished_good' => $isFinishedGood,
             'category' => $product->category?->name ?? '-',
             'quantity' => $stockDisplay['quantity'],
             'unit' => $stockDisplay['unit'],
@@ -370,6 +669,9 @@ class ProductStockController extends Controller
             'variant_count' => $variantCount,
             'batch_stocks' => $showBatches ? $batchStocks->values()->all() : [],
             'has_batch_stocks' => $showBatches,
+            'serial_total' => (int) ($barcodeStats['total'] ?? 0),
+            'serial_ready' => (int) ($barcodeStats['ready'] ?? 0),
+            'serial_dispatched' => (int) ($barcodeStats['dispatched'] ?? 0),
         ];
     }
 

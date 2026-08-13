@@ -43,6 +43,11 @@
             $canProcess = $order->status === 'draft';
             $canReceive = in_array($order->status, ['in_progress', 'pending_receiving'], true);
             $canEdit = $order->status === 'draft';
+            $barcodeCount = \App\Models\ProductLabelSerial::query()
+                ->where('source_type', \App\Models\ProductLabelSerial::SOURCE_PRODUCTION_ORDER)
+                ->where('source_id', $order->id)
+                ->count();
+            $canViewBarcodes = $barcodeCount > 0 || ($order->status === 'completed' && (float) $order->produced_qty > 0);
         @endphp
 
         <div class="card mb-4">
@@ -68,6 +73,19 @@
                     @if ($canReceive)
                         <a href="{{ route('production.receive', $order->id) }}" class="btn btn-primary">
                             <i class="ti ti-package me-1"></i> Receive
+                        </a>
+                    @endif
+                    @if ($canViewBarcodes)
+                        <a href="{{ route('production.barcodes', $order->id) }}" class="btn btn-label-primary">
+                            <i class="ti ti-barcode me-1"></i> Detail Barcode
+                            @if ($barcodeCount > 0)
+                                <span class="badge bg-primary ms-1">{{ $barcodeCount }}</span>
+                            @endif
+                        </a>
+                    @endif
+                    @if ($order->status === 'completed' && (float) $order->produced_qty > 0)
+                        <a href="{{ route('production.receive.print', $order->id) }}" class="btn btn-label-info">
+                            <i class="ti ti-printer me-1"></i> Print Barcode
                         </a>
                     @endif
                     @if ($canEdit)

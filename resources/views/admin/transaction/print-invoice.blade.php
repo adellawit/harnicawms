@@ -95,7 +95,7 @@
                 <tr>
                     <td class="text-center">{{ $i + 1 }}</td>
                     <td>
-                        <strong>{{ $item->product?->name ?? '-' }}</strong>
+                        <strong>{{ product_print_name($item->product?->name) }}</strong>
                         @if($variantLabel)
                             <div class="muted">{{ $variantLabel }}</div>
                         @endif

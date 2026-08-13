@@ -33,6 +33,9 @@
                 <span class="badge bg-label-primary" id="previewRange"></span>
             </div>
             <div class="card-body">
+                <div class="alert alert-info py-2 px-3 small mb-3" role="status">
+                    Nomor serial sudah dikunci saat <strong>Receive</strong>. Tombol Save PDF hanya mencetak ulang nomor yang sama (tidak membuat serial baru).
+                </div>
                 <div id="previewLoading" class="text-center text-muted py-5">
                     <span class="spinner-border spinner-border-sm me-1"></span> Loading barcode preview...
                 </div>

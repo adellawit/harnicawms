@@ -8,7 +8,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
             title="FG Barcode & Stock"
-            subtitle="Monitor stok gudang Finish Good dibanding serial barcode yang masih ready (belum di-assign ke sales order)."
+            subtitle="Bandingkan serial barcode ready vs stok gudang FG (stok dikonversi ke unit serial yang sama). Serial tanpa stok/variant ditandai orphan."
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Reporting'],
@@ -109,7 +109,7 @@
                 <x-dashboard.kpi-card title="Baris Product" :value="format_number($kpis['rows'], 0, true)" icon="ti ti-packages" iconColor="primary" />
             </div>
             <div class="col-xl-3 col-md-6">
-                <x-dashboard.kpi-card title="Stok FG" :value="format_number($kpis['stock_qty'], 0, true)" icon="ti ti-building-warehouse" iconColor="info" />
+                <x-dashboard.kpi-card title="Stok FG (asli)" :value="format_number($kpis['stock_qty'], 0, true)" icon="ti ti-building-warehouse" iconColor="info" />
             </div>
             <div class="col-xl-3 col-md-6">
                 <x-dashboard.kpi-card title="Serial Ready" :value="format_number($kpis['serial_ready'], 0, true)" icon="ti ti-barcode" iconColor="success" />
@@ -128,7 +128,7 @@
                             <th>Variant</th>
                             <th>Unit</th>
                             <th>Warehouse</th>
-                            <th class="text-end">Stok FG</th>
+                            <th class="text-end">Stok equiv.</th>
                             <th class="text-end">Serial Ready</th>
                             <th class="text-end">Selisih</th>
                             <th>Status</th>
@@ -141,15 +141,17 @@
                                 $statusLabel = match ($row->status) {
                                     'surplus' => 'Serial surplus',
                                     'shortage' => 'Serial shortage',
+                                    'orphan' => 'Orphan (tanpa stok/variant)',
                                     default => 'OK',
                                 };
                                 $statusClass = match ($row->status) {
                                     'surplus' => 'bg-label-warning',
                                     'shortage' => 'bg-label-danger',
+                                    'orphan' => 'bg-label-secondary',
                                     default => 'bg-label-success',
                                 };
                             @endphp
-                            <tr class="{{ $row->status !== 'ok' ? 'table-warning' : '' }}">
+                            <tr class="{{ $row->status !== 'ok' ? ($row->status === 'orphan' ? 'table-secondary' : 'table-warning') : '' }}">
                                 <td>
                                     <div class="fw-semibold">{{ $row->product_name }}</div>
                                     <div class="text-muted small">{{ $row->product_code }}</div>

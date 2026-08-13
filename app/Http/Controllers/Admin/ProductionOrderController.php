@@ -7,6 +7,8 @@ use App\Models\BillOfMaterial;
 use App\Models\ProductionOrder;
 use App\Models\ProductUnit;
 use App\Models\Warehouse;
+use App\Models\ProductLabelSerial;
+use App\Services\Product\ProductLabelSerialService;
 use App\Services\StockAvailabilityService;
 use App\Services\Manufacturing\ProductionService;
 use App\Services\Manufacturing\ProductionSimulationService;
@@ -16,6 +18,7 @@ use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ProductionOrderController extends Controller
@@ -35,7 +38,14 @@ class ProductionOrderController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return view('admin.production.index', compact('orders'));
+        $barcodeCounts = DB::table('product.product_label_serials')
+            ->where('source_type', ProductLabelSerial::SOURCE_PRODUCTION_ORDER)
+            ->whereIn('source_id', $orders->pluck('id'))
+            ->groupBy('source_id')
+            ->selectRaw('source_id, COUNT(*)::int as total')
+            ->pluck('total', 'source_id');
+
+        return view('admin.production.index', compact('orders', 'barcodeCounts'));
     }
 
     public function create()
@@ -508,11 +518,42 @@ class ProductionOrderController extends Controller
             return back()->withInput()->with('error', 'Failed to receive production output: ' . $e->getMessage());
         }
 
+        $printUnitId = $data['actual_unit_id'];
+        $printQuantity = max(1, (int) round((float) $data['actual_qty']));
+
+        // Lock barcode serials at receive time (PDF later only reprints locked numbers).
+        try {
+            $order->loadMissing(['product.defaultUnit', 'product.unitConversions']);
+            if ($order->product) {
+                app(ProductLabelSerialService::class)->allocateHierarchyForSource(
+                    product: $order->product,
+                    parentUnitId: $printUnitId,
+                    parentQuantity: $printQuantity,
+                    variantId: $order->product_variant_id,
+                    userId: Auth::id(),
+                    sourceType: 'production_order',
+                    sourceId: $order->id,
+                    includeSmallestUnit: false,
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to allocate production barcode serials on receive', [
+                'production_order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('production.receive.print', [
+                'id' => $order->id,
+                'unit_id' => $printUnitId,
+                'quantity' => $printQuantity,
+            ])->with('error', 'Barang jadi diterima, tetapi alokasi barcode gagal: '.$e->getMessage());
+        }
+
         return redirect()->route('production.receive.print', [
             'id' => $order->id,
-            'unit_id' => $data['actual_unit_id'],
-            'quantity' => (int) round((float) $data['actual_qty']),
-        ])->with('success', 'Production output received. Finished goods added to warehouse.');
+            'unit_id' => $printUnitId,
+            'quantity' => $printQuantity,
+        ])->with('success', 'Production output received. Barcode serials locked — silakan preview & Save PDF.');
     }
 
     public function receivePrint(Request $request, string $id)
@@ -557,6 +598,183 @@ class ProductionOrderController extends Controller
             'unit' => $unit,
             'quantity' => $quantity,
             'distributorName' => $distributorName,
+        ]);
+    }
+
+    public function barcodes(Request $request, string $id)
+    {
+        $order = ProductionOrder::with([
+            'product.defaultUnit',
+            'variant',
+            'outputUnit',
+        ])->findOrFail($id);
+
+        $perPage = (int) $request->input('per_page', 50);
+        $perPage = in_array($perPage, [25, 50, 100, 200], true) ? $perPage : 50;
+        $unitId = $request->input('unit_id') ?: null;
+        $status = $request->input('status'); // ready|dispatched|all
+
+        $baseQuery = ProductLabelSerial::query()
+            ->with(['unit:id,name,symbol', 'variant:id,sku'])
+            ->withExists(['salesAssignments as is_dispatched'])
+            ->where('source_type', ProductLabelSerial::SOURCE_PRODUCTION_ORDER)
+            ->where('source_id', $order->id);
+
+        $summary = DB::table('product.product_label_serials as pls')
+            ->leftJoin('product.product_units as pu', 'pu.id', '=', 'pls.unit_id')
+            ->where('pls.source_type', ProductLabelSerial::SOURCE_PRODUCTION_ORDER)
+            ->where('pls.source_id', $order->id)
+            ->groupBy('pls.unit_id', 'pls.unit_level', 'pu.name', 'pu.symbol')
+            ->orderBy('pls.unit_level')
+            ->selectRaw('
+                pls.unit_id,
+                pls.unit_level,
+                pu.name as unit_name,
+                pu.symbol as unit_symbol,
+                COUNT(*)::int as total,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM transaction.sales_order_item_serial_assignments a
+                        WHERE a.product_label_serial_id = pls.id
+                    )
+                )::int as dispatched
+            ')
+            ->get();
+
+        $summaryRows = $summary->map(function ($row) {
+            return (object) [
+                'unit_id' => $row->unit_id,
+                'unit_level' => $row->unit_level,
+                'unit_label' => strtoupper($row->unit_symbol ?: ($row->unit_name ?: ('L'.$row->unit_level))),
+                'total' => (int) $row->total,
+                'dispatched' => (int) $row->dispatched,
+                'ready' => (int) $row->total - (int) $row->dispatched,
+            ];
+        });
+
+        $serialsQuery = (clone $baseQuery)
+            ->when($unitId, fn ($q) => $q->where('unit_id', $unitId))
+            ->when($status === 'ready', function ($q) {
+                $q->whereDoesntHave('salesAssignments');
+            })
+            ->when($status === 'dispatched', function ($q) {
+                $q->whereHas('salesAssignments');
+            })
+            ->orderBy('unit_level')
+            ->orderBy('sequence');
+
+        $serials = $serialsQuery->paginate($perPage)->withQueryString();
+
+        $order->loadMissing([
+            'product.defaultUnit',
+            'product.unitConversions.fromUnit',
+            'product.unitConversions.toUnit',
+            'outputUnit',
+        ]);
+
+        $qtyBase = (float) $order->produced_qty > 0
+            ? (float) $order->produced_qty
+            : (float) $order->planned_qty;
+        $qtyUnitId = $order->output_unit_id ?: $order->product?->default_unit_id;
+
+        $conversionChain = [];
+        $qtyLevels = [];
+        $packagingRows = [];
+        $expectedBarcodeRows = [];
+        $expectedVsActual = [];
+
+        if ($order->product && $qtyUnitId && $qtyBase > 0) {
+            $product = $order->product;
+            $qtyLevels = \App\Support\ProductionQuantityDisplay::qtyLevelBreakdown($product, $qtyBase, $qtyUnitId);
+            $packagingRows = \App\Support\ProductionQuantityDisplay::packagingBreakdown($product, $qtyBase, $qtyUnitId);
+
+            $chain = $product->getBarcodeUnits()->values();
+            foreach ($chain as $index => $unit) {
+                $parts = [];
+                $cursorId = $unit->id;
+                for ($j = $index; $j < $chain->count() - 1; $j++) {
+                    $from = $chain[$j];
+                    $to = $chain[$j + 1];
+                    $factor = null;
+                    foreach ($product->unitConversions as $conv) {
+                        if ($conv->from_unit_id === $from->id && $conv->to_unit_id === $to->id) {
+                            $factor = (float) $conv->conversion_factor;
+                            break;
+                        }
+                    }
+                    if ($factor === null || $factor <= 0) {
+                        break;
+                    }
+                    $parts[] = '1 '.strtoupper($from->symbol ?: $from->name)
+                        .' = '.(int) $factor.' '.strtoupper($to->symbol ?: $to->name);
+                }
+                if ($index === 0 && $parts !== []) {
+                    $conversionChain = $parts;
+                }
+            }
+
+            // Expected labels: same rule as receive print (hierarchy, exclude smallest/sachet).
+            $startUnitId = $product->default_unit_id ?: $qtyUnitId;
+            $startQty = $product->convertQuantity($qtyBase, $qtyUnitId, $startUnitId);
+            $startQtyInt = max(1, (int) round((float) ($startQty ?? $qtyBase)));
+
+            $expectedBreakdown = $product->getBarcodeQuantityBreakdown($startQtyInt, $startUnitId, false);
+            $actualByUnit = $summaryRows->keyBy('unit_id');
+
+            foreach ($expectedBreakdown as $item) {
+                $actual = $actualByUnit->get($item['unit_id']);
+                $expectedQty = (int) $item['qty'];
+                $actualQty = (int) ($actual->total ?? 0);
+                $expectedBarcodeRows[] = (object) [
+                    'unit_id' => $item['unit_id'],
+                    'level' => $item['level'],
+                    'unit_label' => strtoupper($item['label']),
+                    'expected' => $expectedQty,
+                    'actual' => $actualQty,
+                    'variance' => $actualQty - $expectedQty,
+                    'content_summary' => $item['content_summary'] ?? null,
+                ];
+            }
+
+            // Include actual serial units that were not in expected breakdown (e.g. orphan sachet).
+            foreach ($summaryRows as $actual) {
+                $alreadyListed = collect($expectedBarcodeRows)->contains(
+                    fn ($r) => $r->unit_id === $actual->unit_id
+                );
+                if ($alreadyListed) {
+                    continue;
+                }
+                $expectedBarcodeRows[] = (object) [
+                    'unit_id' => $actual->unit_id,
+                    'level' => $actual->unit_level,
+                    'unit_label' => $actual->unit_label,
+                    'expected' => 0,
+                    'actual' => $actual->total,
+                    'variance' => $actual->total,
+                    'content_summary' => null,
+                ];
+            }
+        }
+
+        return view('admin.production.barcodes', [
+            'order' => $order,
+            'summaryRows' => $summaryRows,
+            'serials' => $serials,
+            'filters' => [
+                'unit_id' => $unitId,
+                'status' => in_array($status, ['ready', 'dispatched'], true) ? $status : 'all',
+                'per_page' => $perPage,
+            ],
+            'totalSerials' => (int) $summaryRows->sum('total'),
+            'totalDispatched' => (int) $summaryRows->sum('dispatched'),
+            'totalReady' => (int) $summaryRows->sum('ready'),
+            'conversionChain' => $conversionChain,
+            'qtyLevels' => $qtyLevels,
+            'packagingRows' => $packagingRows,
+            'expectedBarcodeRows' => $expectedBarcodeRows,
+            'qtyBase' => $qtyBase,
+            'qtyUnitLabel' => $order->outputUnit?->symbol ?: ($order->outputUnit?->name ?: ''),
         ]);
     }
 

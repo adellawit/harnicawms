@@ -168,13 +168,56 @@ class AgentCuttingPriceReportRepository
 
     /**
      * All comparable Agent/Reseller paid lines vs cutting price MAP floor
-     * (partner.cutting_price_configs — NOT product price lists).
+     * (partner.cutting_price_configs), with sold-unit → config-unit price conversion.
      *
      * @param  array<string, mixed>  $filters
      */
     private function pricedLineSql(array $filters): string
     {
         $sql = "
+            WITH RECURSIVE conv_edges AS (
+                SELECT
+                    c.product_id,
+                    c.from_unit_id AS src,
+                    c.to_unit_id AS dst,
+                    c.conversion_factor::numeric AS factor
+                FROM product.product_unit_conversions c
+                WHERE c.deleted_at IS NULL
+                UNION ALL
+                SELECT
+                    c.product_id,
+                    c.to_unit_id AS src,
+                    c.from_unit_id AS dst,
+                    CASE
+                        WHEN c.conversion_factor > 0 THEN 1.0 / c.conversion_factor::numeric
+                        ELSE NULL
+                    END AS factor
+                FROM product.product_unit_conversions c
+                WHERE c.deleted_at IS NULL
+            ),
+            conv_paths AS (
+                SELECT
+                    product_id,
+                    src AS start_unit,
+                    dst AS end_unit,
+                    factor,
+                    ARRAY[src, dst]::uuid[] AS visited
+                FROM conv_edges
+                WHERE factor IS NOT NULL
+                UNION ALL
+                SELECT
+                    e.product_id,
+                    p.start_unit,
+                    e.dst AS end_unit,
+                    p.factor * e.factor AS factor,
+                    p.visited || e.dst
+                FROM conv_paths p
+                INNER JOIN conv_edges e
+                    ON e.product_id = p.product_id
+                   AND e.src = p.end_unit
+                   AND NOT (e.dst = ANY (p.visited))
+                WHERE e.factor IS NOT NULL
+            )
             SELECT
                 so.id AS sales_order_id,
                 so.sales_number,
@@ -186,47 +229,35 @@ class AgentCuttingPriceReportRepository
                 soi.unit_id,
                 soi.quantity,
                 soi.unit_price AS agent_unit_price,
-                CASE
-                    WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
-                    ELSE soi.unit_price
-                END AS agent_net_price,
+                line_net.agent_net_price,
+                fac.to_map_unit_factor,
+                cpc.unit_code AS map_unit_code,
+                ROUND((line_net.agent_net_price / fac.to_map_unit_factor)::numeric, 4) AS agent_net_price_map_unit,
                 cpc.map_price AS distributor_price,
                 cpc.official_price AS official_price,
                 cpc.map_price AS map_price,
                 GREATEST(
-                    cpc.map_price - CASE
-                        WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
-                        ELSE soi.unit_price
-                    END,
+                    cpc.map_price - ROUND((line_net.agent_net_price / fac.to_map_unit_factor)::numeric, 4),
                     0
                 ) AS gap_unit,
                 (
                     GREATEST(
-                        cpc.map_price - CASE
-                            WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
-                            ELSE soi.unit_price
-                        END,
+                        cpc.map_price - ROUND((line_net.agent_net_price / fac.to_map_unit_factor)::numeric, 4),
                         0
-                    ) * soi.quantity
+                    ) * (soi.quantity * fac.to_map_unit_factor)
                 ) AS gap_amount,
                 CASE
                     WHEN cpc.map_price > 0 THEN ROUND((
                         GREATEST(
-                            cpc.map_price - CASE
-                                WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
-                                ELSE soi.unit_price
-                            END,
+                            cpc.map_price - ROUND((line_net.agent_net_price / fac.to_map_unit_factor)::numeric, 4),
                             0
                         ) / cpc.map_price * 100
                     )::numeric, 2)
                     ELSE 0
                 END AS gap_percent,
                 (
-                    CASE
-                        WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
-                        ELSE soi.unit_price
-                    END
-                ) < cpc.map_price AS is_cutting,
+                    ROUND((line_net.agent_net_price / fac.to_map_unit_factor)::numeric, 4) < cpc.map_price
+                ) AS is_cutting,
                 p.code AS product_code,
                 p.name AS product_name,
                 pv.sku AS variant_sku,
@@ -267,15 +298,52 @@ class AgentCuttingPriceReportRepository
             LEFT JOIN product.product_units pu
                 ON pu.id = soi.unit_id
                AND pu.deleted_at IS NULL
-            INNER JOIN partner.cutting_price_configs cpc
-                ON cpc.category_id = p.category_id
-               AND cpc.deleted_at IS NULL
-               AND cpc.is_active = true
-               AND (
-                    UPPER(COALESCE(pu.code, '')) = UPPER(cpc.unit_code)
-                    OR UPPER(COALESCE(pu.symbol, '')) = UPPER(cpc.unit_code)
-                    OR UPPER(COALESCE(pu.name, '')) = UPPER(cpc.unit_code)
-               )
+            INNER JOIN LATERAL (
+                SELECT cfg.*
+                FROM partner.cutting_price_configs cfg
+                WHERE cfg.category_id = p.category_id
+                  AND cfg.deleted_at IS NULL
+                  AND cfg.is_active = true
+                ORDER BY cfg.sort_order ASC, cfg.created_at ASC
+                LIMIT 1
+            ) cpc ON true
+            INNER JOIN LATERAL (
+                SELECT mu.id
+                FROM product.product_units mu
+                WHERE mu.deleted_at IS NULL
+                  AND (
+                    UPPER(COALESCE(mu.code, '')) = UPPER(cpc.unit_code)
+                    OR UPPER(COALESCE(mu.symbol, '')) = UPPER(cpc.unit_code)
+                    OR UPPER(COALESCE(mu.name, '')) = UPPER(cpc.unit_code)
+                  )
+                ORDER BY
+                    CASE
+                        WHEN UPPER(COALESCE(mu.code, '')) = UPPER(cpc.unit_code) THEN 0
+                        WHEN UPPER(COALESCE(mu.symbol, '')) = UPPER(cpc.unit_code) THEN 1
+                        ELSE 2
+                    END
+                LIMIT 1
+            ) map_unit ON true
+            INNER JOIN LATERAL (
+                SELECT CASE
+                    WHEN soi.quantity > 0 THEN ROUND((soi.subtotal / soi.quantity)::numeric, 4)
+                    ELSE soi.unit_price
+                END AS agent_net_price
+            ) line_net ON true
+            INNER JOIN LATERAL (
+                SELECT CASE
+                    WHEN soi.unit_id IS NOT NULL AND soi.unit_id = map_unit.id THEN 1::numeric
+                    ELSE (
+                        SELECT cp.factor
+                        FROM conv_paths cp
+                        WHERE cp.product_id = p.id
+                          AND cp.start_unit = soi.unit_id
+                          AND cp.end_unit = map_unit.id
+                        ORDER BY array_length(cp.visited, 1)
+                        LIMIT 1
+                    )
+                END AS to_map_unit_factor
+            ) fac ON fac.to_map_unit_factor IS NOT NULL AND fac.to_map_unit_factor > 0
             WHERE soi.deleted_at IS NULL
               AND COALESCE(soi.is_promo_free, false) = false
               AND soi.quantity > 0
