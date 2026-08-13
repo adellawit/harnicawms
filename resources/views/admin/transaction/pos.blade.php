@@ -305,8 +305,24 @@
                 padding: 0.625rem 0.75rem;
                 border-bottom: 1px solid #f0f0f0;
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+            .pos-cart-top .select2-container {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+            .pos-cart-top .select2-selection--single {
+                height: auto !important;
+                min-height: 38px;
+            }
+            .pos-cart-top .select2-selection__rendered {
+                white-space: normal !important;
+                line-height: 1.35 !important;
+                padding-top: 0.4rem !important;
+                padding-bottom: 0.4rem !important;
+                word-break: break-word;
             }
             .pos-cart-top .cart-badge {
                 background: var(--pos-accent);
@@ -316,18 +332,21 @@
                 padding: 0.2rem 0.5rem;
                 border-radius: 2rem;
                 white-space: nowrap;
+                margin-top: 0.45rem;
             }
             .pos-customer-option {
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 justify-content: space-between;
                 gap: 0.5rem;
                 width: 100%;
             }
             .pos-customer-option .pos-customer-name {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                flex: 1 1 auto;
+                min-width: 0;
+                white-space: normal;
+                word-break: break-word;
+                line-height: 1.35;
             }
             .pos-customer-badge {
                 font-size: 0.625rem;
@@ -335,10 +354,20 @@
                 padding: 0.15rem 0.45rem;
                 border-radius: 999px;
                 white-space: nowrap;
+                flex-shrink: 0;
+                margin-top: 0.1rem;
             }
             .pos-customer-badge.agent { background: #e8f5e9; color: #2e7d32; }
             .pos-customer-badge.reseller { background: #e3f2fd; color: #1565c0; }
             .pos-customer-badge.partner-lead { background: #fff8e1; color: #f57f17; }
+            .select2-container--open .pos-customer-select-dropdown {
+                min-width: 360px !important;
+                max-width: min(520px, 96vw) !important;
+            }
+            .pos-customer-select-dropdown .select2-results__option {
+                padding-top: 0.45rem;
+                padding-bottom: 0.45rem;
+            }
             #selectedPartnerBadge {
                 display: none;
                 font-size: 0.6875rem;
@@ -1358,7 +1387,7 @@
                     <div class="pos-empty-cart" id="emptyCart">
                         <i class="ti ti-shopping-cart empty-icon"></i>
                         <p class="mb-1">No items in cart</p>
-                        <small>Click a product to add</small>
+                        <small>Pilih Agent/Reseller dulu, lalu klik produk</small>
                     </div>
 
                     <!-- Hidden template -->
@@ -1611,7 +1640,7 @@
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
-        <script src="{{ asset('assets/js/pos-barcode-scan.js') }}"></script>
+        <script src="{{ asset('assets/js/pos-barcode-scan.js') }}?v={{ filemtime(public_path('assets/js/pos-barcode-scan.js')) }}"></script>
     @endpush
     @push('page-js')
         <script>
@@ -1630,6 +1659,7 @@
                 });
                 $('#customerSelect').select2({
                     dropdownParent: $('body'),
+                    dropdownCssClass: 'pos-customer-select-dropdown',
                     placeholder: 'Walk-in Customer',
                     allowClear: true,
                     templateResult: function(option) {
@@ -1641,7 +1671,6 @@
                         var $option = $(option.element);
                         var role = $option.data('partner-role');
                         var label = $option.data('partner-label');
-                        var code = $option.data('partner-code');
                         var shortLabel = $option.data('short-label') || option.text.trim();
                         var $wrap = $('<div class="pos-customer-option"></div>');
                         var $name = $('<span class="pos-customer-name"></span>').text(shortLabel);
@@ -1650,10 +1679,11 @@
                         }
                         $wrap.append($name);
 
+                        // Role only (code already in name) — avoids truncating long names
                         if (role && label) {
                             var badgeClass = role === 'agent' ? 'agent' : (role === 'reseller' ? 'reseller' : 'partner-lead');
                             $wrap.append(
-                                $('<span class="pos-customer-badge ' + badgeClass + '"></span>').text(label + (code ? ' · ' + code : ''))
+                                $('<span class="pos-customer-badge ' + badgeClass + '"></span>').text(label)
                             );
                         }
 
@@ -1665,7 +1695,8 @@
                         }
 
                         var $option = $(option.element);
-                        return $option.data('short-label') || option.text.trim();
+                        var text = $option.data('short-label') || option.text.trim();
+                        return $('<span></span>').attr('title', text).text(text);
                     }
                 });
 
@@ -1928,6 +1959,9 @@
 
                 // ── Add to Cart (product card click) ──────────────────
                 $(document).on('click', '.pos-product-card', function() {
+                    if (window.PosBarcodeScan && !window.PosBarcodeScan.ensurePartnerCustomerSelected()) {
+                        return;
+                    }
                     var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
                     if (!priceListId) {
                         alert('Please select Type Transaction (Price List) first');
@@ -2007,6 +2041,9 @@
                 $(document).on('click', '.variant-item', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (window.PosBarcodeScan && !window.PosBarcodeScan.ensurePartnerCustomerSelected()) {
+                        return;
+                    }
                     var $el = $(this);
                     if (window.PosBarcodeScan) {
                         window.PosBarcodeScan.syncPartnerRoleFromCustomer();
@@ -2142,6 +2179,9 @@
 
                 // Open payment modal on Payment button click
                 $('#btnPayment').on('click', function() {
+                    if (window.PosBarcodeScan && !window.PosBarcodeScan.ensurePartnerCustomerSelected()) {
+                        return;
+                    }
                     var itemCount = getCartItemQty();
                     if (itemCount === 0) {
                         Swal.fire({ icon: 'warning', text: 'Please add items to your cart first!', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
@@ -2621,6 +2661,9 @@
 
                 // ── addToCart ──────────────────────────────────────────
                 function addToCart(variantId, name, price, image, unitId, unitLabel, serialPayload) {
+                    if (window.PosBarcodeScan && !window.PosBarcodeScan.ensurePartnerCustomerSelected()) {
+                        return;
+                    }
                     $('#emptyCart').hide();
                     var serialNumber = serialPayload && serialPayload.serial_number
                         ? String(serialPayload.serial_number)

@@ -71,6 +71,8 @@ class ReportAgentCuttingPriceController extends Controller
                     'quantity' => (float) $row->quantity,
                     'agent_unit_price' => (float) $row->agent_unit_price,
                     'agent_net_price' => (float) $row->agent_net_price,
+                    'agent_net_price_map_unit' => (float) ($row->agent_net_price_map_unit ?? $row->agent_net_price),
+                    'map_unit_code' => $row->map_unit_code ?? null,
                     'distributor_price' => (float) $row->distributor_price,
                     'gap_amount' => (float) $row->gap_amount,
                     'gap_percent' => (float) $row->gap_percent,

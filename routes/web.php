@@ -701,6 +701,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::group(['prefix' => 'stock'], function () {
             Route::get('/', [ProductStockController::class, 'indexView'])->name('product.stock.index.view')->middleware('permission:Stock,is_read');
+            Route::get('/barcodes', [ProductStockController::class, 'barcodesDetail'])->name('product.stock.barcodes')->middleware('permission:Stock,is_read');
         });
 
         Route::group(['prefix' => 'price'], function () {
@@ -930,6 +931,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Detail / print routes (must be after all named routes to avoid conflicts)
         Route::get('/detail/{id}', [TransactionController::class, 'detailView'])->name('transaction.detail');
         Route::get('/{id}/print-invoice', [TransactionController::class, 'printInvoice'])->name('transaction.print-invoice');
+        Route::get('/{id}/print-shipping', [TransactionController::class, 'printShipping'])->name('transaction.print-shipping');
     });
 
     /*****************

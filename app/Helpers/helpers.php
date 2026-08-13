@@ -118,3 +118,21 @@ if (! function_exists('format_date_id')) {
         }
     }
 }
+
+if (! function_exists('product_print_name')) {
+    /**
+     * Product name for invoice/shipping print — strip trailing type/category suffix
+     * e.g. "Foredi (Barang Jadi)" → "Foredi".
+     */
+    function product_print_name(?string $name): string
+    {
+        $name = trim((string) $name);
+        if ($name === '') {
+            return '-';
+        }
+
+        $clean = preg_replace('/\s*\([^)]*\)\s*$/u', '', $name);
+
+        return trim((string) $clean) !== '' ? trim((string) $clean) : $name;
+    }
+}

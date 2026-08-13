@@ -69,8 +69,20 @@
     flex-shrink: 0;
 }
 
-.pnm-legend__dot--agent { background: var(--brand-primary); box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb), 0.2); }
-.pnm-legend__dot--reseller { background: var(--brand-secondary); box-shadow: 0 0 0 3px rgba(var(--brand-secondary-rgb), 0.2); }
+/* Map-specific palette: agent = brand green, reseller = blue (clear on satellite) */
+.pnm-legend__dot--agent {
+    background: var(--brand-primary, #5C9E84);
+    box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb, 92, 158, 132), 0.25);
+}
+.pnm-legend__dot--reseller {
+    background: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.pnm-badge-reseller {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #1d4ed8 !important;
+}
 
 .pnm-legend__area {
     width: 14px;
@@ -203,7 +215,7 @@
     height: 6px;
     margin-top: 0.4rem;
     border-radius: 50%;
-    background: var(--brand-secondary);
+    background: #3b82f6;
     flex-shrink: 0;
 }
 
@@ -250,8 +262,15 @@
     cursor: pointer;
 }
 
-.pnm-marker--agent { background: linear-gradient(145deg, var(--brand-primary), var(--brand-primary-600)); }
-.pnm-marker--reseller { background: linear-gradient(145deg, var(--brand-secondary), var(--brand-secondary-600)); width: 28px; height: 28px; font-size: 10px; }
+.pnm-marker--agent {
+    background: linear-gradient(145deg, var(--brand-primary, #5C9E84), var(--brand-primary-600, #4a8a70));
+}
+.pnm-marker--reseller {
+    background: linear-gradient(145deg, #60a5fa, #2563eb);
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+}
 
 .pnm-marker-tooltip {
     font-size: 12px;

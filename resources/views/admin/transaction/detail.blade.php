@@ -32,6 +32,9 @@
                     <a href="{{ route('transaction.print-invoice', $order->id) }}?print=1" target="_blank" class="btn btn-outline-secondary btn-sm ms-2">
                         <i class="ti ti-printer me-1"></i>Print Invoice
                     </a>
+                    <a href="{{ route('transaction.print-shipping', $order->id) }}?print=1" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="ti ti-truck-delivery me-1"></i>Print Surat Jalan
+                    </a>
                     <a href="{{ route('transaction.index') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="ti ti-arrow-left me-1"></i>Back
                     </a>

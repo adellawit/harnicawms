@@ -9,7 +9,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <x-page-header
             title="Agent Cutting Price"
-            subtitle="Deteksi penjualan Agent/Reseller di bawah MAP (Minimum Advertised) dari konfigurasi Cutting Price — tidak memakai price list."
+            subtitle="Deteksi penjualan Agent/Reseller di bawah MAP dari Cutting Price Config. Harga jual dikonversi ke unit config (mis. BOX) sebelum dibanding."
             :breadcrumbs="[
                 ['label' => 'Home', 'url' => route('dashboard')],
                 ['label' => 'Reporting'],
@@ -205,10 +205,10 @@
                                     <th>Trx</th>
                                     <th>Penjual</th>
                                     <th>Produk</th>
-                                    <th>Unit</th>
+                                    <th>Unit Jual</th>
                                     <th class="text-end">Qty</th>
-                                    <th class="text-end">Unit Price</th>
-                                    <th class="text-end">Net</th>
+                                    <th class="text-end">Net / Unit Jual</th>
+                                    <th class="text-end">Net / Unit MAP</th>
                                     <th class="text-end">MAP Floor</th>
                                     <th class="text-end">Selisih</th>
                                     <th class="text-end">%</th>
@@ -281,9 +281,11 @@
                                     '<td><div>' + (r.product || '-') + '</div><div class="text-muted small">' + (r.variant_sku || '') + '</div></td>' +
                                     '<td>' + (r.unit || '-') + '</td>' +
                                     '<td class="text-end">' + formatRp(r.quantity) + '</td>' +
-                                    '<td class="text-end">' + formatRp(r.agent_unit_price) + '</td>' +
                                     '<td class="text-end">' + formatRp(r.agent_net_price) + '</td>' +
-                                    '<td class="text-end">' + formatRp(r.distributor_price) + '</td>' +
+                                    '<td class="text-end">' + formatRp(r.agent_net_price_map_unit) +
+                                        '<div class="text-muted small">/ ' + (r.map_unit_code || 'MAP') + '</div></td>' +
+                                    '<td class="text-end">' + formatRp(r.distributor_price) +
+                                        '<div class="text-muted small">/ ' + (r.map_unit_code || 'MAP') + '</div></td>' +
                                     '<td class="text-end text-danger fw-semibold">' + formatRp(r.gap_amount) + '</td>' +
                                     '<td class="text-end">' + formatRp(r.gap_percent) + '%</td>' +
                                     '</tr>';

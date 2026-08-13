@@ -215,8 +215,23 @@
                                             @endif
                                             @if ($o->status === 'completed' && (float) $o->produced_qty > 0)
                                                 <li>
+                                                    <a class="dropdown-item" href="{{ route('production.barcodes', $o->id) }}">
+                                                        <i class="ti ti-barcode me-2 text-primary"></i>Detail Barcode
+                                                        @if (($barcodeCounts[$o->id] ?? 0) > 0)
+                                                            <span class="badge bg-label-primary ms-1">{{ $barcodeCounts[$o->id] }}</span>
+                                                        @endif
+                                                    </a>
+                                                </li>
+                                                <li>
                                                     <a class="dropdown-item" href="{{ route('production.receive.print', $o->id) }}">
                                                         <i class="ti ti-printer me-2 text-info"></i>Print Barcode
+                                                    </a>
+                                                </li>
+                                            @elseif (($barcodeCounts[$o->id] ?? 0) > 0)
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('production.barcodes', $o->id) }}">
+                                                        <i class="ti ti-barcode me-2 text-primary"></i>Detail Barcode
+                                                        <span class="badge bg-label-primary ms-1">{{ $barcodeCounts[$o->id] }}</span>
                                                     </a>
                                                 </li>
                                             @endif

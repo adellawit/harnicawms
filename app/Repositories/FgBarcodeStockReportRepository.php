@@ -14,26 +14,191 @@ class FgBarcodeStockReportRepository
      */
     public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
-        return $this->summaryQuery($filters)
-            ->orderBy('product_name')
-            ->orderBy('variant_sku')
-            ->orderBy('unit_sort_level')
-            ->orderBy('unit_name')
-            ->paginate($perPage)
-            ->withQueryString();
+        $rows = $this->summaryRows($filters);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $slice = $rows->forPage($page, $perPage)->values();
+
+        return new LengthAwarePaginator(
+            $slice,
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => request()->query(),
+            ]
+        );
     }
 
     /**
+     * Summary with stock converted to each serial unit (same product + variant).
+     *
      * @param  array<string, mixed>  $filters
      */
     public function summaryRows(array $filters): Collection
     {
-        return $this->summaryQuery($filters)
-            ->orderBy('product_name')
-            ->orderBy('variant_sku')
-            ->orderBy('unit_sort_level')
-            ->orderBy('unit_name')
-            ->get();
+        $warehouseId = $filters['warehouse_id'] ?? null;
+        $stock = $this->stockAggregates($filters);
+        $ready = $this->readyAggregates($filters);
+
+        $productIds = $stock->pluck('product_id')
+            ->merge($ready->pluck('product_id'))
+            ->unique()
+            ->filter()
+            ->values();
+
+        $products = DB::table('product.products as p')
+            ->join('product.product_natures as pn', function ($join): void {
+                $join->on('pn.id', '=', 'p.nature_id')
+                    ->where('pn.code', 'FINISHED_GOOD')
+                    ->whereNull('pn.deleted_at');
+            })
+            ->whereIn('p.id', $productIds)
+            ->whereNull('p.deleted_at')
+            ->get(['p.id', 'p.code', 'p.name', 'p.default_unit_id'])
+            ->keyBy('id');
+
+        $conversions = DB::table('product.product_unit_conversions')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->get()
+            ->groupBy('product_id');
+
+        $unitIds = $stock->pluck('unit_id')
+            ->merge($ready->pluck('unit_id'))
+            ->merge($products->pluck('default_unit_id'))
+            ->unique()
+            ->filter()
+            ->values();
+
+        $units = DB::table('product.product_units')
+            ->whereIn('id', $unitIds)
+            ->get(['id', 'name', 'symbol'])
+            ->keyBy('id');
+
+        $variantIds = $stock->pluck('product_variant_id')
+            ->merge($ready->pluck('product_variant_id'))
+            ->unique()
+            ->filter()
+            ->values();
+
+        $variants = $variantIds->isEmpty()
+            ? collect()
+            : DB::table('product.product_variants')
+                ->whereIn('id', $variantIds)
+                ->get(['id', 'sku'])
+                ->keyBy('id');
+
+        $warehouse = $warehouseId
+            ? DB::table('master_data.warehouses')->where('id', $warehouseId)->first(['id', 'code', 'name'])
+            : null;
+
+        $stockByProductVariant = $stock->groupBy(
+            fn ($row) => $row->product_id.'|'.($row->product_variant_id ?? 'null')
+        );
+
+        $keys = collect();
+        foreach ($ready as $row) {
+            $keys->push([
+                'product_id' => $row->product_id,
+                'product_variant_id' => $row->product_variant_id,
+                'unit_id' => $row->unit_id,
+            ]);
+        }
+        foreach ($stock as $row) {
+            $keys->push([
+                'product_id' => $row->product_id,
+                'product_variant_id' => $row->product_variant_id,
+                'unit_id' => $row->unit_id,
+            ]);
+        }
+
+        $keys = $keys->unique(fn ($k) => $k['product_id'].'|'.($k['product_variant_id'] ?? 'null').'|'.$k['unit_id']);
+
+        $readyLookup = $ready->keyBy(
+            fn ($row) => $row->product_id.'|'.($row->product_variant_id ?? 'null').'|'.$row->unit_id
+        );
+
+        $rows = collect();
+
+        foreach ($keys as $key) {
+            $product = $products->get($key['product_id']);
+            if (! $product) {
+                continue;
+            }
+
+            $pvKey = $key['product_id'].'|'.($key['product_variant_id'] ?? 'null');
+            $stockLines = $stockByProductVariant->get($pvKey, collect());
+            $readyKey = $key['product_id'].'|'.($key['product_variant_id'] ?? 'null').'|'.$key['unit_id'];
+            $serialReady = (int) ($readyLookup->get($readyKey)->serial_ready ?? 0);
+
+            $stockEquivalent = $this->equivalentStockQty(
+                $stockLines,
+                $key['unit_id'],
+                $conversions->get($key['product_id'], collect())
+            );
+
+            // Native stock at this exact unit (before conversion), for transparency.
+            $nativeStock = (float) $stockLines
+                ->where('unit_id', $key['unit_id'])
+                ->sum('stock_qty');
+
+            $expected = $stockEquivalent ?? 0.0;
+            $expectedRounded = (int) round($expected);
+            $variance = $serialReady - $expectedRounded;
+
+            if ($stockLines->isEmpty() && $serialReady > 0) {
+                $status = 'orphan';
+            } elseif ($variance === 0) {
+                $status = 'ok';
+            } elseif ($variance > 0) {
+                $status = 'surplus';
+            } else {
+                $status = 'shortage';
+            }
+
+            if (($filters['mismatch_only'] ?? false) === true && $status === 'ok') {
+                continue;
+            }
+
+            $unit = $units->get($key['unit_id']);
+            $variant = $key['product_variant_id']
+                ? $variants->get($key['product_variant_id'])
+                : null;
+
+            $rows->push((object) [
+                'product_id' => $key['product_id'],
+                'product_variant_id' => $key['product_variant_id'],
+                'unit_id' => $key['unit_id'],
+                'product_code' => $product->code,
+                'product_name' => $product->name,
+                'variant_sku' => $variant->sku ?? null,
+                'unit_name' => $unit->name ?? null,
+                'unit_symbol' => $unit->symbol ?? null,
+                'warehouse_id' => $warehouse?->id ?? $warehouseId,
+                'warehouse_code' => $warehouse?->code,
+                'warehouse_name' => $warehouse?->name,
+                'stock_qty_native' => $nativeStock,
+                'stock_qty' => $expectedRounded,
+                'serial_ready' => $serialReady,
+                'variance' => $variance,
+                'status' => $status,
+                'unit_sort_level' => $this->unitSortLevel(
+                    $product->default_unit_id,
+                    $key['unit_id'],
+                    $conversions->get($key['product_id'], collect())
+                ),
+            ]);
+        }
+
+        return $rows
+            ->sortBy([
+                ['product_name', 'asc'],
+                ['variant_sku', 'asc'],
+                ['unit_sort_level', 'asc'],
+                ['unit_name', 'asc'],
+            ])
+            ->values();
     }
 
     /**
@@ -65,150 +230,185 @@ class FgBarcodeStockReportRepository
      */
     public function kpis(array $filters): array
     {
-        $base = $this->summaryQuery($filters);
+        $summary = $this->summaryRows(array_merge($filters, ['mismatch_only' => false]));
+        $stockNative = $this->stockAggregates($filters)->sum('stock_qty');
 
         return [
-            'rows' => (int) (clone $base)->count(),
-            'stock_qty' => (float) (clone $base)->sum('stock_qty'),
-            'serial_ready' => (int) (clone $base)->sum('serial_ready'),
-            'mismatch_rows' => (int) (clone $base)->where('status', '!=', 'ok')->count(),
+            'rows' => $summary->count(),
+            // Warehouse stock once (do not sum converted equivalents across units).
+            'stock_qty' => (float) $stockNative,
+            'serial_ready' => (int) $summary->sum('serial_ready'),
+            'mismatch_rows' => $summary->where('status', '!=', 'ok')->count(),
         ];
     }
 
     /**
      * @param  array<string, mixed>  $filters
      */
-    private function summaryQuery(array $filters): Builder
+    public function stockAggregates(array $filters): Collection
     {
-        $warehouseId = $filters['warehouse_id'] ?? null;
-
-        $readySql = '
-            SELECT
-                pls.product_id,
-                pls.product_variant_id,
-                pls.unit_id,
-                COUNT(*)::int AS serial_ready
-            FROM product.product_label_serials pls
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM transaction.sales_order_item_serial_assignments a
-                WHERE a.product_label_serial_id = pls.id
-            )
-        ';
-        $readyBindings = [];
-        if (! empty($filters['product_id'])) {
-            $readySql .= ' AND pls.product_id = ?';
-            $readyBindings[] = $filters['product_id'];
-        }
-        if (! empty($filters['variant_id'])) {
-            $readySql .= ' AND pls.product_variant_id = ?';
-            $readyBindings[] = $filters['variant_id'];
-        }
-        if (! empty($filters['unit_id'])) {
-            $readySql .= ' AND pls.unit_id = ?';
-            $readyBindings[] = $filters['unit_id'];
-        }
-        $readySql .= ' GROUP BY pls.product_id, pls.product_variant_id, pls.unit_id';
-
-        $stockSql = '
-            SELECT
+        $query = DB::table('product.product_variant_stock as pvs')
+            ->join('product.products as p', 'p.id', '=', 'pvs.product_id')
+            ->join('product.product_natures as pn', function ($join): void {
+                $join->on('pn.id', '=', 'p.nature_id')
+                    ->where('pn.code', 'FINISHED_GOOD')
+                    ->whereNull('pn.deleted_at');
+            })
+            ->whereNull('pvs.deleted_at')
+            ->when($filters['warehouse_id'] ?? null, fn (Builder $q, string $id) => $q->where('pvs.warehouse_id', $id))
+            ->when($filters['product_id'] ?? null, fn (Builder $q, string $id) => $q->where('pvs.product_id', $id))
+            ->when($filters['variant_id'] ?? null, fn (Builder $q, string $id) => $q->where('pvs.product_variant_id', $id))
+            ->when($filters['unit_id'] ?? null, fn (Builder $q, string $id) => $q->where('pvs.unit_id', $id))
+            ->groupBy('pvs.product_id', 'pvs.product_variant_id', 'pvs.unit_id', 'pvs.warehouse_id')
+            ->selectRaw('
                 pvs.product_id,
                 pvs.product_variant_id,
                 pvs.unit_id,
                 pvs.warehouse_id,
                 COALESCE(SUM(pvs.quantity), 0) AS stock_qty
-            FROM product.product_variant_stock pvs
-            WHERE pvs.deleted_at IS NULL
-        ';
-        $stockBindings = [];
-        if ($warehouseId) {
-            $stockSql .= ' AND pvs.warehouse_id = ?';
-            $stockBindings[] = $warehouseId;
-        }
-        if (! empty($filters['product_id'])) {
-            $stockSql .= ' AND pvs.product_id = ?';
-            $stockBindings[] = $filters['product_id'];
-        }
-        if (! empty($filters['variant_id'])) {
-            $stockSql .= ' AND pvs.product_variant_id = ?';
-            $stockBindings[] = $filters['variant_id'];
-        }
-        if (! empty($filters['unit_id'])) {
-            $stockSql .= ' AND pvs.unit_id = ?';
-            $stockBindings[] = $filters['unit_id'];
-        }
-        $stockSql .= ' GROUP BY pvs.product_id, pvs.product_variant_id, pvs.unit_id, pvs.warehouse_id';
+            ');
 
-        $sql = "
-            WITH ready AS ({$readySql}),
-            stock AS ({$stockSql}),
-            keys AS (
-                SELECT product_id, product_variant_id, unit_id FROM ready
-                UNION
-                SELECT product_id, product_variant_id, unit_id FROM stock
-            )
-            SELECT
-                k.product_id,
-                k.product_variant_id,
-                k.unit_id,
-                p.code AS product_code,
-                p.name AS product_name,
-                pv.sku AS variant_sku,
-                pu.name AS unit_name,
-                pu.symbol AS unit_symbol,
-                COALESCE(s.warehouse_id, ?) AS warehouse_id,
-                w.code AS warehouse_code,
-                w.name AS warehouse_name,
-                COALESCE(s.stock_qty, 0) AS stock_qty,
-                COALESCE(r.serial_ready, 0) AS serial_ready,
-                (COALESCE(r.serial_ready, 0) - COALESCE(s.stock_qty, 0)) AS variance,
-                CASE
-                    WHEN COALESCE(r.serial_ready, 0) = COALESCE(s.stock_qty, 0) THEN 'ok'
-                    WHEN COALESCE(r.serial_ready, 0) > COALESCE(s.stock_qty, 0) THEN 'surplus'
-                    ELSE 'shortage'
-                END AS status,
-                CASE
-                    WHEN k.unit_id IS NOT DISTINCT FROM p.default_unit_id THEN 0
-                    ELSE COALESCE((
-                        SELECT MIN(puc.conversion_level)
-                        FROM product.product_unit_conversions puc
-                        WHERE puc.product_id = p.id
-                          AND puc.deleted_at IS NULL
-                          AND puc.to_unit_id = k.unit_id
-                    ), 9999)
-                END AS unit_sort_level
-            FROM keys k
-            LEFT JOIN ready r
-                ON r.product_id = k.product_id
-               AND r.unit_id = k.unit_id
-               AND r.product_variant_id IS NOT DISTINCT FROM k.product_variant_id
-            LEFT JOIN stock s
-                ON s.product_id = k.product_id
-               AND s.unit_id = k.unit_id
-               AND s.product_variant_id IS NOT DISTINCT FROM k.product_variant_id
-            INNER JOIN product.products p ON p.id = k.product_id
-            INNER JOIN product.product_natures pn
-                ON pn.id = p.nature_id
-               AND pn.code = 'FINISHED_GOOD'
-               AND pn.deleted_at IS NULL
-            LEFT JOIN product.product_variants pv ON pv.id = k.product_variant_id
-            LEFT JOIN product.product_units pu ON pu.id = k.unit_id
-            LEFT JOIN master_data.warehouses w ON w.id = COALESCE(s.warehouse_id, ?)
-        ";
+        return $query->get();
+    }
 
-        $bindings = array_merge(
-            $readyBindings,
-            $stockBindings,
-            [$warehouseId, $warehouseId]
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function readyAggregates(array $filters): Collection
+    {
+        $query = DB::table('product.product_label_serials as pls')
+            ->join('product.products as p', 'p.id', '=', 'pls.product_id')
+            ->join('product.product_natures as pn', function ($join): void {
+                $join->on('pn.id', '=', 'p.nature_id')
+                    ->where('pn.code', 'FINISHED_GOOD')
+                    ->whereNull('pn.deleted_at');
+            })
+            ->whereNotExists(function ($q): void {
+                $q->selectRaw('1')
+                    ->from('transaction.sales_order_item_serial_assignments as a')
+                    ->whereColumn('a.product_label_serial_id', 'pls.id');
+            })
+            ->when($filters['product_id'] ?? null, fn (Builder $q, string $id) => $q->where('pls.product_id', $id))
+            ->when($filters['variant_id'] ?? null, fn (Builder $q, string $id) => $q->where('pls.product_variant_id', $id))
+            ->when($filters['unit_id'] ?? null, fn (Builder $q, string $id) => $q->where('pls.unit_id', $id))
+            ->groupBy('pls.product_id', 'pls.product_variant_id', 'pls.unit_id')
+            ->selectRaw('
+                pls.product_id,
+                pls.product_variant_id,
+                pls.unit_id,
+                COUNT(*)::int AS serial_ready
+            ');
+
+        return $query->get();
+    }
+
+    /**
+     * @param  Collection<int, object>  $stockLines
+     * @param  Collection<int, object>  $conversions
+     */
+    private function equivalentStockQty(Collection $stockLines, string $toUnitId, Collection $conversions): ?float
+    {
+        if ($stockLines->isEmpty()) {
+            return null;
+        }
+
+        $total = 0.0;
+        $convertedAny = false;
+
+        foreach ($stockLines as $line) {
+            $qty = (float) $line->stock_qty;
+            $fromUnitId = (string) $line->unit_id;
+            if ($fromUnitId === $toUnitId) {
+                $total += $qty;
+                $convertedAny = true;
+
+                continue;
+            }
+
+            $converted = $this->convertQty($qty, $fromUnitId, $toUnitId, $conversions);
+            if ($converted === null) {
+                continue;
+            }
+            $total += $converted;
+            $convertedAny = true;
+        }
+
+        return $convertedAny ? $total : null;
+    }
+
+    /**
+     * @param  Collection<int, object>  $conversions
+     */
+    private function convertQty(float $quantity, string $fromUnitId, string $toUnitId, Collection $conversions): ?float
+    {
+        if ($fromUnitId === $toUnitId) {
+            return $quantity;
+        }
+
+        $direct = $conversions->first(
+            fn ($row) => $row->from_unit_id === $fromUnitId && $row->to_unit_id === $toUnitId
         );
-
-        if (($filters['mismatch_only'] ?? false) === true) {
-            $sql .= ' WHERE COALESCE(r.serial_ready, 0) <> COALESCE(s.stock_qty, 0)';
+        if ($direct) {
+            return $quantity * (float) $direct->conversion_factor;
         }
 
-        return DB::query()
-            ->fromRaw("({$sql}) as summary", $bindings)
-            ->select('*');
+        $reverse = $conversions->first(
+            fn ($row) => $row->from_unit_id === $toUnitId && $row->to_unit_id === $fromUnitId
+        );
+        if ($reverse) {
+            $factor = (float) $reverse->conversion_factor;
+
+            return $factor > 0 ? $quantity / $factor : null;
+        }
+
+        // Multi-hop BFS
+        $visited = [];
+        $queue = [[$fromUnitId, $quantity]];
+
+        while (! empty($queue)) {
+            [$unitId, $qty] = array_shift($queue);
+            if ($unitId === $toUnitId) {
+                return $qty;
+            }
+            if (isset($visited[$unitId])) {
+                continue;
+            }
+            $visited[$unitId] = true;
+
+            foreach ($conversions as $conv) {
+                $factor = (float) $conv->conversion_factor;
+                if ($factor <= 0) {
+                    continue;
+                }
+                if ($conv->from_unit_id === $unitId) {
+                    $queue[] = [$conv->to_unit_id, $qty * $factor];
+                }
+                if ($conv->to_unit_id === $unitId) {
+                    $queue[] = [$conv->from_unit_id, $qty / $factor];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, object>  $conversions
+     */
+    private function unitSortLevel(?string $defaultUnitId, ?string $unitId, Collection $conversions): int
+    {
+        if (! $unitId) {
+            return 9999;
+        }
+        if ($defaultUnitId && $unitId === $defaultUnitId) {
+            return 0;
+        }
+
+        $level = $conversions
+            ->where('to_unit_id', $unitId)
+            ->min('conversion_level');
+
+        return $level !== null ? (int) $level : 9999;
     }
 
     /**
