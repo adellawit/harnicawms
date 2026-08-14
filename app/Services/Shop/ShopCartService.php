@@ -6,7 +6,7 @@ use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
-use App\Models\ProductVariantStock;
+use App\Services\StockAvailabilityService;
 use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -93,14 +93,7 @@ class ShopCartService
         }
 
         $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
-
-        $stockRow = ProductVariantStock::where('product_variant_id', $variant->id)
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-            ->where('unit_id', $unitId)
-            ->whereNull('deleted_at')
-            ->first();
-
-        $stock = (int) ($stockRow?->quantity ?? 0);
+        $stock = StockAvailabilityService::availableQuantity($variant->id, $branchId, $unitId, $warehouseId);
         if ($product->is_stock_item && $stock < 1) {
             throw new \InvalidArgumentException('Stok habis.');
         }
@@ -137,7 +130,7 @@ class ShopCartService
             'unit_label' => $unitLabel,
             'quantity' => $newQty,
             'unit_price' => $unitPrice,
-            'product_name' => $product->name,
+            'product_name' => product_print_name($product->name),
             'variant_name' => $variant->display_name ?: $variant->sku,
             'sku' => $variant->sku,
             'image' => $variant->image ?? $product->image,

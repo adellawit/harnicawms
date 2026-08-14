@@ -24,6 +24,7 @@ use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Shipping\AgentShippingEstimator;
+use App\Services\StockAvailabilityService;
 use App\Services\StockMutationService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
@@ -402,11 +403,11 @@ class AgentOrderController extends Controller
             ->all();
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId, $priceListId) {
-            $minPrice = $this->minVariantPrice($product->id, $branchId, $priceListId);
+            $minPrice = ProductVariantPrice::minCatalogSellingPrice($product->id, $branchId, $priceListId);
 
             return [
                 'id' => $product->id,
-                'name' => $product->name,
+                'name' => product_print_name($product->name),
                 'code' => $product->code,
                 'image' => $product->image,
                 'nature' => $product->nature?->name,
@@ -492,13 +493,7 @@ class AgentOrderController extends Controller
                 continue;
             }
 
-            $stockRow = ProductVariantStock::where('product_variant_id', $v->id)
-                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-                ->where('unit_id', $unitId)
-                ->whereNull('deleted_at')
-                ->first();
-
-            $stock = (int) ($stockRow?->quantity ?? 0);
+            $stock = StockAvailabilityService::availableQuantity($v->id, $branchId, $unitId, $warehouseId);
             if ($product->is_stock_item && $stock < 1) {
                 continue;
             }
@@ -506,7 +501,7 @@ class AgentOrderController extends Controller
             $result[] = [
                 'id' => $v->id,
                 'sku' => $v->sku,
-                'display_name' => $v->display_name ?: $v->sku,
+                'display_name' => product_print_name($product->name),
                 'image' => $v->image ?? $product->image,
                 'selling_price' => $sellingPrice,
                 'stock' => $stock,
@@ -518,7 +513,7 @@ class AgentOrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'product' => ['id' => $product->id, 'name' => $product->name],
+            'product' => ['id' => $product->id, 'name' => product_print_name($product->name)],
             'variants' => $result,
         ]);
     }
@@ -1175,16 +1170,6 @@ class AgentOrderController extends Controller
         $filename = 'INV-'.preg_replace('/[^A-Za-z0-9\-_]/', '_', $order->sales_number).'.pdf';
 
         return $pdf->stream($filename);
-    }
-
-    protected function minVariantPrice(string $productId, string $branchId, string $priceListId): float
-    {
-        return (float) ProductVariantPrice::query()
-            ->whereHas('variant', fn ($q) => $q->where('product_id', $productId)->whereNull('deleted_at'))
-            ->where('branch_id', $branchId)
-            ->where('price_list_id', $priceListId)
-            ->whereNull('deleted_at')
-            ->min('selling_price');
     }
 
     public function uploadPaymentProof(Request $request, string $order): RedirectResponse

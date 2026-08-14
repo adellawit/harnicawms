@@ -15,7 +15,7 @@
             <div class="checkout-item-body min-w-0">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
                     <div class="min-w-0">
-                        <div class="checkout-item-name fw-semibold">{{ $item['product_name'] }}</div>
+                        <div class="checkout-item-name fw-semibold">{{ product_print_name($item['product_name'] ?? null) }}</div>
                         @if (!empty($item['variant_name']))
                             <div class="text-muted small">{{ $item['variant_name'] }}</div>
                         @endif
