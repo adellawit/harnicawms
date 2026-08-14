@@ -51,4 +51,25 @@ class ProductVariantPrice extends Model
     {
         return $this->belongsTo(ProductPriceList::class, 'price_list_id', 'id');
     }
+
+    /**
+     * Catalog card price: cheapest variant in the product's default unit
+     * (not min across Sachet/Pack/Karton — those are converted unit prices).
+     */
+    public static function minCatalogSellingPrice(string $productId, string $branchId, string $priceListId): float
+    {
+        $defaultUnitId = Product::query()->where('id', $productId)->value('default_unit_id');
+
+        $query = static::query()
+            ->whereHas('variant', fn ($q) => $q->where('product_id', $productId)->whereNull('deleted_at'))
+            ->where('branch_id', $branchId)
+            ->where('price_list_id', $priceListId)
+            ->whereNull('deleted_at');
+
+        if ($defaultUnitId) {
+            $query->where('unit_id', $defaultUnitId);
+        }
+
+        return (float) $query->min('selling_price');
+    }
 }

@@ -11,7 +11,7 @@
                 </div>
             @endif
             <div class="flex-grow-1 min-w-0">
-                <div class="fw-semibold small text-truncate">{{ $item['product_name'] }}</div>
+                <div class="fw-semibold small text-truncate">{{ product_print_name($item['product_name'] ?? null) }}</div>
                 <div class="text-muted small">{{ $item['variant_name'] }}</div>
                 <div class="text-primary small fw-bold mt-1">
                     Rp {{ number_format($item['unit_price'], 0, ',', '.') }}

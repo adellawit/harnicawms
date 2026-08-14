@@ -8,11 +8,11 @@ use App\Models\Product;
 use App\Models\ProductNature;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
-use App\Models\ProductVariantStock;
 use App\Models\SalesOrder;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
+use App\Services\StockAvailabilityService;
 use App\Support\WmsContext;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
@@ -74,7 +74,7 @@ class ShopController extends Controller
         }
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId, $priceListId) {
-            $minPrice = $this->minVariantPrice($product->id, $branchId, $priceListId);
+            $minPrice = ProductVariantPrice::minCatalogSellingPrice($product->id, $branchId, $priceListId);
 
             return [
                 'id' => $product->id,
@@ -154,13 +154,7 @@ class ShopController extends Controller
                 continue;
             }
 
-            $stockRow = ProductVariantStock::where('product_variant_id', $v->id)
-                ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $branchId))
-                ->where('unit_id', $unitId)
-                ->whereNull('deleted_at')
-                ->first();
-
-            $stock = (int) ($stockRow?->quantity ?? 0);
+            $stock = StockAvailabilityService::availableQuantity($v->id, $branchId, $unitId, $warehouseId);
             if ($product->is_stock_item && $stock < 1) {
                 continue;
             }
@@ -437,15 +431,5 @@ class ShopController extends Controller
         }
 
         return redirect()->route('customer.orders')->with('success', 'Pesanan '.$order->sales_number.' dibatalkan.');
-    }
-
-    protected function minVariantPrice(string $productId, string $branchId, string $priceListId): float
-    {
-        return (float) ProductVariantPrice::query()
-            ->whereHas('variant', fn ($q) => $q->where('product_id', $productId)->whereNull('deleted_at'))
-            ->where('branch_id', $branchId)
-            ->where('price_list_id', $priceListId)
-            ->whereNull('deleted_at')
-            ->min('selling_price');
     }
 }

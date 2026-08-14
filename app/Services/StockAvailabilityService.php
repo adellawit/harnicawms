@@ -26,61 +26,44 @@ class StockAvailabilityService
 
         [$warehouseId, $operationalBranchId] = self::resolveWarehouseContext($branchId, $warehouseId);
 
-        $stock = ProductVariantStock::query()
+        $rows = ProductVariantStock::query()
             ->where('product_variant_id', $variantId)
             ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId), fn ($q) => $q->where('branch_id', $operationalBranchId))
             ->whereNull('deleted_at')
-            ->first();
+            ->get();
 
-        if (! $stock) {
+        if ($rows->isEmpty()) {
             return 0.0;
         }
 
-        $stockQty = (float) $stock->quantity;
-        if ($stockQty <= 0) {
-            return 0.0;
+        $product = null;
+        $total = 0.0;
+
+        foreach ($rows as $stock) {
+            $stockQty = (float) $stock->quantity;
+            if ($stockQty <= 0) {
+                continue;
+            }
+
+            if (! $stock->unit_id || $stock->unit_id === $unitId) {
+                $total += $stockQty;
+
+                continue;
+            }
+
+            $product ??= ProductVariant::with('product.unitConversions')
+                ->find($variantId)
+                ?->product;
+
+            if (! $product) {
+                continue;
+            }
+
+            $converted = UnitConversionService::convertQuantity($product, $stockQty, $stock->unit_id, $unitId);
+            $total += $converted ?? 0.0;
         }
 
-        if ($stock->unit_id === $unitId) {
-            return $stockQty;
-        }
-
-        $product = ProductVariant::with('product.unitConversions')
-            ->find($variantId)
-            ?->product;
-
-        if (! $product) {
-            return 0.0;
-        }
-
-        $converted = UnitConversionService::convertQuantity($product, $stockQty, $stock->unit_id, $unitId);
-
-        if ($converted !== null) {
-            return $converted;
-        }
-
-        // Stok mungkin terlabel satuan salah — coba satuan dominan dari riwayat receive
-        $dominantReceiveUnitId = self::dominantReceiveUnitForVariant($variantId, $warehouseId);
-        if ($dominantReceiveUnitId && $dominantReceiveUnitId === $unitId && $stock->unit_id !== $unitId) {
-            $stock->unit_id = $unitId;
-            $stock->updated_by = auth('web')->id();
-            $stock->save();
-
-            return $stockQty;
-        }
-
-        return 0.0;
-    }
-
-    protected static function dominantReceiveUnitForVariant(string $variantId, ?string $warehouseId): ?string
-    {
-        return \App\Models\ProductPurchaseOrderReceiveItem::query()
-            ->where('variant_id', $variantId)
-            ->when($warehouseId, fn ($q) => $q->whereHas('receive', fn ($r) => $r->where('warehouse_id', $warehouseId)))
-            ->selectRaw('unit_id, SUM(quantity_received) as total')
-            ->groupBy('unit_id')
-            ->orderByDesc('total')
-            ->value('unit_id');
+        return $total;
     }
 
     /**
