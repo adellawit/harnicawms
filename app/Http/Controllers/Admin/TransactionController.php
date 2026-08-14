@@ -89,7 +89,16 @@ class TransactionController extends Controller
                 $color = $colors[$row->payment_status] ?? 'secondary';
                 return '<span class="badge bg-label-' . $color . '">' . ucfirst($row->payment_status) . '</span>';
             })
-            ->addColumn('total_fmt', fn ($row) => format_number((float) $row->total, 2, true))
+            ->addColumn('total_fmt', fn ($row) => 'Rp '.format_number((float) $row->total, 2, true))
+            ->addColumn('shipping_fmt', function ($row) {
+                $html = 'Rp '.format_number((float) $row->shipping_amount, 2, true);
+                $meta = $row->shippingMetaLabel();
+                if ($meta) {
+                    $html .= '<br><small class="text-muted">'.e($meta).'</small>';
+                }
+
+                return $html;
+            })
             ->addColumn('method_payment_name', fn ($row) => $row->methodPayment?->name ?? '-')
             ->addColumn('customer_display', fn ($row) => $row->customer_name ?: '-')
             ->filter(function ($query) use ($request) {
@@ -100,7 +109,7 @@ class TransactionController extends Controller
                     });
                 }
             })
-            ->rawColumns(['status_badge', 'payment_badge'])
+            ->rawColumns(['status_badge', 'payment_badge', 'shipping_fmt'])
             ->toJson();
     }
 

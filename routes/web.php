@@ -911,6 +911,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/pos', [POSController::class, 'indexView'])->name('transaction.pos');
         Route::get('/pos/product-variants', [POSController::class, 'getProductVariants'])->name('transaction.pos.product-variants');
         Route::post('/pos/preview-promo', [POSController::class, 'previewPromo'])->name('transaction.pos.preview-promo');
+        Route::post('/pos/shipping-options', [POSController::class, 'shippingOptions'])->name('transaction.pos.shipping-options');
         Route::post('/pos/barcode-lookup', [POSController::class, 'lookupBarcode'])->name('transaction.pos.barcode-lookup');
         Route::post('/pos/payment', [POSController::class, 'processPayment'])->name('transaction.pos.payment');
         Route::get('/pos/payment/{orderId}/status', [POSController::class, 'paymentStatus'])->name('transaction.pos.payment.status');

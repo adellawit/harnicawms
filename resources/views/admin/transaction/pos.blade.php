@@ -618,6 +618,7 @@
                 border-top: 1px solid #e7e7e7;
                 background: #fff;
                 padding: 0.75rem;
+                overflow: visible;
             }
             .pos-summary-row {
                 display: flex;
@@ -720,6 +721,68 @@
                 font-size: 0.8rem;
                 color: #677788;
                 text-align: right;
+                margin-top: 0.2rem;
+            }
+
+            .pos-shipping-block {
+                margin: 0.35rem 0 0.5rem;
+            }
+            .pos-shipping-block label {
+                font-size: 0.8rem;
+                color: #677788;
+                margin-bottom: 0.25rem;
+                display: block;
+            }
+            .pos-shipping-block .pos-shipping-courier {
+                margin-bottom: 0.35rem;
+            }
+            .pos-city-typeahead { position: relative; }
+            .pos-city-typeahead-input {
+                font-size: 0.8rem;
+            }
+            .pos-city-results {
+                display: none;
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 100%;
+                margin-bottom: 2px;
+                max-height: 180px;
+                overflow-y: auto;
+                background: #fff;
+                border: 1px solid #e7e7e7;
+                border-radius: 0.375rem;
+                box-shadow: 0 -4px 12px rgba(0,0,0,.08);
+                z-index: 20;
+            }
+            .pos-city-results button {
+                display: block;
+                width: 100%;
+                text-align: left;
+                border: 0;
+                background: #fff;
+                padding: 0.4rem 0.6rem;
+                font-size: 0.78rem;
+                color: #2c3e50;
+            }
+            .pos-city-results button:hover,
+            .pos-city-results button.is-active {
+                background: #f3f4f6;
+            }
+            .pos-shipping-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                margin-bottom: 0;
+            }
+            .pos-shipping-row label { margin-bottom: 0; }
+            .pos-shipping-group { max-width: 150px; }
+            .pos-shipping-input { text-align: right; font-size: 0.8rem; }
+            #shippingHint {
+                display: none;
+                font-size: 0.7rem;
+                color: #9aa4b8;
                 margin-top: 0.2rem;
             }
 
@@ -1471,6 +1534,26 @@
                         <div class="pos-discount-display text-success">- <span id="redeemDiscountDisplay">Rp 0</span></div>
                         <small class="text-muted d-block mt-1" id="redeemRateHint"></small>
                     </div>
+                    <div class="pos-shipping-block">
+                        <label for="shippingDestCitySearch">Kota tujuan</label>
+                        <div class="pos-city-typeahead">
+                            <input type="hidden" id="shippingDestCityId" value="">
+                            <input type="text" id="shippingDestCitySearch" class="form-control form-control-sm pos-city-typeahead-input" placeholder="Ketik nama kota..." autocomplete="off">
+                            <div id="shippingDestCityResults" class="pos-city-results" role="listbox"></div>
+                        </div>
+                        <label class="mt-2" for="shippingCourierSelect">Kurir</label>
+                        <select id="shippingCourierSelect" class="form-select form-select-sm pos-shipping-courier" disabled>
+                            <option value="">Pilih kurir</option>
+                        </select>
+                        <div class="pos-summary-row pos-shipping-row mt-2">
+                            <label class="mb-0" for="shippingInput">Ongkir</label>
+                            <div class="input-group input-group-sm pos-shipping-group">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" inputmode="numeric" id="shippingInput" class="form-control pos-shipping-input" value="0" placeholder="0" autocomplete="off">
+                            </div>
+                        </div>
+                        <div id="shippingHint"></div>
+                    </div>
                     <div class="pos-summary-row total-row">
                         <span>Total</span>
                         <span class="total-val" id="total">Rp 0</span>
@@ -1707,6 +1790,227 @@
 
                 var discountType = 'percent';
                 var redeemValuePerPoint = {{ (int) ($redeemValuePerPoint ?? 0) }};
+                var shippingOptionsTimer = null;
+                var shippingOptionsXhr = null;
+                var citySearchTimer = null;
+                var citySearchXhr = null;
+
+                function getDestCityId() {
+                    return $('#shippingDestCityId').val() || '';
+                }
+
+                function hideCityResults() {
+                    $('#shippingDestCityResults').hide().empty();
+                }
+
+                function clearDestCity(triggerFetch) {
+                    $('#shippingDestCityId').val('');
+                    $('#shippingDestCitySearch').val('');
+                    hideCityResults();
+                    if (triggerFetch !== false) {
+                        fetchShippingOptions();
+                    }
+                }
+
+                function renderCityResults(items) {
+                    var $box = $('#shippingDestCityResults');
+                    if (!items.length) {
+                        $box.html('<div class="px-2 py-1 text-muted" style="font-size:0.75rem">Kota tidak ditemukan</div>').show();
+                        return;
+                    }
+                    var html = items.map(function(item) {
+                        var text = item.text || item.name || '';
+                        if (item.province_name) text += ' (' + item.province_name + ')';
+                        return '<button type="button" data-id="' + item.id + '" data-text="' + $('<div>').text(text).html() + '">' + $('<div>').text(text).html() + '</button>';
+                    }).join('');
+                    $box.html(html).show();
+                }
+
+                function searchDestCities(term) {
+                    if (citySearchXhr) citySearchXhr.abort();
+                    if (!term || term.length < 1) {
+                        hideCityResults();
+                        return;
+                    }
+                    citySearchXhr = $.ajax({
+                        url: '{{ route("helper.cities") }}',
+                        dataType: 'json',
+                        data: { search: term, page: 1, per_page: 20 },
+                        success: function(data) {
+                            renderCityResults(data.results || []);
+                        },
+                        error: function(xhr) {
+                            if (xhr.statusText === 'abort') return;
+                            hideCityResults();
+                        }
+                    });
+                }
+
+                $('#shippingDestCitySearch').on('input', function() {
+                    var term = $.trim($(this).val());
+                    if (!term) {
+                        $('#shippingDestCityId').val('');
+                        hideCityResults();
+                        fetchShippingOptions();
+                        return;
+                    }
+                    if (term !== $(this).data('selected-text')) {
+                        $('#shippingDestCityId').val('');
+                    }
+                    clearTimeout(citySearchTimer);
+                    citySearchTimer = setTimeout(function() {
+                        searchDestCities(term);
+                    }, 200);
+                });
+
+                $('#shippingDestCityResults').on('mousedown', 'button', function(e) {
+                    e.preventDefault();
+                    var id = $(this).attr('data-id');
+                    var text = $(this).text();
+                    $('#shippingDestCityId').val(id);
+                    $('#shippingDestCitySearch').val(text).data('selected-text', text);
+                    hideCityResults();
+                    fetchShippingOptions();
+                });
+
+                $('#shippingDestCitySearch').on('blur', function() {
+                    setTimeout(hideCityResults, 150);
+                });
+
+                function parseRupiahInput(val) {
+                    return Math.max(0, parseInt(String(val || '').replace(/\D/g, ''), 10) || 0);
+                }
+
+                function getShippingAmount() {
+                    return parseRupiahInput($('#shippingInput').val());
+                }
+
+                function selectedShippingMeta() {
+                    var $opt = $('#shippingCourierSelect option:selected');
+                    var value = $opt.val() || '';
+                    if (!value) {
+                        return {
+                            shipping_rate_id: null,
+                            shipping_courier: null,
+                            shipping_service: null,
+                            shipping_etd: null
+                        };
+                    }
+                    var isManual = value.indexOf('manual:') === 0;
+                    return {
+                        shipping_rate_id: isManual ? null : value,
+                        shipping_courier: $opt.data('courier') || null,
+                        shipping_service: $opt.data('service') || null,
+                        shipping_etd: $opt.data('etd') || null
+                    };
+                }
+
+                function setShippingHint(text) {
+                    if (text) {
+                        $('#shippingHint').text(text).show();
+                    } else {
+                        $('#shippingHint').text('').hide();
+                    }
+                }
+
+                function resetShippingCourier(clearAmount) {
+                    $('#shippingCourierSelect').html('<option value="">Pilih kurir</option>').prop('disabled', true).val('');
+                    if (clearAmount) {
+                        $('#shippingInput').val('0');
+                    }
+                }
+
+                function courierOptionValue(opt) {
+                    return opt.rate_id || opt.value || ('manual:' + (opt.courier_code || ''));
+                }
+
+                function fillShippingCourierOptions(options, keepValue) {
+                    var $sel = $('#shippingCourierSelect');
+                    var html = '<option value="">Pilih kurir</option>';
+                    (options || []).forEach(function(opt) {
+                        var value = courierOptionValue(opt);
+                        html += '<option value="' + value + '"'
+                            + ' data-courier="' + (opt.courier_code || '') + '"'
+                            + ' data-service="' + (opt.service_code || '') + '"'
+                            + ' data-etd="' + (opt.etd || '') + '"'
+                            + ' data-amount="' + (opt.amount || 0) + '"'
+                            + ' data-manual="' + (opt.manual ? '1' : '0') + '">'
+                            + $('<div>').text(opt.label).html()
+                            + '</option>';
+                    });
+                    $sel.html(html);
+                    var stillThere = keepValue && options.some(function(o) {
+                        return courierOptionValue(o) === keepValue;
+                    });
+                    $sel.prop('disabled', options.length === 0);
+                    if (stillThere) {
+                        $sel.val(keepValue);
+                        return true;
+                    }
+                    $sel.val('');
+                    return false;
+                }
+
+                function fetchShippingOptions() {
+                    var destId = getDestCityId();
+                    if (!destId) {
+                        resetShippingCourier(true);
+                        setShippingHint('');
+                        updateCartTotals();
+                        return;
+                    }
+                    var items = collectCartItems();
+                    if (shippingOptionsXhr) shippingOptionsXhr.abort();
+                    shippingOptionsXhr = $.ajax({
+                        url: '{{ route("transaction.pos.shipping-options") }}',
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                            'Accept': 'application/json'
+                        },
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            destination_city_id: destId,
+                            items: items
+                        }),
+                        success: function(res) {
+                            var keepId = $('#shippingCourierSelect').val();
+                            var kept = fillShippingCourierOptions(res.options || [], keepId);
+                            setShippingHint(res.hint || '');
+                            if (!kept) {
+                                $('#shippingInput').val('0');
+                            }
+                            updateCartTotals();
+                        },
+                        error: function(xhr) {
+                            if (xhr.statusText === 'abort') return;
+                            setShippingHint('Gagal memuat tarif. Ongkir bisa diisi manual.');
+                        }
+                    });
+                }
+
+                function scheduleShippingOptionsRefresh() {
+                    clearTimeout(shippingOptionsTimer);
+                    if (!getDestCityId()) return;
+                    shippingOptionsTimer = setTimeout(fetchShippingOptions, 300);
+                }
+
+                $('#shippingCourierSelect').on('change', function() {
+                    var $opt = $(this).find('option:selected');
+                    if (!$opt.val()) {
+                        updateCartTotals();
+                        return;
+                    }
+                    var amount = parseInt($opt.data('amount'), 10);
+                    if (isNaN(amount) || amount < 0) amount = 0;
+                    $('#shippingInput').val(amount.toLocaleString('id-ID'));
+                    updateCartTotals();
+                });
+                $('#shippingInput').on('input', function() {
+                    var raw = this.value.replace(/\D/g, '');
+                    this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
+                    updateCartTotals();
+                });
 
                 function updateSelectedPartnerBadge() {
                     var $selected = $('#customerSelect option:selected');
@@ -2075,7 +2379,7 @@
                     if ($item.hasClass('is-promo-free') || $item.data('serial-number')) return;
                     var inp = $(this).siblings('.quantity-input');
                     var val = parseInt(inp.val());
-                    if (val > 1) { inp.val(val - 1); updateCartTotals(); }
+                    if (val > 1) { inp.val(val - 1); updateCartTotals(); scheduleShippingOptionsRefresh(); }
                 });
                 $(document).on('click', '.btn-plus', function() {
                     var $item = $(this).closest('.pos-cart-item');
@@ -2083,12 +2387,14 @@
                     var inp = $(this).siblings('.quantity-input');
                     inp.val(parseInt(inp.val()) + 1);
                     updateCartTotals();
+                    scheduleShippingOptionsRefresh();
                 });
                 $(document).on('click', '.btn-delete', function() {
                     if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
                     $(this).closest('.pos-cart-item').remove();
                     updateCartTotals();
                     checkEmptyCart();
+                    scheduleShippingOptionsRefresh();
                 });
 
                 // ── Item discount toggle ──────────────────────────────
@@ -2146,6 +2452,9 @@
                     discountType = 'percent';
                     $('.disc-type').removeClass('active');
                     $('.disc-type[data-type="percent"]').addClass('active');
+                    clearDestCity(false);
+                    resetShippingCourier(true);
+                    setShippingHint('');
                     updateCartTotals();
                     checkEmptyCart();
                 }
@@ -2611,6 +2920,13 @@
                         amount_paid: amountPaid,
                         notes: null
                     };
+                    var shippingMeta = selectedShippingMeta();
+                    payload.shipping_amount = getShippingAmount();
+                    payload.destination_city_id = getDestCityId() || null;
+                    payload.shipping_rate_id = shippingMeta.shipping_rate_id;
+                    payload.shipping_courier = shippingMeta.shipping_courier;
+                    payload.shipping_service = shippingMeta.shipping_service;
+                    payload.shipping_etd = shippingMeta.shipping_etd;
                     if (useXendit && xenditChannel) {
                         payload.xendit_channel = xenditChannel;
                     }
@@ -2681,6 +2997,7 @@
                             }
                             updateCartTotals();
                             checkEmptyCart();
+                            scheduleShippingOptionsRefresh();
                             return;
                         }
                     }
@@ -2712,6 +3029,7 @@
                     }
                     updateCartTotals();
                     checkEmptyCart();
+                    scheduleShippingOptionsRefresh();
                 }
 
                 if (window.PosBarcodeScanConfig) {
@@ -2787,6 +3105,7 @@
 
                     var total = totalBeforeRedeem - redeemDiscAmt;
                     if (total < 0) total = 0;
+                    total += getShippingAmount();
 
                     $('#subtotal').text('Rp ' + subtotalNet.toLocaleString('id-ID'));
                     $('#itemDiscTotal').text('Rp ' + totalItemDisc.toLocaleString('id-ID'));

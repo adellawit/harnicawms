@@ -153,9 +153,14 @@
                 <td class="text-end">- Rp {{ format_number($order->membership_redeem_discount_amount, 2, true) }}</td>
             </tr>
         @endif
-        @if((float) $order->shipping_amount > 0)
+        @if((float) $order->shipping_amount > 0 || $order->shippingMetaLabel())
             <tr>
-                <td class="muted">Shipping</td>
+                <td class="muted">
+                    Ongkir
+                    @if($order->shippingMetaLabel())
+                        <div>{{ $order->shippingMetaLabel() }}</div>
+                    @endif
+                </td>
                 <td class="text-end">Rp {{ format_number($order->shipping_amount, 2, true) }}</td>
             </tr>
         @endif

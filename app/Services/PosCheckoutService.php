@@ -27,6 +27,7 @@ class PosCheckoutService
      *   total_item_disc: float,
      *   tax_amount: float,
      *   txn_disc_amt: float,
+     *   shipping_amount: float,
      *   total: float,
      *   tax_rate: float,
      *   tax_enabled: bool,
@@ -129,12 +130,20 @@ class PosCheckoutService
             $total = 0;
         }
 
+        $shippingAmount = max(0, round((float) ($request->shipping_amount ?? 0), 4));
+        $total = round($total + $shippingAmount, 4);
+
         return [
             'items_data' => $itemsData,
             'subtotal_net' => $subtotalNet,
             'total_item_disc' => $totalItemDisc,
             'tax_amount' => $taxAmount,
             'txn_disc_amt' => $txnDiscAmt,
+            'shipping_amount' => $shippingAmount,
+            'shipping_rate_id' => $request->shipping_rate_id ?: null,
+            'shipping_courier' => $request->shipping_courier ?: null,
+            'shipping_service' => $request->shipping_service ?: null,
+            'shipping_etd' => $request->shipping_etd ?: null,
             'total' => $total,
             'tax_rate' => $taxRate,
             'tax_enabled' => $taxEnabled,
@@ -198,7 +207,11 @@ class PosCheckoutService
             'discount_value' => $totals['txn_disc_val'],
             'discount_amount' => $totals['txn_disc_amt'],
             'item_discount_total' => $totals['total_item_disc'],
-            'shipping_amount' => 0,
+            'shipping_amount' => (float) ($totals['shipping_amount'] ?? 0),
+            'shipping_courier' => $totals['shipping_courier'] ?? null,
+            'shipping_service' => $totals['shipping_service'] ?? null,
+            'shipping_rate_id' => $totals['shipping_rate_id'] ?? null,
+            'shipping_etd' => $totals['shipping_etd'] ?? null,
             'total' => $totals['total'],
             'membership_points_redeemed' => (int) ($totals['redeem_points'] ?? 0),
             'membership_redeem_discount_amount' => (float) ($totals['redeem_discount_amount'] ?? 0),
