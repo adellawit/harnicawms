@@ -6,7 +6,6 @@ use App\Models\Partner\Agent;
 use App\Models\ProductVariant;
 use App\Models\ShippingRate;
 use App\Services\Shop\ShopCartService;
-use App\Support\WmsContext;
 
 class AgentShippingEstimator
 {
@@ -37,27 +36,16 @@ class AgentShippingEstimator
             return null;
         }
 
-        $originCityId = optional(WmsContext::finishedGoodsWarehouse())->city_id;
-        $destCityId = $agent->city_id;
+        $shipping = app(PosShippingOptionsService::class);
+        $destCityId = $shipping->resolveCityId($agent->city_id, $agent->city);
+        $branchId = $agent->customer?->getBranchId();
+        $quote = $shipping->quote($branchId, $destCityId, $cart->get()['items'] ?? []);
+        $amounts = collect($quote['options'] ?? [])
+            ->filter(fn (array $opt) => ! empty($opt['rate_id']))
+            ->pluck('amount')
+            ->filter(fn ($amount) => (float) $amount > 0);
 
-        if (! $originCityId || ! $destCityId) {
-            return null;
-        }
-
-        $weightKg = $this->cartTotalWeightKg($cart);
-        $rates = ShippingRate::query()
-            ->where('origin_city_id', $originCityId)
-            ->where('destination_city_id', $destCityId)
-            ->where('is_active', true)
-            ->get();
-
-        if ($rates->isEmpty()) {
-            return null;
-        }
-
-        return (float) $rates
-            ->map(fn (ShippingRate $rate) => $rate->estimateForWeightKg($weightKg))
-            ->min();
+        return $amounts->isEmpty() ? null : (float) $amounts->min();
     }
 
     public function formatShippingEtd(ShippingRate $rate): ?string

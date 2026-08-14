@@ -24,6 +24,7 @@ use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Shipping\AgentShippingEstimator;
+use App\Services\Shipping\PosShippingOptionsService;
 use App\Services\StockAvailabilityService;
 use App\Services\StockMutationService;
 use App\Services\Xendit\PaymentSyncService;
@@ -60,6 +61,11 @@ class AgentOrderController extends Controller
     protected function shippingEstimator(): AgentShippingEstimator
     {
         return app(AgentShippingEstimator::class);
+    }
+
+    protected function shippingOptions(): PosShippingOptionsService
+    {
+        return app(PosShippingOptionsService::class);
     }
 
     protected function resolveShippingAddress(): ?string
@@ -599,40 +605,18 @@ class AgentOrderController extends Controller
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
-        $fgWarehouse = WmsContext::finishedGoodsWarehouse();
+        $fgWarehouse = WmsContext::salesSourceWarehouse($branchId) ?: WmsContext::finishedGoodsWarehouse();
         $originUnit = $ctx->branch();
-
-        $originCityId = $fgWarehouse?->city_id;
-        $destCityId = $agent?->city_id;
-        $weightKg = $this->shippingEstimator()->cartTotalWeightKg($cart);
-
-        $shippingOptions = [];
-        if ($originCityId && $destCityId) {
-            $rates = ShippingRate::query()
-                ->where('origin_city_id', $originCityId)
-                ->where('destination_city_id', $destCityId)
-                ->where('is_active', true)
-                ->orderBy('courier_code')
-                ->orderBy('service_code')
-                ->get();
-
-            foreach ($rates as $rate) {
-                $shippingOptions[] = [
-                    'rate_id' => $rate->id,
-                    'courier_code' => $rate->courier_code,
-                    'courier_label' => ShippingRate::COURIERS[$rate->courier_code] ?? strtoupper($rate->courier_code),
-                    'service_code' => $rate->service_code,
-                    'service_name' => $rate->service_name,
-                    'amount' => $rate->estimateForWeightKg($weightKg),
-                    'etd' => $this->shippingEstimator()->formatShippingEtd($rate),
-                ];
-            }
-        }
-
-        $shippingAvailable = $originCityId && $destCityId && count($shippingOptions) > 0;
+        $destCityId = $this->shippingOptions()->resolveCityId($agent?->city_id, $agent?->city);
+        $quote = $this->shippingOptions()->quote($branchId, $destCityId, $cart->get()['items'] ?? []);
+        $shippingOptions = array_values(array_filter(
+            $quote['options'] ?? [],
+            fn (array $opt) => ! empty($opt['rate_id'])
+        ));
+        $shippingAvailable = $shippingOptions !== [];
 
         $shipping = [
-            'origin_city' => $fgWarehouse?->city ?: $originUnit?->city,
+            'origin_city' => $quote['origin_city_name'] ?: ($fgWarehouse?->city ?: $originUnit?->city),
             'origin_province' => $fgWarehouse?->province ?: $originUnit?->province,
             'origin_name' => $fgWarehouse?->name ?: ($originUnit?->brand_name ?: $originUnit?->name),
             'destination_city' => $agent?->city,
@@ -649,7 +633,7 @@ class AgentOrderController extends Controller
             'shipping' => $shipping,
             'shippingOptions' => $shippingOptions,
             'shippingAvailable' => $shippingAvailable,
-            'weightKg' => $weightKg,
+            'weightKg' => $quote['weight_kg'] ?? 0,
             'codMethod' => null,
             'codIcon' => null,
             'xenditChannelGroups' => [],
@@ -675,14 +659,14 @@ class AgentOrderController extends Controller
 
         $customer = $this->context()->customer();
         $agent = $customer->agent;
-        $originCityId = optional(WmsContext::finishedGoodsWarehouse())->city_id;
-        $destCityId = $agent?->city_id;
+        $branchId = $this->context()->branchId();
+        $destCityId = $this->shippingOptions()->resolveCityId($agent?->city_id, $agent?->city);
 
-        if (! $originCityId || ! $destCityId) {
+        if (! $destCityId) {
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Ongkir belum tersedia untuk kota tujuan Anda. Hubungi admin untuk menambahkan tarif.');
+                ->with('error', 'Kota agen belum diatur. Hubungi admin untuk melengkapi data kota.');
         }
 
         $rate = ShippingRate::query()
@@ -690,11 +674,16 @@ class AgentOrderController extends Controller
             ->where('is_active', true)
             ->first();
 
-        if (! $rate || $rate->origin_city_id !== $originCityId || $rate->destination_city_id !== $destCityId) {
+        try {
+            if (! $rate) {
+                throw new \InvalidArgumentException('Ongkir tidak valid. Silakan pilih kurir lagi.');
+            }
+            $this->shippingOptions()->assertUsableRate($rate, $branchId, $destCityId);
+        } catch (\InvalidArgumentException $e) {
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Ongkir tidak valid. Silakan pilih kurir lagi.');
+                ->with('error', $e->getMessage());
         }
 
         $shippingAmount = $rate->estimateForWeightKg($this->shippingEstimator()->cartTotalWeightKg($cartService));

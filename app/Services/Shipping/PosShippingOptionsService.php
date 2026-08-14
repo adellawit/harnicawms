@@ -156,6 +156,23 @@ class PosShippingOptionsService
         return ['id' => $id, 'name' => $name];
     }
 
+    public function resolveCityId(?string $cityId, ?string $cityName): ?string
+    {
+        if ($cityId) {
+            return $cityId;
+        }
+
+        $cityName = trim((string) $cityName);
+        if ($cityName === '') {
+            return null;
+        }
+
+        return City::query()
+            ->whereNull('deleted_at')
+            ->where('name', 'ILIKE', $cityName)
+            ->value('id');
+    }
+
     /**
      * @return \Illuminate\Support\Collection<int, ShippingRate>
      */
@@ -201,6 +218,7 @@ class PosShippingOptionsService
             return [
                 'rate_id' => $rate->id,
                 'courier_code' => $rate->courier_code,
+                'courier_label' => $courier,
                 'service_code' => $rate->service_code,
                 'service_name' => $rate->service_name,
                 'amount' => $amount,
