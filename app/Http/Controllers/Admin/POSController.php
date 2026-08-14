@@ -12,8 +12,10 @@ use App\Models\ProductUnit;
 use App\Models\ProductVariant;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
+use App\Models\ShippingRate;
 use App\Services\MembershipPointService;
 use App\Services\PosCheckoutService;
+use App\Services\Shipping\PosShippingOptionsService;
 use App\Services\Product\ProductSearchService;
 use App\Services\Promotion\PromotionEngineService;
 use App\Services\Sales\BarcodeDispatchService;
@@ -33,6 +35,7 @@ class POSController extends Controller
         protected XenditService $xendit,
         protected PaymentSyncService $paymentSync,
         protected BarcodeDispatchService $barcodeDispatch,
+        protected PosShippingOptionsService $shippingOptions,
     ) {}
 
     protected function getBranchId(): ?string
@@ -338,6 +341,27 @@ class POSController extends Controller
         ]);
     }
 
+    public function shippingOptions(Request $request)
+    {
+        $request->validate([
+            'destination_city_id' => ['nullable', 'uuid'],
+            'items' => ['nullable', 'array'],
+            'items.*.variant_id' => ['required_with:items', 'uuid'],
+            'items.*.quantity' => ['required_with:items', 'numeric', 'min:0'],
+        ]);
+
+        $quote = $this->shippingOptions->quote(
+            $this->getBranchId(),
+            $request->destination_city_id,
+            $request->items ?? []
+        );
+
+        return response()->json([
+            'success' => true,
+            ...$quote,
+        ]);
+    }
+
     /**
      * Poll payment status (Xendit / pending orders).
      */
@@ -473,6 +497,12 @@ class POSController extends Controller
             'tax_enabled' => 'required|boolean',
             'discount_type' => 'nullable|in:percent,nominal',
             'discount_value' => 'nullable|numeric|min:0',
+            'shipping_amount' => 'nullable|numeric|min:0',
+            'shipping_rate_id' => 'nullable|uuid',
+            'shipping_courier' => 'nullable|string|max:30',
+            'shipping_service' => 'nullable|string|max:30',
+            'shipping_etd' => 'nullable|string|max:30',
+            'destination_city_id' => 'nullable|uuid',
             'amount_paid' => 'required|numeric|min:0',
             'xendit_channel' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
@@ -484,6 +514,12 @@ class POSController extends Controller
 
         if (! $branchId) {
             return response()->json(['success' => false, 'message' => 'Branch not selected'], 422);
+        }
+
+        try {
+            $this->assertShippingRate($request, $branchId);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
         $methodPayment = MethodPayment::find($request->payment_method_id);
@@ -848,5 +884,27 @@ class POSController extends Controller
             'agent_name' => (string) ($conversion['agent_name'] ?? ''),
             'customer_id' => (string) $customerId,
         ];
+    }
+
+    protected function assertShippingRate(Request $request, string $branchId): void
+    {
+        if (! $request->filled('shipping_rate_id')) {
+            return;
+        }
+
+        $rate = ShippingRate::query()
+            ->where('id', $request->shipping_rate_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $rate) {
+            throw new \InvalidArgumentException('Tarif ongkir tidak valid.');
+        }
+
+        $this->shippingOptions->assertUsableRate(
+            $rate,
+            $branchId,
+            $request->destination_city_id
+        );
     }
 }
