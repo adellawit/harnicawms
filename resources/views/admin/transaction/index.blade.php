@@ -43,6 +43,7 @@
                             <th>Payment Method</th>
                             <th>Status</th>
                             <th>Payment</th>
+                            <th class="text-end">Ongkir</th>
                             <th class="text-end">Total</th>
                             <th class="text-nowrap">Actions</th>
                         </tr>
@@ -177,6 +178,7 @@
                         { data: 'method_payment_name', orderable: false },
                         { data: 'status_badge', orderable: false, searchable: false },
                         { data: 'payment_badge', orderable: false, searchable: false },
+                        { data: 'shipping_fmt', orderable: false, searchable: false, className: 'text-end' },
                         { data: 'total_fmt', orderable: false, searchable: false, className: 'text-end' },
                         { data: null, orderable: false, searchable: false, className: 'text-nowrap', render: function(d, t, r) {
                             var detailUrl = "{{ url('transaction/detail') }}/" + r.id;

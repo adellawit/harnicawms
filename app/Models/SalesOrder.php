@@ -151,4 +151,25 @@ class SalesOrder extends Model
 
         return ! in_array($this->status, ['completed', 'void'], true);
     }
+
+    public function shippingCourierLabel(): ?string
+    {
+        $code = strtolower(trim((string) $this->shipping_courier));
+        if ($code === '') {
+            return null;
+        }
+
+        return ShippingRate::COURIERS[$code] ?? strtoupper((string) $this->shipping_courier);
+    }
+
+    public function shippingMetaLabel(): ?string
+    {
+        $parts = array_filter([
+            $this->shippingCourierLabel(),
+            $this->shipping_service,
+            $this->shipping_etd,
+        ]);
+
+        return $parts === [] ? null : implode(' · ', $parts);
+    }
 }

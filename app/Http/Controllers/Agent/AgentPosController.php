@@ -573,7 +573,6 @@ class AgentPosController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
-            $shipping = $this->resolveShippingAmount($request);
             $salesNumber = $this->generateSalesNumber($branchId);
             $order = $this->checkout->createSalesOrder(
                 $request,
@@ -596,7 +595,7 @@ class AgentPosController extends Controller
             );
 
             $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
-            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+            $this->applyOrderShippingAndAddress($order, $reseller);
 
             DB::commit();
 
@@ -728,7 +727,6 @@ class AgentPosController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
-            $shipping = $this->resolveShippingAmount($request);
             $amountPaid = (float) $request->amount_paid;
 
             $salesNumber = $this->generateSalesNumber($branchId);
@@ -746,7 +744,7 @@ class AgentPosController extends Controller
             );
 
             $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
-            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+            $this->applyOrderShippingAndAddress($order, $reseller);
             $order->refresh();
 
             $this->barcodeDispatch->assignSerialsForNewOrder(
@@ -830,7 +828,6 @@ class AgentPosController extends Controller
         DB::beginTransaction();
         try {
             $totals = $this->checkout->buildCartTotals($request);
-            $shipping = $this->resolveShippingAmount($request);
 
             $salesNumber = $this->generateSalesNumber($branchId);
             $order = $this->checkout->createSalesOrder(
@@ -847,7 +844,7 @@ class AgentPosController extends Controller
             );
 
             $reseller = $request->attributes->get('pos_reseller') ?? $this->resolveResellerFromRequest($request);
-            $this->applyOrderShippingAndAddress($order, $shipping, $reseller);
+            $this->applyOrderShippingAndAddress($order, $reseller);
             $order->refresh();
 
             $this->barcodeDispatch->assignSerialsForNewOrder(
@@ -1043,11 +1040,6 @@ class AgentPosController extends Controller
         $request->attributes->set('pos_reseller', $reseller);
     }
 
-    protected function resolveShippingAmount(Request $request): float
-    {
-        return max(0, (float) $request->input('shipping_amount', 0));
-    }
-
     protected function resolveResellerFromRequest(Request $request): ?Reseller
     {
         if (! $request->customer_id) {
@@ -1072,11 +1064,9 @@ class AgentPosController extends Controller
         return $parts !== [] ? implode(', ', $parts) : null;
     }
 
-    protected function applyOrderShippingAndAddress(SalesOrder $order, float $shipping, ?Reseller $reseller): void
+    protected function applyOrderShippingAndAddress(SalesOrder $order, ?Reseller $reseller): void
     {
         $order->update([
-            'shipping_amount' => $shipping,
-            'total' => (float) $order->total + $shipping,
             'customer_address' => $this->formatResellerAddress($reseller),
         ]);
     }

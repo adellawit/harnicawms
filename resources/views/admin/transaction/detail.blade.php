@@ -72,6 +72,12 @@
                                 <td>Payment Method</td>
                                 <td>{{ $order->methodPayment?->name ?? '-' }}</td>
                             </tr>
+                            @if($order->shippingMetaLabel())
+                            <tr>
+                                <td>Pengiriman</td>
+                                <td>{{ $order->shippingMetaLabel() }}</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td>Created By</td>
                                 <td>{{ $order->createdByUser ? ($order->createdByUser->first_name . ' ' . $order->createdByUser->last_name) : '-' }}</td>
@@ -111,12 +117,21 @@
                                 <td class="text-danger">- Rp {{ format_number($order->discount_amount, 2, true) }}</td>
                             </tr>
                             @endif
-                            @if((float)$order->shipping_amount > 0)
+                            @if((float) $order->membership_redeem_discount_amount > 0)
                             <tr>
-                                <td>Shipping</td>
-                                <td>Rp {{ format_number($order->shipping_amount, 2, true) }}</td>
+                                <td>Redeem Points</td>
+                                <td class="text-danger">- Rp {{ format_number($order->membership_redeem_discount_amount, 2, true) }}</td>
                             </tr>
                             @endif
+                            <tr>
+                                <td>Ongkir</td>
+                                <td>
+                                    Rp {{ format_number($order->shipping_amount, 2, true) }}
+                                    @if($order->shippingMetaLabel())
+                                        <div class="fw-normal text-muted small">{{ $order->shippingMetaLabel() }}</div>
+                                    @endif
+                                </td>
+                            </tr>
                             <tr class="border-top">
                                 <td class="fw-bold fs-5" style="color:#2c3e50">Total</td>
                                 <td class="fw-bold fs-5 text-primary">Rp {{ format_number($order->total, 2, true) }}</td>

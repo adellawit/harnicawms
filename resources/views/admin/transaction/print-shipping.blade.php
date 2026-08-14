@@ -100,6 +100,12 @@
             <p>No. Transaksi: <strong>{{ $order->sales_number }}</strong></p>
             <p>Tipe: <strong>{{ strtoupper((string) $order->order_type) }}</strong></p>
             <p>Gudang: <strong>{{ $order->warehouse?->name ?? '-' }}</strong></p>
+            @if($order->shippingMetaLabel())
+                <p>Kurir: <strong>{{ $order->shippingMetaLabel() }}</strong></p>
+            @endif
+            @if((float) $order->shipping_amount > 0)
+                <p>Ongkir: <strong>Rp {{ format_number($order->shipping_amount, 2, true) }}</strong></p>
+            @endif
             @if($order->reference)
                 <p>Referensi: <strong>{{ $order->reference }}</strong></p>
             @endif
