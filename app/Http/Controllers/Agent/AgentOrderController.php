@@ -618,7 +618,11 @@ class AgentOrderController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $cashMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
+        // COD and Xendit-gateway methods stay hidden here — checkoutProcess()
+        // doesn't support them for agent orders yet — but any other active,
+        // non-gateway master-data method (not just a hardcoded CASH/TUNAI
+        // allowlist) shows up, matching what isCashPaymentMethod() will accept.
+        $standardMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
         $manualTransferMethod = $methodPayments->first(fn ($m) => $this->isManualTransferMethod($m));
 
         $customer = $ctx->customer();
@@ -655,9 +659,9 @@ class AgentOrderController extends Controller
             'codMethod' => null,
             'codIcon' => null,
             'xenditChannelGroups' => [],
-            'standardMethods' => $cashMethods,
+            'standardMethods' => $standardMethods,
             'manualTransferMethod' => $manualTransferMethod,
-            'hasPaymentOptions' => $cashMethods->isNotEmpty() || $manualTransferMethod !== null,
+            'hasPaymentOptions' => $standardMethods->isNotEmpty() || $manualTransferMethod !== null,
         ]);
     }
 
@@ -1199,14 +1203,26 @@ class AgentOrderController extends Controller
         return back()->with('success', 'Bukti transfer terkirim. Menunggu verifikasi admin.');
     }
 
+    /**
+     * Any active, non-gateway master-data method that isn't manual transfer or
+     * COD is processed the same way "cash" was: immediate order, marked paid
+     * on the spot (see checkoutProcess()). COD and Xendit-gateway methods are
+     * handled separately (currently unsupported for agent orders).
+     */
     protected function isCashPaymentMethod(MethodPayment $method): bool
     {
         return ! $method->uses_payment_gateway
-            && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
+            && ! $this->isManualTransferMethod($method)
+            && ! $this->isCodMethod($method);
     }
 
     protected function isManualTransferMethod(MethodPayment $method): bool
     {
         return strtoupper($method->code) === 'MANUAL_TRANSFER';
+    }
+
+    protected function isCodMethod(MethodPayment $method): bool
+    {
+        return strtoupper($method->code) === 'COD';
     }
 }
