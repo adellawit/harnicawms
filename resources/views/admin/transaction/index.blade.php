@@ -80,6 +80,7 @@
             <select id="filterStatus" class="select2-modal form-select" data-allow-clear="true">
                 <option value="">All</option>
                 <option value="draft" @if($status=='draft') selected @endif>Draft</option>
+                <option value="verification" @if($status=='verification') selected @endif>Verification</option>
                 <option value="completed" @if($status=='completed') selected @endif>Completed</option>
                 <option value="cancelled" @if($status=='cancelled') selected @endif>Cancelled</option>
                 <option value="deleted" @if($status=='deleted') selected @endif>Deleted</option>
@@ -184,11 +185,19 @@
                             var detailUrl = "{{ url('transaction/detail') }}/" + r.id;
                             var printUrl = "{{ url('transaction') }}/" + r.id + "/print-invoice?print=1";
                             var shippingUrl = "{{ url('transaction') }}/" + r.id + "/print-shipping?print=1";
-                            return '<div class="trx-actions">'
-                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>'
-                                + '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
+                            var html = '<div class="trx-actions">'
+                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>';
+                            if (r.status === 'verification') {
+                                var verifyUrl = "{{ url('transaction') }}/" + r.id + "/verify";
+                                html += '<form method="POST" action="' + verifyUrl + '" class="d-inline" onsubmit="return confirm(\'Mark this order as verified?\')">'
+                                    + '{{ csrf_field() }}'
+                                    + '<button type="submit" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</button>'
+                                    + '</form>';
+                            }
+                            html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
                                 + '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>'
                                 + '</div>';
+                            return html;
                         } }
                     ],
                     dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',

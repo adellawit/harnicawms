@@ -18,7 +18,7 @@
         />
 
         @php
-            $statusColors = ['completed' => 'success', 'draft' => 'secondary', 'cancelled' => 'danger', 'pending' => 'warning'];
+            $statusColors = ['completed' => 'success', 'draft' => 'secondary', 'cancelled' => 'danger', 'pending' => 'warning', 'verification' => 'info'];
             $payStatusColors = ['paid' => 'success', 'unpaid' => 'danger', 'partial' => 'warning'];
         @endphp
 
@@ -29,6 +29,14 @@
                 <div class="d-flex gap-2 align-items-center">
                     <span class="badge bg-label-{{ $statusColors[$order->status] ?? 'info' }}">{{ ucfirst($order->status) }}</span>
                     <span class="badge bg-label-{{ $payStatusColors[$order->payment_status] ?? 'secondary' }}">{{ ucfirst($order->payment_status) }}</span>
+                    @if ($order->status === 'verification')
+                        <form method="POST" action="{{ route('transaction.verify', $order->id) }}" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Mark this order as verified?')">
+                                <i class="ti ti-check me-1"></i>Verify
+                            </button>
+                        </form>
+                    @endif
                     <a href="{{ route('transaction.print-invoice', $order->id) }}?print=1" target="_blank" class="btn btn-outline-secondary btn-sm ms-2">
                         <i class="ti ti-printer me-1"></i>Print Invoice
                     </a>

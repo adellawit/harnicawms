@@ -80,6 +80,7 @@ class TransactionController extends Controller
                 $colors = [
                     'completed' => 'success', 'draft' => 'secondary',
                     'cancelled' => 'danger', 'pending' => 'warning',
+                    'verification' => 'info',
                 ];
                 $color = $colors[$row->status] ?? 'info';
                 return '<span class="badge bg-label-' . $color . '">' . ucfirst($row->status) . '</span>';
@@ -111,6 +112,17 @@ class TransactionController extends Controller
             })
             ->rawColumns(['status_badge', 'payment_badge', 'shipping_fmt'])
             ->toJson();
+    }
+
+    public function verify(string $id)
+    {
+        $order = SalesOrder::findOrFail($id);
+        if ($order->status !== 'verification') {
+            return back()->with('error', 'Only orders awaiting verification can be verified.');
+        }
+        $order->update(['status' => 'pending']);
+
+        return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and moved back to processing.');
     }
 
     /**

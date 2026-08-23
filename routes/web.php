@@ -930,6 +930,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Detail / print routes (must be after all named routes to avoid conflicts)
+        Route::post('/{id}/verify', [TransactionController::class, 'verify'])->name('transaction.verify');
         Route::get('/detail/{id}', [TransactionController::class, 'detailView'])->name('transaction.detail');
         Route::get('/{id}/print-invoice', [TransactionController::class, 'printInvoice'])->name('transaction.print-invoice');
         Route::get('/{id}/print-shipping', [TransactionController::class, 'printShipping'])->name('transaction.print-shipping');
