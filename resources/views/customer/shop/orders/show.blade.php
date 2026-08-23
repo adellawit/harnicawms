@@ -51,10 +51,14 @@
             <div class="card-header bg-white fw-semibold py-3">Item</div>
             <ul class="list-group list-group-flush">
                 @foreach ($order->items as $item)
+                    @php
+                        $productName = $item->product?->name ?? $item->variant?->product?->name;
+                        $productName = $productName ? product_print_name($productName) : 'Item';
+                    @endphp
                     <li class="list-group-item shop-order-detail-item">
                         <span class="shop-order-detail-item-name">
                             <span class="shop-order-detail-qty">{{ (int) $item->quantity }}×</span>
-                            {{ $item->product?->name ?? $item->variant?->display_name ?? 'Item' }}
+                            {{ $productName }}
                         </span>
                         <span class="shop-order-detail-item-price">
                             Rp {{ number_format($item->subtotal, 0, ',', '.') }}

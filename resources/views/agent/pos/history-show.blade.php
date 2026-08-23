@@ -71,7 +71,8 @@
                                 @foreach ($order->items as $item)
                                     @php
                                         $unitLabel = $item->unit?->symbol ?: ($item->unit?->name ?: $item->unit?->code);
-                                        $productName = $item->product?->name ?? $item->variant?->display_name ?? 'Item';
+                                        $productName = $item->product?->name ?? $item->variant?->product?->name;
+                                        $productName = $productName ? product_print_name($productName) : 'Item';
                                     @endphp
                                     <tr>
                                         <td>{{ $productName }}</td>
