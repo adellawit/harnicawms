@@ -1702,13 +1702,27 @@ a.agent-training-course-card:hover {
 .agent-dashboard-page .shop-order-card,
 .agent-dashboard-page .agent-reorder-card,
 .agent-dashboard-page .agent-asset-card,
-.agent-dashboard-page .agent-course-card {
+.agent-dashboard-page .agent-course-card,
+.shop-checkout-page .shop-checkout-card {
     background: var(--login-glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--login-glass-border) !important;
     border-radius: 1rem !important;
     box-shadow: 0 8px 24px -8px var(--login-shadow-color) !important;
+}
+
+.shop-checkout-page .shop-checkout-card .card-header {
+    background: transparent !important;
+    border-bottom-color: var(--login-glass-border);
+}
+
+.shop-checkout-page .shop-checkout-bar {
+    background: var(--login-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--login-glass-border);
+    box-shadow: 0 -8px 24px -8px var(--login-shadow-color);
 }
 
 .agent-dashboard-page .agent-reorder-card {
