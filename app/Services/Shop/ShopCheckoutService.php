@@ -172,12 +172,15 @@ class ShopCheckoutService
     /**
      * @return array<string, mixed>
      */
-    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null, float $shippingAmount = 0, array $shippingMeta = []): array
+    public function processCod(Request $checkoutRequest, string $paymentMethodId, string $orderType = 'web', ?string $shippingAddress = null, float $shippingAmount = 0, array $shippingMeta = [], ?string $status = null, ?string $paymentStatus = null): array
     {
         $this->context->assertReady();
         $branchId = $this->context->branchId();
         $companyId = $this->context->companyId();
         $customer = $this->context->customer();
+
+        $resolvedStatus = $status ?? 'pending';
+        $resolvedPaymentStatus = $paymentStatus ?? 'unpaid';
 
         DB::beginTransaction();
         try {
@@ -192,8 +195,8 @@ class ShopCheckoutService
                 $branchId,
                 $companyId,
                 null,
-                'pending',
-                'unpaid',
+                $resolvedStatus,
+                $resolvedPaymentStatus,
                 $orderType,
             );
 
@@ -216,7 +219,7 @@ class ShopCheckoutService
                 'payment_code' => 'PAY-'.$salesNumber,
                 'amount' => $total,
                 'change_amount' => 0,
-                'status' => 'pending',
+                'status' => $resolvedPaymentStatus === 'paid' ? 'completed' : 'pending',
             ]);
 
             DB::commit();

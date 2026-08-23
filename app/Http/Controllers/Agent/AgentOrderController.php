@@ -618,12 +618,22 @@ class AgentOrderController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $xendit = app(XenditService::class);
+
         // COD and Xendit-gateway methods stay hidden here — checkoutProcess()
         // doesn't support them for agent orders yet — but any other active,
         // non-gateway master-data method (not just a hardcoded CASH/TUNAI
         // allowlist) shows up, matching what isCashPaymentMethod() will accept.
-        $standardMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
+        // Each method is decorated with a runtime ->icon so the checkout view
+        // can show a real icon instead of the generic default (customer-shop's
+        // own checkout is untouched — its methods never get this property, so
+        // its Blade partial keeps falling back to the same default it uses today).
+        $standardMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values()
+            ->each(fn ($m) => $m->icon = $xendit->channelIconUrl($m->code, $m->name));
         $manualTransferMethod = $methodPayments->first(fn ($m) => $this->isManualTransferMethod($m));
+        if ($manualTransferMethod) {
+            $manualTransferMethod->icon = $xendit->channelIconUrl($manualTransferMethod->code, $manualTransferMethod->name);
+        }
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
@@ -741,6 +751,8 @@ class AgentOrderController extends Controller
                     $this->resolveShippingAddress(),
                     $shippingAmount,
                     $shippingMeta,
+                    'verification',
+                    'paid',
                 );
                 $cartService->clear();
 
@@ -849,6 +861,7 @@ class AgentOrderController extends Controller
         $customer = auth('customer')->user();
 
         $filterMap = [
+            'verification' => ['status', 'verification'],
             'pending' => ['status', 'pending'],
             'completed' => ['status', 'completed'],
             'unpaid' => ['payment_status', 'unpaid'],
