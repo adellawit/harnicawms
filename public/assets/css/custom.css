@@ -1452,6 +1452,20 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
     color: var(--bs-primary);
 }
 
+/* Agent portal — brand-side illustration */
+.agent-illustration {
+    width: 100%;
+    max-width: 260px;
+    margin: 0.25rem auto 1.25rem;
+    animation: logoFloat 4s ease-in-out infinite;
+}
+
+.agent-illustration svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
 /* Right Side - Login Form (Inside Card) */
 .auth-card .auth-form-side {
     flex: 1;
