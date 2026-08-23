@@ -76,6 +76,22 @@ class AgentOrderController extends Controller
         return $customer->address_shipping ?: ($customer->address ?: $agent?->address);
     }
 
+    /**
+     * Latest marketing image assets used to populate the hero promo carousel
+     * on the catalog and dashboard pages. Falls back to static slides in the
+     * view when this is empty, so the hero never looks broken.
+     */
+    protected function heroPromoAssets(): Collection
+    {
+        return Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->where('type', 'image')
+            ->latest('created_at')
+            ->limit(3)
+            ->get();
+    }
+
     public function dashboard(): View
     {
         $ctx = $this->context();
@@ -158,6 +174,7 @@ class AgentOrderController extends Controller
             'totalResellers' => $totalResellers,
             'totalMarketingAssets' => $totalMarketingAssets,
             'totalCourses' => $totalCourses,
+            'heroAssets' => $this->heroPromoAssets(),
         ]);
     }
 
@@ -446,6 +463,7 @@ class AgentOrderController extends Controller
             'promoOnly' => $promoOnly,
             'cart' => $this->cart()->get(),
             'summary' => $this->cart()->summarize(),
+            'heroAssets' => $this->heroPromoAssets(),
         ]);
     }
 
