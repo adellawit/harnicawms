@@ -13,7 +13,7 @@
     </header>
 
     @php
-        $filters = ['all' => 'Semua', 'pending' => 'Pending', 'completed' => 'Selesai', 'unpaid' => 'Belum bayar', 'cancelled' => 'Dibatalkan'];
+        $filters = ['all' => 'Semua', 'verification' => 'Verifikasi', 'pending' => 'Pending', 'completed' => 'Selesai', 'unpaid' => 'Belum bayar', 'cancelled' => 'Dibatalkan'];
     @endphp
     <div class="shop-chips d-flex flex-wrap gap-2 mb-3">
         @foreach ($filters as $key => $label)
@@ -35,7 +35,12 @@
                         'cancelled' => 'danger',
                         'completed' => 'success',
                         'pending' => 'info',
+                        'verification' => 'warning',
                         default => 'secondary',
+                    };
+                    $statusLabel = match ($order->status) {
+                        'verification' => 'VERIFIKASI',
+                        default => strtoupper($order->status),
                     };
                     $firstItem = $order->items->first();
                     $thumb = $firstItem?->product?->image;
@@ -64,7 +69,7 @@
                                     · {{ $itemCount }} item
                                 </time>
                                 <div class="shop-order-badges">
-                                    <span class="badge bg-label-{{ $statusBadge }}">{{ strtoupper($order->status) }}</span>
+                                    <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                                     <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
                                     @if ($payMethod)
                                         <span class="badge bg-label-secondary"><i class="ti ti-credit-card me-1"></i>{{ $payMethod }}</span>

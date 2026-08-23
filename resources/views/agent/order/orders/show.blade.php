@@ -26,7 +26,12 @@
             'shipped' => 'primary',
             'pending' => 'info',
             'cancelled' => 'danger',
+            'verification' => 'warning',
             default => 'secondary',
+        };
+        $statusLabel = match ($order->status) {
+            'verification' => 'VERIFIKASI',
+            default => strtoupper($order->status),
         };
         $pendingPay = $order->payments->first(fn ($p) => $p->gateway === 'xendit' && $p->status === 'pending' && $p->gateway_url);
     @endphp
@@ -41,7 +46,7 @@
                 <time class="text-muted small">{{ $order->created_at->format('d M Y, H:i') }}</time>
             </div>
             <div class="shop-order-badges shop-order-detail-badges">
-                <span class="badge bg-label-{{ $statusBadge }}">{{ strtoupper($order->status) }}</span>
+                <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                 <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
             </div>
         </div>

@@ -153,7 +153,12 @@
                             'cancelled' => 'danger',
                             'completed' => 'success',
                             'pending' => 'info',
+                            'verification' => 'warning',
                             default => 'secondary',
+                        };
+                        $statusLabel = match ($order->status) {
+                            'verification' => 'VERIFIKASI',
+                            default => strtoupper($order->status),
                         };
                     @endphp
                     <article class="list-group-item shop-order-row">
@@ -168,7 +173,7 @@
                                     {{ $order->sales_date?->format('d M Y, H:i') ?? $order->created_at->format('d M Y, H:i') }}
                                 </time>
                                 <div class="shop-order-badges">
-                                    <span class="badge bg-label-{{ $statusBadge }}">{{ strtoupper($order->status) }}</span>
+                                    <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                                     <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
                                 </div>
                             </div>
