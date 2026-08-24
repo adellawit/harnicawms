@@ -152,7 +152,7 @@
                           onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
                         @csrf
                         <button type="submit" class="btn btn-primary w-100">
-                            <i class="ti ti-package-import me-1"></i>Terima Barang
+                            <i class="ti ti-truck-loading me-1"></i>Terima Barang
                         </button>
                     </form>
                 @elseif ($order->received_at)

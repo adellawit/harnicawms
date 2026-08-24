@@ -162,7 +162,7 @@
                                                       onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
                                                     @csrf
                                                     <button type="submit" class="dropdown-item">
-                                                        <i class="ti ti-package-import me-2"></i>Penerimaan
+                                                        <i class="ti ti-truck-loading me-2"></i>Penerimaan
                                                     </button>
                                                 </form>
                                             </li>
