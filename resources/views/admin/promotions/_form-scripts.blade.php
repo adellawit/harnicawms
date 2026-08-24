@@ -39,15 +39,22 @@
             return checked ? checked.value : 'product';
         }
 
+        function setFieldEnabled(el, enabled) {
+            if (el.type === 'radio' && el.name === 'promotion_type') {
+                return;
+            }
+            el.disabled = !enabled;
+            if (window.jQuery && $(el).data('select2')) {
+                $(el).prop('disabled', !enabled).trigger('change.select2');
+            }
+        }
+
         function setBlockFieldsEnabled(block, enabled) {
             if (!block) {
                 return;
             }
             block.querySelectorAll('input, select, textarea').forEach(function (el) {
-                if (el.type === 'radio' && el.name === 'promotion_type') {
-                    return;
-                }
-                el.disabled = !enabled;
+                setFieldEnabled(el, enabled);
             });
         }
 
@@ -63,15 +70,26 @@
                 marketingBlock.style.display = type === 'marketing' ? '' : 'none';
                 setBlockFieldsEnabled(marketingBlock, type === 'marketing');
             }
+            if (type === 'marketing') {
+                toggleTargetPickers();
+            }
         }
 
         function toggleTargetPickers() {
             const targetType = $('#target_type').val() || document.getElementById('target_type')?.value || 'both';
+            const showAgent = targetType === 'agent' || targetType === 'both';
+            const showReseller = targetType === 'reseller' || targetType === 'both';
             document.querySelectorAll('.target-agent-picker').forEach(function (el) {
-                el.style.display = (targetType === 'agent' || targetType === 'both') ? '' : 'none';
+                el.style.display = showAgent ? '' : 'none';
+                el.querySelectorAll('select').forEach(function (sel) {
+                    setFieldEnabled(sel, showAgent);
+                });
             });
             document.querySelectorAll('.target-reseller-picker').forEach(function (el) {
-                el.style.display = (targetType === 'reseller' || targetType === 'both') ? '' : 'none';
+                el.style.display = showReseller ? '' : 'none';
+                el.querySelectorAll('select').forEach(function (sel) {
+                    setFieldEnabled(sel, showReseller);
+                });
             });
         }
 
@@ -79,16 +97,22 @@
             $('#get_product_mode').on('change', toggleGetSpecific);
             $('input[name="promotion_type"]').on('change', togglePromotionTypeBlocks);
             $('#target_type').on('change', toggleTargetPickers);
+            // Pastikan field blok aktif enabled sebelum submit (Select2 kadang stuck disabled).
+            $('form').on('submit', function () {
+                togglePromotionTypeBlocks();
+            });
         } else {
             document.getElementById('get_product_mode')?.addEventListener('change', toggleGetSpecific);
             document.querySelectorAll('input[name="promotion_type"]').forEach(function (el) {
                 el.addEventListener('change', togglePromotionTypeBlocks);
             });
             document.getElementById('target_type')?.addEventListener('change', toggleTargetPickers);
+            document.querySelector('form')?.addEventListener('submit', function () {
+                togglePromotionTypeBlocks();
+            });
         }
 
         toggleGetSpecific();
         togglePromotionTypeBlocks();
-        toggleTargetPickers();
     })();
 </script>

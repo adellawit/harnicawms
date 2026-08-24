@@ -1,5 +1,12 @@
 # Lessons
 
+## 2026-08-24 — Promotion create: “tidak pindah halaman” / data kosong
+
+- **Symptom:** Save marketing promo → tetap di create ATAU pindah tapi detail kosong; list tidak bertambah.
+- **Root cause (2):** (1) Select2 tidak ikut sync `disabled` saat ganti tipe → field `target_type`/syarat tidak terkirim → validasi gagal → redirect back (seolah tidak pindah). (2) `show.blade.php` hanya render blok product (Buy/Get) → marketing tampak kosong meski tersimpan.
+- **Fix pattern:** Enable/disable Select2 via `$(el).prop('disabled', …).trigger('change.select2')`; re-toggle sebelum submit; show page branch `promotion_type === 'marketing'`.
+- **Verify:** Save marketing → redirect ke show dengan Target/Syarat/Diskon; baris baru di index.
+
 ## 2026-08-24 — Promotion create 500: `exists:partner.agents`
 
 - **Symptom:** Create marketing promo (pilih agen/reseller) → HTTP 500 `Database connection [partner] not configured`.
