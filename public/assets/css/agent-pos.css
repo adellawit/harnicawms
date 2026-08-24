@@ -1483,7 +1483,10 @@ body.agent-pos-body {
 }
 
 /* ── POS History page ─────────────────────────────────────────── */
-.agent-pos-body .pos-history-page {
+/* Was scoped to .agent-pos-body when these pages used layouts.agent-pos;
+   they now use layouts.agent-order (standard nav/footer), which never
+   sets that class, so this only needs the page's own content class. */
+.pos-history-page {
     padding: 1rem;
     max-width: 1200px;
     margin: 0 auto;

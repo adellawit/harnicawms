@@ -1,6 +1,15 @@
-@extends('layouts.agent-pos')
+@extends('layouts.agent-order')
 
 @section('title', $order->sales_number . ' | Riwayat POS | ')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
+@endpush
+
+@push('vendor-scripts')
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+@endpush
 
 @section('content')
     @php
