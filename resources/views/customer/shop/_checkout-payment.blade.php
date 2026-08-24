@@ -42,7 +42,7 @@
                         @php $pickFirst = false; @endphp
                         <span class="shop-pay-option-card">
                             <img src="{{ $method->icon ?? $defaultPayIcon }}" alt="{{ $method->name }}" class="shop-pay-icon" loading="lazy"
-                                onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}'">
+                                onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}';">
                             <span class="shop-pay-label">{{ $method->name }}</span>
                         </span>
                     </label>
@@ -65,7 +65,7 @@
                     @php $pickFirst = false; @endphp
                     <span class="shop-pay-option-card">
                         <img src="{{ $manualTransferMethod->icon ?? $defaultPayIcon }}" alt="{{ $manualTransferMethod->name }}" class="shop-pay-icon" loading="lazy"
-                            onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}'">
+                            onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}';">
                         <span class="shop-pay-label">{{ $manualTransferMethod->name }}</span>
                         <span class="shop-pay-sub">Transfer + kode unik</span>
                     </span>

@@ -17,6 +17,13 @@
             ]"
         />
 
+        @if (session('success'))
+            <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
+        @endif
+        @if (session('error'))
+            <x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>
+        @endif
+
         @php
             $statusColors = ['completed' => 'success', 'draft' => 'secondary', 'cancelled' => 'danger', 'pending' => 'warning', 'verification' => 'info'];
             $payStatusColors = ['paid' => 'success', 'unpaid' => 'danger', 'partial' => 'warning'];
@@ -29,7 +36,7 @@
                 <div class="d-flex gap-2 align-items-center">
                     <span class="badge bg-label-{{ $statusColors[$order->status] ?? 'info' }}">{{ ucfirst($order->status) }}</span>
                     <span class="badge bg-label-{{ $payStatusColors[$order->payment_status] ?? 'secondary' }}">{{ ucfirst($order->payment_status) }}</span>
-                    @if ($order->status === 'verification')
+                    @if ($order->status === 'verification' && ! $order->deleted_at)
                         <form method="POST" action="{{ route('transaction.verify', $order->id) }}" class="d-inline">
                             @csrf
                             <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Mark this order as verified?')">

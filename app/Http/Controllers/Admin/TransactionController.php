@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SalesOrder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\DataTables;
 
 class TransactionController extends Controller
@@ -120,7 +121,7 @@ class TransactionController extends Controller
         if ($order->status !== 'verification') {
             return back()->with('error', 'Only orders awaiting verification can be verified.');
         }
-        $order->update(['status' => 'pending']);
+        $order->update(['status' => 'pending', 'updated_by' => Auth::id()]);
 
         return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and moved back to processing.');
     }

@@ -29,6 +29,9 @@
         @if (session('success'))
             <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
         @endif
+        @if (session('error'))
+            <x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>
+        @endif
 
         <div class="card">
             <div class="card-datatable text-nowrap">
@@ -187,7 +190,7 @@
                             var shippingUrl = "{{ url('transaction') }}/" + r.id + "/print-shipping?print=1";
                             var html = '<div class="trx-actions">'
                                 + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>';
-                            if (r.status === 'verification') {
+                            if (r.status === 'verification' && !r.deleted_at) {
                                 var verifyUrl = "{{ url('transaction') }}/" + r.id + "/verify";
                                 html += '<form method="POST" action="' + verifyUrl + '" class="d-inline" onsubmit="return confirm(\'Mark this order as verified?\')">'
                                     + '{{ csrf_field() }}'
