@@ -4,6 +4,7 @@ namespace App\Services\Ai\Tools;
 
 use App\Services\Ai\AgentContext;
 use App\Services\Ai\Contracts\AgentToolInterface;
+use App\Services\Ai\LlmProviderManager;
 
 abstract class AbstractAgentTool implements AgentToolInterface
 {

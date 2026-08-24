@@ -134,6 +134,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         'middleware' => ['permission:'.(config('agent.permission_menu') ?: 'AI Assistant').',is_read', 'throttle:'.(int) config('agent.rate_limit_per_minute', 30).',1'],
     ], function () {
         Route::post('/chat', [ChatController::class, 'chat'])->name('agent.chat');
+        Route::post('/actions/confirm', [ChatController::class, 'confirmAction'])->name('agent.actions.confirm');
         Route::get('/conversations', [ConversationController::class, 'index'])->name('agent.conversations');
         Route::post('/conversations/new', [ConversationController::class, 'store'])->name('agent.conversations.new');
         Route::get('/conversations/{conversationId}/messages', [ConversationController::class, 'messages'])->name('agent.conversations.messages');

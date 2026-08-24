@@ -6,7 +6,12 @@ use App\Services\Ai\Contracts\AgentToolInterface;
 use App\Services\Ai\Tools\GetHelpTool;
 use App\Services\Ai\Tools\GetSalesSummaryTool;
 use App\Services\Ai\Tools\GetStockTool;
+use App\Services\Ai\Tools\GuideTourTool;
+use App\Services\Ai\Tools\ManageRecordTool;
+use App\Services\Ai\Tools\OpenPageTool;
+use App\Services\Ai\Tools\SaleActionTool;
 use App\Services\Ai\Tools\SearchCustomerTool;
+use App\Services\Ai\Tools\SearchDocsTool;
 use App\Services\Ai\Tools\SearchProductTool;
 
 class AgentToolRegistry
@@ -17,18 +22,28 @@ class AgentToolRegistry
     protected array $tools = [];
 
     public function __construct(
+        SearchDocsTool $searchDocsTool,
         SearchProductTool $searchProductTool,
         GetStockTool $getStockTool,
         SearchCustomerTool $searchCustomerTool,
         GetSalesSummaryTool $getSalesSummaryTool,
         GetHelpTool $getHelpTool,
+        SaleActionTool $saleActionTool,
+        ManageRecordTool $manageRecordTool,
+        GuideTourTool $guideTourTool,
+        OpenPageTool $openPageTool,
     ) {
         foreach ([
+            $searchDocsTool,
             $searchProductTool,
             $getStockTool,
             $searchCustomerTool,
             $getSalesSummaryTool,
             $getHelpTool,
+            $saleActionTool,
+            $manageRecordTool,
+            $guideTourTool,
+            $openPageTool,
         ] as $tool) {
             $this->tools[$tool->name()] = $tool;
         }

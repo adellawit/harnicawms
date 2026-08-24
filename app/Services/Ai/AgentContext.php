@@ -18,6 +18,9 @@ class AgentContext
         public array $permissions,
         public string $channel = 'web',
         public ?string $conversationId = null,
+        public ?string $pagePath = null,
+        public ?string $pageTitle = null,
+        public ?string $pageMenu = null,
     ) {}
 
     public static function fromUser(User $user, string $channel = 'web', ?string $conversationId = null): self
@@ -39,6 +42,22 @@ class AgentContext
             permissions: session('permissions', []),
             channel: $channel,
             conversationId: $conversationId,
+        );
+    }
+
+    public function withPage(?string $path, ?string $title = null, ?string $menu = null): self
+    {
+        return new self(
+            user: $this->user,
+            branchId: $this->branchId,
+            companyId: $this->companyId,
+            branchName: $this->branchName,
+            permissions: $this->permissions,
+            channel: $this->channel,
+            conversationId: $this->conversationId,
+            pagePath: $path,
+            pageTitle: $title,
+            pageMenu: $menu,
         );
     }
 
