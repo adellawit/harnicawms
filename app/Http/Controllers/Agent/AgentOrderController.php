@@ -1047,7 +1047,7 @@ class AgentOrderController extends Controller
                 ?->map(fn ($va) => $va->attributeValue?->value)
                 ->filter()
                 ->implode(' / ');
-            $variantLabel = $variantLabel ?: ($variant->display_name ?? $variant->sku ?? '-');
+            $variantLabel = $variantLabel ?: '-';
 
             $qtyForBadge = (float) ($display['smallest_quantity'] ?? $display['quantity']);
 
