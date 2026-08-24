@@ -870,6 +870,10 @@ class AgentOrderController extends Controller
         $activeFilter = $request->get('filter');
         $activeFilter = array_key_exists($activeFilter, $filterMap) ? $activeFilter : 'all';
 
+        $search = trim((string) $request->get('search', ''));
+        $dateFrom = $request->get('date_from') ?: null;
+        $dateTo = $request->get('date_to') ?: null;
+
         $query = SalesOrder::query()
             ->where('order_type', self::ORDER_TYPE)
             ->where('customer_id', $customer->id)
@@ -882,12 +886,27 @@ class AgentOrderController extends Controller
             $query->where($col, $val);
         }
 
+        if ($search !== '') {
+            $query->where('sales_number', 'ilike', "%{$search}%");
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('sales_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('sales_date', '<=', $dateTo);
+        }
+
         $orders = $query->paginate(15);
 
         return view('agent.order.orders.index', [
             'customer' => $customer,
             'orders' => $orders,
             'activeFilter' => $activeFilter,
+            'search' => $search,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
         ]);
     }
 

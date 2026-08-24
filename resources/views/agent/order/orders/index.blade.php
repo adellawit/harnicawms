@@ -27,13 +27,52 @@
 
     @php
         $filters = ['all' => 'Semua', 'verification' => 'Verifikasi', 'pending' => 'Pending', 'completed' => 'Selesai', 'unpaid' => 'Belum bayar', 'cancelled' => 'Dibatalkan'];
+        $extraParams = array_filter([
+            'search' => $search ?: null,
+            'date_from' => $dateFrom ?: null,
+            'date_to' => $dateTo ?: null,
+        ]);
     @endphp
     <div class="shop-chips d-flex flex-wrap gap-2 mb-3">
         @foreach ($filters as $key => $label)
-            <a href="{{ route('agent-order.orders', $key === 'all' ? [] : ['filter' => $key]) }}"
+            <a href="{{ route('agent-order.orders', $key === 'all' ? $extraParams : array_merge($extraParams, ['filter' => $key])) }}"
                 class="btn btn-sm {{ $activeFilter === $key ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $label }}</a>
         @endforeach
     </div>
+
+    <form method="GET" action="{{ route('agent-order.orders') }}" class="card border-0 shadow-sm shop-order-card mb-3">
+        <div class="card-body">
+            @if ($activeFilter !== 'all')
+                <input type="hidden" name="filter" value="{{ $activeFilter }}">
+            @endif
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Cari No. Order</label>
+                    <input type="text" name="search" value="{{ $search }}" class="form-control form-control-sm"
+                        placeholder="Contoh: WEB-240826-0001">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-1">Dari Tanggal</label>
+                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-1">Sampai Tanggal</label>
+                    <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                        <i class="ti ti-search me-1"></i>Cari
+                    </button>
+                    @if ($search || $dateFrom || $dateTo)
+                        <a href="{{ route('agent-order.orders', $activeFilter !== 'all' ? ['filter' => $activeFilter] : []) }}"
+                            class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Reset pencarian">
+                            <i class="ti ti-x"></i>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </form>
 
     <div class="card border-0 shadow-sm shop-order-card">
         <div class="table-responsive">
