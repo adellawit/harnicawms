@@ -248,10 +248,10 @@
             return text;
         }
         introSpoken = true;
-        if (/titanie/i.test(text)) {
+        if (/(titanie|reddie)/i.test(text)) {
             return text;
         }
-        return 'Aku Titanie. ' + text;
+        return 'Aku REDDIE. ' + text;
     }
 
     function setSpeaking(on) {

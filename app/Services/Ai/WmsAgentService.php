@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\Ai\AgentConversation;
 use App\Models\User;
+use App\Services\Ai\Actions\AgentPendingActionStore;
 use App\Services\Ai\Actions\AgentTourStore;
 use App\Services\Ai\Contracts\LlmProviderInterface;
 use App\Services\Ai\Tour\AgentTourIntent;
@@ -18,6 +19,7 @@ class WmsAgentService
         protected AgentConversationService $conversations,
         protected AgentToolRegistry $toolRegistry,
         protected AgentTourStore $tourStore,
+        protected AgentPendingActionStore $pending,
     ) {}
 
     /**
@@ -87,23 +89,7 @@ class WmsAgentService
                         ? trim($content)
                         : 'Maaf, saya tidak dapat memproses permintaan tersebut.';
 
-                    $finalContent = AgentReplySanitizer::stripSourceCitations($finalContent);
-
-                    if ($finalContent === '') {
-                        $finalContent = 'Maaf, saya tidak dapat memproses permintaan tersebut.';
-                    }
-
-                    $this->conversations->appendMessage($conversation, 'assistant', $finalContent);
-
-                    return [
-                        'success' => true,
-                        'conversation_id' => $conversation->id,
-                        'reply' => [
-                            'content' => $finalContent,
-                            'format' => 'markdown',
-                            'attachments' => $attachments,
-                        ],
-                    ];
+                    return $this->composeAssistantReply($conversation, $finalContent, $attachments);
                 }
 
                 $this->conversations->appendMessage(
@@ -131,6 +117,7 @@ class WmsAgentService
                     }
 
                     $toolResult = $this->executeTool($conversation, $context, $toolName, $arguments);
+                    $toolResult = $this->normalizeConfirmationResult($toolResult);
                     $toolContent = json_encode($toolResult, JSON_UNESCAPED_UNICODE);
 
                     if (filled($toolResult['message'] ?? null)
@@ -178,20 +165,19 @@ class WmsAgentService
                         'content' => $toolContent ?: '{}',
                     ];
                 }
+
+                if ($this->hasActionCard($attachments)) {
+                    $confirmContent = $appliedNotes !== []
+                        ? implode("\n", array_unique($appliedNotes))
+                        : 'Konfirmasi dulu di kartu di bawah. Belum ada data yang diubah.';
+
+                    return $this->composeAssistantReply($conversation, $confirmContent, $attachments);
+                }
             }
 
             $fallback = 'Permintaan membutuhkan terlalu banyak langkah. Coba pertanyaan yang lebih spesifik.';
-            $this->conversations->appendMessage($conversation, 'assistant', $fallback);
 
-            return [
-                'success' => true,
-                'conversation_id' => $conversation->id,
-                'reply' => [
-                    'content' => $fallback,
-                    'format' => 'markdown',
-                    'attachments' => $attachments,
-                ],
-            ];
+            return $this->composeAssistantReply($conversation, $fallback, $attachments);
         } catch (\Throwable $e) {
             // Detail teknis hanya masuk log. Pesan ke user dibuat generik agar
             // kegagalan provider tidak membocorkan endpoint atau konfigurasi.
@@ -202,19 +188,12 @@ class WmsAgentService
                 'error' => $e->getMessage(),
             ]);
 
-            if ($appliedNotes !== []) {
-                $appliedContent = implode("\n", array_unique($appliedNotes));
-                $this->conversations->appendMessage($conversation, 'assistant', $appliedContent);
+            if ($appliedNotes !== [] || $this->hasActionCard($attachments)) {
+                $appliedContent = $appliedNotes !== []
+                    ? implode("\n", array_unique($appliedNotes))
+                    : 'Konfirmasi dulu di kartu di bawah. Belum ada data yang diubah.';
 
-                return [
-                    'success' => true,
-                    'conversation_id' => $conversation->id,
-                    'reply' => [
-                        'content' => $appliedContent,
-                        'format' => 'markdown',
-                        'attachments' => $attachments,
-                    ],
-                ];
+                return $this->composeAssistantReply($conversation, $appliedContent, $attachments);
             }
 
             $userMessage = $this->userFacingProviderError($e);
@@ -351,8 +330,8 @@ Aturan menjawab:
    bantuan seputar aplikasi.
 7. Untuk membuat penjualan, WAJIB pakai tool manage_sale. Alur:
    add_item (bisa berulang) → set_customer jika disebut → propose.
-   Jangan mengaku transaksi sudah tersimpan. Setelah propose, minta user
-   menekan tombol konfirmasi di chat. Tool ini tidak membuat transaksi.
+   Jangan mengaku transaksi sudah tersimpan. Tool ini tidak membuat transaksi.
+   Kartu Konfirmasi/Batal hanya muncul jika tool mengembalikan confirmation_token.
 8. Untuk mengolah data modul mana pun, WAJIB pakai manage_record.
    Jangan bilang kamu tidak bisa. Jangan hanya memberi langkah menu.
    Create master data (karyawan, pelanggan, kategori, divisi, jabatan, gudang, …)
@@ -370,6 +349,11 @@ Aturan menjawab:
    Jika ragu nama entitas, panggil operation=capabilities dulu.
    Penjualan POS tetap manage_sale.
    Stok: manage_record create entity=stock (mutasi lewat StockMutationService, perlu konfirmasi).
+   fields_json.quantity adalah angka yang user sebut, BUKAN stok akhir hasil hitunganmu.
+   "tambah/tambahkan/nambah N pcs" → mode=in (atau increment/delta), quantity=N.
+   Hasil = stok sekarang + N. JANGAN mode=set, JANGAN quantity = stok sekarang − N
+   atau stok sekarang + N. "kurangi N" → mode=out, quantity=N. "jadikan/set stok ke N"
+   → mode=set, quantity=N (target on-hand). Hanya mode=set jika user minta angka akhir.
    Agen partner: manage_record create entity=partner_agent — cukup nama toko/agen
    (opsional telepon, alamat, kota). Server menjalankan pendaftaran partner +
    Convert Agent, jadi kode agen, gudang agen, dan akun login otomatis. JANGAN
@@ -379,6 +363,10 @@ Aturan menjawab:
    Jurnal post hanya jika seimbang (operation=post).
    Hapus data apa pun dan penetapan role Super Admin WAJIB konfirmasi di kartu chat.
    Jangan bilang sudah terhapus/tersimpan sebelum user menekan konfirmasi.
+   JANGAN minta user menekan tombol konfirmasi/Batal kecuali hasil tool punya
+   needs_confirmation=true DAN confirmation_token terisi. Jika tool gagal,
+   success=false, atau ada kendala teknis: jelaskan error dan minta kirim ulang.
+   DILARANG mengarang tombol atau kartu konfirmasi.
 9. Jika cabang belum diset dan pertanyaannya soal data atau aksi, minta user
    memilih cabang di profil.
 10. Format nominal rupiah dengan pemisah ribuan.
@@ -575,6 +563,124 @@ PROMPT;
             'confirm_label' => (string) ($toolResult['confirm_label'] ?? ($isSale ? 'Buat transaksi' : 'Konfirmasi')),
             'cancel_label' => (string) ($toolResult['cancel_label'] ?? 'Batal'),
         ];
+    }
+
+    /**
+     * Confirmation without a token cannot render buttons. Do not let the model
+     * tell the user to press a card that was never attached.
+     *
+     * @param  array<string, mixed>  $toolResult
+     * @return array<string, mixed>
+     */
+    protected function normalizeConfirmationResult(array $toolResult): array
+    {
+        if (! ($toolResult['needs_confirmation'] ?? false)) {
+            return $toolResult;
+        }
+
+        if (filled($toolResult['confirmation_token'] ?? null)) {
+            return $toolResult;
+        }
+
+        Log::warning('TITANIE confirmation missing token', [
+            'action' => $toolResult['action'] ?? $toolResult['confirmation_kind'] ?? null,
+        ]);
+
+        return [
+            'success' => false,
+            'message' => 'Gagal menyiapkan kartu konfirmasi. Kirim ulang permintaan Anda.',
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $attachments
+     * @return array{
+     *   success: bool,
+     *   conversation_id: string,
+     *   reply: array{content: string, format: string, attachments: array<int, array<string, mixed>>}
+     * }
+     */
+    protected function composeAssistantReply(
+        AgentConversation $conversation,
+        string $content,
+        array $attachments,
+    ): array {
+        $content = AgentReplySanitizer::userFacingConfirmationMessage(
+            AgentReplySanitizer::stripSourceCitations($content)
+        );
+        $attachments = $this->ensureActionCard($conversation->id, $content, $attachments);
+
+        if (! $this->hasActionCard($attachments)) {
+            $content = AgentReplySanitizer::withoutOrphanConfirmationCta($content);
+        }
+
+        if ($content === '') {
+            $content = 'Maaf, saya tidak dapat memproses permintaan tersebut.';
+        }
+
+        $this->conversations->appendMessage($conversation, 'assistant', $content);
+
+        return [
+            'success' => true,
+            'conversation_id' => $conversation->id,
+            'reply' => [
+                'content' => $content,
+                'format' => 'markdown',
+                'attachments' => $attachments,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $attachments
+     */
+    protected function hasActionCard(array $attachments): bool
+    {
+        foreach ($attachments as $attachment) {
+            $type = (string) ($attachment['type'] ?? '');
+            if ($type === 'action_card' || $type === 'action-card') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Re-attach a pending card when the model asks the user to press Confirm
+     * but this turn did not include an action_card attachment.
+     *
+     * @param  array<int, array<string, mixed>>  $attachments
+     * @return array<int, array<string, mixed>>
+     */
+    protected function ensureActionCard(string $conversationId, string $content, array $attachments): array
+    {
+        if ($this->hasActionCard($attachments)) {
+            return $attachments;
+        }
+
+        if (! AgentReplySanitizer::asksToPressConfirmationButton($content)) {
+            return $attachments;
+        }
+
+        $pending = $this->pending->get($conversationId);
+        $token = is_array($pending) ? (string) ($pending['token'] ?? '') : '';
+
+        if ($token === '') {
+            return $attachments;
+        }
+
+        $attachments[] = [
+            'type' => 'action_card',
+            'action' => (string) ($pending['kind'] ?? 'confirm_record'),
+            'token' => $token,
+            'title' => (string) ($pending['title'] ?? 'Konfirmasi'),
+            'body' => (string) ($pending['body'] ?? ''),
+            'confirm_label' => (string) ($pending['confirm_label'] ?? 'Konfirmasi'),
+            'cancel_label' => (string) ($pending['cancel_label'] ?? 'Batal'),
+        ];
+
+        return $attachments;
     }
 
     /**

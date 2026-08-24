@@ -9,7 +9,8 @@ declare(strict_types=1);
  * bentuk token konfirmasi, sanitizer sitasi, AGENT_ALLOWED_TOOLS, create agen
  * partner (missing name + kartu konfirmasi), replenishment wajib agen, dan
  * get_stock overview (query kosong/null, max 10 item) vs filter keyword,
- * prompt/help tidak klaim stok keyword-only, dan riwayat percakapan widget.
+ * prompt/help tidak klaim stok keyword-only, kartu action_card wajib token,
+ * orphan CTA tanpa kartu dibersihkan, dan riwayat percakapan widget.
  *
  * Jalankan: php scripts/ai-bot-eval.php
  */
@@ -21,6 +22,7 @@ use App\Services\Ai\Actions\ChatFields;
 use App\Services\Ai\Actions\EmployeeChatFieldMapper;
 use App\Services\Ai\Actions\ProductChatService;
 use App\Services\Ai\Actions\PurchaseOrderChatService;
+use App\Services\Ai\Actions\StockChatService;
 use App\Services\Ai\AgentContext;
 use App\Services\Ai\AgentConversationService;
 use App\Services\Ai\AgentReplySanitizer;
@@ -30,6 +32,7 @@ use App\Services\Ai\Tools\GetStockTool;
 use App\Services\Ai\Tools\GuideTourTool;
 use App\Services\Ai\Tools\OpenPageTool;
 use App\Services\Ai\Tour\AgentPageCatalog;
+use App\Services\Ai\WmsAgentService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -78,8 +81,11 @@ foreach ($expectedTools as $name) {
     check($name.' ada di AGENT_ALLOWED_TOOLS', in_array($name, $allowed, true));
 }
 
-$example = (string) file_get_contents(dirname(__DIR__).'/.env.example');
-check('.env.example memuat manage_record dan open_page', str_contains($example, 'manage_record') && str_contains($example, 'open_page'));
+$examplePath = file_exists(dirname(__DIR__).'/.env.example')
+    ? dirname(__DIR__).'/.env.example'
+    : dirname(__DIR__).'/.env-development-example';
+$example = is_file($examplePath) ? (string) file_get_contents($examplePath) : '';
+check('env example memuat manage_record dan open_page', str_contains($example, 'manage_record') && str_contains($example, 'open_page'));
 
 $user = new User;
 $context = new AgentContext(
@@ -214,8 +220,111 @@ $wmsSrc = (string) file_get_contents(dirname(__DIR__).'/app/Services/Ai/WmsAgent
 check('LLM di-retry sekali', str_contains($wmsSrc, 'chatWithRetry'));
 check('pesan error membedakan jaringan', str_contains($wmsSrc, 'Koneksi ke asisten terputus'));
 
+$addMode = StockChatService::resolveMode('set', 'tambahkan stocknya 10 pcs');
+$addDelta = StockChatService::quantityDelta($addMode, 10, 100);
+$addBody = StockChatService::confirmationBody($addDelta, 'Plastik (Bahan Baku)', 100);
+check('tambah 10 tidak jadi mode set', $addMode === 'in');
+check('tambah 10 vs stok 100 = delta +10 bukan -90', $addDelta === 10.0);
+check('kartu konfirmasi Tambah 10', str_starts_with($addBody, 'Tambah 10 untuk Plastik (Bahan Baku)'));
+check('kartu konfirmasi bukan Kurangi 90', ! str_contains($addBody, 'Kurangi 90'));
+check('judul kartu Tambah 10?', StockChatService::confirmationTitle($addDelta) === 'Tambah 10?');
+check('judul kartu Kurangi 10?', StockChatService::confirmationTitle(-10.0) === 'Kurangi 10?');
+
+$setMode = StockChatService::resolveMode('set', 'jadikan stok menjadi 90');
+$setDelta = StockChatService::quantityDelta($setMode, 90, 100);
+check('jadikan 90 tetap mode set', $setMode === 'set');
+check('set 90 vs stok 100 = kurangi 10', $setDelta === -10.0);
+
+$outMode = StockChatService::resolveMode(null, 'kurangi 10 pcs');
+check('kurangi 10 → mode out', $outMode === 'out');
+check('out 10 vs stok 100 = delta -10', StockChatService::quantityDelta($outMode, 10, 100) === -10.0);
+
+$defaultAdd = StockChatService::resolveMode(null, null);
+check('mode kosong default increment', $defaultAdd === 'in');
+check('prompt stok mode=in untuk tambah', str_contains($wmsSrc, 'mode=in') && str_contains($wmsSrc, 'JANGAN mode=set'));
+
 $controllerSrc = (string) file_get_contents(dirname(__DIR__).'/app/Http/Controllers/Ai/ChatController.php');
 check('confirmAction memakai AgentConfirmActionService', str_contains($controllerSrc, 'AgentConfirmActionService'));
+
+echo "\n=== 4b. action_card attachment + orphan CTA ===\n";
+
+$orphan = <<<'TXT'
+Mohon maaf, sepertinya ada kendala teknis. Bisa Anda konfirmasi:
+Saya akan menambahkan 10 pcs plastik (SKU FRD-PLASTIK-STD) ke stok cabang Bandung. Apakah Anda ingin melanjutkan? ✅
+Silakan tekan tombol konfirmasi di chat jika sudah setuju, ya.
+TXT;
+check('orphan CTA terdeteksi', AgentReplySanitizer::asksToPressConfirmationButton($orphan));
+$stripped = AgentReplySanitizer::withoutOrphanConfirmationCta($orphan);
+check('orphan CTA tidak minta tekan tombol', ! AgentReplySanitizer::asksToPressConfirmationButton($stripped));
+check('orphan CTA tetap menyebut SKU', str_contains($stripped, 'FRD-PLASTIK-STD'));
+
+$instruct = 'Draf siap. User harus menekan tombol konfirmasi di chat sebelum transaksi dibuat.';
+check(
+    'pesan tool jadi user-facing',
+    AgentReplySanitizer::userFacingConfirmationMessage($instruct) === 'Draf siap. Tekan Konfirmasi di kartu di bawah.'
+);
+
+/** @var WmsAgentService $agent */
+$agent = app(WmsAgentService::class);
+$reflect = new ReflectionClass($agent);
+$buildCard = $reflect->getMethod('buildActionAttachment');
+$buildCard->setAccessible(true);
+$normalize = $reflect->getMethod('normalizeConfirmationResult');
+$normalize->setAccessible(true);
+
+$noToken = $buildCard->invoke($agent, [
+    'needs_confirmation' => true,
+    'title' => 'Tambah 10?',
+    'confirm_label' => 'Konfirmasi',
+]);
+check('needs_confirmation tanpa token → tidak ada kartu', $noToken === null);
+
+$dropped = $normalize->invoke($agent, [
+    'success' => true,
+    'needs_confirmation' => true,
+    'title' => 'Tambah 10?',
+    'message' => 'Konfirmasi dulu di kartu.',
+]);
+check('konfirmasi tanpa token dinormalisasi gagal', ($dropped['success'] ?? true) === false);
+check('konfirmasi tanpa token tidak needs_confirmation', ($dropped['needs_confirmation'] ?? false) === false);
+
+$withToken = $buildCard->invoke($agent, [
+    'needs_confirmation' => true,
+    'confirmation_token' => str_repeat('a', 40),
+    'action' => 'stock_adjust',
+    'title' => 'Tambah 10?',
+    'body' => 'Tambah 10 untuk Plastik (sekarang 100).',
+    'confirm_label' => 'Konfirmasi',
+    'cancel_label' => 'Batal',
+]);
+check('action_card type', ($withToken['type'] ?? '') === 'action_card');
+check('action_card title Tambah 10?', ($withToken['title'] ?? '') === 'Tambah 10?');
+check('action_card label Konfirmasi/Batal', ($withToken['confirm_label'] ?? '') === 'Konfirmasi' && ($withToken['cancel_label'] ?? '') === 'Batal');
+check('action_card token 40 karakter', strlen((string) ($withToken['token'] ?? '')) === 40);
+
+check('prompt larang tombol tanpa token', str_contains($wmsSrc, 'JANGAN minta user menekan tombol konfirmasi'));
+check('prompt token wajib untuk kartu', str_contains($wmsSrc, 'confirmation_token'));
+check('short-circuit setelah action_card', str_contains($wmsSrc, 'hasActionCard($attachments)'));
+
+$chatJsSrc = (string) file_get_contents(dirname(__DIR__).'/public/assets/ai/chat.js');
+check('widget terima action-card alias', str_contains($chatJsSrc, "attachment.type === 'action-card'"));
+check('widget notice kartu hilang', str_contains($chatJsSrc, 'agent-chat-action-missing'));
+
+$pendingCard = $pending->propose(
+    (string) $context->conversationId,
+    'user-eval',
+    [
+        'kind' => 'stock_adjust',
+        'title' => 'Tambah 10?',
+        'body' => 'Tambah 10 untuk Plastik.',
+        'confirm_label' => 'Konfirmasi',
+        'cancel_label' => 'Batal',
+    ],
+    ['operation' => 'create', 'entity' => 'stock', 'fields_json' => '{"sku":"FRD-PLASTIK-STD","quantity":10,"mode":"in"}'],
+);
+check('pending stok menyimpan confirm_label', ($pendingCard['confirm_label'] ?? '') === 'Konfirmasi');
+$storedPending = $pending->get((string) $context->conversationId);
+check('pending cache menyimpan confirm_label', ($storedPending['confirm_label'] ?? '') === 'Konfirmasi');
 
 echo "\n=== 5. partner_agent create + replenishment agent ===\n";
 

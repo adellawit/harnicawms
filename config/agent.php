@@ -32,7 +32,7 @@ return [
     /*
     | Identitas chatbot yang tampil di UI dan dipakai di system prompt.
     */
-    'assistant_name' => env('AGENT_ASSISTANT_NAME', 'TITANIE'),
+    'assistant_name' => env('AGENT_ASSISTANT_NAME', 'REDDIE'),
 
     'sales_number_prefix' => env('AGENT_SALES_NUMBER_PREFIX', 'AIT'),
 

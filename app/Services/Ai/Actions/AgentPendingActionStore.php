@@ -67,6 +67,8 @@ class AgentPendingActionStore
             'arguments' => $replay,
             'title' => (string) ($meta['title'] ?? 'Konfirmasi'),
             'body' => (string) ($meta['body'] ?? ''),
+            'confirm_label' => (string) ($meta['confirm_label'] ?? 'Konfirmasi'),
+            'cancel_label' => (string) ($meta['cancel_label'] ?? 'Batal'),
         ]);
 
         return [

@@ -269,12 +269,15 @@ class AgentStockActionService
         $payload = $this->draftPayload(
             $draft,
             $auto
-                ? 'Draf penyesuaian stok siap. User harus menekan tombol konfirmasi di chat sebelum stok diubah.'
-                : 'Draf stok siap dikonfirmasi user.'
+                ? 'Draf penyesuaian stok siap. Tekan Konfirmasi di kartu di bawah. Stok belum diubah.'
+                : 'Draf stok siap. Tekan Konfirmasi di kartu di bawah.'
         );
         $payload['needs_confirmation'] = true;
         $payload['confirmation_token'] = $token;
         $payload['action'] = 'confirm_stock';
+        $payload['title'] = 'Sesuaikan stok?';
+        $payload['confirm_label'] = 'Konfirmasi';
+        $payload['cancel_label'] = 'Batal';
 
         return $payload;
     }

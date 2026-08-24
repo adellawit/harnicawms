@@ -18,7 +18,7 @@ class StockActionTool extends AbstractAgentTool
 
     public function description(): string
     {
-        return 'Prepare a stock quantity adjustment draft for the active branch default warehouse. Use set_quantity with apply_to=all_sale_items to set every saleable product to the same target, or apply_to=one/matching for a product query. This tool never writes stock. After set_quantity the user must click the confirm button in the chat widget.';
+        return 'Prepare a stock quantity adjustment draft for the active branch default warehouse. Use set_quantity with apply_to=all_sale_items to set every saleable product to the same target, or apply_to=one/matching for a product query. This tool never writes stock. After set_quantity it returns needs_confirmation and confirmation_token so the widget can render the action_card. If the tool fails, do not ask the user to press a confirm button.';
     }
 
     public function parameters(): array

@@ -18,7 +18,7 @@ class SaleActionTool extends AbstractAgentTool
 
     public function description(): string
     {
-        return 'Prepare a POS cash sale draft for the active branch: add items, set customer or cash payment, show or clear the draft, and propose it for user confirmation. This tool never creates the transaction. After propose, the user must click the confirm button in the chat widget.';
+        return 'Prepare a POS cash sale draft for the active branch: add items, set customer or cash payment, show or clear the draft, and propose it for user confirmation. This tool never creates the transaction. After propose it returns needs_confirmation and confirmation_token so the widget can render the action_card. If propose fails, do not ask the user to press a confirm button.';
     }
 
     public function parameters(): array

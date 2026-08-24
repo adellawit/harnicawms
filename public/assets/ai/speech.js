@@ -4,7 +4,7 @@
     var VOICE_KEY = 'agent_tour_voice';
     var TITANIE_RATE = 1.02;
     var TITANIE_PITCH = 1.05;
-    var TITANIE_GREETING = 'Halo, aku Titanie. Asisten gudang kamu, siap bantu.';
+    var TITANIE_GREETING = 'Halo, aku REDDIE. Asisten gudang kamu, siap bantu.';
     var HINT_NO_ID = 'Browser belum punya suara Indonesia. Di macOS: System Settings → Spoken Content.';
     var MALE_HINTS = ['damir', 'agus', 'ardi', 'andika', 'budi', 'farid', 'reza', 'male', 'pria', 'laki'];
     var FEMALE_HINTS = ['damayanti', 'gadis', 'female', 'wanita', 'perempuan', 'woman', 'girl'];

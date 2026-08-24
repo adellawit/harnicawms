@@ -291,7 +291,7 @@
             if (!api || !api.supported() || tourActive) {
                 return;
             }
-            var line = api.GREETING || 'Halo, aku Titanie. Asisten gudang kamu, siap bantu.';
+            var line = api.GREETING || 'Halo, aku REDDIE. Asisten gudang kamu, siap bantu.';
             lastSpokenText = line;
             if (typeof api.speakGreeting === 'function') {
                 api.speakGreeting();
@@ -822,7 +822,7 @@
                     if (attachment.type === 'table') {
                         bubble.appendChild(renderTable(attachment));
                     }
-                    if (attachment.type === 'action_card') {
+                    if (attachment.type === 'action_card' || attachment.type === 'action-card') {
                         bubble.appendChild(renderActionCard(attachment));
                     }
                     if (attachment.type === 'tour_highlight' && attachment.active && !window.AgentTour) {
@@ -831,6 +831,13 @@
                 });
                 applyTourFromAttachments(attachments);
                 applyPageNavigation(attachments);
+            }
+
+            if (!hasActionCard(attachments) && asksToPressConfirmationButton(text)) {
+                var missing = document.createElement('div');
+                missing.className = 'agent-chat-action-missing';
+                missing.textContent = 'Kartu konfirmasi tidak tampil. Kirim ulang permintaan Anda.';
+                bubble.appendChild(missing);
             }
 
             if (options.retry && lastOutgoing) {
@@ -860,6 +867,17 @@
             if (!panelOpen && !options.silent) {
                 root.classList.add('has-unread');
             }
+        }
+
+        function hasActionCard(attachments) {
+            return (attachments || []).some(function (attachment) {
+                var type = attachment && attachment.type;
+                return type === 'action_card' || type === 'action-card';
+            });
+        }
+
+        function asksToPressConfirmationButton(text) {
+            return /tekan tombol konfirmasi|tombol konfirmasi di chat|silakan tekan tombol|kartu konfirmasi/i.test(String(text || ''));
         }
 
         function renderTable(attachment) {
@@ -1035,6 +1053,7 @@
                 speech().cancel();
             }
             typingEl.classList.toggle('d-none', !loading);
+            root.classList.toggle('is-thinking', !!loading);
             sendBtn.disabled = loading;
             input.disabled = loading;
 

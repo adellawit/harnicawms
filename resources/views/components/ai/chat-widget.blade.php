@@ -1,9 +1,18 @@
 @if(config('agent.enabled') && config('agent.widget_enabled') && auth()->check() && \App\Support\Ai\ChatAccess::canShowWidget(auth()->user()))
-        @php($assistantName = config('agent.assistant_name', 'TITANIE'))
-        @php($mascotUrl = asset('assets/img/titanie/mascot-head.png').'?v='.filemtime(public_path('assets/img/titanie/mascot-head.png')))
-        @php($mascotFabUrl = asset('assets/img/titanie/mascot-pose.png').'?v='.filemtime(public_path('assets/img/titanie/mascot-pose.png')))
-        @php($mascotPoseUrl = asset('assets/img/titanie/mascot-pose.png').'?v='.filemtime(public_path('assets/img/titanie/mascot-pose.png')))
-        <link rel="stylesheet" href="{{ asset('assets/ai/chat.css') }}?v={{ filemtime(public_path('assets/ai/chat.css')) }}">
+        @php
+            $assistantName = config('agent.assistant_name', 'REDDIE');
+            $versionedAsset = static function (string $relative): string {
+                $path = public_path($relative);
+                $url = asset($relative);
+                return is_file($path) ? $url.'?v='.filemtime($path) : $url;
+            };
+            $mascotHeadPath = public_path('assets/img/titanie/mascot-head.png');
+            $mascotPosePath = public_path('assets/img/titanie/mascot-pose.png');
+            $mascotUrl = is_file($mascotHeadPath) ? $versionedAsset('assets/img/titanie/mascot-head.png') : '';
+            $mascotFabUrl = is_file($mascotPosePath) ? $versionedAsset('assets/img/titanie/mascot-pose.png') : '';
+            $mascotPoseUrl = $mascotFabUrl;
+        @endphp
+        <link rel="stylesheet" href="{{ $versionedAsset('assets/ai/chat.css') }}">
 
         <div id="agent-chat-root"
             data-chat-url="{{ route('agent.chat') }}"
@@ -18,14 +27,22 @@
             <button type="button" class="agent-chat-fab" id="agent-chat-fab" aria-label="Buka asisten {{ $assistantName }}" aria-expanded="false" aria-controls="agent-chat-panel">
                 <span class="agent-chat-fab-glow" aria-hidden="true"></span>
                 <span class="agent-chat-fab-unread" aria-hidden="true"></span>
-                <img src="{{ $mascotFabUrl }}" alt="" class="agent-chat-fab-mascot">
+                @if($mascotFabUrl)
+                    <img src="{{ $mascotFabUrl }}" alt="" class="agent-chat-fab-mascot">
+                @else
+                    <span class="agent-chat-fab-label">AI</span>
+                @endif
             </button>
 
             <div class="agent-chat-panel d-none" id="agent-chat-panel" role="region" aria-labelledby="agent-chat-title" aria-hidden="true">
                 <div class="agent-chat-header">
                     <div class="agent-chat-brand">
                         <span class="agent-chat-brand-well" aria-hidden="true">
-                            <img src="{{ $mascotUrl }}" alt="" class="agent-chat-brand-mascot">
+                            @if($mascotUrl)
+                                <img src="{{ $mascotUrl }}" alt="" class="agent-chat-brand-mascot">
+                            @else
+                                <span class="agent-chat-fab-label">AI</span>
+                            @endif
                         </span>
                         <div class="agent-chat-brand-copy">
                             <div class="agent-chat-kicker">Asisten gudang</div>
@@ -60,7 +77,9 @@
                 <div class="agent-chat-body">
                     <div class="agent-chat-messages" id="agent-chat-messages" aria-live="polite">
                         <div class="agent-chat-welcome" id="agent-chat-welcome">
-                            <img src="{{ $mascotPoseUrl }}" alt="" class="agent-chat-welcome-mascot">
+                            @if($mascotPoseUrl)
+                                <img src="{{ $mascotPoseUrl }}" alt="" class="agent-chat-welcome-mascot">
+                            @endif
                             <p class="agent-chat-welcome-kicker">Siap bantu di gudang</p>
                             <h2 class="agent-chat-welcome-title">Halo, aku {{ $assistantName }}</h2>
                             <p class="agent-chat-welcome-body">Tanyakan alur bisnis, cek stok atau produk, atau minta bantuan membuat penjualan tunai — langsung dari sini.</p>
@@ -98,7 +117,7 @@
                             class="form-control agent-chat-input"
                             rows="2"
                             maxlength="{{ (int) config('agent.max_message_length', 2000) }}"
-                            placeholder="Tanya Titanie: stok, alur, atau jual tunai…"
+                            placeholder="Tanya REDDIE: stok, alur, atau jual tunai…"
                             required
                         ></textarea>
                         <button type="submit" class="btn btn-primary agent-chat-send" id="agent-chat-send" aria-label="Kirim pesan" title="Kirim">
@@ -119,9 +138,9 @@
             </div>
         </div>
 
-        <script src="{{ asset('assets/ai/speech.js') }}?v={{ filemtime(public_path('assets/ai/speech.js')) }}"></script>
-        <script src="{{ asset('assets/ai/tour.js') }}?v={{ filemtime(public_path('assets/ai/tour.js')) }}"></script>
-        <script src="{{ asset('assets/ai/chat.js') }}?v={{ filemtime(public_path('assets/ai/chat.js')) }}"></script>
+        <script src="{{ $versionedAsset('assets/ai/speech.js') }}"></script>
+        <script src="{{ $versionedAsset('assets/ai/tour.js') }}"></script>
+        <script src="{{ $versionedAsset('assets/ai/chat.js') }}"></script>
         <script>
             document.body.classList.add('has-agent-chat');
             if (document.querySelector('.floating-footer')) {

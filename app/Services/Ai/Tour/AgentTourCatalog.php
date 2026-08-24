@@ -253,7 +253,7 @@ class AgentTourCatalog
             'selector' => '#layout-menu .menu-item.active > a.menu-link',
             'heading_selector' => $this->headingSelector(),
             'blurb' => 'Ini halaman yang sedang kamu buka.',
-            'voice' => 'Aku Titanie. Ini halaman yang sedang kamu buka.',
+            'voice' => 'Aku REDDIE. Ini halaman yang sedang kamu buka.',
             'menu_names' => [],
             'docs_query' => implode(' ', $queryParts) ?: 'modul halaman admin TITANIE',
         ];

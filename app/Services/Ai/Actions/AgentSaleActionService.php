@@ -433,10 +433,14 @@ class AgentSaleActionService
         $draft = $this->calculator->withConfirmationToken($draft, $token);
         $this->drafts->put($conversationId, $draft);
 
-        $payload = $this->draftPayload($draft, 'Draf siap. User harus menekan tombol konfirmasi di chat sebelum transaksi dibuat.');
+        $payload = $this->draftPayload($draft, 'Draf siap. Tekan Konfirmasi di kartu di bawah. Transaksi belum dibuat.');
         $payload['needs_confirmation'] = true;
         $payload['confirmation_token'] = $token;
         $payload['action'] = 'confirm_sale';
+        $payload['title'] = 'Konfirmasi penjualan';
+        $payload['body'] = ($payload['customer_name'] ?? 'Walk-in').' · '.($payload['subtotal_formatted'] ?? '');
+        $payload['confirm_label'] = 'Buat transaksi';
+        $payload['cancel_label'] = 'Batal';
 
         return $payload;
     }
