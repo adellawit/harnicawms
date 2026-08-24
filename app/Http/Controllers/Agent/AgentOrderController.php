@@ -921,14 +921,13 @@ class AgentOrderController extends Controller
         $agent = $this->context()->customer()->agent;
         abort_unless($agent, 403, 'Akun bukan agent.');
 
-        $sourceWh = WmsContext::finishedGoodsWarehouse($order->company_id);
         $agentWh = WmsContext::defaultAgentWarehouse($agent->id) ?: $agent->defaultWarehouse;
         abort_unless($agentWh, 422, 'Gudang agen belum diset.');
 
         $actorId = auth('customer')->id();
 
         try {
-            DB::transaction(function () use ($order, $sourceWh, $agentWh, $actorId) {
+            DB::transaction(function () use ($order, $agentWh, $actorId) {
                 $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
 
                 if ($order->received_at || $order->status === 'completed') {
@@ -939,8 +938,6 @@ class AgentOrderController extends Controller
                     throw new \RuntimeException('Order belum dikirim, belum bisa diterima.');
                 }
 
-                $sourceWhId = $sourceWh?->id;
-                $srcBranch = $sourceWh?->branch_id ?: ($order->branch_id ?: $sourceWhId);
                 $agentBranchId = $agentWh->branch_id ?: ($order->branch_id ?: $agentWh->company_id);
                 $inboundCompanyId = $agentWh->company_id ?: $order->company_id;
 
@@ -949,23 +946,6 @@ class AgentOrderController extends Controller
                     if (! $product?->is_stock_item) {
                         continue;
                     }
-
-                    $outboundWarehouseId = $item->source_warehouse_id ?: ($sourceWhId ?: $order->warehouse_id);
-                    abort_unless($outboundWarehouseId && $srcBranch, 422, 'Gudang asal pengiriman belum diset.');
-
-                    $outbound = StockMutationService::outbound(
-                        $item->product_id,
-                        $item->product_variant_id,
-                        $order->company_id,
-                        (string) $srcBranch,
-                        $item->unit_id,
-                        (float) $item->quantity,
-                        SalesOrder::class,
-                        $order->id,
-                        $actorId,
-                        'Kirim ke Agen - '.$order->sales_number,
-                        $outboundWarehouseId
-                    );
 
                     StockMutationService::inbound(
                         $item->product_id,
@@ -980,7 +960,7 @@ class AgentOrderController extends Controller
                         $actorId,
                         'Terima di gudang Agen - '.$order->sales_number,
                         null,
-                        $outbound['earliest_expiry'] ?? null,
+                        $item->outbound_expiry_date?->toDateString(),
                         $agentWh->id
                     );
                 }
