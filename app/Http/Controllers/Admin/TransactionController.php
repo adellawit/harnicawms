@@ -3,9 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderItemSerialAssignment;
+use App\Services\Sales\BarcodeDispatchService;
+use App\Services\StockMutationService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 
 class TransactionController extends Controller
@@ -115,15 +121,152 @@ class TransactionController extends Controller
             ->toJson();
     }
 
-    public function verify(string $id)
+    public function verifyForm(string $id, BarcodeDispatchService $barcodeDispatch)
     {
         $order = SalesOrder::findOrFail($id);
         if ($order->status !== 'verification') {
-            return back()->with('error', 'Only orders awaiting verification can be verified.');
+            return redirect()->route('transaction.detail', $order->id)->with('error', 'This order is not awaiting verification.');
         }
-        $order->update(['status' => 'pending', 'updated_by' => Auth::id()]);
 
-        return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and moved back to processing.');
+        $details = $barcodeDispatch->details($order->id, $this->getBranchId());
+        $details['items'] = $this->withScannedSerials($details['items']);
+
+        return view('admin.transaction.verify', $details);
+    }
+
+    public function verifyScan(Request $request, string $id, BarcodeDispatchService $barcodeDispatch)
+    {
+        $request->validate([
+            'serial_number' => 'required|string|max:50',
+        ]);
+
+        try {
+            $barcodeDispatch->scan($id, null, $request->serial_number, Auth::id(), $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return $this->verifyStateJson($id, $barcodeDispatch);
+    }
+
+    public function verifyScanRemove(string $id, string $assignmentId, BarcodeDispatchService $barcodeDispatch)
+    {
+        try {
+            $barcodeDispatch->remove($id, $assignmentId, $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return $this->verifyStateJson($id, $barcodeDispatch);
+    }
+
+    public function verifySubmit(string $id, BarcodeDispatchService $barcodeDispatch)
+    {
+        $order = SalesOrder::with('items')->findOrFail($id);
+
+        if ($order->status !== 'verification') {
+            return back()->with('error', 'This order is not awaiting verification.');
+        }
+
+        $branchId = $this->getBranchId();
+        $details = $barcodeDispatch->details($order->id, $branchId);
+        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
+
+        try {
+            if ($hasTrackable) {
+                $barcodeDispatch->finalize($order->id, Auth::id(), $branchId);
+            }
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->company_id);
+        $sourceWhId = $fgWarehouse?->id;
+        $srcBranch = $fgWarehouse?->branch_id ?: ($order->branch_id ?: $sourceWhId);
+        abort_unless($sourceWhId && $srcBranch, 422, 'Gudang distribusi belum diset.');
+
+        $actorId = Auth::id();
+
+        try {
+            DB::transaction(function () use ($order, $sourceWhId, $srcBranch, $actorId) {
+                $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
+
+                if ($order->status !== 'verification') {
+                    throw new \RuntimeException('This order is no longer awaiting verification.');
+                }
+
+                foreach ($order->items as $item) {
+                    $product = Product::find($item->product_id);
+                    if (! $product?->is_stock_item) {
+                        continue;
+                    }
+
+                    $outboundWarehouseId = $item->source_warehouse_id ?: ($sourceWhId ?: $order->warehouse_id);
+                    abort_unless($outboundWarehouseId && $srcBranch, 422, 'Gudang asal pengiriman belum diset.');
+
+                    $outbound = StockMutationService::outbound(
+                        $item->product_id,
+                        $item->product_variant_id,
+                        $order->company_id,
+                        (string) $srcBranch,
+                        $item->unit_id,
+                        (float) $item->quantity,
+                        SalesOrder::class,
+                        $order->id,
+                        $actorId,
+                        'Verifikasi & kirim - '.$order->sales_number,
+                        $outboundWarehouseId
+                    );
+
+                    $item->update(['outbound_expiry_date' => $outbound['earliest_expiry']]);
+                }
+
+                $order->update(['status' => 'shipped', 'updated_by' => $actorId]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to verify: '.$e->getMessage());
+        }
+
+        return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and marked as shipped.');
+    }
+
+    private function verifyStateJson(string $orderId, BarcodeDispatchService $barcodeDispatch)
+    {
+        $details = $barcodeDispatch->details($orderId, $this->getBranchId());
+
+        return response()->json([
+            'success' => true,
+            'items' => $this->withScannedSerials($details['items']),
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array{model: \App\Models\SalesOrderItem, trackable: bool, expected: int, scanned: int, complete: bool}>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function withScannedSerials($items): array
+    {
+        $itemIds = collect($items)->pluck('model.id');
+        $assignments = SalesOrderItemSerialAssignment::whereIn('sales_order_item_id', $itemIds)
+            ->with('serial:id,serial_number')
+            ->get()
+            ->groupBy('sales_order_item_id');
+
+        return collect($items)->map(function (array $row) use ($assignments) {
+            $itemAssignments = $assignments->get($row['model']->id, collect());
+
+            return [
+                'id' => $row['model']->id,
+                'trackable' => $row['trackable'],
+                'expected' => $row['expected'],
+                'scanned' => $row['scanned'],
+                'complete' => $row['complete'],
+                'serials' => $itemAssignments->map(fn ($a) => [
+                    'assignment_id' => $a->id,
+                    'serial_number' => $a->serial?->serial_number,
+                ])->values()->all(),
+            ];
+        })->values()->all();
     }
 
     /**
