@@ -1,6 +1,32 @@
-@extends('layouts.agent-pos')
+@extends('layouts.agent-order')
 
 @section('title', 'POS Agen | ')
+
+@section('shop_body_class')
+    agent-pos-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
+@endpush
+
+{{-- Butuh jQuery lebih dulu, jadi dititipkan ke stack di _agent-scripts (sama
+     seperti layouts.agent-pos sebelumnya). --}}
+@push('vendor-scripts')
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+@endpush
 
 @php
     $cashMethodId = ($methodPayments ?? collect())->first(fn ($mp) => strtoupper($mp->code) === 'CASH')?->id;
@@ -20,6 +46,15 @@
         @endif
 
         <div class="pos-top-bar">
+            <div class="pos-top-bar-identity d-none d-sm-flex align-items-center gap-2 text-muted small">
+                @auth('customer')
+                    <span class="fw-semibold text-body">{{ auth('customer')->user()->name }}</span>
+                    <span class="pos-meta-sep">·</span>
+                @endauth
+                <span>{{ date('d M Y') }}</span>
+                <span class="pos-meta-sep">·</span>
+                <span id="posClock">{{ date('H:i') }}</span>
+            </div>
             <span id="posTrxNumberWrap" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
             <div class="pos-top-bar-actions ms-auto">
                 <a href="{{ route('agent-order.pos.history') }}" class="btn btn-sm btn-label-secondary">
