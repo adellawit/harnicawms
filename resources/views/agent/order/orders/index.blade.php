@@ -2,6 +2,19 @@
 
 @section('title', 'Pesanan | ')
 
+@section('shop_body_class')
+    shop-orders-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @section('content')
     <header class="shop-page-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
@@ -92,25 +105,25 @@
                                 @endif
                             </td>
                             <td class="text-end fw-semibold text-nowrap">Rp {{ number_format($order->total, 0, ',', '.') }}</td>
-                            <td class="text-nowrap">
-                                <div class="d-flex flex-wrap gap-1">
-                                    <a href="{{ route('agent-order.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary" title="Detail">
+                            <td>
+                                <div class="d-flex flex-column gap-1 shop-order-actions">
+                                    <a href="{{ route('agent-order.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="ti ti-eye me-1"></i>Detail
                                     </a>
                                     @if ($order->status === 'shipped' && ! $order->received_at)
-                                        <form method="POST" action="{{ route('agent-order.orders.receive', $order->id) }}" class="d-inline"
+                                        <form method="POST" action="{{ route('agent-order.orders.receive', $order->id) }}"
                                               onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-primary" title="Penerimaan">
+                                            <button type="submit" class="btn btn-sm btn-primary w-100">
                                                 <i class="ti ti-package-import me-1"></i>Penerimaan
                                             </button>
                                         </form>
                                     @endif
-                                    <a href="{{ route('agent-order.orders.po-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Print PO">
-                                        <i class="ti ti-file-text me-1"></i>PO
+                                    <a href="{{ route('agent-order.orders.po-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                                        <i class="ti ti-file-text me-1"></i>Print PO
                                     </a>
-                                    <a href="{{ route('agent-order.orders.invoice-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Print Invoice">
-                                        <i class="ti ti-receipt me-1"></i>Invoice
+                                    <a href="{{ route('agent-order.orders.invoice-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                                        <i class="ti ti-receipt me-1"></i>Print Invoice
                                     </a>
                                 </div>
                             </td>
