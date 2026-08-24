@@ -154,6 +154,8 @@
     @push('page-js')
         <script>
             $(document).ready(function() {
+                function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
                 function toIsoDate(value) {
                     if (!value) return '';
                     value = String(value).trim();
@@ -210,7 +212,7 @@
                                 html += '<a href="' + verifyUrl + '" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</a>';
                             }
                             if ((r.status === 'shipped' || r.status === 'completed') && !r.deleted_at) {
-                                html += '<button type="button" class="btn btn-sm btn-info btn-shipping-action" data-bs-toggle="modal" data-bs-target="#shippingModal" data-shipping-id="' + r.id + '" data-shipping-value="' + (r.shipping_tracking_number || '').replace(/"/g, '&quot;') + '" title="Shipping"><i class="ti ti-truck me-1"></i>Shipping</button>';
+                                html += '<button type="button" class="btn btn-sm btn-info btn-shipping-action" data-bs-toggle="modal" data-bs-target="#shippingModal" data-shipping-id="' + r.id + '" data-shipping-value="' + escapeHtml(r.shipping_tracking_number || '') + '" title="Shipping"><i class="ti ti-truck me-1"></i>Shipping</button>';
                             }
                             html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>';
                             if (r.shipping_tracking_number) {
