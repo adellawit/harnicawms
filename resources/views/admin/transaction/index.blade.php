@@ -112,6 +112,21 @@
         </x-slot:footer>
     </x-modal>
 
+    <x-modal id="shippingModal" title="Update Nomor Resi">
+        <form id="shippingForm" method="POST" action="">
+            @csrf
+            <div class="mb-0">
+                <label class="form-label">Nomor Resi</label>
+                <input type="text" name="shipping_tracking_number" id="shippingTrackingNumberInput" class="form-control"
+                    required maxlength="100" placeholder="Contoh: JNE1234567890">
+            </div>
+        </form>
+        <x-slot:footer>
+            <button type="button" class="btn btn-label-dark" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" form="shippingForm" class="btn btn-primary">Simpan</button>
+        </x-slot:footer>
+    </x-modal>
+
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/datatables/jquery.dataTables.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
@@ -194,9 +209,14 @@
                                 var verifyUrl = "{{ url('transaction') }}/" + r.id + "/verify";
                                 html += '<a href="' + verifyUrl + '" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</a>';
                             }
-                            html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
-                                + '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>'
-                                + '</div>';
+                            if ((r.status === 'shipped' || r.status === 'completed') && !r.deleted_at) {
+                                html += '<button type="button" class="btn btn-sm btn-info btn-shipping-action" data-bs-toggle="modal" data-bs-target="#shippingModal" data-shipping-id="' + r.id + '" data-shipping-value="' + (r.shipping_tracking_number || '').replace(/"/g, '&quot;') + '" title="Shipping"><i class="ti ti-truck me-1"></i>Shipping</button>';
+                            }
+                            html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>';
+                            if (r.shipping_tracking_number) {
+                                html += '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>';
+                            }
+                            html += '</div>';
                             return html;
                         } }
                     ],
@@ -232,6 +252,13 @@
                     window.location = '{{ route("transaction.index") }}' + (params.length ? '?' + params.join('&') : '');
                 });
                 $('#btnResetFilter').click(function() { window.location = '{{ route("transaction.index") }}'; });
+
+                $(document).on('click', '.btn-shipping-action', function() {
+                    var orderId = $(this).data('shipping-id');
+                    var current = $(this).data('shipping-value') || '';
+                    $('#shippingForm').attr('action', "{{ url('transaction') }}/" + orderId + "/shipping");
+                    $('#shippingTrackingNumberInput').val(current);
+                });
             });
         </script>
     @endpush

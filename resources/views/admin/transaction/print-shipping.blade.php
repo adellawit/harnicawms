@@ -103,6 +103,9 @@
             @if($order->shippingMetaLabel())
                 <p>Kurir: <strong>{{ $order->shippingMetaLabel() }}</strong></p>
             @endif
+            @if($order->shipping_tracking_number)
+                <p>No. Resi: <strong>{{ $order->shipping_tracking_number }}</strong></p>
+            @endif
             @if((float) $order->shipping_amount > 0)
                 <p>Ongkir: <strong>Rp {{ format_number($order->shipping_amount, 2, true) }}</strong></p>
             @endif

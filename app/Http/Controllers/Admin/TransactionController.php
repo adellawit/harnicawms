@@ -250,6 +250,26 @@ class TransactionController extends Controller
         return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and marked as shipped.');
     }
 
+    public function updateShipping(Request $request, string $id)
+    {
+        $order = SalesOrder::findOrFail($id);
+
+        if (! in_array($order->status, ['shipped', 'completed'], true)) {
+            return back()->with('error', 'Nomor resi hanya bisa diisi setelah order berstatus Shipped.');
+        }
+
+        $request->validate([
+            'shipping_tracking_number' => 'required|string|max:100',
+        ]);
+
+        $order->update([
+            'shipping_tracking_number' => $request->shipping_tracking_number,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return back()->with('success', 'Nomor resi berhasil disimpan. Surat jalan sudah bisa dicetak.');
+    }
+
     private function verifyStateJson(string $orderId, BarcodeDispatchService $barcodeDispatch)
     {
         $details = $barcodeDispatch->details($orderId, $this->getBranchId());

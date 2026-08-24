@@ -41,12 +41,19 @@
                             <i class="ti ti-check me-1"></i>Verify
                         </a>
                     @endif
+                    @if (in_array($order->status, ['shipped', 'completed'], true) && ! $order->deleted_at)
+                        <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#shippingModal">
+                            <i class="ti ti-truck me-1"></i>Shipping
+                        </button>
+                    @endif
                     <a href="{{ route('transaction.print-invoice', $order->id) }}?print=1" target="_blank" class="btn btn-outline-secondary btn-sm ms-2">
                         <i class="ti ti-printer me-1"></i>Print Invoice
                     </a>
-                    <a href="{{ route('transaction.print-shipping', $order->id) }}?print=1" target="_blank" class="btn btn-outline-primary btn-sm">
-                        <i class="ti ti-truck-delivery me-1"></i>Print Surat Jalan
-                    </a>
+                    @if ($order->shipping_tracking_number)
+                        <a href="{{ route('transaction.print-shipping', $order->id) }}?print=1" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="ti ti-truck-delivery me-1"></i>Print Surat Jalan
+                        </a>
+                    @endif
                     <a href="{{ route('transaction.index') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="ti ti-arrow-left me-1"></i>Back
                     </a>
@@ -336,6 +343,24 @@
                 </div>
             </div>
         </div>
+        @endif
+
+        @if (in_array($order->status, ['shipped', 'completed'], true) && ! $order->deleted_at)
+            <x-modal id="shippingModal" title="Update Nomor Resi">
+                <form id="shippingForm" method="POST" action="{{ route('transaction.shipping.update', $order->id) }}">
+                    @csrf
+                    <div class="mb-0">
+                        <label class="form-label">Nomor Resi</label>
+                        <input type="text" name="shipping_tracking_number" class="form-control"
+                            value="{{ old('shipping_tracking_number', $order->shipping_tracking_number) }}"
+                            required maxlength="100" placeholder="Contoh: JNE1234567890">
+                    </div>
+                </form>
+                <x-slot:footer>
+                    <button type="button" class="btn btn-label-dark" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" form="shippingForm" class="btn btn-primary">Simpan</button>
+                </x-slot:footer>
+            </x-modal>
         @endif
     </div>
 </x-app-layout>
