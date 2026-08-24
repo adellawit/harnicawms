@@ -95,7 +95,7 @@
                                      onerror="this.onerror=null;this.src='https://placehold.co/300x225/f8f9fa/d1d5db?text=+';">
                             </div>
                             <div class="p-body">
-                                <div class="p-name" title="{{ $product->name }}">{{ $product->name }}</div>
+                                <div class="p-name" title="{{ product_print_name($product->name) }}">{{ product_print_name($product->name) }}</div>
                                 @if($product->code)
                                     <div class="small text-muted">{{ $product->code }}</div>
                                 @endif
