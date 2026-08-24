@@ -192,10 +192,7 @@
                                 + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>';
                             if (r.status === 'verification' && !r.deleted_at) {
                                 var verifyUrl = "{{ url('transaction') }}/" + r.id + "/verify";
-                                html += '<form method="POST" action="' + verifyUrl + '" class="d-inline" onsubmit="return confirm(\'Mark this order as verified?\')">'
-                                    + '{{ csrf_field() }}'
-                                    + '<button type="submit" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</button>'
-                                    + '</form>';
+                                html += '<a href="' + verifyUrl + '" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</a>';
                             }
                             html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
                                 + '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>'

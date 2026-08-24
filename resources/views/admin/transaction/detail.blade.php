@@ -37,12 +37,9 @@
                     <span class="badge bg-label-{{ $statusColors[$order->status] ?? 'info' }}">{{ ucfirst($order->status) }}</span>
                     <span class="badge bg-label-{{ $payStatusColors[$order->payment_status] ?? 'secondary' }}">{{ ucfirst($order->payment_status) }}</span>
                     @if ($order->status === 'verification' && ! $order->deleted_at)
-                        <form method="POST" action="{{ route('transaction.verify', $order->id) }}" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Mark this order as verified?')">
-                                <i class="ti ti-check me-1"></i>Verify
-                            </button>
-                        </form>
+                        <a href="{{ route('transaction.verify', $order->id) }}" class="btn btn-success btn-sm">
+                            <i class="ti ti-check me-1"></i>Verify
+                        </a>
                     @endif
                     <a href="{{ route('transaction.print-invoice', $order->id) }}?print=1" target="_blank" class="btn btn-outline-secondary btn-sm ms-2">
                         <i class="ti ti-printer me-1"></i>Print Invoice
