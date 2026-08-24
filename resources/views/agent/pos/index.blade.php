@@ -153,16 +153,6 @@
                             <i class="ti ti-shopping-cart"></i> <span id="cartItemCountBadge">0</span>
                         </span>
                     </div>
-                    <div id="priceListWrapper" class="pos-cart-top-field" data-selected-id="{{ $defaultPriceListId ?? '' }}">
-                        <label class="pos-cart-top-label" for="priceListSelect">Kategori Harga</label>
-                        <select id="priceListSelect" style="width:100%">
-                            <option value="">Daftar Harga</option>
-                            @forelse($priceLists ?? collect() as $pl)
-                                <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
-                            @empty
-                            @endforelse
-                        </select>
-                    </div>
                 </div>
 
                 <div class="pos-cart-items" id="cartItems">
@@ -311,6 +301,16 @@
                 </div>
                 <div class="modal-body">
                     <div id="addItemVariantName" class="fw-semibold mb-3"></div>
+                    <div class="mb-3" id="addItemPriceListWrap">
+                        <label class="form-label" for="addItemPriceListSelect">Kategori Harga</label>
+                        <select id="addItemPriceListSelect" class="form-select">
+                            @forelse($priceLists ?? collect() as $pl)
+                                <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
+                            @empty
+                                <option value="">Tidak ada kategori harga</option>
+                            @endforelse
+                        </select>
+                    </div>
                     <div id="addItemSerialWrap" class="mb-3 d-none">
                         <label class="form-label d-flex align-items-center gap-1" for="addItemSerialInput">
                             <i class="ti ti-barcode"></i> Scan atau ketik serial
@@ -499,6 +499,7 @@
             taxRate: {{ (int) ($taxRate ?? 0) }},
             cashMethodId: @json($cashMethodId),
             fallbackMethodId: @json($fallbackMethodId),
+            defaultPriceListId: @json($defaultPriceListId ?? null),
         };
         window.agentPosCtx = {
             agentId: @json($agentId ?? null),
