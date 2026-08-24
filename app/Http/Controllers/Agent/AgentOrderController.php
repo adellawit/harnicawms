@@ -1129,17 +1129,24 @@ class AgentOrderController extends Controller
             return [];
         }
 
-        return $product->getBarcodeUnits()->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
-            $qty = $unit->id === $smallestUnitId
-                ? $totalSmallest
-                : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
+        return $product->getBarcodeUnits()
+            // getBarcodeUnits() is ordered largest-to-smallest (default unit
+            // first, then each conversion level down). Only the first 3
+            // levels are meaningful for this "equivalent in all units"
+            // summary — e.g. karton/pack/box — the smallest level (e.g.
+            // sachet) is intentionally dropped per request.
+            ->take(3)
+            ->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
+                $qty = $unit->id === $smallestUnitId
+                    ? $totalSmallest
+                    : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
 
-            return [
-                'unit_id' => $unit->id,
-                'unit' => $unit->symbol ?: ($unit->name ?: '-'),
-                'quantity' => (float) $qty,
-            ];
-        })->values()->all();
+                return [
+                    'unit_id' => $unit->id,
+                    'unit' => $unit->symbol ?: ($unit->name ?: '-'),
+                    'quantity' => (float) $qty,
+                ];
+            })->values()->all();
     }
 
     protected function loadOrderForPrint(string $orderId): SalesOrder
