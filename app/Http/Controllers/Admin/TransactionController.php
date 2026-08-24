@@ -128,7 +128,12 @@ class TransactionController extends Controller
             return redirect()->route('transaction.detail', $order->id)->with('error', 'This order is not awaiting verification.');
         }
 
-        $details = $barcodeDispatch->details($order->id, $this->getBranchId());
+        try {
+            $details = $barcodeDispatch->details($order->id, $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('transaction.detail', $order->id)->with('error', $e->getMessage());
+        }
+
         $details['items'] = $this->withScannedSerials($details['items']);
 
         return view('admin.transaction.verify', $details);
@@ -171,35 +176,43 @@ class TransactionController extends Controller
         $branchId = $this->getBranchId();
         $actorId = Auth::id();
 
-        // Resolve and validate the distribution warehouse BEFORE finalizing the
-        // barcode dispatch. finalize() is terminal/immutable once it succeeds
-        // (BarcodeDispatchService rejects any further scan/finalize on a
-        // completed dispatch) — if warehouse config were missing, finalizing
-        // first would leave the dispatch permanently "completed" with no way
-        // to retry, while stock never actually moved and the order stayed in
-        // 'verification' forever. Failing fast here avoids that dead end.
+        try {
+            $details = $barcodeDispatch->details($order->id, $branchId);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('transaction.detail', $order->id)->with('error', $e->getMessage());
+        }
+        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
+
+        // finishedGoodsWarehouse() is only a fallback source for $srcBranch —
+        // web-order items already carry their own source_warehouse_id from
+        // checkout (see PosCheckoutService::createSalesOrder()), so this is
+        // deliberately NOT hard-required up front the way an earlier version
+        // of this method did; requiring it here would 422 orders whose items
+        // are already fully resolved. The actual, authoritative check is the
+        // per-item abort_unless() inside the transaction below, exactly
+        // mirroring AgentOrderController::receiveOrder()'s existing pattern.
         $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->company_id);
         $sourceWhId = $fgWarehouse?->id;
         $srcBranch = $fgWarehouse?->branch_id ?: ($order->branch_id ?: $sourceWhId);
-        abort_unless($sourceWhId && $srcBranch, 422, 'Gudang distribusi belum diset.');
-
-        $details = $barcodeDispatch->details($order->id, $branchId);
-        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
 
         try {
-            if ($hasTrackable) {
-                $barcodeDispatch->finalize($order->id, $actorId, $branchId);
-            }
-        } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        try {
-            DB::transaction(function () use ($order, $sourceWhId, $srcBranch, $actorId) {
+            DB::transaction(function () use ($order, $sourceWhId, $srcBranch, $actorId, $hasTrackable, $barcodeDispatch, $branchId) {
                 $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
 
                 if ($order->status !== 'verification') {
                     throw new \RuntimeException('This order is no longer awaiting verification.');
+                }
+
+                // finalize() lives INSIDE this transaction, not before it: it's
+                // terminal/immutable once committed (BarcodeDispatchService
+                // rejects any further scan/finalize on a completed dispatch),
+                // so if anything below fails (most commonly insufficient stock
+                // from StockMutationService::outbound()), the whole transaction
+                // — finalize included — rolls back together, leaving the order
+                // free to be retried from scratch instead of permanently stuck
+                // with a completed dispatch but no stock movement.
+                if ($hasTrackable) {
+                    $barcodeDispatch->finalize($order->id, $actorId, $branchId);
                 }
 
                 foreach ($order->items as $item) {
@@ -231,7 +244,7 @@ class TransactionController extends Controller
                 $order->update(['status' => 'shipped', 'updated_by' => $actorId]);
             });
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to verify: '.$e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
 
         return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and marked as shipped.');

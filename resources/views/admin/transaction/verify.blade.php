@@ -10,6 +10,13 @@
             ]"
         />
 
+        @if (session('success'))
+            <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
+        @endif
+        @if (session('error'))
+            <x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>
+        @endif
+
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ $order->sales_number }}</h5>
