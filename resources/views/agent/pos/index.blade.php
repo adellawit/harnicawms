@@ -142,13 +142,20 @@
             {{-- Panel kanan: keranjang --}}
             <div class="pos-cart">
                 <div class="pos-cart-top">
-                    <div class="pos-cart-top-reseller flex-grow-1 min-w-0">
-                        <select id="customerSelect" style="width:100%">
-                            <option value="">Pelanggan Umum (Walk-in)</option>
-                        </select>
+                    <div class="pos-cart-top-row">
+                        <div class="pos-cart-top-field flex-grow-1 min-w-0">
+                            <label class="pos-cart-top-label" for="customerSelect">Pelanggan</label>
+                            <select id="customerSelect" style="width:100%">
+                                <option value="">Pelanggan Umum (Walk-in)</option>
+                            </select>
+                        </div>
+                        <span class="cart-badge" title="Jumlah item di keranjang">
+                            <i class="ti ti-shopping-cart"></i> <span id="cartItemCountBadge">0</span>
+                        </span>
                     </div>
-                    <div id="priceListWrapper" class="pos-cart-top-price-list flex-shrink-0" data-selected-id="{{ $defaultPriceListId ?? '' }}">
-                        <select id="priceListSelect" style="width:160px">
+                    <div id="priceListWrapper" class="pos-cart-top-field" data-selected-id="{{ $defaultPriceListId ?? '' }}">
+                        <label class="pos-cart-top-label" for="priceListSelect">Kategori Harga</label>
+                        <select id="priceListSelect" style="width:100%">
                             <option value="">Daftar Harga</option>
                             @forelse($priceLists ?? collect() as $pl)
                                 <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
@@ -156,7 +163,6 @@
                             @endforelse
                         </select>
                     </div>
-                    <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
                 <div class="pos-cart-items" id="cartItems">
