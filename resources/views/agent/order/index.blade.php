@@ -3,49 +3,20 @@
 @section('title', 'Order ke Distributor | ')
 
 @section('shop_body_class')
-    @if (count($cart['items'] ?? []) > 0) shop-has-cart-bar @endif
+    agent-catalog-page @if (count($cart['items'] ?? []) > 0) shop-has-cart-bar @endif
 @endsection
 
-@section('content')
-    <div id="agentHero" class="carousel slide shop-hero mb-3" data-bs-ride="carousel">
-        <div class="carousel-inner rounded-3 overflow-hidden">
-            <div class="carousel-item active">
-                <div class="shop-hero-slide shop-hero-slide-1">
-                    <div class="shop-hero-overlay">
-                        <span class="badge bg-light text-dark mb-2">CAMPAIGN</span>
-                        <h2 class="h4 text-white fw-bold mb-1">Bundling Hemat Juli</h2>
-                        <p class="text-white-50 mb-0 small">Order paket family &amp; dapatkan harga spesial distributor.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="carousel-item">
-                <div class="shop-hero-slide shop-hero-slide-2">
-                    <div class="shop-hero-overlay">
-                        <span class="badge bg-light text-dark mb-2">PRODUK JADI</span>
-                        <h2 class="h4 text-white fw-bold mb-1">Katalog Terbaru</h2>
-                        <p class="text-white-50 mb-0 small">Pilih varian, order online, kirim ke alamat agen Anda.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="carousel-item">
-                <div class="shop-hero-slide shop-hero-slide-3">
-                    <div class="shop-hero-overlay">
-                        <span class="badge bg-light text-dark mb-2">AGEN</span>
-                        <h2 class="h4 text-white fw-bold mb-1">Order ke Distributor</h2>
-                        <p class="text-white-50 mb-0 small">Pesan produk jadi langsung dari portal agen.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <button class="carousel-control-prev" type="button" data-bs-target="#agentHero" data-bs-slide="prev">
-            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Previous</span>
-        </button>
-        <button class="carousel-control-next" type="button" data-bs-target="#agentHero" data-bs-slide="next">
-            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Next</span>
-        </button>
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
     </div>
+@endpush
+
+@section('content')
+    @include('agent.order.partials._hero-promo-carousel')
 
     <header class="shop-catalog-header">
         <div class="d-flex flex-column flex-sm-row flex-sm-wrap align-items-stretch align-items-sm-center justify-content-between gap-2 gap-sm-3">
@@ -69,12 +40,19 @@
         </div>
     </header>
 
+    @php
+        $chipPalette = ['chip-teal', 'chip-amber', 'chip-blue', 'chip-rose', 'chip-violet'];
+    @endphp
     <div class="shop-chips d-flex flex-wrap gap-2 mb-3">
         <a href="{{ route('agent-order.index', array_filter(['q' => $search])) }}"
-            class="btn btn-sm {{ ! ($activeCategoryId ?? null) && ! ($promoOnly ?? false) ? 'btn-primary' : 'btn-outline-secondary' }}">Semua</a>
-        @foreach ($categories as $cat)
+            class="shop-chip {{ ! ($activeCategoryId ?? null) && ! ($promoOnly ?? false) ? 'shop-chip-active' : 'chip-teal' }}">
+            <i class="ti ti-apps"></i> Semua
+        </a>
+        @foreach ($categories as $i => $cat)
             <a href="{{ route('agent-order.index', array_filter(['q' => $search, 'category_id' => $cat->id])) }}"
-                class="btn btn-sm {{ ($activeCategoryId ?? null) === $cat->id ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $cat->name }}</a>
+                class="shop-chip {{ ($activeCategoryId ?? null) === $cat->id ? 'shop-chip-active' : $chipPalette[$i % count($chipPalette)] }}">
+                <i class="ti ti-tag"></i> {{ $cat->name }}
+            </a>
         @endforeach
     </div>
 
@@ -96,9 +74,8 @@
         @forelse ($products as $product)
             @include('agent.order._product-card', ['product' => $product])
         @empty
-            <div class="col-12 text-center text-muted py-5">
-                <i class="ti ti-package-off fs-1 d-block mb-2"></i>
-                Tidak ada produk jadi tersedia.
+            <div class="col-12">
+                <x-empty-state icon="ti ti-package-off" title="Tidak ada produk jadi tersedia" />
             </div>
         @endforelse
     </div>

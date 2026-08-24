@@ -1,6 +1,19 @@
 @extends('layouts.agent-order')
 
-@section('title', 'Stok Gudang | ')
+@section('title', 'Stock | ')
+
+@section('shop_body_class')
+    agent-stock-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
 
 @push('styles')
     <style>
@@ -27,7 +40,7 @@
             <a href="{{ route('agent-order.dashboard') }}" class="shop-back-link d-inline-flex align-items-center gap-1 small text-muted text-decoration-none mb-2">
                 <i class="ti ti-arrow-left"></i> Beranda
             </a>
-            <h1 class="shop-page-title mb-1">Stok Gudang Saya</h1>
+            <h1 class="shop-page-title mb-1">Stock</h1>
             <p class="text-muted small mb-0">
                 {{ $warehouseName ?: 'Gudang belum diset' }}
             </p>
@@ -115,7 +128,9 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-4">Belum ada stok di gudang Anda.</td>
+                            <td colspan="4">
+                                <x-empty-state icon="ti ti-building-warehouse" title="Belum ada stok di gudang Anda" />
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

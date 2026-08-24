@@ -82,6 +82,7 @@
             <tr>
                 <th class="text-center" style="width:28px;">No</th>
                 <th>Produk</th>
+                <th class="text-center" style="width:50px;">Satuan</th>
                 <th class="text-center" style="width:45px;">Qty</th>
                 <th class="text-right" style="width:75px;">Harga</th>
                 <th class="text-right" style="width:85px;">Subtotal</th>
@@ -93,11 +94,12 @@
                 <tr>
                     <td class="text-center">{{ $i + 1 }}</td>
                     <td>
-                        {{ $item->product?->name ?? '-' }}
+                        {{ $item->product ? product_print_name($item->product->name) : '-' }}
                         @if ($vLabel)
                             <br><span class="variant-sub">{{ $vLabel }}</span>
                         @endif
                     </td>
+                    <td class="text-center">{{ $item->unit?->symbol ?: ($item->unit?->name ?? '-') }}</td>
                     <td class="text-center">{{ rtrim(rtrim(number_format((float) $item->quantity, 2, ',', '.'), '0'), ',') }}</td>
                     <td class="text-right">{{ $fmt($item->unit_price) }}</td>
                     <td class="text-right">{{ $fmt($item->subtotal) }}</td>

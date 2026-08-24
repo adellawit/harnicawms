@@ -930,6 +930,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Detail / print routes (must be after all named routes to avoid conflicts)
+        Route::get('/{id}/verify', [TransactionController::class, 'verifyForm'])->name('transaction.verify')->middleware('permission:Transaction,is_update');
+        Route::post('/{id}/verify', [TransactionController::class, 'verifySubmit'])->name('transaction.verify.submit')->middleware('permission:Transaction,is_update');
+        Route::post('/{id}/verify/scan', [TransactionController::class, 'verifyScan'])->name('transaction.verify.scan')->middleware('permission:Transaction,is_update');
+        Route::delete('/{id}/verify/scan/{assignmentId}', [TransactionController::class, 'verifyScanRemove'])->name('transaction.verify.scan.remove')->middleware('permission:Transaction,is_update');
+        Route::post('/{id}/shipping', [TransactionController::class, 'updateShipping'])->name('transaction.shipping.update')->middleware('permission:Transaction,is_update');
         Route::get('/detail/{id}', [TransactionController::class, 'detailView'])->name('transaction.detail');
         Route::get('/{id}/print-invoice', [TransactionController::class, 'printInvoice'])->name('transaction.print-invoice');
         Route::get('/{id}/print-shipping', [TransactionController::class, 'printShipping'])->name('transaction.print-shipping');

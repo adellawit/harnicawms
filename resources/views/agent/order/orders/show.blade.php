@@ -26,7 +26,12 @@
             'shipped' => 'primary',
             'pending' => 'info',
             'cancelled' => 'danger',
+            'verification' => 'warning',
             default => 'secondary',
+        };
+        $statusLabel = match ($order->status) {
+            'verification' => 'VERIFIKASI',
+            default => strtoupper($order->status),
         };
         $pendingPay = $order->payments->first(fn ($p) => $p->gateway === 'xendit' && $p->status === 'pending' && $p->gateway_url);
     @endphp
@@ -41,7 +46,7 @@
                 <time class="text-muted small">{{ $order->created_at->format('d M Y, H:i') }}</time>
             </div>
             <div class="shop-order-badges shop-order-detail-badges">
-                <span class="badge bg-label-{{ $statusBadge }}">{{ strtoupper($order->status) }}</span>
+                <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                 <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
             </div>
         </div>
@@ -88,10 +93,14 @@
             <div class="card-header bg-white fw-semibold py-3">Item</div>
             <ul class="list-group list-group-flush">
                 @foreach ($order->items as $item)
+                    @php
+                        $productName = $item->product?->name ?? $item->variant?->product?->name;
+                        $productName = $productName ? product_print_name($productName) : 'Item';
+                    @endphp
                     <li class="list-group-item shop-order-detail-item">
                         <span class="shop-order-detail-item-name">
                             <span class="shop-order-detail-qty">{{ (int) $item->quantity }}×</span>
-                            {{ $item->product?->name ?? $item->variant?->display_name ?? 'Item' }}
+                            {{ $productName }}
                             @php
                                 $unitLabel = $item->unit?->symbol ?: ($item->unit?->name ?: $item->unit?->code);
                             @endphp
@@ -143,7 +152,7 @@
                           onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
                         @csrf
                         <button type="submit" class="btn btn-primary w-100">
-                            <i class="ti ti-package-import me-1"></i>Terima Barang
+                            <i class="ti ti-truck-loading me-1"></i>Terima Barang
                         </button>
                     </form>
                 @elseif ($order->received_at)

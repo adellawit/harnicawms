@@ -32,6 +32,8 @@ class SalesOrderItem extends Model
         'promotion_id',
         'source_warehouse_id',
         'parent_item_id',
+        'outbound_expiry_date',
+        'price_list_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -44,6 +46,7 @@ class SalesOrderItem extends Model
         'discount_value' => 'decimal:4',
         'subtotal' => 'decimal:4',
         'is_promo_free' => 'boolean',
+        'outbound_expiry_date' => 'date',
     ];
 
     public function salesOrder(): BelongsTo

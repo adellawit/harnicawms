@@ -26,11 +26,6 @@
     var discountFromMarketingPromo = false;
 
     $(document).ready(function () {
-        $('#priceListSelect').select2({
-            dropdownParent: $('body'),
-            placeholder: 'Daftar Harga',
-            allowClear: false,
-        });
         $('#customerSelect').select2({
             dropdownParent: $('body'),
             placeholder: 'Pelanggan Umum (Walk-in)',
@@ -81,10 +76,6 @@
         bindAddItemModal();
         bindMarketingCampaigns();
         handleXenditReturn();
-
-        $('#priceListSelect').on('change select2:select', function () {
-            $('#priceListWrapper').attr('data-selected-id', $(this).val() || '');
-        }).trigger('change');
 
         $('#customerSelect').on('change select2:select select2:clear', function () {
             updateResellerAddressDisplay();
@@ -262,11 +253,36 @@
         return Math.max(0, parseRupiah($('#shippingInput').val()) || 0);
     }
 
+    function mostFrequentPriceListId(items) {
+        var counts = {};
+        var order = [];
+        items.forEach(function (item) {
+            var id = item.price_list_id;
+            if (!id) {
+                return;
+            }
+            if (!Object.prototype.hasOwnProperty.call(counts, id)) {
+                counts[id] = 0;
+                order.push(id);
+            }
+            counts[id]++;
+        });
+        var best = null;
+        var bestCount = 0;
+        order.forEach(function (id) {
+            if (counts[id] > bestCount) {
+                best = id;
+                bestCount = counts[id];
+            }
+        });
+        return best || cfg.defaultPriceListId || '';
+    }
+
     function buildPosOrderPayload() {
-        var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
+        var items = collectCartItems();
         var payload = {
-            price_list_id: priceListId,
-            items: collectCartItems(),
+            price_list_id: mostFrequentPriceListId(items),
+            items: items,
             customer_id: $('#customerSelect').val() || null,
             tax_rate: cfg.taxRate || 0,
             tax_enabled: false,
@@ -502,7 +518,7 @@
         });
 
         $(document).on('click', '.pos-product-card', function () {
-            var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
+            var priceListId = cfg.defaultPriceListId || '';
             if (!priceListId) {
                 Swal.fire({
                     icon: 'warning',
@@ -583,6 +599,10 @@
     function bindAddItemModal() {
         $('#addItemUnitSelect').on('change', function () {
             syncAddItemPriceFromUnit();
+        });
+
+        $('#addItemPriceListSelect').on('change', function () {
+            refreshAddItemPriceList($(this).val());
         });
 
         $('#addItemPriceInput').on('input', function () {
@@ -685,9 +705,9 @@
             return;
         }
 
-        var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val();
+        var priceListId = $('#addItemPriceListSelect').val() || cfg.defaultPriceListId || '';
         if (!priceListId) {
-            showSerialFeedback('Pilih daftar harga dulu.', 'danger');
+            showSerialFeedback('Pilih kategori harga dulu.', 'danger');
             return;
         }
 
@@ -753,29 +773,18 @@
         return [];
     }
 
-    function openAddItemModal(variant, productImage) {
-        resetAddItemSerialState();
-
+    function applyVariantToAddItemModal(variant, productImage) {
         var unitOptions = resolveUnitOptions(variant);
-        if (!unitOptions.length) {
-            Swal.fire({
-                icon: 'warning',
-                text: 'Unit produk tidak tersedia.',
-                customClass: { confirmButton: 'btn btn-primary' },
-                buttonsStyling: false,
-            });
-            return;
+        var previousUnitId = $('#addItemUnitSelect').val();
+
+        pendingAddItem.variant = variant;
+        pendingAddItem.unitOptions = unitOptions;
+        if (productImage) {
+            pendingAddItem.image = variant.image || productImage;
         }
 
-        pendingAddItem = {
-            variant: variant,
-            image: variant.image || productImage || '',
-            unitOptions: unitOptions,
-        };
-
-        $('#addItemVariantName').text(variant.display_name || variant.name || 'Produk');
         var $unitSelect = $('#addItemUnitSelect');
-        $unitSelect.empty().prop('disabled', false);
+        $unitSelect.empty();
         unitOptions.forEach(function (opt) {
             $unitSelect.append(
                 $('<option></option>')
@@ -785,8 +794,15 @@
             );
         });
 
+        if (!unitOptions.length) {
+            syncAddItemPriceFromUnit();
+            return;
+        }
+
         var defaultUnitId = variant.default_unit_id || variant.unit_id || unitOptions[0].unit_id;
-        if ($unitSelect.find('option[value="' + defaultUnitId + '"]').length) {
+        if (previousUnitId && $unitSelect.find('option[value="' + previousUnitId + '"]').length) {
+            $unitSelect.val(previousUnitId);
+        } else if ($unitSelect.find('option[value="' + defaultUnitId + '"]').length) {
             $unitSelect.val(defaultUnitId);
         } else {
             $unitSelect.val(unitOptions[0].unit_id);
@@ -798,13 +814,74 @@
             $('#addItemUnitWrap').show();
         }
 
+        syncAddItemPriceFromUnit();
+    }
+
+    function refreshAddItemPriceList(newPriceListId) {
+        if (!pendingAddItem || !newPriceListId) {
+            return;
+        }
+        var productId = pendingAddItem.variant.product_id;
+        var variantId = pendingAddItem.variant.id;
+
+        $.get(routes.productVariants, {
+            product_id: productId,
+            price_list_id: newPriceListId,
+        }).done(function (res) {
+            var variants = res.variants || [];
+            var matched = null;
+            variants.forEach(function (v) {
+                if (String(v.id) === String(variantId)) {
+                    matched = v;
+                }
+            });
+            if (!matched) {
+                matched = $.extend({}, pendingAddItem.variant, { selling_price: 0, unit_options: [] });
+            }
+            pendingAddItem.priceListId = newPriceListId;
+            applyVariantToAddItemModal(matched, pendingAddItem.image);
+        }).fail(function () {
+            Swal.fire({
+                icon: 'error',
+                text: 'Gagal memuat harga untuk kategori harga ini.',
+                customClass: { confirmButton: 'btn btn-primary' },
+                buttonsStyling: false,
+            });
+        });
+    }
+
+    function openAddItemModal(variant, productImage) {
+        resetAddItemSerialState();
+
+        pendingAddItem = {
+            variant: variant,
+            image: variant.image || productImage || '',
+            unitOptions: [],
+            priceListId: cfg.defaultPriceListId || '',
+        };
+
+        $('#addItemVariantName').text(variant.display_name || variant.name || 'Produk');
+        $('#addItemUnitSelect').prop('disabled', false);
+        $('#addItemPriceListSelect').val(cfg.defaultPriceListId || '');
+
+        applyVariantToAddItemModal(variant, productImage);
+
+        if (!pendingAddItem.unitOptions.length) {
+            Swal.fire({
+                icon: 'warning',
+                text: 'Unit produk tidak tersedia.',
+                customClass: { confirmButton: 'btn btn-primary' },
+                buttonsStyling: false,
+            });
+            return;
+        }
+
         if (variantHasTrackableSerials(variant)) {
             $('#addItemSerialWrap').removeClass('d-none').show();
         } else {
             $('#addItemSerialWrap').addClass('d-none').hide();
         }
 
-        syncAddItemPriceFromUnit();
         $('#addItemQtyInput').val(1).prop('readonly', false);
 
         if (addItemModal) {
@@ -875,7 +952,8 @@
             unitId,
             unitLabel,
             serialNumbers.length ? serialNumbers.length : qty,
-            serialNumbers.length ? { serial_numbers: serialNumbers } : null
+            serialNumbers.length ? { serial_numbers: serialNumbers } : null,
+            pendingAddItem.priceListId || $('#addItemPriceListSelect').val() || ''
         );
 
         if (addItemModal) {
@@ -1019,16 +1097,6 @@
                 });
                 return;
             }
-            var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
-            if (!priceListId) {
-                Swal.fire({
-                    icon: 'warning',
-                    text: 'Pilih daftar harga.',
-                    customClass: { confirmButton: 'btn btn-primary' },
-                    buttonsStyling: false,
-                });
-                return;
-            }
             $('#payGrandTotal').text(formatRp(getCartTotal()));
             $('#payCashInput').val('');
             setPayMobilePanel('cash');
@@ -1051,16 +1119,6 @@
                 Swal.fire({
                     icon: 'warning',
                     text: 'Tambahkan item ke keranjang terlebih dahulu.',
-                    customClass: { confirmButton: 'btn btn-primary' },
-                    buttonsStyling: false,
-                });
-                return;
-            }
-            var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
-            if (!priceListId) {
-                Swal.fire({
-                    icon: 'warning',
-                    text: 'Pilih daftar harga.',
                     customClass: { confirmButton: 'btn btn-primary' },
                     buttonsStyling: false,
                 });
@@ -1267,6 +1325,7 @@
             items.push({
                 variant_id: $el.data('variant-id'),
                 unit_id: $el.data('unit-id'),
+                price_list_id: $el.data('price-list-id') || null,
                 quantity: qty,
                 unit_price: unitPrice,
                 discount_type: discType,
@@ -1363,9 +1422,10 @@
         $('#cartItemCount, #cartItemCountBadge, #cartMobileTabBadge').text(paidQty + freeQty);
     }
 
-    function addToCart(variantId, name, price, image, unitId, unitLabel, qty, options) {
+    function addToCart(variantId, name, price, image, unitId, unitLabel, qty, options, priceListId) {
         qty = parseInt(qty, 10) || 1;
         options = options || null;
+        priceListId = priceListId || '';
         var serialNumbers = options && options.serial_numbers ? options.serial_numbers.slice() : [];
         $('#emptyCart').hide();
 
@@ -1373,6 +1433,7 @@
             var existing = $cartPaidItems().filter(function () {
                 return $(this).data('variant-id') == variantId
                     && String($(this).data('unit-id') || '') === String(unitId || '')
+                    && String($(this).data('price-list-id') || '') === String(priceListId || '')
                     && !$(this).hasClass('is-serial-tracked');
             });
             if (existing.length > 0) {
@@ -1391,6 +1452,7 @@
         item.attr('data-variant-id', variantId);
         item.attr('data-unit-id', unitId || '');
         item.attr('data-unit-label', unitLabel || '');
+        item.attr('data-price-list-id', priceListId || '');
         if (serialNumbers.length) {
             item.addClass('is-serial-tracked');
             item.attr('data-serial-numbers', JSON.stringify(serialNumbers));

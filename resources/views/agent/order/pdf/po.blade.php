@@ -89,7 +89,7 @@
                 <tr>
                     <td class="text-center">{{ $i + 1 }}</td>
                     <td>
-                        {{ $item->product?->name ?? '-' }}
+                        {{ $item->product ? product_print_name($item->product->name) : '-' }}
                         @if ($vLabel)
                             <br><span class="variant-sub">{{ $vLabel }}</span>
                         @endif

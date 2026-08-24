@@ -2,6 +2,19 @@
 
 @section('title', 'Materi Pemasaran | ')
 
+@section('shop_body_class')
+    agent-materials-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @section('content')
     <header class="shop-page-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
@@ -58,7 +71,11 @@
                         </span>
                         @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
                         @if ($thumb)
-                            <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy">
+                            <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy"
+                                onerror="this.classList.add('d-none'); this.nextElementSibling.classList.replace('d-none', 'd-flex');">
+                            <div class="agent-asset-thumb-ph d-none align-items-center justify-content-center">
+                                <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
+                            </div>
                         @else
                             <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
                                 <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
@@ -87,10 +104,7 @@
         @empty
             <div class="col-12">
                 <div class="card border-0 shadow-sm shop-order-card">
-                    <div class="card-body shop-empty-state text-center text-muted py-5">
-                        <i class="ti ti-photo-off d-block fs-1 mb-2 opacity-50"></i>
-                        Belum ada materi pemasaran.
-                    </div>
+                    <x-empty-state icon="ti ti-photo-off" title="Belum ada materi pemasaran" />
                 </div>
             </div>
         @endforelse

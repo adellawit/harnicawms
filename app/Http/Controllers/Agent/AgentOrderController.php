@@ -76,6 +76,22 @@ class AgentOrderController extends Controller
         return $customer->address_shipping ?: ($customer->address ?: $agent?->address);
     }
 
+    /**
+     * Latest marketing image assets used to populate the hero promo carousel
+     * on the catalog and dashboard pages. Falls back to static slides in the
+     * view when this is empty, so the hero never looks broken.
+     */
+    protected function heroPromoAssets(): Collection
+    {
+        return Asset::query()
+            ->active()
+            ->where('usable_in_marketing', true)
+            ->where('type', 'image')
+            ->latest('created_at')
+            ->limit(3)
+            ->get();
+    }
+
     public function dashboard(): View
     {
         $ctx = $this->context();
@@ -158,6 +174,7 @@ class AgentOrderController extends Controller
             'totalResellers' => $totalResellers,
             'totalMarketingAssets' => $totalMarketingAssets,
             'totalCourses' => $totalCourses,
+            'heroAssets' => $this->heroPromoAssets(),
         ]);
     }
 
@@ -446,6 +463,7 @@ class AgentOrderController extends Controller
             'promoOnly' => $promoOnly,
             'cart' => $this->cart()->get(),
             'summary' => $this->cart()->summarize(),
+            'heroAssets' => $this->heroPromoAssets(),
         ]);
     }
 
@@ -600,8 +618,22 @@ class AgentOrderController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $cashMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values();
+        $xendit = app(XenditService::class);
+
+        // COD and Xendit-gateway methods stay hidden here — checkoutProcess()
+        // doesn't support them for agent orders yet — but any other active,
+        // non-gateway master-data method (not just a hardcoded CASH/TUNAI
+        // allowlist) shows up, matching what isCashPaymentMethod() will accept.
+        // Each method is decorated with a runtime ->icon so the checkout view
+        // can show a real icon instead of the generic default (customer-shop's
+        // own checkout is untouched — its methods never get this property, so
+        // its Blade partial keeps falling back to the same default it uses today).
+        $standardMethods = $methodPayments->filter(fn ($m) => $this->isCashPaymentMethod($m))->values()
+            ->each(fn ($m) => $m->icon = $xendit->channelIconUrl($m->code, $m->name));
         $manualTransferMethod = $methodPayments->first(fn ($m) => $this->isManualTransferMethod($m));
+        if ($manualTransferMethod) {
+            $manualTransferMethod->icon = $xendit->channelIconUrl($manualTransferMethod->code, $manualTransferMethod->name);
+        }
 
         $customer = $ctx->customer();
         $agent = $customer->agent;
@@ -637,9 +669,9 @@ class AgentOrderController extends Controller
             'codMethod' => null,
             'codIcon' => null,
             'xenditChannelGroups' => [],
-            'standardMethods' => $cashMethods,
+            'standardMethods' => $standardMethods,
             'manualTransferMethod' => $manualTransferMethod,
-            'hasPaymentOptions' => $cashMethods->isNotEmpty() || $manualTransferMethod !== null,
+            'hasPaymentOptions' => $standardMethods->isNotEmpty() || $manualTransferMethod !== null,
         ]);
     }
 
@@ -719,6 +751,8 @@ class AgentOrderController extends Controller
                     $this->resolveShippingAddress(),
                     $shippingAmount,
                     $shippingMeta,
+                    'verification',
+                    'paid',
                 );
                 $cartService->clear();
 
@@ -827,6 +861,7 @@ class AgentOrderController extends Controller
         $customer = auth('customer')->user();
 
         $filterMap = [
+            'verification' => ['status', 'verification'],
             'pending' => ['status', 'pending'],
             'completed' => ['status', 'completed'],
             'unpaid' => ['payment_status', 'unpaid'],
@@ -834,6 +869,10 @@ class AgentOrderController extends Controller
         ];
         $activeFilter = $request->get('filter');
         $activeFilter = array_key_exists($activeFilter, $filterMap) ? $activeFilter : 'all';
+
+        $search = trim((string) $request->get('search', ''));
+        $dateFrom = $request->get('date_from') ?: null;
+        $dateTo = $request->get('date_to') ?: null;
 
         $query = SalesOrder::query()
             ->where('order_type', self::ORDER_TYPE)
@@ -847,12 +886,27 @@ class AgentOrderController extends Controller
             $query->where($col, $val);
         }
 
+        if ($search !== '') {
+            $query->where('sales_number', 'ilike', "%{$search}%");
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('sales_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('sales_date', '<=', $dateTo);
+        }
+
         $orders = $query->paginate(15);
 
         return view('agent.order.orders.index', [
             'customer' => $customer,
             'orders' => $orders,
             'activeFilter' => $activeFilter,
+            'search' => $search,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
         ]);
     }
 
@@ -886,14 +940,13 @@ class AgentOrderController extends Controller
         $agent = $this->context()->customer()->agent;
         abort_unless($agent, 403, 'Akun bukan agent.');
 
-        $sourceWh = WmsContext::finishedGoodsWarehouse($order->company_id);
         $agentWh = WmsContext::defaultAgentWarehouse($agent->id) ?: $agent->defaultWarehouse;
         abort_unless($agentWh, 422, 'Gudang agen belum diset.');
 
         $actorId = auth('customer')->id();
 
         try {
-            DB::transaction(function () use ($order, $sourceWh, $agentWh, $actorId) {
+            DB::transaction(function () use ($order, $agentWh, $actorId) {
                 $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
 
                 if ($order->received_at || $order->status === 'completed') {
@@ -904,8 +957,6 @@ class AgentOrderController extends Controller
                     throw new \RuntimeException('Order belum dikirim, belum bisa diterima.');
                 }
 
-                $sourceWhId = $sourceWh?->id;
-                $srcBranch = $sourceWh?->branch_id ?: ($order->branch_id ?: $sourceWhId);
                 $agentBranchId = $agentWh->branch_id ?: ($order->branch_id ?: $agentWh->company_id);
                 $inboundCompanyId = $agentWh->company_id ?: $order->company_id;
 
@@ -914,23 +965,6 @@ class AgentOrderController extends Controller
                     if (! $product?->is_stock_item) {
                         continue;
                     }
-
-                    $outboundWarehouseId = $item->source_warehouse_id ?: ($sourceWhId ?: $order->warehouse_id);
-                    abort_unless($outboundWarehouseId && $srcBranch, 422, 'Gudang asal pengiriman belum diset.');
-
-                    $outbound = StockMutationService::outbound(
-                        $item->product_id,
-                        $item->product_variant_id,
-                        $order->company_id,
-                        (string) $srcBranch,
-                        $item->unit_id,
-                        (float) $item->quantity,
-                        SalesOrder::class,
-                        $order->id,
-                        $actorId,
-                        'Kirim ke Agen - '.$order->sales_number,
-                        $outboundWarehouseId
-                    );
 
                     StockMutationService::inbound(
                         $item->product_id,
@@ -945,7 +979,7 @@ class AgentOrderController extends Controller
                         $actorId,
                         'Terima di gudang Agen - '.$order->sales_number,
                         null,
-                        $outbound['earliest_expiry'] ?? null,
+                        $item->outbound_expiry_date?->toDateString(),
                         $agentWh->id
                     );
                 }
@@ -1013,13 +1047,13 @@ class AgentOrderController extends Controller
                 ?->map(fn ($va) => $va->attributeValue?->value)
                 ->filter()
                 ->implode(' / ');
-            $variantLabel = $variantLabel ?: ($variant->display_name ?? $variant->sku ?? '-');
+            $variantLabel = $variantLabel ?: '-';
 
             $qtyForBadge = (float) ($display['smallest_quantity'] ?? $display['quantity']);
 
             $rows->push([
                 'variant_id' => $variant->id,
-                'product_name' => $product->name,
+                'product_name' => product_print_name($product->name),
                 'variant_name' => $variantLabel,
                 'sku' => $variant->sku ?? '-',
                 'quantity' => $display['quantity'],
@@ -1095,17 +1129,24 @@ class AgentOrderController extends Controller
             return [];
         }
 
-        return $product->getBarcodeUnits()->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
-            $qty = $unit->id === $smallestUnitId
-                ? $totalSmallest
-                : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
+        return $product->getBarcodeUnits()
+            // getBarcodeUnits() is ordered largest-to-smallest (default unit
+            // first, then each conversion level down). Only the first 3
+            // levels are meaningful for this "equivalent in all units"
+            // summary — e.g. karton/pack/box — the smallest level (e.g.
+            // sachet) is intentionally dropped per request.
+            ->take(3)
+            ->map(function ($unit) use ($product, $totalSmallest, $smallestUnitId) {
+                $qty = $unit->id === $smallestUnitId
+                    ? $totalSmallest
+                    : (\App\Services\UnitConversionService::convertQuantity($product, $totalSmallest, $smallestUnitId, $unit->id) ?? 0);
 
-            return [
-                'unit_id' => $unit->id,
-                'unit' => $unit->symbol ?: ($unit->name ?: '-'),
-                'quantity' => (float) $qty,
-            ];
-        })->values()->all();
+                return [
+                    'unit_id' => $unit->id,
+                    'unit' => $unit->symbol ?: ($unit->name ?: '-'),
+                    'quantity' => (float) $qty,
+                ];
+            })->values()->all();
     }
 
     protected function loadOrderForPrint(string $orderId): SalesOrder
@@ -1181,14 +1222,26 @@ class AgentOrderController extends Controller
         return back()->with('success', 'Bukti transfer terkirim. Menunggu verifikasi admin.');
     }
 
+    /**
+     * Any active, non-gateway master-data method that isn't manual transfer or
+     * COD is processed the same way "cash" was: immediate order, marked paid
+     * on the spot (see checkoutProcess()). COD and Xendit-gateway methods are
+     * handled separately (currently unsupported for agent orders).
+     */
     protected function isCashPaymentMethod(MethodPayment $method): bool
     {
         return ! $method->uses_payment_gateway
-            && in_array(strtoupper($method->code), ['CASH', 'TUNAI'], true);
+            && ! $this->isManualTransferMethod($method)
+            && ! $this->isCodMethod($method);
     }
 
     protected function isManualTransferMethod(MethodPayment $method): bool
     {
         return strtoupper($method->code) === 'MANUAL_TRANSFER';
+    }
+
+    protected function isCodMethod(MethodPayment $method): bool
+    {
+        return strtoupper($method->code) === 'COD';
     }
 }
