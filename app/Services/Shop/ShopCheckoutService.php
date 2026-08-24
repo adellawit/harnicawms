@@ -96,6 +96,13 @@ class ShopCheckoutService
                 'shipping_service' => $shippingMeta['service'] ?? null,
                 'shipping_rate_id' => $shippingMeta['rate_id'] ?? null,
                 'shipping_etd' => $shippingMeta['etd'] ?? null,
+                // createSalesOrder() reads method_payment_id off $checkoutRequest,
+                // which is a synthetic request built by ShopCartService::toCheckoutRequest()
+                // that never includes it (the cart doesn't know the payment method until
+                // checkout) — so the order's own column always came out null here, even
+                // though $paymentMethodId (passed separately into this method) is correct
+                // and already used for the SalesOrderPayment row below. Fix it here too.
+                'method_payment_id' => $paymentMethodId,
             ]);
 
             $payment = SalesOrderPayment::create([
@@ -211,6 +218,13 @@ class ShopCheckoutService
                 'shipping_service' => $shippingMeta['service'] ?? null,
                 'shipping_rate_id' => $shippingMeta['rate_id'] ?? null,
                 'shipping_etd' => $shippingMeta['etd'] ?? null,
+                // createSalesOrder() reads method_payment_id off $checkoutRequest,
+                // which is a synthetic request built by ShopCartService::toCheckoutRequest()
+                // that never includes it (the cart doesn't know the payment method until
+                // checkout) — so the order's own column always came out null here, even
+                // though $paymentMethodId (passed separately into this method) is correct
+                // and already used for the SalesOrderPayment row below. Fix it here too.
+                'method_payment_id' => $paymentMethodId,
             ]);
 
             SalesOrderPayment::create([
