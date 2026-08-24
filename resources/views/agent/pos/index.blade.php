@@ -82,27 +82,6 @@
                         <i class="ti ti-search icon"></i>
                         <input type="text" class="form-control" placeholder="Scan barcode / Cari produk..." id="searchProduct" autocomplete="off">
                     </div>
-                    <div class="pos-category-filter">
-                        <select id="categoryFilterSelect" class="form-select form-select-sm">
-                            <option value="all">Semua Kategori</option>
-                            @foreach($productTypes ?? collect() as $productType)
-                                <option value="{{ $productType->id }}">{{ $productType->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-primary pos-filter-btn" id="btnCategoryFilter">
-                        <i class="ti ti-filter me-1"></i> Filter
-                    </button>
-                    <div class="pos-categories" id="productTypeTabs" aria-label="Kategori Produk">
-                        <span class="pos-category-pill active" data-product-type="all">
-                            Semua <span class="pill-count">{{ $products->count() ?? 0 }}</span>
-                        </span>
-                        @foreach($productTypes ?? collect() as $productType)
-                            <span class="pos-category-pill" data-product-type="{{ $productType->id }}">
-                                {{ $productType->name }} <span class="pill-count">{{ $productType->products_count ?? 0 }}</span>
-                            </span>
-                        @endforeach
-                    </div>
                 </div>
 
                 <div class="pos-product-grid" id="productGrid">

@@ -63,10 +63,12 @@
     flex-wrap: wrap;
 }
 .pos-search {
+    /* Sole control left in the catalog header (category filter/pills removed) —
+       let it stretch further so it doesn't look stranded next to empty space. */
     position: relative;
     flex: 1;
     min-width: 160px;
-    max-width: 300px;
+    max-width: 480px;
 }
 .pos-search input {
     padding-left: 2.25rem;
