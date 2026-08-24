@@ -16,7 +16,11 @@
         <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
     @endpush
 </head>
-<body class="agent-pos-body agent-order-body">
+<body class="agent-pos-body agent-order-body @yield('shop_body_class')">
+    {{-- Full-page fixed background decoration, same convention as
+         layouts.agent-order — see that file for the rationale. --}}
+    @stack('body-top')
+
     <div class="agent-pos-shell">
         <header class="agent-pos-header">
             <a class="agent-pos-brand" href="{{ route('agent-order.dashboard') }}" aria-label="Beranda portal agen">

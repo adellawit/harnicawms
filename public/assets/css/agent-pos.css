@@ -1227,6 +1227,12 @@ body.agent-pos-body {
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
+    /* Only the POS history pages use this layout now (the POS register page
+       moved to layouts.agent-order) — they don't manage their own internal
+       scroll areas the way the register's cart/catalog panels did, so let
+       the shell itself scroll when their content is taller than the
+       viewport instead of silently clipping it. */
+    overflow-y: auto;
 }
 .agent-pos-header {
     display: flex;

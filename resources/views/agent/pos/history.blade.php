@@ -2,6 +2,19 @@
 
 @section('title', 'Riwayat Transaksi POS | ')
 
+@section('shop_body_class')
+    agent-pos-history-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @section('content')
     <div class="pos-history-page">
         <div class="pos-history-toolbar">
