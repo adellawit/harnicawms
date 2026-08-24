@@ -1053,7 +1053,7 @@ class AgentOrderController extends Controller
 
             $rows->push([
                 'variant_id' => $variant->id,
-                'product_name' => $product->name,
+                'product_name' => product_print_name($product->name),
                 'variant_name' => $variantLabel,
                 'sku' => $variant->sku ?? '-',
                 'quantity' => $display['quantity'],

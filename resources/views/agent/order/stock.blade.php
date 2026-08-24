@@ -1,6 +1,6 @@
 @extends('layouts.agent-order')
 
-@section('title', 'Stok Gudang | ')
+@section('title', 'Stock | ')
 
 @section('shop_body_class')
     agent-stock-page
@@ -40,7 +40,7 @@
             <a href="{{ route('agent-order.dashboard') }}" class="shop-back-link d-inline-flex align-items-center gap-1 small text-muted text-decoration-none mb-2">
                 <i class="ti ti-arrow-left"></i> Beranda
             </a>
-            <h1 class="shop-page-title mb-1">Stok Gudang Saya</h1>
+            <h1 class="shop-page-title mb-1">Stock</h1>
             <p class="text-muted small mb-0">
                 {{ $warehouseName ?: 'Gudang belum diset' }}
             </p>
