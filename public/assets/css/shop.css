@@ -1753,15 +1753,6 @@ a.agent-training-course-card:hover {
     border-bottom-color: var(--login-glass-border);
 }
 
-/* Aksi column: stack action buttons full-width, one per line, instead of
-   letting them wrap inline mid-word inside a narrow auto-sized column. */
-.shop-order-actions {
-    min-width: 130px;
-}
-
-.shop-order-actions .btn {
-    width: 100%;
-}
 
 .agent-dashboard-page .agent-reorder-card {
     border-left: 4px solid var(--bs-primary) !important;

@@ -121,7 +121,7 @@
                                 </a>
                             </td>
                             <td class="text-muted small text-nowrap">
-                                {{ $order->sales_date?->format('d M Y, H:i') ?? $order->created_at->format('d M Y, H:i') }}
+                                {{ $order->sales_date?->format('d M Y') ?? $order->created_at->format('d M Y') }}
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
@@ -145,25 +145,39 @@
                             </td>
                             <td class="text-end fw-semibold text-nowrap">Rp {{ number_format($order->total, 0, ',', '.') }}</td>
                             <td>
-                                <div class="d-flex flex-column gap-1 shop-order-actions">
-                                    <a href="{{ route('agent-order.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="ti ti-eye me-1"></i>Detail
-                                    </a>
-                                    @if ($order->status === 'shipped' && ! $order->received_at)
-                                        <form method="POST" action="{{ route('agent-order.orders.receive', $order->id) }}"
-                                              onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-primary w-100">
-                                                <i class="ti ti-package-import me-1"></i>Penerimaan
-                                            </button>
-                                        </form>
-                                    @endif
-                                    <a href="{{ route('agent-order.orders.po-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                                        <i class="ti ti-file-text me-1"></i>Print PO
-                                    </a>
-                                    <a href="{{ route('agent-order.orders.invoice-pdf', $order->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                                        <i class="ti ti-receipt me-1"></i>Print Invoice
-                                    </a>
+                                <div class="dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
+                                        data-bs-strategy="fixed" aria-expanded="false" title="Aksi">
+                                        <i class="ti ti-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a href="{{ route('agent-order.orders.show', $order->id) }}" class="dropdown-item">
+                                                <i class="ti ti-eye me-2"></i>Detail
+                                            </a>
+                                        </li>
+                                        @if ($order->status === 'shipped' && ! $order->received_at)
+                                            <li>
+                                                <form method="POST" action="{{ route('agent-order.orders.receive', $order->id) }}"
+                                                      onsubmit="return confirm('Konfirmasi barang sudah diterima? Stok akan masuk ke gudang Anda.');">
+                                                    @csrf
+                                                    <button type="submit" class="dropdown-item">
+                                                        <i class="ti ti-package-import me-2"></i>Penerimaan
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        @endif
+                                        <li>
+                                            <a href="{{ route('agent-order.orders.po-pdf', $order->id) }}" target="_blank" rel="noopener" class="dropdown-item">
+                                                <i class="ti ti-file-text me-2"></i>Print PO
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ route('agent-order.orders.invoice-pdf', $order->id) }}" target="_blank" rel="noopener" class="dropdown-item">
+                                                <i class="ti ti-receipt me-2"></i>Print Invoice
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
