@@ -169,23 +169,30 @@ class TransactionController extends Controller
         }
 
         $branchId = $this->getBranchId();
-        $details = $barcodeDispatch->details($order->id, $branchId);
-        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
+        $actorId = Auth::id();
 
-        try {
-            if ($hasTrackable) {
-                $barcodeDispatch->finalize($order->id, Auth::id(), $branchId);
-            }
-        } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
+        // Resolve and validate the distribution warehouse BEFORE finalizing the
+        // barcode dispatch. finalize() is terminal/immutable once it succeeds
+        // (BarcodeDispatchService rejects any further scan/finalize on a
+        // completed dispatch) — if warehouse config were missing, finalizing
+        // first would leave the dispatch permanently "completed" with no way
+        // to retry, while stock never actually moved and the order stayed in
+        // 'verification' forever. Failing fast here avoids that dead end.
         $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->company_id);
         $sourceWhId = $fgWarehouse?->id;
         $srcBranch = $fgWarehouse?->branch_id ?: ($order->branch_id ?: $sourceWhId);
         abort_unless($sourceWhId && $srcBranch, 422, 'Gudang distribusi belum diset.');
 
-        $actorId = Auth::id();
+        $details = $barcodeDispatch->details($order->id, $branchId);
+        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
+
+        try {
+            if ($hasTrackable) {
+                $barcodeDispatch->finalize($order->id, $actorId, $branchId);
+            }
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         try {
             DB::transaction(function () use ($order, $sourceWhId, $srcBranch, $actorId) {
