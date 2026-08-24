@@ -2,6 +2,19 @@
 
 @section('title', 'Stok Gudang | ')
 
+@section('shop_body_class')
+    agent-stock-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @push('styles')
     <style>
         .agent-stock-table td { vertical-align: middle; }
@@ -115,7 +128,9 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-4">Belum ada stok di gudang Anda.</td>
+                            <td colspan="4">
+                                <x-empty-state icon="ti ti-building-warehouse" title="Belum ada stok di gudang Anda" />
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

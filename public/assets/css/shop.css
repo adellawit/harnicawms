@@ -1604,14 +1604,14 @@ a.agent-training-course-card:hover {
 }
 
 /* ==========================================================================
-   Agent dashboard (/agent-order/beranda) — glossy theme, matches login.
-   Reuses --login-* tokens & keyframes defined globally in custom.css.
-   The background/shapes below are intentionally shared with the checkout
-   page too (via the :is(...) selectors — see /agent-order/checkout), so the
-   glossy look spans both pages. The card/hero styling further down is still
-   scoped to .agent-dashboard-page only, so it never leaks to other
-   agent-order pages or to other dashboards sharing
-   x-dashboard.kpi-card/section-header.
+   Agent order portal — glossy theme, matches login. Originated on
+   /agent-order/beranda, now shared by every agent-order page (checkout,
+   orders, catalog, materi, pelatihan, stok, reseller) via the :is(...)
+   selectors below, so the full-page gradient background + floating shapes
+   span all of them identically. Reuses --login-* tokens & keyframes defined
+   globally in custom.css. The card styling further down is scoped per page
+   (each page's own body class + its own card-wrapper class name), so it
+   never leaks to other dashboards sharing x-dashboard.kpi-card/section-header.
    ========================================================================== */
 
 /* Background lives on <body> (full viewport width) so it reaches edge to
@@ -1619,7 +1619,7 @@ a.agent-training-course-card:hover {
    !important is needed here because design-system.css already sets
    `body.app-glass-enabled { background: ... !important }` globally (glass
    mode is on by default) and would otherwise win over this rule. */
-:is(body.agent-dashboard-page, body.agent-order-body.shop-checkout-page, body.agent-order-body.shop-orders-page) {
+:is(body.agent-dashboard-page, body.agent-order-body.shop-checkout-page, body.agent-order-body.shop-orders-page, body.agent-order-body.agent-catalog-page, body.agent-order-body.agent-materials-page, body.agent-order-body.agent-training-page, body.agent-order-body.agent-stock-page, body.agent-order-body.agent-resellers-page) {
     background: var(--login-page-gradient) !important;
 }
 
@@ -1633,37 +1633,37 @@ a.agent-training-course-card:hover {
    safely behind all of them) and, since login's shapes are sized/placed to
    decorate a small centered card, make them bigger/softer for the wider
    dashboard so they visibly span the browser instead of hugging corners. */
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes {
     z-index: -1;
 }
 
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape {
     background: rgba(92, 158, 132, 0.1);
     filter: blur(1px);
 }
 
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-1 {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-1 {
     width: 420px;
     height: 260px;
     top: -80px;
     left: -120px;
 }
 
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-2 {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-2 {
     width: 360px;
     height: 220px;
     bottom: -60px;
     right: -140px;
 }
 
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-3 {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-3 {
     width: 240px;
     height: 150px;
     top: 42%;
     left: 2%;
 }
 
-:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-4 {
+:is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-4 {
     width: 220px;
     height: 140px;
     top: 12%;
@@ -1673,14 +1673,14 @@ a.agent-training-course-card:hover {
 /* Shrink back down on phones — .shape-3/.shape-4 are already display:none
    below 767.98px (custom.css); keep the remaining two proportionate. */
 @media (max-width: 767.98px) {
-    :is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-1 {
+    :is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-1 {
         width: 200px;
         height: 130px;
         top: -50px;
         left: -70px;
     }
 
-    :is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page) .bg-shapes .shape-2 {
+    :is(.agent-dashboard-page, .shop-checkout-page, .shop-orders-page, .agent-catalog-page, .agent-materials-page, .agent-training-page, .agent-stock-page, .agent-resellers-page) .bg-shapes .shape-2 {
         width: 160px;
         height: 100px;
         bottom: -30px;
@@ -1704,7 +1704,14 @@ a.agent-training-course-card:hover {
 .agent-dashboard-page .agent-asset-card,
 .agent-dashboard-page .agent-course-card,
 .agent-order-body.shop-checkout-page .shop-checkout-card,
-.agent-order-body.shop-orders-page .shop-order-card {
+.agent-order-body.shop-orders-page .shop-order-card,
+.agent-order-body.agent-catalog-page .shop-product-card,
+.agent-order-body.agent-materials-page .agent-asset-card,
+.agent-order-body.agent-materials-page .shop-order-card,
+.agent-order-body.agent-training-page .agent-course-card,
+.agent-order-body.agent-training-page .shop-order-card,
+.agent-order-body.agent-stock-page .shop-order-card,
+.agent-order-body.agent-resellers-page .shop-order-card {
     background: var(--login-glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -1726,18 +1733,22 @@ a.agent-training-course-card:hover {
     box-shadow: 0 -8px 24px -8px var(--login-shadow-color);
 }
 
-/* Orders list table — clip corners to the glass card and let the sticky
-   .table-light header blend in with it instead of sitting on top as an
-   opaque gray band (same reasoning as the checkout card-header fix above). */
-.agent-order-body.shop-orders-page .shop-order-card {
+/* Orders list + stock tables — clip corners to the glass card and let the
+   sticky .table-light header blend in with it instead of sitting on top as
+   an opaque gray band (same reasoning as the checkout card-header fix
+   above). */
+.agent-order-body.shop-orders-page .shop-order-card,
+.agent-order-body.agent-stock-page .shop-order-card {
     overflow: hidden;
 }
 
-.agent-order-body.shop-orders-page .shop-order-card thead.table-light {
+.agent-order-body.shop-orders-page .shop-order-card thead.table-light,
+.agent-order-body.agent-stock-page .shop-order-card thead.table-light {
     background: transparent !important;
 }
 
-.agent-order-body.shop-orders-page .shop-order-card thead.table-light th {
+.agent-order-body.shop-orders-page .shop-order-card thead.table-light th,
+.agent-order-body.agent-stock-page .shop-order-card thead.table-light th {
     background: transparent !important;
     border-bottom-color: var(--login-glass-border);
 }

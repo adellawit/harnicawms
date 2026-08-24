@@ -3,8 +3,17 @@
 @section('title', 'Order ke Distributor | ')
 
 @section('shop_body_class')
-    @if (count($cart['items'] ?? []) > 0) shop-has-cart-bar @endif
+    agent-catalog-page @if (count($cart['items'] ?? []) > 0) shop-has-cart-bar @endif
 @endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
 
 @section('content')
     @include('agent.order.partials._hero-promo-carousel')
@@ -65,9 +74,8 @@
         @forelse ($products as $product)
             @include('agent.order._product-card', ['product' => $product])
         @empty
-            <div class="col-12 text-center text-muted py-5">
-                <i class="ti ti-package-off fs-1 d-block mb-2"></i>
-                Tidak ada produk jadi tersedia.
+            <div class="col-12">
+                <x-empty-state icon="ti ti-package-off" title="Tidak ada produk jadi tersedia" />
             </div>
         @endforelse
     </div>
