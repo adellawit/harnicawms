@@ -8,12 +8,14 @@
         });
 
         if (window.jQuery && $.fn.select2) {
-            $('.select2').select2({
-                width: '100%',
-                allowClear: true,
-                placeholder: function () {
-                    return $(this).find('option:first').text() || 'Select';
-                },
+            $('.select2').each(function () {
+                var $el = $(this);
+                $el.select2({
+                    width: '100%',
+                    allowClear: ! $el.prop('multiple'),
+                    placeholder: $el.data('placeholder')
+                        || ($el.find('option:first').text() || 'Select'),
+                });
             });
         }
 

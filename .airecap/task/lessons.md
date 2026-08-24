@@ -1,5 +1,12 @@
 # Lessons
 
+## 2026-08-24 — Promotion create 500: `exists:partner.agents`
+
+- **Symptom:** Create marketing promo (pilih agen/reseller) → HTTP 500 `Database connection [partner] not configured`.
+- **Root cause:** Rule string `exists:partner.agents,id` di-parse Laravel sebagai **connection** `partner` + table `agents`. Ada connection `product`/`transaction` di `config/database.php`, tapi **tidak ada** `partner`.
+- **Fix pattern:** Pakai `Rule::exists(Agent::class, 'id')` / `Rule::exists(Reseller::class, 'id')`, atau `Rule::exists('pgsql.partner.agents', 'id')`. Jangan `exists:partner.*`.
+- **Verify:** Validator dengan 2 agent UUID lolos; sync pivot OK.
+
 ## 2026-08-14 — Agent-order catalog shows Sachet price (Rp 750) not Karton (Rp 900.000)
 
 - **Symptom:** `/agent-order` card Foredi (Barang Jadi) tampil Rp 750; harga distributor Karton Rp 900.000.

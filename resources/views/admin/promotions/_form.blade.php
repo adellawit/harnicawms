@@ -276,22 +276,24 @@
                     </select>
                 </div>
                 <div class="col-md-4 target-agent-picker">
-                    <label class="form-label">Agent spesifik</label>
-                    <select name="target_agent_id" id="target_agent_id" class="form-select select2">
-                        <option value="">-- Semua agent --</option>
+                    <label class="form-label">Agent (kosong = semua)</label>
+                    <select name="target_agent_ids[]" id="target_agent_ids" class="form-select select2" multiple
+                            data-placeholder="-- Semua agent --">
                         @foreach ($agents ?? [] as $agent)
-                            <option value="{{ $agent->id }}" @selected(old('target_agent_id', $p?->target_agent_id) === $agent->id)>
+                            <option value="{{ $agent->id }}"
+                                @selected(collect(old('target_agent_ids', $selectedAgentIds ?? []))->contains($agent->id))>
                                 {{ $agent->code }} — {{ $agent->name }}
                             </option>
                         @endforeach
                     </select>
                 </div>
                 <div class="col-md-4 target-reseller-picker">
-                    <label class="form-label">Reseller spesifik</label>
-                    <select name="target_reseller_id" id="target_reseller_id" class="form-select select2">
-                        <option value="">-- Semua reseller --</option>
+                    <label class="form-label">Reseller (kosong = semua)</label>
+                    <select name="target_reseller_ids[]" id="target_reseller_ids" class="form-select select2" multiple
+                            data-placeholder="-- Semua reseller --">
                         @foreach ($resellers ?? [] as $reseller)
-                            <option value="{{ $reseller->id }}" @selected(old('target_reseller_id', $p?->target_reseller_id) === $reseller->id)>
+                            <option value="{{ $reseller->id }}"
+                                @selected(collect(old('target_reseller_ids', $selectedResellerIds ?? []))->contains($reseller->id))>
                                 {{ $reseller->code }} — {{ $reseller->name }}
                             </option>
                         @endforeach

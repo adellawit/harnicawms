@@ -20,7 +20,7 @@ class PromotionController extends Controller
     {
         $companyId = optional(WmsContext::distributor())->id;
 
-        $promotions = Promotion::with(['buyProduct', 'buyVariant', 'getProduct', 'getVariant'])
+        $promotions = Promotion::with(['buyProduct', 'buyVariant', 'getProduct', 'getVariant', 'targetAgents:id,name', 'targetResellers:id,name'])
             ->when($companyId, fn ($q) => $q->where(fn ($qq) => $qq->whereNull('company_id')->orWhere('company_id', $companyId)))
             ->orderByDesc('is_active')
             ->orderBy('priority')
@@ -34,12 +34,14 @@ class PromotionController extends Controller
     {
         return view('admin.promotions.create', array_merge($this->formData(), [
             'previewCode' => Promotion::generateCode(optional(WmsContext::distributor())->id),
+            'selectedAgentIds' => [],
+            'selectedResellerIds' => [],
         ]));
     }
 
     public function store(Request $request)
     {
-        $data = $this->validated($request);
+        [$data, $agentIds, $resellerIds] = $this->validated($request);
         $companyId = optional(WmsContext::distributor())->id;
         $data['company_id'] = $companyId;
         $data['code'] = Promotion::generateCode($companyId);
@@ -48,6 +50,8 @@ class PromotionController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
 
         $promo = Promotion::create($data);
+        $promo->targetAgents()->sync($agentIds);
+        $promo->targetResellers()->sync($resellerIds);
 
         return redirect()
             ->route('promotions.show', $promo->id)
@@ -58,6 +62,7 @@ class PromotionController extends Controller
     {
         $promo = Promotion::with([
             'buyProduct', 'buyVariant', 'getProduct', 'getVariant', 'getUnit',
+            'targetAgents:id,code,name', 'targetResellers:id,code,name',
         ])->findOrFail($id);
 
         return view('admin.promotions.show', compact('promo'));
@@ -65,20 +70,26 @@ class PromotionController extends Controller
 
     public function edit(string $id)
     {
-        $promo = Promotion::findOrFail($id);
+        $promo = Promotion::with(['targetAgents:id', 'targetResellers:id'])->findOrFail($id);
 
-        return view('admin.promotions.edit', array_merge($this->formData(), compact('promo')));
+        return view('admin.promotions.edit', array_merge($this->formData(), [
+            'promo' => $promo,
+            'selectedAgentIds' => $promo->targetAgents->pluck('id')->all(),
+            'selectedResellerIds' => $promo->targetResellers->pluck('id')->all(),
+        ]));
     }
 
     public function update(Request $request, string $id)
     {
         $promo = Promotion::findOrFail($id);
-        $data = $this->validated($request, $promo->id);
+        [$data, $agentIds, $resellerIds] = $this->validated($request, $promo->id);
         unset($data['code']);
         $data['updated_by'] = Auth::id();
         $data['is_active'] = $request->boolean('is_active');
 
         $promo->update($data);
+        $promo->targetAgents()->sync($agentIds);
+        $promo->targetResellers()->sync($resellerIds);
 
         return redirect()
             ->route('promotions.show', $promo->id)
@@ -129,6 +140,9 @@ class PromotionController extends Controller
         ];
     }
 
+    /**
+     * @return array{0: array<string, mixed>, 1: list<string>, 2: list<string>}
+     */
     protected function validated(Request $request, ?string $ignoreId = null): array
     {
         $promotionType = $request->input('promotion_type', 'product');
@@ -162,8 +176,10 @@ class PromotionController extends Controller
             'free_warehouse_type' => ['nullable', 'required_if:promotion_type,product', 'in:MARKETING,FG,ORDER'],
             'max_applications_per_line' => ['nullable', 'integer', 'min:1'],
             'target_type' => ['nullable', 'required_if:promotion_type,marketing', 'in:agent,reseller,both'],
-            'target_agent_id' => ['nullable', 'uuid', 'exists:partner.agents,id'],
-            'target_reseller_id' => ['nullable', 'uuid', 'exists:partner.resellers,id'],
+            'target_agent_ids' => ['nullable', 'array'],
+            'target_agent_ids.*' => ['uuid', Rule::exists(Agent::class, 'id')],
+            'target_reseller_ids' => ['nullable', 'array'],
+            'target_reseller_ids.*' => ['uuid', Rule::exists(Reseller::class, 'id')],
             'reactivates_reseller' => ['nullable', 'boolean'],
             'min_purchase_type' => ['nullable', 'required_if:promotion_type,marketing', 'in:amount,qty'],
             'min_purchase_value' => ['nullable', 'required_if:promotion_type,marketing', 'numeric', 'min:0.000001'],
@@ -173,6 +189,9 @@ class PromotionController extends Controller
         ]);
 
         $data['priority'] = (int) ($request->input('priority') ?: 100);
+
+        $agentIds = [];
+        $resellerIds = [];
 
         if ($promotionType === 'marketing') {
             $data['buy_min_qty'] = null;
@@ -186,14 +205,13 @@ class PromotionController extends Controller
             $data['free_warehouse_type'] = null;
             $data['max_applications_per_line'] = $request->input('max_applications_per_line') ?: null;
             $data['reactivates_reseller'] = $request->boolean('reactivates_reseller');
-            $data['target_agent_id'] = $request->input('target_agent_id') ?: null;
-            $data['target_reseller_id'] = $request->input('target_reseller_id') ?: null;
 
-            if ($data['target_type'] === 'agent') {
-                $data['target_reseller_id'] = null;
-            } elseif ($data['target_type'] === 'reseller') {
-                $data['target_agent_id'] = null;
-            }
+            $agentIds = $data['target_type'] === 'reseller'
+                ? []
+                : array_values(array_filter($request->input('target_agent_ids', [])));
+            $resellerIds = $data['target_type'] === 'agent'
+                ? []
+                : array_values(array_filter($request->input('target_reseller_ids', [])));
 
             if ($data['discount_type'] === 'percent' && (float) $data['discount_value'] > 100) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -202,8 +220,6 @@ class PromotionController extends Controller
             }
         } else {
             $data['target_type'] = null;
-            $data['target_agent_id'] = null;
-            $data['target_reseller_id'] = null;
             $data['reactivates_reseller'] = false;
             $data['min_purchase_type'] = null;
             $data['min_purchase_value'] = null;
@@ -218,6 +234,8 @@ class PromotionController extends Controller
                 ? ($request->input('get_variant_id') ?: null)
                 : null;
         }
+
+        unset($data['target_agent_ids'], $data['target_reseller_ids']);
 
         $rawStarts = trim((string) $request->input('starts_at'));
         $rawEnds = trim((string) $request->input('ends_at'));
@@ -241,7 +259,7 @@ class PromotionController extends Controller
             ]);
         }
 
-        return $data;
+        return [$data, $agentIds, $resellerIds];
     }
 
     protected function parseDateInput(?string $value, bool $endOfDay = false): ?Carbon

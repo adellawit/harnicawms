@@ -144,8 +144,8 @@
             min_type: String($card.data('min-type') || 'amount'),
             min_value: parseFloat($card.data('min-value')) || 0,
             target_type: String($card.data('target-type') || 'both'),
-            target_agent_id: String($card.data('target-agent') || ''),
-            target_reseller_customer_id: String($card.data('target-reseller-customer') || ''),
+            target_agent_ids: $card.data('target-agents') || [],
+            target_reseller_customer_ids: $card.data('target-reseller-customers') || [],
             name: $.trim($card.find('.fw-semibold').first().text()),
         };
     }
@@ -153,21 +153,19 @@
     function checkMarketingPromoTarget(promo) {
         var agentId = String((window.agentPosCtx || {}).agentId || '');
         var customerId = String($('#customerSelect').val() || '');
+        var agents = promo.target_agent_ids || [];
+        var resellerCustomers = promo.target_reseller_customer_ids || [];
+
+        var agentOk = !agents.length || agents.indexOf(agentId) !== -1;
+        var resellerOk = !!customerId && (!resellerCustomers.length || resellerCustomers.indexOf(customerId) !== -1);
 
         if (promo.target_type === 'agent') {
-            return !promo.target_agent_id || promo.target_agent_id === agentId;
+            return agentOk;
         }
         if (promo.target_type === 'reseller') {
-            if (!customerId) {
-                return false;
-            }
-            return !promo.target_reseller_customer_id || promo.target_reseller_customer_id === customerId;
+            return resellerOk;
         }
         if (promo.target_type === 'both') {
-            var agentOk = !promo.target_agent_id || promo.target_agent_id === agentId;
-            var resellerOk = customerId && (
-                !promo.target_reseller_customer_id || promo.target_reseller_customer_id === customerId
-            );
             return agentOk || resellerOk;
         }
         return false;
