@@ -33,6 +33,7 @@ class SalesOrderItem extends Model
         'source_warehouse_id',
         'parent_item_id',
         'outbound_expiry_date',
+        'price_list_id',
         'created_by',
         'updated_by',
         'deleted_by',
