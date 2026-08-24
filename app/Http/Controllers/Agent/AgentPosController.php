@@ -999,6 +999,7 @@ class AgentPosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.variant_id' => 'required|uuid',
             'items.*.unit_id' => 'required|uuid',
+            'items.*.price_list_id' => 'nullable|uuid',
             'items.*.quantity' => 'required|numeric|min:0.000001',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_type' => 'nullable|in:percent,nominal',
