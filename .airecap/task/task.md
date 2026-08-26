@@ -1,12 +1,18 @@
-# Agent Cutting Price ↔ Config Alignment (Option 1)
+# POS Admin Ongkir
 
 ## Checklist
-- [x] Diagnose: config BOX vs SO KARTON — unit exact match failed
-- [x] Implement MAP + unit conversion (recursive conversion paths)
-- [x] Update detail UI + export columns
-- [x] Verify TRX-120826-0001: factor 300, net_map 3000, MAP 229000, detected cutting
+- [x] PosCheckoutService: shipping di total + persist meta
+- [x] Endpoint `/transaction/pos/shipping-options`
+- [x] UI kota + kurir + input Rp di footer cart
+- [x] Agent POS tidak double-add shipping
+- [x] Verifikasi syntax + route
+- [x] `/transaction` history: kolom Ongkir + kurir/layanan/ETD
+- [x] Detail: baris Ongkir + meta kurir
+- [x] Invoice & surat jalan: ongkir + kurir
 
 ## Review
-- Floor tetap `map_price` dari `/partner-network/cutting-price-config`
-- Harga jual dikonversi ke unit config sebelum dibanding
-- Gap amount = (MAP − net_per_map_unit) × (qty × factor)
+- Footer `/transaction/pos`: kota tujuan (typeahead) → kurir Master Ongkir → input Rp (bisa override)
+- Total = subtotal + pajak − diskon − redeem + ongkir
+- Kota asal dari `city_id` gudang sumber penjualan (`cityRef`)
+- Agent POS tetap kirim `shipping_amount`; total tidak di-add dua kali
+- History/detail/print menampilkan `shipping_amount` + `shippingMetaLabel()` (kurir · layanan · ETD)

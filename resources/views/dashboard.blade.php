@@ -376,7 +376,7 @@
 
         <div class="row g-3 mb-4">
             <div class="col-xl-3 col-md-6">
-                <x-dashboard.kpi-card title="Inbound Today" :value="$fmtNum($inboundToday) . ' pcs'" :subtitle="$inboundTodayCount . ' movement(s)'" icon="ti ti-package-import" iconColor="primary" />
+                <x-dashboard.kpi-card title="Inbound Today" :value="$fmtNum($inboundToday) . ' pcs'" :subtitle="$inboundTodayCount . ' movement(s)'" icon="ti ti-truck-loading" iconColor="primary" />
             </div>
             <div class="col-xl-3 col-md-6">
                 <x-dashboard.kpi-card title="Outbound Today" :value="$fmtNum($outboundToday) . ' pcs'" :subtitle="$outboundTodayCount . ' movement(s)'" icon="ti ti-package-export" iconColor="info" />

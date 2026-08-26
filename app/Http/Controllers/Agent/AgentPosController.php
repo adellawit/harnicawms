@@ -346,6 +346,21 @@ class AgentPosController extends Controller
                 continue;
             }
 
+            // mapVariantForPos()'s display_name comes from the shared
+            // ProductVariant::getDisplayNameAttribute() accessor (used in 30+ admin
+            // locations, so it isn't touched directly) — it returns the raw product
+            // name, which in this tenant's data carries a trailing "(Product Type)"
+            // suffix, plus " (SKU)" when the variant has no real attribute values.
+            // Clean it here, scoped to the agent POS response only.
+            $variantAttrs = $variant->variantAttributes
+                ->map(fn ($va) => $va->attributeValue?->value ?? '')
+                ->filter()
+                ->implode(' / ');
+            $cleanProductName = product_print_name($product->name);
+            $mapped['display_name'] = $variantAttrs
+                ? $cleanProductName.' - '.$variantAttrs
+                : $cleanProductName;
+
             $unitOptions = $this->productSearch->buildPosUnitOptions($variant, $branchId, $request->price_list_id);
 
             $result[] = array_merge($mapped, [
@@ -984,6 +999,7 @@ class AgentPosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.variant_id' => 'required|uuid',
             'items.*.unit_id' => 'required|uuid',
+            'items.*.price_list_id' => 'nullable|uuid',
             'items.*.quantity' => 'required|numeric|min:0.000001',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_type' => 'nullable|in:percent,nominal',

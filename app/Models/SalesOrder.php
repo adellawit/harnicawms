@@ -49,6 +49,7 @@ class SalesOrder extends Model
         'shipping_service',
         'shipping_rate_id',
         'shipping_etd',
+        'shipping_tracking_number',
         'total',
         'unique_code',
         'payable_amount',

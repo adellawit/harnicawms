@@ -4,35 +4,33 @@
     data-theme-primary="{{ $appTheme['primary'] ?? '#5C9E84' }}"
     data-theme-secondary="{{ $appTheme['secondary'] ?? '#7BB5A0' }}">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="theme-color" content="{{ $appTheme['primary'] ?? '#5C9E84' }}">
-    <title>@yield('title', 'POS Agen') {{ $shopCompanyName ?? config('app.name') }}</title>
-    <link rel="icon" type="image/x-icon" href="{{ $appTheme['favicon_url'] ?? asset('assets/img/wms/favicon.ico') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/tabler-icons.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/rtl/core.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/rtl/theme-default.css') }}" />
-    @include('layouts.partials.theme-vars')
-    <link rel="stylesheet" href="{{ asset('assets/css/design-system.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/theme-bridge.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/shop.css') }}">
+    @include('layouts.partials._agent-head', ['titleDefault' => 'POS Agen'])
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
     @stack('styles')
+
+    {{-- Butuh jQuery lebih dulu, jadi dititipkan ke stack di _agent-scripts --}}
+    @push('vendor-scripts')
+        <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+    @endpush
 </head>
-<body class="agent-pos-body agent-order-body">
+<body class="agent-pos-body agent-order-body @yield('shop_body_class')">
+    {{-- Full-page fixed background decoration, same convention as
+         layouts.agent-order — see that file for the rationale. --}}
+    @stack('body-top')
+
     <div class="agent-pos-shell">
         <header class="agent-pos-header">
-            <div class="agent-pos-brand">
+            <a class="agent-pos-brand" href="{{ route('agent-order.dashboard') }}" aria-label="Beranda portal agen">
                 @if (!empty($appTheme['logo_url']))
-                    <img src="{{ $appTheme['logo_url'] }}" alt="{{ $shopCompanyName ?? config('app.name') }}">
+                    <img src="{{ $appTheme['logo_url'] }}" alt="{{ $shopCompanyName ?? config('app.name') }}"
+                        data-brand-logo="{{ $appTheme['logo_url'] }}">
                 @else
                     <i class="ti ti-receipt"></i>
                 @endif
-            </div>
+            </a>
             <div class="agent-pos-identity">
                 @auth('customer')
                     <span class="agent-pos-agent-name">{{ auth('customer')->user()->name }}</span>
@@ -44,33 +42,31 @@
                 <span class="pos-meta-sep">·</span>
                 <span><span id="cartItemCount" class="meta-val">0</span> item</span>
             </div>
-            @include('agent.partials._shop-nav-actions')
+            @include('agent.partials._shop-nav-actions', ['showMenu' => false])
         </header>
 
         @include('agent.partials._shop-cart-offcanvas')
 
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show m-2 mb-0">{{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show m-2 mb-0">{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+        @if (session('warning'))
+            <div class="alert alert-warning alert-dismissible fade show m-2 mb-0">{{ session('warning') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
         @yield('content')
     </div>
 
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
-    <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
-    @auth('customer')
-        <script>
-            window.shopRoutes = {
-                shop: @json(route('agent-order.index')),
-                variants: @json(route('agent-order.products.variants')),
-                cartAdd: @json(route('agent-order.cart.add')),
-                cartUpdate: @json(route('agent-order.cart.update')),
-                cartRemove: @json(route('agent-order.cart.remove')),
-                csrf: @json(csrf_token()),
-            };
-            window.shopCheckoutUrl = @json(route('agent-order.checkout'));
-            $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': window.shopRoutes.csrf } });
-        </script>
-        <script src="{{ asset('assets/js/shop.js') }}"></script>
-    @endauth
+    @include('layouts.partials._agent-scripts')
     @stack('scripts')
 </body>
 </html>

@@ -1,6 +1,32 @@
-@extends('layouts.agent-pos')
+@extends('layouts.agent-order')
 
 @section('title', 'POS Agen | ')
+
+@section('shop_body_class')
+    agent-pos-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
+@endpush
+
+{{-- Butuh jQuery lebih dulu, jadi dititipkan ke stack di _agent-scripts (sama
+     seperti layouts.agent-pos sebelumnya). --}}
+@push('vendor-scripts')
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+@endpush
 
 @php
     $cashMethodId = ($methodPayments ?? collect())->first(fn ($mp) => strtoupper($mp->code) === 'CASH')?->id;
@@ -20,6 +46,15 @@
         @endif
 
         <div class="pos-top-bar">
+            <div class="pos-top-bar-identity d-none d-sm-flex align-items-center gap-2 text-muted small">
+                @auth('customer')
+                    <span class="fw-semibold text-body">{{ auth('customer')->user()->name }}</span>
+                    <span class="pos-meta-sep">·</span>
+                @endauth
+                <span>{{ date('d M Y') }}</span>
+                <span class="pos-meta-sep">·</span>
+                <span id="posClock">{{ date('H:i') }}</span>
+            </div>
             <span id="posTrxNumberWrap" style="display:none"><span class="meta-id" id="posTrxNumber"></span></span>
             <div class="pos-top-bar-actions ms-auto">
                 <a href="{{ route('agent-order.pos.history') }}" class="btn btn-sm btn-label-secondary">
@@ -47,27 +82,6 @@
                         <i class="ti ti-search icon"></i>
                         <input type="text" class="form-control" placeholder="Scan barcode / Cari produk..." id="searchProduct" autocomplete="off">
                     </div>
-                    <div class="pos-category-filter">
-                        <select id="categoryFilterSelect" class="form-select form-select-sm">
-                            <option value="all">Semua Kategori</option>
-                            @foreach($productTypes ?? collect() as $productType)
-                                <option value="{{ $productType->id }}">{{ $productType->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-primary pos-filter-btn" id="btnCategoryFilter">
-                        <i class="ti ti-filter me-1"></i> Filter
-                    </button>
-                    <div class="pos-categories" id="productTypeTabs" aria-label="Kategori Produk">
-                        <span class="pos-category-pill active" data-product-type="all">
-                            Semua <span class="pill-count">{{ $products->count() ?? 0 }}</span>
-                        </span>
-                        @foreach($productTypes ?? collect() as $productType)
-                            <span class="pos-category-pill" data-product-type="{{ $productType->id }}">
-                                {{ $productType->name }} <span class="pill-count">{{ $productType->products_count ?? 0 }}</span>
-                            </span>
-                        @endforeach
-                    </div>
                 </div>
 
                 <div class="pos-product-grid" id="productGrid">
@@ -81,7 +95,7 @@
                                      onerror="this.onerror=null;this.src='https://placehold.co/300x225/f8f9fa/d1d5db?text=+';">
                             </div>
                             <div class="p-body">
-                                <div class="p-name" title="{{ $product->name }}">{{ $product->name }}</div>
+                                <div class="p-name" title="{{ product_print_name($product->name) }}">{{ product_print_name($product->name) }}</div>
                                 @if($product->code)
                                     <div class="small text-muted">{{ $product->code }}</div>
                                 @endif
@@ -128,21 +142,17 @@
             {{-- Panel kanan: keranjang --}}
             <div class="pos-cart">
                 <div class="pos-cart-top">
-                    <div class="pos-cart-top-reseller flex-grow-1 min-w-0">
-                        <select id="customerSelect" style="width:100%">
-                            <option value="">Pelanggan Umum (Walk-in)</option>
-                        </select>
+                    <div class="pos-cart-top-row">
+                        <div class="pos-cart-top-field flex-grow-1 min-w-0">
+                            <label class="pos-cart-top-label" for="customerSelect">Pelanggan</label>
+                            <select id="customerSelect" style="width:100%">
+                                <option value="">Pelanggan Umum (Walk-in)</option>
+                            </select>
+                        </div>
+                        <span class="cart-badge" title="Jumlah item di keranjang">
+                            <i class="ti ti-shopping-cart"></i> <span id="cartItemCountBadge">0</span>
+                        </span>
                     </div>
-                    <div id="priceListWrapper" class="pos-cart-top-price-list flex-shrink-0" data-selected-id="{{ $defaultPriceListId ?? '' }}">
-                        <select id="priceListSelect" style="width:160px">
-                            <option value="">Daftar Harga</option>
-                            @forelse($priceLists ?? collect() as $pl)
-                                <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
-                            @empty
-                            @endforelse
-                        </select>
-                    </div>
-                    <span class="cart-badge"><span id="cartItemCountBadge">0</span></span>
                 </div>
 
                 <div class="pos-cart-items" id="cartItems">
@@ -291,6 +301,16 @@
                 </div>
                 <div class="modal-body">
                     <div id="addItemVariantName" class="fw-semibold mb-3"></div>
+                    <div class="mb-3" id="addItemPriceListWrap">
+                        <label class="form-label" for="addItemPriceListSelect">Kategori Harga</label>
+                        <select id="addItemPriceListSelect" class="form-select">
+                            @forelse($priceLists ?? collect() as $pl)
+                                <option value="{{ $pl->id }}" {{ ($defaultPriceListId ?? '') == $pl->id ? 'selected' : '' }}>{{ $pl->name }}</option>
+                            @empty
+                                <option value="">Tidak ada kategori harga</option>
+                            @endforelse
+                        </select>
+                    </div>
                     <div id="addItemSerialWrap" class="mb-3 d-none">
                         <label class="form-label d-flex align-items-center gap-1" for="addItemSerialInput">
                             <i class="ti ti-barcode"></i> Scan atau ketik serial
@@ -479,6 +499,7 @@
             taxRate: {{ (int) ($taxRate ?? 0) }},
             cashMethodId: @json($cashMethodId),
             fallbackMethodId: @json($fallbackMethodId),
+            defaultPriceListId: @json($defaultPriceListId ?? null),
         };
         window.agentPosCtx = {
             agentId: @json($agentId ?? null),

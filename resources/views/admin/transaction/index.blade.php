@@ -29,6 +29,9 @@
         @if (session('success'))
             <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
         @endif
+        @if (session('error'))
+            <x-alert type="danger" class="mb-3">{{ session('error') }}</x-alert>
+        @endif
 
         <div class="card">
             <div class="card-datatable text-nowrap">
@@ -80,6 +83,7 @@
             <select id="filterStatus" class="select2-modal form-select" data-allow-clear="true">
                 <option value="">All</option>
                 <option value="draft" @if($status=='draft') selected @endif>Draft</option>
+                <option value="verification" @if($status=='verification') selected @endif>Verification</option>
                 <option value="completed" @if($status=='completed') selected @endif>Completed</option>
                 <option value="cancelled" @if($status=='cancelled') selected @endif>Cancelled</option>
                 <option value="deleted" @if($status=='deleted') selected @endif>Deleted</option>
@@ -105,6 +109,21 @@
         <x-slot:footer>
             <button type="button" class="btn btn-label-dark" id="btnResetFilter">Reset</button>
             <button type="button" class="btn btn-primary" id="btnFilter" data-bs-dismiss="modal">Filter</button>
+        </x-slot:footer>
+    </x-modal>
+
+    <x-modal id="shippingModal" title="Update Nomor Resi">
+        <form id="shippingForm" method="POST" action="">
+            @csrf
+            <div class="mb-0">
+                <label class="form-label">Nomor Resi</label>
+                <input type="text" name="shipping_tracking_number" id="shippingTrackingNumberInput" class="form-control"
+                    required maxlength="100" placeholder="Contoh: JNE1234567890">
+            </div>
+        </form>
+        <x-slot:footer>
+            <button type="button" class="btn btn-label-dark" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" form="shippingForm" class="btn btn-primary">Simpan</button>
         </x-slot:footer>
     </x-modal>
 
@@ -135,6 +154,8 @@
     @push('page-js')
         <script>
             $(document).ready(function() {
+                function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
                 function toIsoDate(value) {
                     if (!value) return '';
                     value = String(value).trim();
@@ -184,11 +205,21 @@
                             var detailUrl = "{{ url('transaction/detail') }}/" + r.id;
                             var printUrl = "{{ url('transaction') }}/" + r.id + "/print-invoice?print=1";
                             var shippingUrl = "{{ url('transaction') }}/" + r.id + "/print-shipping?print=1";
-                            return '<div class="trx-actions">'
-                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>'
-                                + '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>'
-                                + '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>'
-                                + '</div>';
+                            var html = '<div class="trx-actions">'
+                                + '<a href="' + detailUrl + '" class="btn btn-sm btn-outline-primary" title="Detail"><i class="ti ti-eye me-1"></i>Detail</a>';
+                            if (r.status === 'verification' && !r.deleted_at) {
+                                var verifyUrl = "{{ url('transaction') }}/" + r.id + "/verify";
+                                html += '<a href="' + verifyUrl + '" class="btn btn-sm btn-success" title="Verify"><i class="ti ti-check me-1"></i>Verify</a>';
+                            }
+                            if ((r.status === 'shipped' || r.status === 'completed') && !r.deleted_at) {
+                                html += '<button type="button" class="btn btn-sm btn-info btn-shipping-action" data-bs-toggle="modal" data-bs-target="#shippingModal" data-shipping-id="' + r.id + '" data-shipping-value="' + escapeHtml(r.shipping_tracking_number || '') + '" title="Shipping"><i class="ti ti-truck me-1"></i>Shipping</button>';
+                            }
+                            html += '<a href="' + printUrl + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print Invoice"><i class="ti ti-printer me-1"></i>Invoice</a>';
+                            if (r.shipping_tracking_number) {
+                                html += '<a href="' + shippingUrl + '" target="_blank" class="btn btn-sm btn-outline-info" title="Print Surat Jalan"><i class="ti ti-truck-delivery me-1"></i>Surat Jalan</a>';
+                            }
+                            html += '</div>';
+                            return html;
                         } }
                     ],
                     dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
@@ -223,6 +254,13 @@
                     window.location = '{{ route("transaction.index") }}' + (params.length ? '?' + params.join('&') : '');
                 });
                 $('#btnResetFilter').click(function() { window.location = '{{ route("transaction.index") }}'; });
+
+                $(document).on('click', '.btn-shipping-action', function() {
+                    var orderId = $(this).data('shipping-id');
+                    var current = $(this).data('shipping-value') || '';
+                    $('#shippingForm').attr('action', "{{ url('transaction') }}/" + orderId + "/shipping");
+                    $('#shippingTrackingNumberInput').val(current);
+                });
             });
         </script>
     @endpush

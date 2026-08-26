@@ -41,7 +41,8 @@
                             @checked($pickFirst)>
                         @php $pickFirst = false; @endphp
                         <span class="shop-pay-option-card">
-                            <img src="{{ asset('assets/img/payments/default.svg') }}" alt="{{ $method->name }}" class="shop-pay-icon" loading="lazy">
+                            <img src="{{ $method->icon ?? $defaultPayIcon }}" alt="{{ $method->name }}" class="shop-pay-icon" loading="lazy"
+                                onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}';">
                             <span class="shop-pay-label">{{ $method->name }}</span>
                         </span>
                     </label>
@@ -63,7 +64,8 @@
                         @checked($pickFirst)>
                     @php $pickFirst = false; @endphp
                     <span class="shop-pay-option-card">
-                        <img src="{{ asset('assets/img/payments/default.svg') }}" alt="{{ $manualTransferMethod->name }}" class="shop-pay-icon" loading="lazy">
+                        <img src="{{ $manualTransferMethod->icon ?? $defaultPayIcon }}" alt="{{ $manualTransferMethod->name }}" class="shop-pay-icon" loading="lazy"
+                            onerror="this.onerror=null;this.src='{{ $defaultPayIcon }}';">
                         <span class="shop-pay-label">{{ $manualTransferMethod->name }}</span>
                         <span class="shop-pay-sub">Transfer + kode unik</span>
                     </span>

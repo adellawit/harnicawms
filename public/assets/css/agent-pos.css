@@ -63,10 +63,12 @@
     flex-wrap: wrap;
 }
 .pos-search {
+    /* Sole control left in the catalog header (category filter/pills removed) —
+       let it stretch further so it doesn't look stranded next to empty space. */
     position: relative;
     flex: 1;
     min-width: 160px;
-    max-width: 300px;
+    max-width: 480px;
 }
 .pos-search input {
     padding-left: 2.25rem;
@@ -276,24 +278,34 @@
     background: #fafbfe;
 }
 
-/* Cart top: customer + items badge */
+/* Cart top: customer + price list, each labeled and full-width so long
+   values (e.g. the "Pelanggan Umum (Walk-in)" placeholder) never truncate. */
 .pos-cart-top {
     padding: 0.625rem 0.75rem;
     border-bottom: 1px solid #f0f0f0;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.5rem;
-    flex-wrap: wrap;
 }
-.pos-cart-top-reseller {
-    flex: 1 1 180px;
+.pos-cart-top-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+.pos-cart-top-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
     min-width: 0;
 }
-.pos-cart-top-price-list {
-    flex: 0 0 160px;
-    max-width: 100%;
+.pos-cart-top-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #8592a6;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
-.pos-cart-top-price-list .select2-container {
+.pos-cart-top-field .select2-container {
     width: 100% !important;
 }
 .pos-cart-top .cart-badge {
@@ -301,9 +313,13 @@
     color: #fff;
     font-size: 0.6875rem;
     font-weight: 700;
-    padding: 0.2rem 0.5rem;
+    padding: 0.4rem 0.6rem;
     border-radius: 2rem;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
 }
 .pos-customer-option {
     display: flex;
@@ -1211,6 +1227,12 @@ body.agent-pos-body {
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
+    /* Only the POS history pages use this layout now (the POS register page
+       moved to layouts.agent-order) — they don't manage their own internal
+       scroll areas the way the register's cart/catalog panels did, so let
+       the shell itself scroll when their content is taller than the
+       viewport instead of silently clipping it. */
+    overflow-y: auto;
 }
 .agent-pos-header {
     display: flex;
@@ -1461,7 +1483,10 @@ body.agent-pos-body {
 }
 
 /* ── POS History page ─────────────────────────────────────────── */
-.agent-pos-body .pos-history-page {
+/* Was scoped to .agent-pos-body when these pages used layouts.agent-pos;
+   they now use layouts.agent-order (standard nav/footer), which never
+   sets that class, so this only needs the page's own content class. */
+.pos-history-page {
     padding: 1rem;
     max-width: 1200px;
     margin: 0 auto;

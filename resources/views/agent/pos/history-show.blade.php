@@ -1,6 +1,15 @@
-@extends('layouts.agent-pos')
+@extends('layouts.agent-order')
 
 @section('title', $order->sales_number . ' | Riwayat POS | ')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
+@endpush
+
+@push('vendor-scripts')
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+@endpush
 
 @section('content')
     @php
@@ -71,7 +80,8 @@
                                 @foreach ($order->items as $item)
                                     @php
                                         $unitLabel = $item->unit?->symbol ?: ($item->unit?->name ?: $item->unit?->code);
-                                        $productName = $item->product?->name ?? $item->variant?->display_name ?? 'Item';
+                                        $productName = $item->product?->name ?? $item->variant?->product?->name;
+                                        $productName = $productName ? product_print_name($productName) : 'Item';
                                     @endphp
                                     <tr>
                                         <td>{{ $productName }}</td>
