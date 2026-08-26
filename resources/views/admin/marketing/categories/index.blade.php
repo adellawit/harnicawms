@@ -21,13 +21,12 @@
             </div>
             <div class="table-responsive">
                 <table class="table mb-0">
-                    <thead><tr><th>Urutan</th><th>Nama</th><th>Warna</th><th>Aset</th><th>Status</th><th></th></tr></thead>
+                    <thead><tr><th>Urutan</th><th>Nama</th><th>Aset</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                         @forelse ($categories as $cat)
                             <tr>
                                 <td>{{ $cat->sort_order }}</td>
                                 <td>{{ $cat->name }}</td>
-                                <td><span class="badge" style="background: {{ $cat->color ?: '#e7e7e7' }}">{{ $cat->color ?: '-' }}</span></td>
                                 <td>{{ $cat->assets_count }}</td>
                                 <td><span class="badge bg-label-{{ $cat->is_active ? 'success' : 'secondary' }}">{{ $cat->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                                 <td class="text-end">
@@ -39,7 +38,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted">Belum ada kategori.</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted">Belum ada kategori.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -56,13 +55,9 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
-                        <div class="col-8">
+                        <div class="col-12">
                             <label class="form-label" for="catName">Nama <span class="text-danger">*</span></label>
                             <input type="text" name="name" id="catName" class="form-control" required>
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label" for="catColor">Warna</label>
-                            <input type="color" name="color" id="catColor" class="form-control form-control-color w-100" value="#5C9E84">
                         </div>
                     </div>
                     <div class="row g-3 align-items-end">
@@ -97,7 +92,6 @@
             document.getElementById('catForm').action = isEdit ? (catUpdateBase + '/' + c.id) : catStoreUrl;
             document.getElementById('catMethod').value = isEdit ? 'PUT' : 'POST';
             document.getElementById('catName').value = c.name || '';
-            document.getElementById('catColor').value = c.color || '#5C9E84';
             document.getElementById('catSort').value = c.sort_order ?? 0;
             document.getElementById('catActive').checked = c.id ? !!c.is_active : true;
         }
