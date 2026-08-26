@@ -7,6 +7,7 @@ use App\Models\Partner\Reseller;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Promotion extends Model
@@ -22,8 +23,6 @@ class Promotion extends Model
         'code',
         'promotion_type',
         'target_type',
-        'target_agent_id',
-        'target_reseller_id',
         'reactivates_reseller',
         'min_purchase_type',
         'min_purchase_value',
@@ -89,14 +88,14 @@ class Promotion extends Model
         return $this->belongsTo(ProductUnit::class, 'get_unit_id');
     }
 
-    public function targetAgent(): BelongsTo
+    public function targetAgents(): BelongsToMany
     {
-        return $this->belongsTo(Agent::class, 'target_agent_id');
+        return $this->belongsToMany(Agent::class, 'product.promotion_target_agents', 'promotion_id', 'agent_id');
     }
 
-    public function targetReseller(): BelongsTo
+    public function targetResellers(): BelongsToMany
     {
-        return $this->belongsTo(Reseller::class, 'target_reseller_id');
+        return $this->belongsToMany(Reseller::class, 'product.promotion_target_resellers', 'promotion_id', 'reseller_id');
     }
 
     public function scopeProductType($query)

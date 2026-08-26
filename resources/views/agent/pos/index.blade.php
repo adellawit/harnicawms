@@ -120,9 +120,8 @@
                                      data-min-type="{{ $c['min_type'] }}"
                                      data-min-value="{{ $c['min_value'] }}"
                                      data-target-type="{{ $c['target_type'] }}"
-                                     data-target-agent="{{ $c['target_agent_id'] }}"
-                                     data-target-reseller="{{ $c['target_reseller_id'] }}"
-                                     data-target-reseller-customer="{{ $c['target_reseller_customer_id'] }}"
+                                     data-target-agents='@json($c['target_agent_ids'])'
+                                     data-target-reseller-customers='@json($c['target_reseller_customer_ids'])'
                                      data-reactivates="{{ $c['reactivates'] ? 1 : 0 }}">
                                     <div class="card-body p-3">
                                         <span class="badge bg-primary mb-1">PROMO</span>

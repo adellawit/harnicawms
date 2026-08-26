@@ -1,18 +1,23 @@
-# POS Admin Ongkir
+# Task: Promotion Marketing Multi-Target
+
+Handoff: `docs/superpowers/plans/2026-08-12-promotion-marketing-multi-target-cursor-handoff.md`
+
+Branch: `feature/promotion-multi-target`
 
 ## Checklist
-- [x] PosCheckoutService: shipping di total + persist meta
-- [x] Endpoint `/transaction/pos/shipping-options`
-- [x] UI kota + kurir + input Rp di footer cart
-- [x] Agent POS tidak double-add shipping
-- [x] Verifikasi syntax + route
-- [x] `/transaction` history: kolom Ongkir + kurir/layanan/ETD
-- [x] Detail: baris Ongkir + meta kurir
-- [x] Invoice & surat jalan: ongkir + kurir
+- [x] L1 — Migrasi pivot + migrasi data + drop kolom single
+- [x] L2 — Model Promotion belongsToMany + fillable
+- [x] L3 — Admin form multi-select + scripts + edit selected ids
+- [x] L4 — Controller validasi array + sync pivot
+- [x] L5 — assertMarketingTargetMatches multi
+- [x] L6 — POS payload + blade data-* + agent-pos.js
+- [x] Fix admin index yang masih pakai targetAgent/targetReseller
+- [x] Verifikasi migrate / php -l / view:cache
 
 ## Review
-- Footer `/transaction/pos`: kota tujuan (typeahead) → kurir Master Ongkir → input Rp (bisa override)
-- Total = subtotal + pajak − diskon − redeem + ongkir
-- Kota asal dari `city_id` gudang sumber penjualan (`cityRef`)
-- Agent POS tetap kirim `shipping_amount`; total tidak di-add dua kali
-- History/detail/print menampilkan `shipping_amount` + `shippingMetaLabel()` (kurir · layanan · ETD)
+- Migrasi `2026_08_12_000010` DONE; kolom `target_agent_id`/`target_reseller_id` sudah drop.
+- Data lama: 1 baris pivot reseller (PRM-202608-0003 → Armansyah) ter-load via `targetResellers`.
+- `php -l` + `view:cache`/`view:clear` bersih.
+- Extra: admin index menampilkan multi-nama (truncate +N).
+- Belum commit (tunggu permintaan user).
+- Smoke UI admin/POS masih manual di browser.
