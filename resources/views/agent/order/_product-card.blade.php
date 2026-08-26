@@ -5,12 +5,7 @@
             <span class="badge bg-danger shop-promo-badge">PROMO</span>
         @endif
         <div class="thumb">
-            @if ($product['image'])
-                <img src="{{ $product['image'] }}" alt="{{ product_print_name($product['name']) }}" loading="lazy"
-                    onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder ti ti-package'}))">
-            @else
-                <span class="placeholder ti ti-package"></span>
-            @endif
+            <x-thumb :url="$product['image']" type="product" :alt="product_print_name($product['name'])" style="width:100%;height:100%" />
         </div>
         <div class="card-body">
             <div class="product-name">{{ product_print_name($product['name']) }}</div>

@@ -1221,6 +1221,32 @@ a.agent-course-card:hover {
     width: 100%;
 }
 
+/* Panel ilustrasi default thumbnail */
+.thumb-wrap {
+    width: 100%;
+    height: 100%;
+}
+.thumb-illus {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    /* warna dasar (light) */
+    --thumb-bg1: #eef6f1;
+    --thumb-bg2: #dcece4;
+    --thumb-ink: #5C9E84;   /* aksen brand */
+    --thumb-line: #9bbcac;  /* garis lembut */
+    background: linear-gradient(135deg, var(--thumb-bg1), var(--thumb-bg2));
+}
+.thumb-illus svg { width: 60%; max-width: 140px; height: auto; }
+/* Dark mode: dua mekanisme agar aman (prefers-color-scheme & data-bs-theme) */
+@media (prefers-color-scheme: dark) {
+    .thumb-illus { --thumb-bg1:#1f2a25; --thumb-bg2:#17201c; --thumb-ink:#7bbfa2; --thumb-line:#3c5148; }
+}
+[data-bs-theme="dark"] .thumb-illus,
+[data-theme="dark"] .thumb-illus {
+    --thumb-bg1:#1f2a25; --thumb-bg2:#17201c; --thumb-ink:#7bbfa2; --thumb-line:#3c5148;
+}
+.thumb-illus .ti-ink { color: var(--thumb-ink); }
+
 .agent-training-course-card {
     transition: box-shadow 0.15s, transform 0.15s;
     overflow: hidden;

@@ -33,17 +33,7 @@
                 <a href="{{ route('agent-order.training.show', $course->id) }}"
                     class="card border-0 shadow-sm h-100 agent-course-card text-decoration-none text-body">
                     <div class="agent-asset-thumb position-relative">
-                        @if ($course->thumbnail_url)
-                            <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy"
-                                onerror="this.classList.add('d-none'); this.nextElementSibling.classList.replace('d-none', 'd-flex');">
-                            <div class="agent-asset-thumb-ph d-none align-items-center justify-content-center">
-                                <i class="ti ti-school fs-1 text-muted"></i>
-                            </div>
-                        @else
-                            <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                <i class="ti ti-school fs-1 text-muted"></i>
-                            </div>
-                        @endif
+                        <x-thumb :url="$course->thumbnail_url" type="course" :alt="$course->title" style="width:100%;height:100%" />
                     </div>
                     <div class="card-body p-2 p-md-3">
                         @if ($course->category)

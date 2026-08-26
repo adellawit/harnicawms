@@ -276,22 +276,11 @@
             @forelse ($marketingAssets as $asset)
                 @php
                     $thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null);
-                    $assetIcon = ['pdf' => 'ti-file-type-pdf', 'video' => 'ti-video', 'text' => 'ti-brand-whatsapp'][$asset->type] ?? 'ti-photo';
                 @endphp
                 <div class="col-6 col-md-3">
                     <div class="card border-0 shadow-sm h-100 agent-asset-card">
                         <div class="agent-asset-thumb position-relative">
-                            @if ($thumb)
-                                <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy"
-                                    onerror="this.classList.add('d-none'); this.nextElementSibling.classList.replace('d-none', 'd-flex');">
-                                <div class="agent-asset-thumb-ph d-none align-items-center justify-content-center">
-                                    <i class="ti {{ $assetIcon }} fs-1 text-muted"></i>
-                                </div>
-                            @else
-                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                    <i class="ti {{ $assetIcon }} fs-1 text-muted"></i>
-                                </div>
-                            @endif
+                            <x-thumb :url="$thumb" :type="$asset->type" :alt="$asset->title" style="width:100%;height:100%" />
                             <span class="agent-asset-badge position-absolute top-0 start-0 m-2">
                                 @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
                             </span>
@@ -330,17 +319,7 @@
                 <div class="col-md-6 col-lg-4">
                     <a href="{{ route('agent-order.training.show', $course->id) }}" class="card border-0 shadow-sm h-100 text-decoration-none text-body agent-course-card">
                         <div class="agent-asset-thumb position-relative">
-                            @if ($course->thumbnail_url)
-                                <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy"
-                                    onerror="this.classList.add('d-none'); this.nextElementSibling.classList.replace('d-none', 'd-flex');">
-                                <div class="agent-asset-thumb-ph d-none align-items-center justify-content-center">
-                                    <i class="ti ti-school fs-1 text-muted"></i>
-                                </div>
-                            @else
-                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                    <i class="ti ti-school fs-1 text-muted"></i>
-                                </div>
-                            @endif
+                            <x-thumb :url="$course->thumbnail_url" type="course" :alt="$course->title" style="width:100%;height:100%" />
                         </div>
                         <div class="card-body p-2 p-md-3">
                             <div class="fw-semibold mb-1 text-truncate" title="{{ $course->title }}">{{ $course->title }}</div>
