@@ -61,7 +61,7 @@
         @forelse ($assets as $asset)
             @php
                 $type = $asset->type;
-                $typeIcon = ['pdf' => 'ti-file-type-pdf', 'video' => 'ti-video', 'text' => 'ti-brand-whatsapp'][$type] ?? 'ti-photo';
+                $thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null);
             @endphp
             <div class="col-6 col-md-4 col-xl-3">
                 <div class="card border-0 shadow-sm h-100 agent-asset-card">
@@ -69,18 +69,7 @@
                         <span class="agent-asset-badge position-absolute top-0 start-0 m-2">
                             @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
                         </span>
-                        @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
-                        @if ($thumb)
-                            <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy"
-                                onerror="this.classList.add('d-none'); this.nextElementSibling.classList.replace('d-none', 'd-flex');">
-                            <div class="agent-asset-thumb-ph d-none align-items-center justify-content-center">
-                                <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
-                            </div>
-                        @else
-                            <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                <i class="ti {{ $typeIcon }} fs-1 text-muted"></i>
-                            </div>
-                        @endif
+                        <x-thumb :url="$thumb" :type="$asset->type" :alt="$asset->title" style="width:100%;height:100%" />
                     </div>
                     <div class="card-body p-2 p-md-3 d-flex flex-column">
                         <div class="fw-semibold small text-truncate">{{ $asset->title }}</div>

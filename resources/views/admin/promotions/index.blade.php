@@ -64,7 +64,20 @@
                                     @if (($p->promotion_type ?? 'product') === 'marketing')
                                         @php
                                             $targetLabel = $p->target_type === 'agent' ? 'Agen' : ($p->target_type === 'reseller' ? 'Reseller' : 'Agen & Reseller');
-                                            $specific = $p->targetReseller?->name ?? $p->targetAgent?->name;
+                                            $agentNames = $p->targetAgents->pluck('name')->filter()->values();
+                                            $resellerNames = $p->targetResellers->pluck('name')->filter()->values();
+                                            $specificParts = collect();
+                                            if ($agentNames->isNotEmpty()) {
+                                                $specificParts->push($agentNames->count() > 2
+                                                    ? $agentNames->take(2)->implode(', ').' +'.($agentNames->count() - 2)
+                                                    : $agentNames->implode(', '));
+                                            }
+                                            if ($resellerNames->isNotEmpty()) {
+                                                $specificParts->push($resellerNames->count() > 2
+                                                    ? $resellerNames->take(2)->implode(', ').' +'.($resellerNames->count() - 2)
+                                                    : $resellerNames->implode(', '));
+                                            }
+                                            $specific = $specificParts->implode(' · ');
                                             $syarat = $p->min_purchase_type === 'qty'
                                                 ? 'min '.rtrim(rtrim(number_format((float) $p->min_purchase_value, 4, '.', ''), '0'), '.').' item'
                                                 : 'min Rp '.number_format((float) $p->min_purchase_value, 0, ',', '.');
@@ -72,17 +85,26 @@
                                                 ? rtrim(rtrim(number_format((float) $p->discount_value, 4, '.', ''), '0'), '.').'%'
                                                 : 'Rp '.number_format((float) $p->discount_value, 0, ',', '.');
                                         @endphp
-                                        <div class="small"><span class="text-muted">Target:</span> {{ $targetLabel }}@if($specific) · <strong>{{ $specific }}</strong>@endif</div>
+                                        <div class="small">
+                                            <span class="text-muted">Target:</span> {{ $targetLabel }} ·
+                                            @if ($specific !== '')
+                                                <strong>{{ $specific }}</strong>
+                                            @else
+                                                semua
+                                            @endif
+                                        </div>
                                         <div class="small"><span class="text-muted">Syarat:</span> {{ $syarat }} &nbsp;·&nbsp; <span class="text-muted">Diskon:</span> <strong>{{ $diskon }}</strong></div>
-                                        @if($p->reactivates_reseller)
+                                        @if ($p->reactivates_reseller)
                                             <span class="badge bg-label-warning mt-1">Reaktivasi reseller</span>
                                         @endif
                                     @else
                                         <div class="small">
                                             <span class="text-muted">Beli:</span>
                                             ≥ {{ rtrim(rtrim(number_format((float) $p->buy_min_qty, 4, '.', ''), '0'), '.') }}
-                                            @if($p->buyVariant) {{ $p->buyVariant->display_name ?? $p->buyVariant->sku }}
-                                            @elseif($p->buyProduct) {{ $p->buyProduct->name }}
+                                            @if ($p->buyVariant)
+                                                {{ $p->buyVariant->display_name ?? $p->buyVariant->sku }}
+                                            @elseif ($p->buyProduct)
+                                                {{ $p->buyProduct->name }}
                                             @endif
                                         </div>
                                         <div class="small">
