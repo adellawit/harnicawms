@@ -52,13 +52,11 @@
                             <input type="text" id="expected_delivery_date" name="expected_delivery_date" class="form-control flatpickr-date" value="{{ old('expected_delivery_date', $purchase->expected_delivery_date?->format('d/m/Y')) }}" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="status_id">Status <span class="text-danger">*</span></label>
-                            <select id="status_id" name="status_id" class="form-select" required>
-                                @php $currentStatusId = ($poStatuses ?? collect())->firstWhere('key', $purchase->status)?->id; @endphp
-                                @foreach(($poStatuses ?? collect()) as $s)
-                                    <option value="{{ $s->id }}" {{ old('status_id', $currentStatusId) == $s->id ? 'selected' : '' }}>{{ $s->value ?? $s->key }}</option>
-                                @endforeach
-                            </select>
+                            <label class="form-label">Status</label>
+                            <div class="form-control bg-light d-flex align-items-center" style="min-height:38px;">
+                                <span class="badge bg-label-secondary">{{ $purchase->status_label }}</span>
+                            </div>
+                            <small class="text-muted d-block mt-1">Hanya Draft yang dapat diedit.</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label" for="supplier_id">Supplier <span class="text-danger">*</span></label>
@@ -66,7 +64,7 @@
                                 <option value="">-- Pilih Supplier --</option>
                                 @foreach(($suppliers ?? collect()) as $s)
                                     <option value="{{ $s->id }}" data-type-key="{{ $s->supplierType?->key }}" {{ old('supplier_id', $purchase->supplier_id) == $s->id ? 'selected' : '' }}>
-                                        {{ $s->name }}{{ $s->code ? ' ('.$s->code.')' : '' }}{{ $s->supplierType?->value ? ' ['.$s->supplierType->value.']' : '' }}
+                                        {{ \App\Support\PurchaseOrderCatalog::supplierOptionLabel($s) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -114,7 +112,7 @@
                                     <select name="items[{{ $idx }}][product_id]" class="form-select select2-product" data-index="{{ $idx }}" required>
                                         <option value="">-- Select --</option>
                                         @foreach($products as $product)
-                                            <option value="{{ $product['id'] }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product['id'] ? 'selected' : '' }}>{{ $product['name'] }}{{ !empty($product['code']) ? ' ('.$product['code'].')' : '' }}</option>
+                                            <option value="{{ $product['id'] }}" {{ old('items.'.$idx.'.product_id', $item->product_id) == $product['id'] ? 'selected' : '' }}>{{ $product['option_label'] ?? $product['name'] }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -128,7 +126,7 @@
                                     <label class="form-label">Unit <span class="text-danger">*</span></label>
                                     <select name="items[{{ $idx }}][unit_id]" class="form-select select2-unit">
                                         @foreach($units as $u)
-                                            <option value="{{ $u->id }}" {{ old('items.'.$idx.'.unit_id', $item->unit_id) == $u->id ? 'selected' : '' }}>{{ $u->name }}{{ $u->symbol ? ' ('.$u->symbol.')' : '' }}</option>
+                                            <option value="{{ $u->id }}" {{ old('items.'.$idx.'.unit_id', $item->unit_id) == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -234,7 +232,7 @@
                 var opts = '<option value="">-- Select Product --</option>';
                 getFilteredProducts().forEach(function(r) {
                     var sel = selectedId === r.id ? ' selected' : '';
-                    opts += '<option value="'+r.id+'"'+sel+'>'+r.name+(r.code ? ' ('+r.code+')' : '')+'</option>';
+                    opts += '<option value="'+r.id+'"'+sel+'>'+(r.option_label || r.name)+'</option>';
                 });
                 return opts;
             }
@@ -358,7 +356,7 @@
                 var preselect = selectedUnitId || defaultUnitId;
                 return filteredUnits.map(function(u) {
                     var sel = u.id === preselect ? ' selected' : '';
-                    return '<option value="'+u.id+'"'+sel+'>'+u.name+(u.symbol ? ' ('+u.symbol+')' : '')+'</option>';
+                    return '<option value="'+u.id+'"'+sel+'>'+u.name+'</option>';
                 }).join('');
             }
 

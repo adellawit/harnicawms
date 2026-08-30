@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BusinessUnit;
-use App\Models\ParameterDetail;
 use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\ProductPurchaseOrder;
@@ -20,6 +19,7 @@ use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\BatchStockService;
 use App\Services\InventoryCostService;
+use App\Services\KontrabonService;
 use App\Services\PurchaseOrderHierarchyService;
 use App\Services\StockMutationService;
 use App\Support\PurchaseOrderCartonDisplay;
@@ -91,9 +91,8 @@ class PurchaseOrderController extends Controller
         $isFilter = $status !== '';
 
         $filterBranchId = $request->get('branch_id', $defaultBranchId);
-        $poStatuses = PurchaseOrderStatus::selectableOptions();
 
-        return view('admin.product.purchase-order.index', compact('status', 'isFilter', 'filterBranchId', 'poStatuses'));
+        return view('admin.product.purchase-order.index', compact('status', 'isFilter', 'filterBranchId'));
     }
 
     protected function purchaseOrderStatusBadge(ProductPurchaseOrder $row): string
@@ -106,6 +105,24 @@ class PurchaseOrderController extends Controller
                 : (in_array($statusKey, ['payment', 'received'], true) ? 'success' : 'warning'));
 
         return '<span class="badge bg-label-' . $tone . '">' . ($row->deleted_at ? 'Deleted' : e($row->status_label)) . '</span>';
+    }
+
+    protected function purchaseOrderPaymentBadge(ProductPurchaseOrder $row): string
+    {
+        return KontrabonService::purchaseOrderPaymentStatus($row)['badge'];
+    }
+
+    protected function purchaseOrderNumberHtml(ProductPurchaseOrder $row, bool $withRoBadge = false): string
+    {
+        $html = '<a href="'.e(route('product.purchase-order.detail.view', $row->id)).'" class="fw-semibold">'
+            .e($row->purchase_number)
+            .'</a>';
+
+        if ($withRoBadge && ($row->po_kind ?? '') === PurchaseOrderHierarchyService::KIND_MASTER && (int) ($row->children_count ?? 0) > 0) {
+            $html .= ' <span class="badge bg-label-info ms-1">'.(int) $row->children_count.' RO</span>';
+        }
+
+        return $html;
     }
 
     protected function purchaseOrderKindBadge(ProductPurchaseOrder $row): string
@@ -152,6 +169,7 @@ class PurchaseOrderController extends Controller
         $payload = [
             'id' => $row->id,
             'purchase_number' => $row->purchase_number,
+            'purchase_number_display' => $this->purchaseOrderNumberHtml($row),
             'purchase_date' => $row->purchase_date,
             'supplier_name' => $row->supplier_name,
             'po_kind' => $row->po_kind ?? 'standalone',
@@ -159,6 +177,7 @@ class PurchaseOrderController extends Controller
             'status' => $row->status,
             'status_key' => $row->status_key ?? $row->status,
             'status_badge' => $this->purchaseOrderStatusBadge($row),
+            'payment_badge' => $this->purchaseOrderPaymentBadge($row),
             'can_update_status' => PurchaseOrderStatus::canUpdate($row) ? 1 : 0,
             'can_create_sub' => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row) ? 1 : 0,
             'can_receive' => $this->purchaseOrderCanReceive($row) ? 1 : 0,
@@ -177,10 +196,7 @@ class PurchaseOrderController extends Controller
             $payload['tree_control'] = $payload['has_children']
                 ? '<i class="ti ti-chevron-right po-tree-toggle" data-id="' . e($row->id) . '" title="Tampilkan Release Order"></i>'
                 : '<span class="po-tree-spacer"></span>';
-            $payload['purchase_number_display'] = e($row->purchase_number)
-                . ($payload['has_children']
-                    ? ' <span class="badge bg-label-info ms-1">' . $childrenCount . ' RO</span>'
-                    : '');
+            $payload['purchase_number_display'] = $this->purchaseOrderNumberHtml($row, true);
         }
 
         return $payload;
@@ -203,6 +219,8 @@ class PurchaseOrderController extends Controller
             'parent:id,purchase_number',
             'items' => fn ($q) => $q->whereNull('deleted_at'),
             'items.receiveItems',
+            'kontrabonItems' => fn ($q) => $q->whereNull('deleted_at'),
+            'kontrabonItems.kontrabon',
         ])->where('parent_id', $parentId);
 
         if ($branchId) {
@@ -228,6 +246,8 @@ class PurchaseOrderController extends Controller
             'parent:id,purchase_number',
             'items' => fn ($q) => $q->whereNull('deleted_at'),
             'items.receiveItems',
+            'kontrabonItems' => fn ($q) => $q->whereNull('deleted_at'),
+            'kontrabonItems.kontrabon',
         ])->withCount('children')
             ->whereNull('parent_id');
 
@@ -254,6 +274,7 @@ class PurchaseOrderController extends Controller
         return (new DataTables)->eloquent($data)
             ->addIndexColumn()
             ->addColumn('status_badge', fn ($row) => $this->purchaseOrderStatusBadge($row))
+            ->addColumn('payment_badge', fn ($row) => $this->purchaseOrderPaymentBadge($row))
             ->addColumn('status_key', fn ($row) => $row->status_key ?? $row->status)
             ->addColumn('can_update_status', fn ($row) => PurchaseOrderStatus::canUpdate($row) ? 1 : 0)
             ->addColumn('can_create_sub', fn ($row) => PurchaseOrderHierarchyService::canCreateSubPurchaseOrder($row) ? 1 : 0)
@@ -273,12 +294,7 @@ class PurchaseOrderController extends Controller
                 return '<i class="ti ti-chevron-right po-tree-toggle" data-id="' . e($row->id) . '" title="Tampilkan Release Order"></i>';
             })
             ->addColumn('purchase_number_display', function ($row) {
-                $html = e($row->purchase_number);
-                if (($row->po_kind ?? '') === PurchaseOrderHierarchyService::KIND_MASTER && (int) ($row->children_count ?? 0) > 0) {
-                    $html .= ' <span class="badge bg-label-info ms-1">' . (int) $row->children_count . ' RO</span>';
-                }
-
-                return $html;
+                return $this->purchaseOrderNumberHtml($row, true);
             })
             ->filter(function ($query) use ($request) {
                 if ($search = $request->get('search')['value'] ?? null) {
@@ -292,7 +308,7 @@ class PurchaseOrderController extends Controller
                     });
                 }
             })
-            ->rawColumns(['status_badge', 'po_kind_badge', 'progress_display', 'total_fmt', 'tree_control', 'purchase_number_display'])
+            ->rawColumns(['status_badge', 'payment_badge', 'po_kind_badge', 'progress_display', 'total_fmt', 'tree_control', 'purchase_number_display'])
             ->toJson();
     }
 
@@ -373,23 +389,20 @@ class PurchaseOrderController extends Controller
 
         $units = $this->purchaseUnitsQuery($branchId)->get(['id', 'name', 'symbol']);
 
-        $poStatuses = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PO_STATUS'))
-            ->orderByRaw("CASE key WHEN 'draft' THEN 1 WHEN 'process' THEN 2 WHEN 'receiving' THEN 3 WHEN 'payment' THEN 4 ELSE 5 END")
-            ->get(['id', 'key', 'value']);
-
         $defaultPoKind = $request->get('po_kind', 'standalone');
         $defaultParentId = $request->get('parent_id');
         $lockDocumentTypeToSub = $defaultPoKind === 'sub' && filled($defaultParentId);
         $supplierItemTypeMap = PurchaseOrderCatalog::SUPPLIER_ITEM_TYPE_MAP;
+        $createStatusLabel = PurchaseOrderStatus::label(PurchaseOrderStatus::resolveOnCreate());
 
         return view('admin.product.purchase-order.insert', compact(
             'products',
             'units',
-            'poStatuses',
             'defaultPoKind',
             'defaultParentId',
             'lockDocumentTypeToSub',
-            'supplierItemTypeMap'
+            'supplierItemTypeMap',
+            'createStatusLabel'
         ));
     }
 
@@ -420,7 +433,6 @@ class PurchaseOrderController extends Controller
             'parent_id' => 'nullable|uuid|exists:product.purchase_orders,id|required_if:po_kind,sub',
             'purchase_date' => 'required|date',
             'supplier_id' => 'required_unless:po_kind,sub|nullable|exists:master_data.suppliers,id',
-            'status_id' => 'required|exists:public.parameter_details,id',
             'expected_delivery_date' => 'nullable|date',
             'attention_to' => 'nullable|string|max:200',
             'ship_to_address' => 'nullable|string',
@@ -470,8 +482,7 @@ class PurchaseOrderController extends Controller
             PurchaseOrderHierarchyService::validateSubPurchaseItems($parent, $mergedForValidation);
         }
 
-        $statusDetail = ParameterDetail::findOrFail($request->status_id);
-        $status = $statusDetail->key ?? 'draft';
+        $status = PurchaseOrderStatus::resolveOnCreate();
 
         if ($poKind === PurchaseOrderHierarchyService::KIND_SUB) {
             $supplier = Supplier::findOrFail($parent->supplier_id);
@@ -622,10 +633,6 @@ class PurchaseOrderController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'contact', 'phone', 'address', 'is_ppn', 'ppn_rate', 'supplier_type_id']);
 
-        $poStatuses = ParameterDetail::whereHas('parameter', fn ($q) => $q->where('code', 'PO_STATUS'))
-            ->orderByRaw("CASE key WHEN 'draft' THEN 1 WHEN 'process' THEN 2 WHEN 'receiving' THEN 3 WHEN 'payment' THEN 4 ELSE 5 END")
-            ->get(['id', 'key', 'value']);
-
         $supplierItemTypeMap = PurchaseOrderCatalog::SUPPLIER_ITEM_TYPE_MAP;
 
         return view('admin.product.purchase-order.edit', compact(
@@ -633,7 +640,6 @@ class PurchaseOrderController extends Controller
             'products',
             'units',
             'suppliers',
-            'poStatuses',
             'supplierItemTypeMap'
         ));
     }
@@ -659,7 +665,6 @@ class PurchaseOrderController extends Controller
             'id' => 'required|exists:product.purchase_orders,id',
             'purchase_date' => 'required|date',
             'supplier_id' => 'required|exists:master_data.suppliers,id',
-            'status_id' => 'required|exists:public.parameter_details,id',
             'expected_delivery_date' => 'nullable|date',
             'attention_to' => 'nullable|string|max:200',
             'ship_to_address' => 'nullable|string',
@@ -699,9 +704,6 @@ class PurchaseOrderController extends Controller
 
         $supplier = Supplier::findOrFail($request->supplier_id);
 
-        $statusDetail = ParameterDetail::findOrFail($request->status_id);
-        $status = $statusDetail->key ?? 'draft';
-
         DB::beginTransaction();
         try {
             $purchase->update([
@@ -712,7 +714,6 @@ class PurchaseOrderController extends Controller
                 'supplier_address' => $supplier->address,
                 'attention_to' => $request->attention_to,
                 'ship_to_address' => $request->ship_to_address,
-                'status' => $status,
                 'expected_delivery_date' => $request->expected_delivery_date,
                 'notes' => $request->notes,
                 'updated_by' => $user->id,
@@ -916,7 +917,7 @@ class PurchaseOrderController extends Controller
 
     public function updateStatusData(Request $request)
     {
-        $allowedKeys = PurchaseOrderStatus::selectableOptions()->pluck('key')->all();
+        $allowedKeys = PurchaseOrderStatus::manualUpdateOptions()->pluck('key')->all();
 
         $request->validate([
             'id' => 'required|exists:product.purchase_orders,id',
@@ -935,7 +936,7 @@ class PurchaseOrderController extends Controller
         }
 
         $newStatus = $request->status;
-        $error = PurchaseOrderStatus::validateTransition($purchase, $newStatus);
+        $error = PurchaseOrderStatus::validateManualUpdate($purchase, $newStatus);
         if ($error) {
             return redirect()->back()->withErrors(['error' => $error]);
         }

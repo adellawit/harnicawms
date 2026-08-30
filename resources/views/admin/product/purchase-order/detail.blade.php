@@ -278,7 +278,7 @@
                             @endphp
                             <tr>
                                 <td>{{ $i + 1 }}</td>
-                                <td>{{ $item->product?->name ?? '-' }}{{ $item->product?->code ? ' (' . $item->product->code . ')' : '' }}</td>
+                                <td>{{ $item->product?->name ?? '-' }}</td>
                                 <td>
                                     @if($item->variant)
                                         {{ $item->variant->sku }}

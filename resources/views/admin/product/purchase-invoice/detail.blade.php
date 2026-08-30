@@ -223,13 +223,12 @@
                             <input type="text" name="payment_reference" class="form-control" placeholder="No. transfer / bukti bayar">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Payment Method</label>
-                            <select name="payment_method" class="form-select">
-                                <option value="">-- Pilih --</option>
-                                <option value="Transfer">Transfer</option>
-                                <option value="Cash">Cash</option>
-                                <option value="Giro">Giro</option>
-                                <option value="Cheque">Cheque</option>
+                            <label class="form-label" for="payment_method">Payment Method</label>
+                            <select id="payment_method" name="payment_method" class="form-select select2-payment-method" data-placeholder="-- Pilih metode --">
+                                <option value=""></option>
+                                @foreach($paymentMethods ?? [] as $method)
+                                    <option value="{{ $method->name }}">{{ $method->name }}{{ !empty($method->code) ? ' ('.$method->code.')' : '' }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="mb-0">
@@ -248,9 +247,11 @@
 
     @push('vendor-css')
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}">
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}">
     @endpush
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/cleavejs/cleave.js') }}"></script>
     @endpush
     @push('page-js')
@@ -272,6 +273,18 @@
                     numeralDecimalScale: 2,
                 });
                 paymentAmountCleave.setRawValue(String(paymentMaxBalance));
+
+                $('#paymentModal').on('shown.bs.modal', function () {
+                    var $el = $('#payment_method');
+                    if ($el.length && !$el.hasClass('select2-hidden-accessible')) {
+                        $el.select2({
+                            placeholder: $el.data('placeholder') || '-- Pilih metode --',
+                            allowClear: true,
+                            width: '100%',
+                            dropdownParent: $('#paymentModal')
+                        });
+                    }
+                });
 
                 $('#detailPaymentForm').on('submit', function (e) {
                     if (paymentDatePicker && paymentDatePicker.selectedDates.length) {

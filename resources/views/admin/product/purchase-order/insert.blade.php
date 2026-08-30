@@ -120,12 +120,10 @@
                             <input type="text" id="expected_delivery_date" name="expected_delivery_date" class="form-control flatpickr-date" placeholder="DD/MM/YYYY" value="{{ old('expected_delivery_date') }}" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="status_id">Status <span class="text-danger">*</span></label>
-                            <select id="status_id" name="status_id" class="form-select" required>
-                                @foreach($poStatuses ?? [] as $s)
-                                    <option value="{{ $s->id }}" {{ old('status_id', collect($poStatuses ?? [])->firstWhere('key','draft')?->id) == $s->id ? 'selected' : '' }}>{{ $s->value ?? $s->key }}</option>
-                                @endforeach
-                            </select>
+                            <label class="form-label">Status</label>
+                            <div class="form-control bg-light d-flex align-items-center" style="min-height:38px;">
+                                <span class="badge bg-label-secondary">{{ $createStatusLabel ?? 'Draft' }}</span>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="supplier_id">Supplier <span class="text-danger">*</span></label>
@@ -243,7 +241,7 @@
                 var opts = '<option value="">-- Select Product --</option>';
                 getFilteredProducts().forEach(function(r) {
                     var sel = selectedId === r.id ? ' selected' : '';
-                    opts += '<option value="'+r.id+'"'+sel+'>'+r.name+(r.code ? ' ('+r.code+')' : '')+'</option>';
+                    opts += '<option value="'+r.id+'"'+sel+'>'+(r.option_label || r.name)+'</option>';
                 });
                 return opts;
             }
@@ -287,8 +285,7 @@
                     currentSuppliers = suppliers;
                     $sel.empty().append('<option value="">-- Pilih Supplier --</option>');
                     suppliers.forEach(function(s) {
-                        var typeLabel = s.supplier_type_label ? ' [' + s.supplier_type_label + ']' : '';
-                        $sel.append('<option value="'+s.id+'">'+s.name+(s.code ? ' ('+s.code+')' : '')+typeLabel+'</option>');
+                        $sel.append($('<option>', { value: s.id, text: s.option_label || s.name }));
                     });
                     if (oldSupplierId) {
                         $sel.val(oldSupplierId).trigger('change.select2');
@@ -381,7 +378,7 @@
                 var preselect = selectedUnitId || defaultUnitId;
                 return filteredUnits.map(function(u) {
                     var sel = u.id === preselect ? ' selected' : '';
-                    return '<option value="'+u.id+'"'+sel+'>'+u.name+(u.symbol ? ' ('+u.symbol+')' : '')+'</option>';
+                    return '<option value="'+u.id+'"'+sel+'>'+u.name+'</option>';
                 }).join('');
             }
 

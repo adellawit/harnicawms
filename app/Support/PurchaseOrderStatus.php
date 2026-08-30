@@ -10,6 +10,17 @@ class PurchaseOrderStatus
 {
     public const PARAMETER_CODE = 'PO_STATUS';
 
+    /** Status awal dokumen baru. Status operasional hanya lewat Update Status / receive. */
+    public const INITIAL = 'draft';
+
+    /** Target maksimum Update Status dari index. Receiving/Payment otomatis dari penerimaan. */
+    public const MANUAL_TARGET = 'process';
+
+    public static function resolveOnCreate(): string
+    {
+        return self::INITIAL;
+    }
+
     /**
      * @return Collection<int, ParameterDetail|object{id: string, key: string, value: string}>
      */
@@ -31,6 +42,23 @@ class PurchaseOrderStatus
         return $options;
     }
 
+    public static function manualUpdateOptions(): Collection
+    {
+        $options = self::selectableOptions()
+            ->filter(fn ($option) => ($option->key ?? '') === self::MANUAL_TARGET)
+            ->values();
+
+        if ($options->isEmpty()) {
+            $options->push((object) [
+                'id' => self::MANUAL_TARGET,
+                'key' => self::MANUAL_TARGET,
+                'value' => self::label(self::MANUAL_TARGET),
+            ]);
+        }
+
+        return $options;
+    }
+
     public static function canUpdate(ProductPurchaseOrder $purchase): bool
     {
         if ($purchase->trashed()) {
@@ -39,8 +67,16 @@ class PurchaseOrderStatus
 
         $status = $purchase->status_key ?? $purchase->status;
 
-        // Manual update dari index hanya untuk Draft / Cancelled (reopen).
-        return in_array($status, ['draft', 'cancelled'], true);
+        return $status === self::INITIAL;
+    }
+
+    public static function validateManualUpdate(ProductPurchaseOrder $purchase, string $newStatus): ?string
+    {
+        if ($newStatus !== self::MANUAL_TARGET) {
+            return 'Update Status hanya dapat dinaikkan sampai Process.';
+        }
+
+        return self::validateTransition($purchase, $newStatus);
     }
 
     public static function validateTransition(ProductPurchaseOrder $purchase, string $newStatus): ?string
