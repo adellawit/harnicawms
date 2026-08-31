@@ -21,6 +21,7 @@ use App\Services\Sales\BarcodeDispatchService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
+use App\Support\AgentPosOrders;
 use App\Support\WmsContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -67,8 +68,7 @@ class AgentPosController extends Controller
     {
         $agent = $this->agent();
 
-        return optional(WmsContext::defaultAgentWarehouse($agent->id))->id
-            ?: $agent->default_warehouse_id;
+        return AgentPosOrders::warehouseIdForAgent($agent);
     }
 
     public function index(Request $request): View
@@ -1108,13 +1108,7 @@ class AgentPosController extends Controller
 
     protected function agentPosOrdersQuery()
     {
-        $branchId = $this->branchId();
-        $warehouseId = $this->agentWarehouseId();
-
-        return SalesOrder::query()
-            ->where('order_type', 'agent-pos')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId));
+        return AgentPosOrders::query($this->branchId(), $this->agentWarehouseId());
     }
 
     /**

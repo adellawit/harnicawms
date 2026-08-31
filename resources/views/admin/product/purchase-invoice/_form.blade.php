@@ -46,7 +46,7 @@
                             </option>
                         @endforeach
                     </select>
-                    <small class="text-muted">PO dengan sisa tagihan yang belum di-invoice. Nominal dapat diisi partial.</small>
+                    <small class="text-muted">Pilih PO sudah diterima atau belum diterima, lalu isi nominal (DP / pelunasan).</small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label" for="notes">Notes</label>
@@ -60,9 +60,15 @@
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
                 <h5 class="mb-0">Purchase Order & Faktur Supplier</h5>
-                <small class="text-muted">Centang PO, isi nominal & data faktur, upload file opsional.</small>
+                <small class="text-muted">Pilih jenis PO, centang, isi nominal & data faktur.</small>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Filter penerimaan PO">
+                    <input type="radio" class="btn-check" name="po_receive_scope" id="poScopeReceived" value="received" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="poScopeReceived">Sudah diterima</label>
+                    <input type="radio" class="btn-check" name="po_receive_scope" id="poScopeUnreceived" value="unreceived" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="poScopeUnreceived">Belum diterima</label>
+                </div>
                 <div class="form-check mb-0">
                     <input type="checkbox" class="form-check-input" id="checkAllPo" disabled>
                     <label class="form-check-label small" for="checkAllPo">Pilih semua</label>
@@ -250,6 +256,20 @@
             border-radius: .5rem;
             background: #fafbfc;
         }
+        .po-items-preview {
+            border-top: 1px dashed #e7e7e8;
+            padding: .65rem 1rem .85rem;
+        }
+        .po-items-preview .table {
+            margin-bottom: 0;
+            font-size: .8rem;
+        }
+        .po-items-preview .table th {
+            font-size: .72rem;
+            color: #697a8d;
+            font-weight: 600;
+            white-space: nowrap;
+        }
         .po-existing-file {
             margin-top: .4rem;
         }
@@ -272,6 +292,21 @@
             var oldItems = @json($selectedItems->keyBy('purchase_order_id'));
             var rowIndex = 0;
             var poCache = {};
+            var autoSwitchedScope = false;
+
+            function getReceiveScope() {
+                return $('input[name="po_receive_scope"]:checked').val() || 'received';
+            }
+
+            function emptyPoMessage(kind) {
+                if (kind === 'no-supplier') {
+                    return 'Pilih supplier untuk memuat daftar PO.';
+                }
+                if (getReceiveScope() === 'unreceived') {
+                    return 'Tidak ada PO Process yang belum diterima dengan sisa tagihan.';
+                }
+                return 'Tidak ada PO yang sudah diterima dengan sisa tagihan.';
+            }
 
             flatpickr('#kontrabon_date', {
                 dateFormat: 'd/m/Y',
@@ -379,6 +414,31 @@
                 }
             }
 
+            function renderPoItemsPreview(po) {
+                var items = po.items || [];
+                if (!items.length) {
+                    return '<div class="po-items-preview"><small class="text-muted">Tidak ada item.</small></div>';
+                }
+                var rows = '';
+                items.forEach(function (item) {
+                    rows += '<tr>'
+                        + '<td>' + escapeHtml(item.product_name || item.product_label || '-') + '</td>'
+                        + '<td>' + escapeHtml(item.unit_label || '-') + '</td>'
+                        + '<td class="text-end">' + formatNumber(item.quantity) + '</td>'
+                        + '<td class="text-end">' + formatNumber(item.quantity_received) + '</td>'
+                        + '<td class="text-end">' + formatNumber(item.subtotal) + '</td>'
+                        + '</tr>';
+                });
+                return '<div class="po-items-preview">'
+                    + '<div class="table-responsive">'
+                    + '<table class="table table-sm table-bordered mb-0">'
+                    + '<thead class="table-light"><tr>'
+                    + '<th>Produk</th><th>Satuan</th>'
+                    + '<th class="text-end">Qty PO</th><th class="text-end">Diterima</th>'
+                    + '<th class="text-end">Subtotal</th>'
+                    + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+            }
+
             function renderRows(data) {
                 rowIndex = 0;
                 poCache = {};
@@ -388,7 +448,7 @@
                     $list.append(
                         '<div id="poEmptyState" class="po-empty-state text-center text-muted py-5">'
                         + '<i class="ti ti-file-off d-block mb-2" style="font-size:2rem;opacity:.45;"></i>'
-                        + 'Tidak ada PO eligible untuk supplier ini.</div>'
+                        + emptyPoMessage() + '</div>'
                     );
                     $('#checkAllPo').prop('disabled', true).prop('checked', false);
                     updateTotals();
@@ -425,8 +485,10 @@
                         +     '</a>'
                         +     '<div class="po-meta-chips">'
                         +       '<span class="po-meta-chip"><i class="ti ti-calendar me-1"></i>'+escapeHtml(po.purchase_date || '-')+'</span>'
+                        +       (po.expected_delivery_date ? '<span class="po-meta-chip"><i class="ti ti-truck-delivery me-1"></i>Kirim '+escapeHtml(po.expected_delivery_date)+'</span>' : '')
                         +       '<span class="po-meta-chip">'+escapeHtml(po.po_kind_label || '-')+'</span>'
                         +       '<span class="po-meta-chip">'+escapeHtml(po.status || '-')+'</span>'
+                        +       '<span class="po-meta-chip">'+(po.has_receive ? 'Diterima '+(po.received_qty_fmt || '0')+' / '+(po.ordered_qty_fmt || '0') : 'Belum diterima')+'</span>'
                         +     '</div>'
                         +   '</div>'
                         +   '<div class="po-amount-block">'
@@ -442,6 +504,7 @@
                         +     '<input type="text" class="form-control form-control-sm po-invoice-amount number-format" inputmode="decimal" value="'+formatNumber(invoiceAmount)+'" data-max="'+remaining+'" '+(checked ? '' : 'disabled')+' />'
                         +   '</div>'
                         + '</div>'
+                        + renderPoItemsPreview(po)
                         + '<div class="po-faktur-panel">'
                         +   '<div class="po-faktur-grid">'
                         +     '<div>'
@@ -569,9 +632,21 @@
 
                 $.get(eligibleUrl, {
                     supplier_id: supplierId,
-                    exclude_kontrabon_id: excludeKontrabonId
+                    exclude_kontrabon_id: excludeKontrabonId,
+                    receive_scope: getReceiveScope()
                 }, function (res) {
-                    renderRows(res.data || []);
+                    var data = res.data || [];
+                    var oldIds = Object.keys(oldItems || {});
+                    if (!autoSwitchedScope && oldIds.length && !oldIds.some(function (id) {
+                        return data.some(function (po) { return po.id === id; });
+                    })) {
+                        autoSwitchedScope = true;
+                        var other = getReceiveScope() === 'received' ? 'unreceived' : 'received';
+                        $('input[name="po_receive_scope"][value="'+other+'"]').prop('checked', true);
+                        loadEligiblePos();
+                        return;
+                    }
+                    renderRows(data);
                 }).fail(function () {
                     $list.html(
                         '<div class="po-empty-state text-center text-danger py-4">Gagal memuat daftar PO.</div>'
@@ -580,7 +655,14 @@
                 });
             }
 
-            $('#supplier_id').on('change', loadEligiblePos);
+            $('#supplier_id').on('change', function () {
+                autoSwitchedScope = false;
+                loadEligiblePos();
+            });
+            $('input[name="po_receive_scope"]').on('change', function () {
+                autoSwitchedScope = true;
+                loadEligiblePos();
+            });
             $(document).on('click', '.po-number-link', function (e) {
                 e.preventDefault();
                 showPoItemsModal($(this).data('po-id'));

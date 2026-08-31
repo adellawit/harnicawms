@@ -29,6 +29,7 @@ use App\Services\StockAvailabilityService;
 use App\Services\StockMutationService;
 use App\Services\Xendit\PaymentSyncService;
 use App\Services\Xendit\XenditService;
+use App\Support\AgentPosOrders;
 use App\Support\WmsContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -201,10 +202,28 @@ class AgentOrderController extends Controller
 
         $resellers = $query->orderBy('name')->paginate(20)->withQueryString();
 
+        $unpaidByCustomerId = collect();
+        $unpaidResellerOrderCount = 0;
+        if ($agent) {
+            $warehouseId = AgentPosOrders::warehouseIdForAgent($agent);
+            $unpaidByCustomerId = AgentPosOrders::unpaidCountByCustomer(
+                $agent,
+                $this->context()->branchId(),
+                $warehouseId
+            );
+            $unpaidResellerOrderCount = AgentPosOrders::unpaidResellerCount(
+                $agent,
+                $this->context()->branchId(),
+                $warehouseId
+            );
+        }
+
         return view('agent.order.resellers', [
             'resellers' => $resellers,
             'activeStatus' => $status ?? 'all',
             'search' => $search,
+            'unpaidByCustomerId' => $unpaidByCustomerId,
+            'unpaidResellerOrderCount' => $unpaidResellerOrderCount,
         ]);
     }
 

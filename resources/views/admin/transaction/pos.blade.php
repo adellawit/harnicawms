@@ -58,7 +58,8 @@
                 gap: 0.5rem;
                 margin-left: auto;
             }
-            .pos-top-bar .pos-controls .select2-container { min-width: 180px; }
+            .pos-top-bar .pos-controls .select2-container { min-width: 160px; }
+            .pos-top-bar .pos-controls #warehouseWrapper .select2-container { min-width: 180px; }
 
             /* ── Main Two-Column ─────────────────────────────────────────── */
             .pos-main {
@@ -234,7 +235,7 @@
             /* Variant modal — card grid */
             .variant-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
                 gap: 0.75rem;
             }
             .variant-card {
@@ -255,14 +256,8 @@
                 opacity: 0.55;
                 cursor: not-allowed;
             }
-            .variant-card .v-img {
-                width: 100%;
-                aspect-ratio: 4/3;
-                object-fit: cover;
-                background: #f8f9fa;
-            }
             .variant-card .v-body {
-                padding: 0.5rem 0.625rem;
+                padding: 0.75rem 0.75rem 0.875rem;
             }
             .variant-card .v-name {
                 font-size: 0.8rem;
@@ -467,7 +462,7 @@
             }
             .pos-cart-item .ci-qty button:hover { background: #eee; }
             .pos-cart-item .ci-qty input {
-                width: 32px;
+                width: 48px;
                 height: 26px;
                 border: none;
                 border-left: 1px solid #e7e7e7;
@@ -475,6 +470,7 @@
                 text-align: center;
                 font-size: 0.8rem;
                 font-weight: 600;
+                cursor: text;
                 -moz-appearance: textfield;
                 appearance: textfield;
             }
@@ -561,6 +557,45 @@
             }
             .pos-cart-item .ci-disc-btn:hover { background: var(--pos-accent-muted); }
             .pos-cart-item.has-discount .ci-disc-btn { background: var(--pos-accent); color: #fff; }
+            .pos-cart-item .ci-price-btn {
+                width: 26px;
+                height: 26px;
+                border: none;
+                border-radius: 0.25rem;
+                background: var(--pos-accent-muted);
+                color: var(--pos-accent);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .pos-cart-item .ci-price-btn:hover { background: #e8f5e9; color: #2e7d32; }
+            .pos-cart-item.has-price-edit .ci-price-btn { background: #2e7d32; color: #fff; }
+            .pos-cart-item .ci-price-edit {
+                display: none;
+                width: 100%;
+                padding-top: 0.375rem;
+                margin-top: 0.25rem;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .pos-cart-item.has-price-edit .ci-price-edit { display: flex; }
+            .pos-cart-item .ci-price-edit-label {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: #677788;
+                white-space: nowrap;
+            }
+            .pos-cart-item .ci-price-edit-group {
+                width: 150px;
+                flex-shrink: 0;
+            }
+            .pos-cart-item .ci-price-edit-group .input-group-text,
+            .pos-cart-item .ci-price-edit-group .form-control {
+                font-size: 0.75rem;
+                padding-top: 0.2rem;
+                padding-bottom: 0.2rem;
+            }
 
             .pos-cart-item.is-promo-free {
                 background: #f3faf5;
@@ -587,14 +622,20 @@
             .pos-cart-item.is-promo-free .ci-price { color: #146c2e; font-weight: 600; }
             .pos-cart-item.is-promo-free .ci-qty button,
             .pos-cart-item.is-promo-free .ci-disc-btn,
+            .pos-cart-item.is-promo-free .ci-price-btn,
             .pos-cart-item.is-promo-free .ci-delete { display: none !important; }
-            .pos-cart-item.is-promo-free .ci-qty input {
+            .pos-cart-item.is-promo-free .ci-qty input,
+            .pos-cart-item.is-serial-tracked .ci-qty input {
                 border: none;
                 background: transparent;
                 font-weight: 700;
+                cursor: default;
+            }
+            .pos-cart-item.is-promo-free .ci-qty input {
                 color: #146c2e;
             }
-            .pos-cart-item.is-promo-free .ci-bottom { display: none !important; }
+            .pos-cart-item.is-promo-free .ci-bottom,
+            .pos-cart-item.is-promo-free .ci-price-edit { display: none !important; }
             #promoHintRow {
                 display: none;
                 font-size: 0.75rem;
@@ -1074,7 +1115,9 @@
                     justify-content: space-between;
                 }
                 .pos-top-bar .pos-controls .select2-container { min-width: 0; flex: 1; }
+                .pos-top-bar .pos-controls #warehouseWrapper,
                 .pos-top-bar .pos-controls #priceListWrapper { flex: 1; min-width: 0; }
+                .pos-top-bar .pos-controls #warehouseSelect,
                 .pos-top-bar .pos-controls #priceListSelect { width: 100% !important; }
                 .pay-modal-body { flex-direction: column; min-height: 0; }
                 .pay-col-cash { border-right: none; border-bottom: 1px solid #e7e7e7; }
@@ -1281,7 +1324,10 @@
         </style>
     @endpush
 
-    <div class="container-xxl flex-grow-1 container-p-y pos-content-wrapper" id="posWrapper">
+    <div class="container-xxl flex-grow-1 container-p-y pos-content-wrapper" id="posWrapper"
+         data-warehouse-id="{{ $defaultPosWarehouse?->id }}"
+         data-require-serial-scan="{{ ($defaultPosWarehouse?->pos_require_serial_scan ?? true) ? '1' : '0' }}"
+         data-unit-mode="{{ $defaultPosWarehouse?->pos_unit_mode ?? 'large_only' }}">
 
         @if (session('success'))
             <x-alert type="success" class="mb-3">{{ session('success') }}</x-alert>
@@ -1293,6 +1339,13 @@
                 — selesaikan transaksi POS untuk
                 <strong>{{ $agentConversion['agent_name'] ?? 'Agent' }}</strong>.
                 Setelah pembayaran lunas, <strong>kode Agent</strong> dan <strong>invoice awal</strong> (nomor transaksi POS) akan ditampilkan.
+            </div>
+        @endif
+
+        @if (($posWarehouses ?? collect())->isEmpty())
+            <div class="alert alert-warning mb-3" role="alert">
+                Belum ada gudang yang diizinkan untuk transaksi POS.
+                Atur di <a href="{{ route('settings.pos-configuration.index.view') }}">Settings → POS Configuration</a>.
             </div>
         @endif
 
@@ -1312,6 +1365,20 @@
                 <span><span id="cartItemCount" class="meta-val">0</span> items</span>
             </div>
             <div class="pos-controls">
+                <div id="warehouseWrapper">
+                    <select id="warehouseSelect" style="width:220px">
+                        @forelse($posWarehouses ?? collect() as $wh)
+                        <option value="{{ $wh->id }}"
+                            data-require-serial-scan="{{ $wh->pos_require_serial_scan ? 1 : 0 }}"
+                            data-unit-mode="{{ $wh->pos_unit_mode ?: 'large_only' }}"
+                            {{ ($defaultPosWarehouse?->id ?? '') == $wh->id ? 'selected' : '' }}>
+                            {{ $wh->name }}
+                        </option>
+                        @empty
+                        <option value="">Pilih Gudang</option>
+                        @endforelse
+                    </select>
+                </div>
                 <div id="priceListWrapper" data-selected-id="{{ $defaultPriceListId ?? '' }}">
                     <select id="priceListSelect" style="width:200px">
                         <option value="">Select Price List</option>
@@ -1374,16 +1441,17 @@
 
                 <div class="pos-product-grid" id="productGrid">
                     @forelse($products ?? collect() as $product)
+                    @php $printName = product_print_name($product->name); @endphp
                     <div class="pos-product-card" data-product-id="{{ $product->id }}" data-product-type-id="{{ $product->nature_id ?? '' }}" data-variants-count="{{ $product->variants_count ?? 0 }}">
                         <div class="p-img-wrap">
                             <img src="{{ $product->image ?: 'https://placehold.co/300x225/f8f9fa/d1d5db?text=+' }}"
-                                 alt="{{ $product->name }}"
+                                 alt="{{ $printName }}"
                                  class="p-img"
                                  loading="lazy"
                                  onerror="this.onerror=null;this.src='https://placehold.co/300x225/f8f9fa/d1d5db?text=+';">
                         </div>
                         <div class="p-body">
-                            <div class="p-name" title="{{ $product->name }}">{{ $product->name }}</div>
+                            <div class="p-name" title="{{ $printName }}">{{ $printName }}</div>
                         </div>
                     </div>
                     @empty
@@ -1464,16 +1532,26 @@
                         <div class="ci-right">
                             <div class="ci-qty">
                                 <button type="button" class="btn-minus">-</button>
-                                <input type="text" value="1" class="quantity-input" inputmode="numeric" pattern="[0-9]*" readonly tabindex="-1" aria-label="Quantity">
+                                <input type="text" value="1" class="quantity-input" inputmode="numeric" pattern="[0-9]*" aria-label="Quantity">
                                 <button type="button" class="btn-plus">+</button>
                             </div>
                             <span class="ci-qty-unit"></span>
+                            <button type="button" class="ci-price-btn btn-item-price" title="Edit harga jual">
+                                <i class="ti ti-pencil" style="font-size:0.75rem"></i>
+                            </button>
                             <button type="button" class="ci-disc-btn btn-item-disc" title="Item Discount">
                                 <i class="ti ti-discount-2" style="font-size:0.7rem"></i>
                             </button>
                             <button type="button" class="ci-delete btn-delete" title="Remove">
                                 <i class="ti ti-trash" style="font-size:0.7rem"></i>
                             </button>
+                        </div>
+                        <div class="ci-price-edit">
+                            <span class="ci-price-edit-label">Harga jual</span>
+                            <div class="input-group input-group-sm ci-price-edit-group">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" class="form-control item-price-input" inputmode="numeric" placeholder="0" autocomplete="off" aria-label="Harga jual">
+                            </div>
                         </div>
                         <div class="ci-bottom">
                             <div class="ci-disc-group">
@@ -1730,11 +1808,66 @@
             window.PosBarcodeScanConfig = {
                 routes: {
                     lookup: @json(route('transaction.pos.barcode-lookup'))
-                }
+                },
+                requireSerialScan: {{ ($defaultPosWarehouse?->pos_require_serial_scan ?? true) ? 'true' : 'false' }}
             };
 
             $(document).ready(function() {
+                function posWarehouseId() {
+                    return $('#warehouseSelect').val() || $('#posWrapper').attr('data-warehouse-id') || '';
+                }
+                function posRequireSerialScan() {
+                    var v = $('#warehouseSelect option:selected').data('require-serial-scan');
+                    if (v === undefined) {
+                        v = $('#posWrapper').attr('data-require-serial-scan');
+                    }
+                    return String(v) === '1' || v === true;
+                }
+                function posUnitMode() {
+                    return String(
+                        $('#warehouseSelect option:selected').data('unit-mode') ||
+                        $('#posWrapper').attr('data-unit-mode') ||
+                        'large_only'
+                    );
+                }
+                function syncPosWarehouseMeta() {
+                    var $opt = $('#warehouseSelect option:selected');
+                    $('#posWrapper').attr('data-warehouse-id', $opt.val() || '');
+                    $('#posWrapper').attr('data-require-serial-scan', $opt.data('require-serial-scan') ? '1' : '0');
+                    $('#posWrapper').attr('data-unit-mode', $opt.data('unit-mode') || 'large_only');
+                    if (window.PosBarcodeScanConfig) {
+                        window.PosBarcodeScanConfig.requireSerialScan = posRequireSerialScan();
+                    }
+                }
+                function needsUnitPick(v) {
+                    return posUnitMode() === 'free' && Array.isArray(v.unit_options) && v.unit_options.length > 1;
+                }
+                function shouldPromptScan(flag) {
+                    return posRequireSerialScan()
+                        && window.PosBarcodeScan
+                        && window.PosBarcodeScan.isPartnerCustomer()
+                        && !!flag;
+                }
+                function posAlert(text) {
+                    Swal.fire({
+                        icon: 'warning',
+                        text: text,
+                        customClass: { confirmButton: 'btn btn-primary' },
+                        buttonsStyling: false
+                    });
+                }
+                function ensureWarehouseSelected() {
+                    if (posWarehouseId()) return true;
+                    posAlert('Pilih gudang POS terlebih dahulu');
+                    return false;
+                }
+
                 // ── Select2 ───────────────────────────────────────────
+                $('#warehouseSelect').select2({
+                    dropdownParent: $('body'),
+                    placeholder: 'Pilih Gudang',
+                    allowClear: false
+                });
                 $('#priceListSelect').select2({
                     dropdownParent: $('body'),
                     placeholder: 'Select Price List',
@@ -1971,6 +2104,7 @@
                         contentType: 'application/json',
                         data: JSON.stringify({
                             destination_city_id: destId,
+                            warehouse_id: posWarehouseId() || null,
                             items: items
                         }),
                         success: function(res) {
@@ -2261,14 +2395,53 @@
                     $('#priceListWrapper').attr('data-selected-id', $(this).val() || '');
                 }).trigger('change');
 
+                $('#warehouseSelect').on('change select2:select', function() {
+                    var nextId = $(this).val() || '';
+                    var currentId = $('#posWrapper').attr('data-warehouse-id') || '';
+                    if (nextId === currentId) {
+                        syncPosWarehouseMeta();
+                        return;
+                    }
+                    var cartCount = $('#cartItems .pos-cart-item').not('#sampleCartItem').length;
+                    if (cartCount > 0) {
+                        var $select = $(this);
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Ganti gudang?',
+                            text: 'Keranjang akan dikosongkan karena stok mengikuti gudang.',
+                            showCancelButton: true,
+                            confirmButtonText: 'Ya, ganti',
+                            cancelButtonText: 'Batal',
+                            customClass: {
+                                confirmButton: 'btn btn-primary me-2',
+                                cancelButton: 'btn btn-label-secondary'
+                            },
+                            buttonsStyling: false
+                        }).then(function(r) {
+                            if (!r.isConfirmed) {
+                                $select.val(currentId).trigger('change.select2');
+                                return;
+                            }
+                            clearCart();
+                            syncPosWarehouseMeta();
+                        });
+                        return;
+                    }
+                    syncPosWarehouseMeta();
+                });
+                syncPosWarehouseMeta();
+
                 // ── Add to Cart (product card click) ──────────────────
                 $(document).on('click', '.pos-product-card', function() {
+                    if (!ensureWarehouseSelected()) {
+                        return;
+                    }
                     if (window.PosBarcodeScan && !window.PosBarcodeScan.ensurePartnerCustomerSelected()) {
                         return;
                     }
                     var priceListId = $('#priceListWrapper').attr('data-selected-id') || $('#priceListSelect').val() || '';
                     if (!priceListId) {
-                        alert('Please select Type Transaction (Price List) first');
+                        posAlert('Please select Type Transaction (Price List) first');
                         return;
                     }
                     var productId = $(this).data('product-id');
@@ -2277,25 +2450,23 @@
 
                     $.get('{{ route("transaction.pos.product-variants") }}', {
                         product_id: productId,
-                        price_list_id: priceListId
+                        price_list_id: priceListId,
+                        warehouse_id: posWarehouseId()
                     }).done(function(res) {
                         var variants = res.variants || [];
                         var withPrice = variants.filter(function(v) { return v.selling_price > 0; });
-                        if (withPrice.length === 0) { alert('No variants with price for this price list'); return; }
-                        if (withPrice.length === 1) {
+                        if (withPrice.length === 0) { posAlert('No variants with price for this price list'); return; }
+                        if (withPrice.length === 1 && !needsUnitPick(withPrice[0])) {
                             var v = withPrice[0];
                             if (window.PosBarcodeScan) {
                                 window.PosBarcodeScan.syncPartnerRoleFromCustomer();
                             }
-                            if (
-                                window.PosBarcodeScan &&
-                                window.PosBarcodeScan.isPartnerCustomer() &&
-                                !!v.has_trackable_serials
-                            ) {
+                            if (shouldPromptScan(v.has_trackable_serials)) {
                                 window.PosBarcodeScan.promptForProduct({
                                     productId: productId || v.product_id,
                                     variantId: v.id,
-                                    name: v.display_name || productName
+                                    name: v.display_name || productName,
+                                    unitId: v.unit_id
                                 });
                                 return;
                             }
@@ -2303,7 +2474,7 @@
                             return;
                         }
                         showVariantModal(variants, productImage, productId);
-                    }).fail(function() { alert('Failed to load variants'); });
+                    }).fail(function() { posAlert('Failed to load variants'); });
                 });
 
                 // ── Variant modal (single instance) ──────────────────
@@ -2322,15 +2493,24 @@
                         list.forEach(function(v) {
                             var img = v.image || productImage || 'https://placehold.co/300x225/f8f9fa/b0b7c3?text=?';
                             var stockClass = v.stock > 10 ? 'stock-ok' : (v.stock > 0 ? 'stock-low' : 'stock-out');
+                            var unitOptions = needsUnitPick(v) ? v.unit_options : [];
                             html += '<div class="variant-card variant-item" role="button" tabindex="0"';
                             html += ' data-variant-id="'+v.id+'" data-name="'+escapeHtml(v.display_name)+'" data-price="'+v.selling_price+'"';
                             html += ' data-image="'+img.replace(/"/g, '&quot;')+'" data-unit-id="'+(v.unit_id||'')+'" data-unit-label="'+(v.unit_label||'')+'"';
                             html += ' data-product-id="'+(productId || v.product_id || '')+'" data-has-trackable-serials="'+(v.has_trackable_serials ? 1 : 0)+'">';
-                            html += '<img src="'+img+'" alt="'+escapeHtml(v.display_name)+'" class="v-img" onerror="this.src=\'https://placehold.co/300x225/f8f9fa/b0b7c3?text=?\'">';
                             html += '<div class="v-body">';
                             html += '<div class="v-name">'+escapeHtml(v.display_name)+'</div>';
                             html += '<div class="v-price">Rp '+Number(v.selling_price).toLocaleString('id-ID')+'</div>';
                             html += '<span class="v-stock '+stockClass+'">Stok: '+v.stock+'</span>';
+                            if (unitOptions.length) {
+                                html += '<select class="form-select form-select-sm mt-2 v-unit-select">';
+                                unitOptions.forEach(function(opt) {
+                                    var selected = String(opt.unit_id) === String(v.default_unit_id || v.unit_id) ? ' selected' : '';
+                                    html += '<option value="'+opt.unit_id+'" data-label="'+escapeHtml(opt.unit_label || '')+'" data-price="'+opt.suggested_price+'"'+selected+'>';
+                                    html += escapeHtml(opt.unit_label || '') + '</option>';
+                                });
+                                html += '</select>';
+                            }
                             if (v.has_trackable_serials) {
                                 html += '<div class="small text-primary mt-1"><i class="ti ti-barcode"></i> Serial</div>';
                             }
@@ -2342,6 +2522,20 @@
                     variantModal.show();
                 }
 
+                $(document).on('change', '.v-unit-select', function(e) {
+                    e.stopPropagation();
+                    var $opt = $(this).find('option:selected');
+                    var $card = $(this).closest('.variant-item');
+                    var price = parseFloat($opt.data('price')) || 0;
+                    $card.attr('data-unit-id', $opt.val() || '');
+                    $card.attr('data-unit-label', $opt.data('label') || '');
+                    $card.attr('data-price', price);
+                    $card.find('.v-price').text('Rp ' + Number(price).toLocaleString('id-ID'));
+                });
+                $(document).on('click', '.v-unit-select', function(e) {
+                    e.stopPropagation();
+                });
+
                 $(document).on('click', '.variant-item', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -2349,23 +2543,26 @@
                         return;
                     }
                     var $el = $(this);
+                    var $unit = $el.find('.v-unit-select option:selected');
+                    if ($unit.length) {
+                        $el.attr('data-unit-id', $unit.val() || '');
+                        $el.attr('data-unit-label', $unit.data('label') || '');
+                        $el.attr('data-price', $unit.data('price') || $el.attr('data-price'));
+                    }
                     if (window.PosBarcodeScan) {
                         window.PosBarcodeScan.syncPartnerRoleFromCustomer();
                     }
-                    if (
-                        window.PosBarcodeScan &&
-                        window.PosBarcodeScan.isPartnerCustomer() &&
-                        Number($el.attr('data-has-trackable-serials') || $el.data('has-trackable-serials')) === 1
-                    ) {
+                    if (shouldPromptScan(Number($el.attr('data-has-trackable-serials') || $el.data('has-trackable-serials')) === 1)) {
                         variantModal.hide();
                         window.PosBarcodeScan.promptForProduct({
                             productId: $el.attr('data-product-id') || $el.data('product-id'),
                             variantId: $el.attr('data-variant-id') || $el.data('variant-id'),
-                            name: $el.attr('data-name') || $el.data('name')
+                            name: $el.attr('data-name') || $el.data('name'),
+                            unitId: $el.attr('data-unit-id') || $el.data('unit-id')
                         });
                         return;
                     }
-                    addToCart($el.data('variant-id'), $el.data('name'), $el.data('price'), $el.data('image'), $el.data('unit-id'), $el.data('unit-label'));
+                    addToCart($el.data('variant-id'), $el.data('name'), $el.attr('data-price') || $el.data('price'), $el.data('image'), $el.attr('data-unit-id') || $el.data('unit-id'), $el.attr('data-unit-label') || $el.data('unit-label'));
                     variantModal.hide();
                 });
 
@@ -2385,9 +2582,40 @@
                     var $item = $(this).closest('.pos-cart-item');
                     if ($item.hasClass('is-promo-free') || $item.data('serial-number')) return;
                     var inp = $(this).siblings('.quantity-input');
-                    inp.val(parseInt(inp.val()) + 1);
+                    inp.val(parseInt(inp.val(), 10) + 1);
                     updateCartTotals();
                     scheduleShippingOptionsRefresh();
+                });
+                $(document).on('input', '.quantity-input', function() {
+                    var $item = $(this).closest('.pos-cart-item');
+                    if ($item.hasClass('is-promo-free') || $item.data('serial-number')) {
+                        return;
+                    }
+                    this.value = String(this.value || '').replace(/\D/g, '');
+                    if (this.value === '') {
+                        return;
+                    }
+                    updateCartTotals();
+                    scheduleShippingOptionsRefresh();
+                });
+                $(document).on('blur', '.quantity-input', function() {
+                    var $item = $(this).closest('.pos-cart-item');
+                    if ($item.hasClass('is-promo-free') || $item.data('serial-number')) {
+                        return;
+                    }
+                    var val = parseInt(this.value, 10);
+                    if (!val || val < 1) {
+                        val = 1;
+                    }
+                    this.value = val;
+                    updateCartTotals();
+                    scheduleShippingOptionsRefresh();
+                });
+                $(document).on('keydown', '.quantity-input', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
                 });
                 $(document).on('click', '.btn-delete', function() {
                     if ($(this).closest('.pos-cart-item').hasClass('is-promo-free')) return;
@@ -2398,6 +2626,42 @@
                 });
 
                 // ── Item discount toggle ──────────────────────────────
+                $(document).on('click', '.btn-item-price', function() {
+                    var item = $(this).closest('.pos-cart-item');
+                    if (item.hasClass('is-promo-free')) return;
+                    item.toggleClass('has-price-edit');
+                    if (item.hasClass('has-price-edit')) {
+                        var unitPrice = parseFloat(item.find('.quantity-input').data('unit-price')) || 0;
+                        item.find('.item-price-input').val(
+                            unitPrice ? Number(unitPrice).toLocaleString('id-ID') : '0'
+                        ).trigger('focus');
+                    }
+                });
+                $(document).on('input', '.item-price-input', function() {
+                    var raw = String(this.value || '').replace(/\D/g, '');
+                    this.value = raw === '' ? '' : parseInt(raw, 10).toLocaleString('id-ID');
+                    var item = $(this).closest('.pos-cart-item');
+                    var unitPrice = parseRupiahInput(this.value);
+                    item.find('.quantity-input').data('unit-price', unitPrice);
+                    var unitLabel = item.attr('data-unit-label') || item.data('unit-label') || '';
+                    item.find('.ci-price').text(
+                        'Rp ' + Number(unitPrice).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
+                    );
+                    updateCartTotals();
+                });
+                $(document).on('blur', '.item-price-input', function() {
+                    var item = $(this).closest('.pos-cart-item');
+                    var unitPrice = parseRupiahInput(this.value);
+                    this.value = unitPrice ? Number(unitPrice).toLocaleString('id-ID') : '0';
+                    item.find('.quantity-input').data('unit-price', unitPrice);
+                    updateCartTotals();
+                });
+                $(document).on('keydown', '.item-price-input', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
                 $(document).on('click', '.btn-item-disc', function() {
                     var item = $(this).closest('.pos-cart-item');
                     item.toggleClass('has-discount');
@@ -2651,7 +2915,7 @@
                         );
                         item.find('.ci-price').text('Rp 0' + (row.unit_label ? ' / ' + row.unit_label : ''));
                         item.find('.ci-qty-unit').text(row.unit_label || '');
-                        item.find('.quantity-input').val(row.quantity).data('unit-price', 0);
+                        item.find('.quantity-input').val(row.quantity).data('unit-price', 0).prop('readonly', true).attr('tabindex', -1);
                         $('#cartItems').append(item);
                     });
 
@@ -2687,7 +2951,7 @@
                                 'Accept': 'application/json'
                             },
                             contentType: 'application/json',
-                            data: JSON.stringify({ items: items }),
+                            data: JSON.stringify({ items: items, warehouse_id: posWarehouseId() || null }),
                             success: function(res) {
                                 if (res && res.success) {
                                     renderPromoFreeLines(res.free_items || []);
@@ -2909,6 +3173,7 @@
 
                     var payload = {
                         price_list_id: priceListId,
+                        warehouse_id: posWarehouseId() || null,
                         items: items,
                         payment_method_id: methodId,
                         customer_id: $('#customerSelect').val() || null,
@@ -2987,7 +3252,9 @@
 
                     if (!serialNumber) {
                         var existing = $cartPaidItems().filter(function() {
-                            return $(this).data('variant-id') == variantId && !$(this).data('serial-number');
+                            return $(this).data('variant-id') == variantId
+                                && String($(this).data('unit-id') || '') === String(unitId || '')
+                                && !$(this).data('serial-number');
                         });
                         if (existing.length > 0) {
                             var inp = existing.find('.quantity-input');
@@ -3012,6 +3279,7 @@
                         item.addClass('is-serial-tracked');
                         item.find('.ci-serial').text(serialNumber).show();
                         item.find('.btn-minus, .btn-plus').prop('disabled', true).addClass('disabled');
+                        item.find('.quantity-input').prop('readonly', true).attr('tabindex', -1);
                     } else {
                         item.find('.ci-serial').hide().text('');
                     }
@@ -3021,6 +3289,9 @@
                         'Rp ' + Number(price).toLocaleString('id-ID') + (unitLabel ? ' / ' + unitLabel : '')
                     );
                     item.find('.ci-qty-unit').text(unitLabel || '');
+                    item.removeClass('has-price-edit has-discount');
+                    item.find('.item-price-input').val('');
+                    item.find('.item-disc-input').val('0');
                     item.find('.quantity-input').val(1).data('unit-price', price);
                     $('#cartItems').append(item);
 

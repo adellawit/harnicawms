@@ -27,6 +27,17 @@
         </a>
     </header>
 
+    @if (($unpaidResellerOrderCount ?? 0) > 0)
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span>
+                Ada <strong>{{ $unpaidResellerOrderCount }}</strong> transaksi POS reseller yang belum lunas.
+            </span>
+            <a href="{{ route('agent-order.pos.history', ['status' => 'unpaid']) }}" class="btn btn-sm btn-warning">
+                Lihat transaksi
+            </a>
+        </div>
+    @endif
+
     <form method="GET" action="{{ route('agent-order.resellers') }}" class="mb-3">
         @if ($activeStatus !== 'all')
             <input type="hidden" name="status" value="{{ $activeStatus }}">
@@ -72,7 +83,12 @@
                         <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
                             <span class="agent-dashboard-avatar">{{ $initials ?: '?' }}</span>
                             <div class="flex-grow-1 min-w-0">
-                                <div class="fw-semibold text-truncate">{{ $reseller->name }}</div>
+                                <div class="fw-semibold text-truncate d-flex align-items-center gap-2">
+                                    <span class="text-truncate">{{ $reseller->name }}</span>
+                                    @include('agent.partials._nav-alert-badge', [
+                                        'count' => (int) ($unpaidByCustomerId[$reseller->customer_id] ?? 0),
+                                    ])
+                                </div>
                                 <div class="small text-muted text-truncate">
                                     {{ $reseller->code ?: '-' }}
                                     @if ($location)

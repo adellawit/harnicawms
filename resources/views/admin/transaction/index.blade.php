@@ -43,6 +43,7 @@
                             <th>Date</th>
                             <th>Type</th>
                             <th>Customer</th>
+                            <th>Gudang</th>
                             <th>Payment Method</th>
                             <th>Status</th>
                             <th>Payment</th>
@@ -98,7 +99,18 @@
                 <option value="partial" @if($paymentStatus=='partial') selected @endif>Partial</option>
             </select>
         </div>
-        <div class="mb-0">
+        <div class="mb-3">
+            <label class="form-label">Gudang</label>
+            <select id="filterWarehouse" class="select2-modal form-select" data-allow-clear="true">
+                <option value="">Semua Gudang</option>
+                @foreach($warehouses ?? [] as $wh)
+                    <option value="{{ $wh->id }}" @if(($warehouseId ?? '') === $wh->id) selected @endif>
+                        {{ $wh->name }}@if($wh->code) ({{ $wh->code }})@endif
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <div class="mb-3">
             <label class="form-label">Order Type</label>
             <select id="filterOrderType" class="select2-modal form-select" data-allow-clear="true">
                 <option value="">All</option>
@@ -187,7 +199,8 @@
                             payment_status: "{{ $paymentStatus }}",
                             order_type: "{{ $orderType }}",
                             date_from: "{{ $dateFrom ?? '' }}",
-                            date_to: "{{ $dateTo ?? '' }}"
+                            date_to: "{{ $dateTo ?? '' }}",
+                            warehouse_id: "{{ $warehouseId ?? '' }}"
                         }
                     },
                     columns: [
@@ -196,6 +209,7 @@
                         { data: 'sales_date', render: function(d) { return d ? moment(d).format("DD MMM YYYY") : '-'; } },
                         { data: 'order_type', render: function(d) { return '<span class="badge bg-label-'+(d==='pos'?'info':'primary')+'">'+(d||'-').toUpperCase()+'</span>'; } },
                         { data: 'customer_display', orderable: false },
+                        { data: 'warehouse_display', orderable: false, searchable: false },
                         { data: 'method_payment_name', orderable: false },
                         { data: 'status_badge', orderable: false, searchable: false },
                         { data: 'payment_badge', orderable: false, searchable: false },
@@ -243,12 +257,14 @@
                     var s = $('#filterStatus').val();
                     var ps = $('#filterPaymentStatus').val();
                     var ot = $('#filterOrderType').val();
+                    var wh = $('#filterWarehouse').val();
                     var df = toIsoDate($('#filterDateFrom').val());
                     var dt = toIsoDate($('#filterDateTo').val());
                     if (b) params.push('branch_id=' + encodeURIComponent(b));
                     if (s) params.push('status=' + encodeURIComponent(s));
                     if (ps) params.push('payment_status=' + encodeURIComponent(ps));
                     if (ot) params.push('order_type=' + encodeURIComponent(ot));
+                    if (wh) params.push('warehouse_id=' + encodeURIComponent(wh));
                     if (df) params.push('date_from=' + encodeURIComponent(df));
                     if (dt) params.push('date_to=' + encodeURIComponent(dt));
                     window.location = '{{ route("transaction.index") }}' + (params.length ? '?' + params.join('&') : '');

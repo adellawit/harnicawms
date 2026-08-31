@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItemSerialAssignment;
+use App\Models\Warehouse;
 use App\Services\Sales\BarcodeDispatchService;
 use App\Services\StockMutationService;
 use App\Support\WmsContext;
@@ -29,19 +30,30 @@ class TransactionController extends Controller
         $status = $request->get('status', '');
         $paymentStatus = $request->get('payment_status', '');
         $orderType = $request->get('order_type', '');
+        $warehouseId = $request->get('warehouse_id', '');
         $dateFrom = $this->normalizeFilterDate($request->get('date_from'));
         $dateTo = $this->normalizeFilterDate($request->get('date_to'));
         $isFilter = $status !== ''
             || $paymentStatus !== ''
             || $orderType !== ''
+            || $warehouseId !== ''
             || $branchId !== $defaultBranchId
             || $dateFrom !== null
             || $dateTo !== null;
+
+        $warehouses = Warehouse::query()
+            ->active()
+            ->when($branchId, fn ($q) => $q->forBranchAccess($branchId))
+            ->orderBy('name')
+            ->orderBy('code')
+            ->get(['id', 'name', 'code']);
 
         return view('admin.transaction.index', compact(
             'status',
             'paymentStatus',
             'orderType',
+            'warehouseId',
+            'warehouses',
             'isFilter',
             'branchId',
             'defaultBranchId',
@@ -57,8 +69,13 @@ class TransactionController extends Controller
         $dateFrom = $this->normalizeFilterDate($request->get('date_from'));
         $dateTo = $this->normalizeFilterDate($request->get('date_to'));
 
-        $query = SalesOrder::with(['methodPayment:id,name', 'priceList:id,name,code'])
+        $query = SalesOrder::with([
+            'methodPayment:id,name',
+            'priceList:id,name,code',
+            'warehouse:id,name,code',
+        ])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($request->warehouse_id, fn ($q) => $q->where('warehouse_id', $request->warehouse_id))
             ->when($dateFrom, fn ($q) => $q->whereDate('sales_date', '>=', $dateFrom))
             ->when($dateTo, fn ($q) => $q->whereDate('sales_date', '<=', $dateTo));
 
@@ -109,15 +126,32 @@ class TransactionController extends Controller
             })
             ->addColumn('method_payment_name', fn ($row) => $row->methodPayment?->name ?? '-')
             ->addColumn('customer_display', fn ($row) => $row->customer_name ?: '-')
+            ->addColumn('warehouse_display', function ($row) {
+                $name = $row->warehouse?->name;
+                if (! $name) {
+                    return '<span class="text-muted">-</span>';
+                }
+
+                $code = $row->warehouse?->code;
+
+                return '<div class="fw-medium">'.e($name).'</div>'
+                    .($code ? '<small class="text-muted">'.e($code).'</small>' : '');
+            })
             ->filter(function ($query) use ($request) {
                 if ($search = $request->get('search')['value'] ?? null) {
                     $query->where(function ($q) use ($search) {
                         $q->where('sales_number', 'ilike', "%{$search}%")
-                            ->orWhere('customer_name', 'ilike', "%{$search}%");
+                            ->orWhere('customer_name', 'ilike', "%{$search}%")
+                            ->orWhereHas('warehouse', function ($warehouse) use ($search) {
+                                $warehouse->where(function ($w) use ($search) {
+                                    $w->where('name', 'ilike', "%{$search}%")
+                                        ->orWhere('code', 'ilike', "%{$search}%");
+                                });
+                            });
                     });
                 }
             })
-            ->rawColumns(['status_badge', 'payment_badge', 'shipping_fmt'])
+            ->rawColumns(['status_badge', 'payment_badge', 'shipping_fmt', 'warehouse_display'])
             ->toJson();
     }
 
@@ -348,6 +382,7 @@ class TransactionController extends Controller
             'priceList:id,name,code',
             'customer:id,name,code',
             'branch:id,name',
+            'warehouse:id,name,code',
             'createdByUser:id,first_name,last_name',
             'paymentGatewayCallbacks' => fn ($q) => $q->orderByDesc('created_at'),
         ])->withTrashed()->findOrFail($id);

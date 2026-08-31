@@ -7,6 +7,18 @@
     return window.PosBarcodeScanConfig || {}
   }
 
+  function requireSerialScan() {
+    if (typeof getConfig().requireSerialScan === 'boolean') {
+      return getConfig().requireSerialScan
+    }
+    var attr = $('#posWrapper').attr('data-require-serial-scan')
+    return attr === undefined || attr === '' || attr === '1' || attr === 'true'
+  }
+
+  function posWarehouseId() {
+    return $('#warehouseSelect').val() || $('#posWrapper').attr('data-warehouse-id') || ''
+  }
+
   function isPartnerCustomer() {
     var role = String(
       $('#posWrapper').attr('data-partner-role') ||
@@ -61,7 +73,8 @@
           '',
         pending_product_id: pending && pending.productId ? pending.productId : null,
         pending_variant_id: pending && pending.variantId ? pending.variantId : null,
-        pending_unit_id: pending && pending.unitId ? pending.unitId : null
+        pending_unit_id: pending && pending.unitId ? pending.unitId : null,
+        warehouse_id: posWarehouseId() || null
       })
     })
   }
@@ -94,6 +107,7 @@
   }
 
   function ensurePartnerCustomerSelected() {
+    if (!requireSerialScan()) return true
     syncPartnerRoleFromCustomer()
     if (isPartnerCustomer()) return true
 

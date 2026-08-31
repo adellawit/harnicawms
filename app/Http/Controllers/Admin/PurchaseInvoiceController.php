@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\MethodPayment;
 use App\Models\PurchaseKontrabon;
 use App\Models\Supplier;
 use App\Services\KontrabonService;
@@ -21,8 +22,9 @@ class PurchaseInvoiceController extends Controller
         $status = $request->filled('status') ? $request->status : '';
         $isFilter = $status !== '';
         $filterBranchId = $request->get('branch_id', $user->current_business_unit_id);
+        $paymentMethods = $this->paymentMethodOptions();
 
-        return view('admin.product.purchase-invoice.index', compact('status', 'isFilter', 'filterBranchId'));
+        return view('admin.product.purchase-invoice.index', compact('status', 'isFilter', 'filterBranchId', 'paymentMethods'));
     }
 
     public function indexData(Request $request)
@@ -170,8 +172,9 @@ class PurchaseInvoiceController extends Controller
     {
         $kontrabon = PurchaseKontrabon::with(['items.purchaseOrder', 'supplier', 'branch', 'payments'])->findOrFail($id);
         $this->authorizeBranch($kontrabon);
+        $paymentMethods = $this->paymentMethodOptions();
 
-        return view('admin.product.purchase-invoice.detail', compact('kontrabon'));
+        return view('admin.product.purchase-invoice.detail', compact('kontrabon', 'paymentMethods'));
     }
 
     public function eligiblePurchaseOrders(Request $request)
@@ -179,6 +182,7 @@ class PurchaseInvoiceController extends Controller
         $request->validate([
             'supplier_id' => 'required|uuid|exists:master_data.suppliers,id',
             'exclude_kontrabon_id' => 'nullable|uuid',
+            'receive_scope' => 'nullable|in:received,unreceived',
         ]);
 
         $user = auth('web')->user();
@@ -188,7 +192,8 @@ class PurchaseInvoiceController extends Controller
         $orders = KontrabonService::eligiblePurchaseOrders(
             $request->supplier_id,
             $branchIds,
-            $request->exclude_kontrabon_id
+            $request->exclude_kontrabon_id,
+            $request->receive_scope
         );
 
         return response()->json([
@@ -198,13 +203,22 @@ class PurchaseInvoiceController extends Controller
                     $po,
                     $request->exclude_kontrabon_id
                 );
+                $hasReceive = KontrabonService::purchaseOrderHasReceive($po);
+                $items = KontrabonService::purchaseOrderItemsPayload($po);
+                $orderedQty = collect($items)->sum('quantity');
+                $receivedQty = collect($items)->sum('quantity_received');
 
                 return [
                     'id' => $po->id,
                     'purchase_number' => $po->purchase_number,
                     'purchase_date' => optional($po->purchase_date)->format('d/m/Y'),
+                    'expected_delivery_date' => optional($po->expected_delivery_date)->format('d/m/Y'),
                     'status' => $po->status_label,
                     'po_kind_label' => $po->po_kind_label,
+                    'has_receive' => $hasReceive,
+                    'is_fully_received' => KontrabonService::purchaseOrderIsFullyReceived($po),
+                    'ordered_qty' => $orderedQty,
+                    'received_qty' => $receivedQty,
                     'subtotal' => $amounts['subtotal'],
                     'tax_amount' => $amounts['tax_amount'],
                     'discount_amount' => $amounts['discount_amount'],
@@ -214,8 +228,10 @@ class PurchaseInvoiceController extends Controller
                     'remaining_invoice_amount' => $remaining,
                     'total_fmt' => format_number($amounts['total'], 2, true),
                     'remaining_fmt' => format_number($remaining, 2, true),
+                    'ordered_qty_fmt' => format_number($orderedQty, 2, true),
+                    'received_qty_fmt' => format_number($receivedQty, 2, true),
                     'detail_url' => route('product.purchase-order.detail.view', $po->id),
-                    'items' => KontrabonService::purchaseOrderItemsPayload($po),
+                    'items' => $items,
                 ];
             })->values(),
         ]);
@@ -516,6 +532,33 @@ class PurchaseInvoiceController extends Controller
         }
 
         return Carbon::createFromFormat('d/m/Y', $normalized)->format('Y-m-d');
+    }
+
+    protected function paymentMethodOptions()
+    {
+        $branchId = auth('web')->user()->current_business_unit_id;
+
+        $methods = MethodPayment::query()
+            ->whereNull('deleted_at')
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->where('uses_payment_gateway', false)->orWhereNull('uses_payment_gateway');
+            })
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+
+        if ($methods->isNotEmpty()) {
+            return $methods;
+        }
+
+        return collect([
+            (object) ['code' => null, 'name' => 'Transfer'],
+            (object) ['code' => null, 'name' => 'Cash'],
+            (object) ['code' => null, 'name' => 'Giro'],
+            (object) ['code' => null, 'name' => 'Cheque'],
+        ]);
     }
 
     protected function authorizeBranch(PurchaseKontrabon $kontrabon): void

@@ -73,12 +73,30 @@ class PurchaseOrderCatalog
                 'name' => $product->name,
                 'code' => $product->code,
                 'item_type_key' => $product->itemType?->key,
+                'item_type_label' => $product->itemType?->value,
                 'is_purchase_item' => (bool) $product->is_purchase_item,
                 'default_unit_id' => $product->default_unit_id,
                 'unit_conversions' => $product->unitConversions,
                 'variants' => $product->variants,
+                'option_label' => self::productOptionLabel($product),
             ];
         })->values()->all();
+    }
+
+    public static function productOptionLabel(Product $product): string
+    {
+        $product->loadMissing('itemType');
+        $type = trim((string) ($product->itemType?->value ?? ''));
+
+        return $type === '' ? $product->name : $product->name.' - '.$type;
+    }
+
+    public static function supplierOptionLabel(Supplier $supplier): string
+    {
+        $supplier->loadMissing('supplierType');
+        $type = trim((string) ($supplier->supplierType?->value ?? ''));
+
+        return $type === '' ? $supplier->name : $supplier->name.' - '.$type;
     }
 
     /**
@@ -102,6 +120,7 @@ class PurchaseOrderCatalog
                 'ppn_rate' => $supplier->ppn_rate,
                 'supplier_type_key' => $supplier->supplierType?->key,
                 'supplier_type_label' => $supplier->supplierType?->value,
+                'option_label' => self::supplierOptionLabel($supplier),
             ];
         })->values()->all();
     }

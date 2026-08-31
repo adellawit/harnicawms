@@ -246,10 +246,9 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-check mt-4">
-                            <input class="form-check-input" type="checkbox" name="is_pos_active" id="is_pos_active" value="1"
-                                @checked(old('is_pos_active', $warehouse?->is_pos_active ?? false))>
-                            <label class="form-check-label" for="is_pos_active">POS Active</label>
+                        <div class="form-text mt-4">
+                            Atur transaksi POS di
+                            <a href="{{ route('settings.pos-configuration.index.view') }}">Settings → POS Configuration</a>.
                         </div>
                     </div>
                     <div class="col-md-4">

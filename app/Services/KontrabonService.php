@@ -17,12 +17,14 @@ class KontrabonService
 {
     /**
      * @param  array<int, string>  $branchIds
+     * @param  'received'|'unreceived'|null  $receiveScope
      * @return Collection<int, ProductPurchaseOrder>
      */
     public static function eligiblePurchaseOrders(
         string $supplierId,
         array $branchIds,
-        ?string $excludeKontrabonId = null
+        ?string $excludeKontrabonId = null,
+        ?string $receiveScope = null
     ): Collection {
         return ProductPurchaseOrder::query()
             ->with(['items.product', 'items.unit', 'items.variant', 'items.receiveItems'])
@@ -31,18 +33,25 @@ class KontrabonService
                 $query->whereNull('po_kind')
                     ->orWhereIn('po_kind', ['standalone', 'sub']);
             })
-            ->whereIn('status', ['receiving', 'received', 'payment'])
+            ->whereIn('status', ['process', 'receiving', 'received', 'payment'])
             ->whereNull('deleted_at')
             ->when(! empty($branchIds), fn ($q) => $q->whereIn('branch_id', $branchIds))
             ->orderByDesc('purchase_date')
             ->orderByDesc('created_at')
             ->get()
-            ->filter(function (ProductPurchaseOrder $po) use ($excludeKontrabonId) {
-                if (! self::purchaseOrderHasReceive($po)) {
+            ->filter(function (ProductPurchaseOrder $po) use ($excludeKontrabonId, $receiveScope) {
+                if (self::purchaseOrderRemainingInvoiceAmount($po, $excludeKontrabonId) <= 0.000001) {
                     return false;
                 }
 
-                return self::purchaseOrderRemainingInvoiceAmount($po, $excludeKontrabonId) > 0.000001;
+                $hasReceive = self::purchaseOrderHasReceive($po);
+                $status = $po->status_key ?? $po->status;
+
+                return match ($receiveScope) {
+                    'unreceived' => ! $hasReceive && $status === 'process',
+                    'received' => $hasReceive,
+                    default => $hasReceive || $status === 'process',
+                };
             })
             ->values();
     }
@@ -54,6 +63,21 @@ class KontrabonService
         return $purchase->items->contains(
             fn ($item) => (float) $item->receiveItems->sum('quantity_received') > 0
         );
+    }
+
+    public static function purchaseOrderIsFullyReceived(ProductPurchaseOrder $purchase): bool
+    {
+        $purchase->loadMissing('items.receiveItems');
+
+        if ($purchase->items->isEmpty()) {
+            return false;
+        }
+
+        return $purchase->items->every(function ($item) {
+            $received = (float) $item->receiveItems->sum('quantity_received');
+
+            return $received + 1e-6 >= (float) $item->quantity;
+        });
     }
 
     public static function purchaseOrderTotals(ProductPurchaseOrder $purchase): array
@@ -97,6 +121,74 @@ class KontrabonService
         return max(0, $poTotal - $invoiced);
     }
 
+    /**
+     * @return array{key: string, label: string, badge: string}
+     */
+    public static function purchaseOrderPaymentStatus(ProductPurchaseOrder $purchase): array
+    {
+        $activeStatuses = [
+            KontrabonStatus::DRAFT,
+            KontrabonStatus::SUBMITTED,
+            KontrabonStatus::PARTIAL_PAID,
+            KontrabonStatus::PAID,
+        ];
+
+        $purchase->loadMissing(['kontrabonItems.kontrabon']);
+
+        $items = $purchase->kontrabonItems->filter(function ($item) use ($activeStatuses) {
+            $kontrabon = $item->kontrabon;
+
+            return $kontrabon
+                && ! $kontrabon->trashed()
+                && in_array($kontrabon->status, $activeStatuses, true);
+        });
+
+        $poTotal = (float) $purchase->total;
+        $invoiced = (float) $items->sum('total');
+        $paid = 0.0;
+
+        foreach ($items as $item) {
+            $kontrabon = $item->kontrabon;
+            $kontrabonTotal = (float) $kontrabon->total;
+            if ($kontrabonTotal <= 0) {
+                continue;
+            }
+
+            $ratio = min(1, (float) ($kontrabon->paid_amount ?? 0) / $kontrabonTotal);
+            $paid += (float) $item->total * $ratio;
+        }
+
+        if ($poTotal > 0 && $paid + 1e-6 >= $poTotal) {
+            $key = 'paid';
+        } elseif ($paid > 1e-6) {
+            $key = 'partial_paid';
+        } elseif ($invoiced > 1e-6) {
+            $key = 'invoiced';
+        } else {
+            $key = 'unpaid';
+        }
+
+        $label = match ($key) {
+            'paid' => 'Paid',
+            'partial_paid' => 'Partial Paid',
+            'invoiced' => 'Invoiced',
+            default => 'Unpaid',
+        };
+
+        $tone = match ($key) {
+            'paid' => 'success',
+            'partial_paid' => 'info',
+            'invoiced' => 'warning',
+            default => 'secondary',
+        };
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'badge' => '<span class="badge bg-label-'.$tone.'">'.e($label).'</span>',
+        ];
+    }
+
     public static function purchaseOrderHasOpenKontrabon(string $poId): bool
     {
         return PurchaseKontrabonItem::query()
@@ -123,9 +215,6 @@ class KontrabonService
         return $purchase->items->map(function ($item) {
             $received = (float) $item->receiveItems->sum('quantity_received');
             $productLabel = $item->product?->name ?? '-';
-            if ($item->product?->code) {
-                $productLabel .= ' ('.$item->product->code.')';
-            }
             if ($item->variant?->sku) {
                 $productLabel .= ' — '.$item->variant->sku;
             }
@@ -135,7 +224,7 @@ class KontrabonService
                 'product_code' => $item->product?->code,
                 'product_label' => $productLabel,
                 'variant_sku' => $item->variant?->sku,
-                'unit_label' => $item->unit?->symbol ?: $item->unit?->name,
+                'unit_label' => $item->unit?->name ?: ($item->unit?->symbol ?: '-'),
                 'batch_number' => $item->batch_number,
                 'expiry_date' => $item->expiry_date?->format('d/m/Y'),
                 'quantity' => (float) $item->quantity,
@@ -312,6 +401,10 @@ class KontrabonService
                     }
 
                     if (self::purchaseOrderHasOpenKontrabon($purchase->id)) {
+                        continue;
+                    }
+
+                    if (! self::purchaseOrderIsFullyReceived($purchase)) {
                         continue;
                     }
 

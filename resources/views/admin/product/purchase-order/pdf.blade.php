@@ -101,10 +101,9 @@
         <thead>
             <tr>
                 <th class="text-center" style="width:24px;">No</th>
-                <th style="width:70px;">Kode</th>
                 <th>Nama Barang</th>
                 <th class="text-center" style="width:40px;">Qty</th>
-                <th class="text-center" style="width:45px;">Satuan</th>
+                <th class="text-center" style="width:70px;">Satuan</th>
                 <th class="text-center" style="width:55px;">Batch</th>
                 <th class="text-center" style="width:50px;">Expired</th>
                 <th class="text-center" style="width:45px;">Karton</th>
@@ -119,7 +118,6 @@
             @foreach($purchase->items as $i => $item)
                 <tr>
                     <td class="text-center">{{ $i + 1 }}</td>
-                    <td>{{ $item->product?->code ?: ($item->variant?->sku ?: '-') }}</td>
                     <td>
                         {{ $item->product?->name ?: '-' }}
                         @if($item->variant?->sku)
@@ -127,7 +125,7 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_number((float) $item->quantity, 2, true) }}</td>
-                    <td class="text-center">{{ $item->unit ? ($item->unit->symbol ?: $item->unit->name) : '-' }}</td>
+                    <td class="text-center">{{ $item->unit?->name ?: '-' }}</td>
                     <td class="text-center" style="font-size:9px;">{{ $item->batch_number ?: '-' }}</td>
                     <td class="text-center" style="font-size:9px;">{{ $item->expiry_date?->format('d/m/Y') ?: '-' }}</td>
                     <td class="text-right" style="font-size:9px;">{{ $item->carton_display_label !== '-' ? $item->carton_display_label : '-' }}</td>
