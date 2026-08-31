@@ -384,4 +384,52 @@ class ProductSearchService
             ];
         })->values()->all();
     }
+
+    /**
+     * Harga jual 1 unit: baris price list, atau dihitung dari satuan terbesar lewat konversi.
+     */
+    public function sellingPriceForUnit(
+        ProductVariant $variant,
+        string $branchId,
+        string $priceListId,
+        string $unitId,
+    ): ?float {
+        $priceRow = $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $unitId);
+        if ($priceRow && (float) $priceRow->selling_price > 0) {
+            return (float) $priceRow->selling_price;
+        }
+
+        $variant->loadMissing('product');
+        $product = $variant->product;
+        if (! $product) {
+            return null;
+        }
+
+        $fromUnitId = $product->default_unit_id;
+        $fromPriceRow = $fromUnitId
+            ? $this->findVariantPriceRow($variant->id, $branchId, $priceListId, $fromUnitId)
+            : null;
+        $fromPrice = (float) ($fromPriceRow?->selling_price ?? 0);
+
+        if ($fromPrice <= 0) {
+            $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
+            $fromUnitId = $pricing['unit_id'] ?? $fromUnitId;
+            $fromPrice = (float) $pricing['selling_price'];
+        }
+
+        if ($fromPrice <= 0 || ! $fromUnitId) {
+            return null;
+        }
+
+        if ($fromUnitId === $unitId) {
+            return $fromPrice;
+        }
+
+        $qtyInTarget = $product->convertQuantity(1, $fromUnitId, $unitId);
+        if ($qtyInTarget === null || $qtyInTarget <= 0) {
+            return null;
+        }
+
+        return round($fromPrice / $qtyInTarget, 2);
+    }
 }

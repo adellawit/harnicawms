@@ -5,7 +5,6 @@ namespace App\Services\Sales;
 use App\Models\Customer;
 use App\Models\ProductLabelSerial;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantPrice;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderBarcodeDispatch;
 use App\Models\SalesOrderItem;
@@ -57,6 +56,7 @@ class BarcodeDispatchService
                     $pendingProductId,
                     $pendingVariantId,
                     $pendingUnitId,
+                    $warehouseId,
                 );
             } catch (InvalidArgumentException $exception) {
                 $lastError = $exception;
@@ -76,9 +76,10 @@ class BarcodeDispatchService
         ?string $pendingProductId,
         ?string $pendingVariantId,
         ?string $pendingUnitId,
+        ?string $warehouseId = null,
     ): array {
         if (SalesOrderItemSerialAssignment::where('product_label_serial_id', $serial->id)->exists()) {
-            throw new InvalidArgumentException('Barcode sudah pernah dialokasikan ke sales order.');
+            throw new InvalidArgumentException('Barcode sudah keluar, tidak bisa dipakai lagi.');
         }
 
         if ($pendingProductId && $serial->product_id !== $pendingProductId) {
@@ -124,19 +125,18 @@ class BarcodeDispatchService
         $unitLabel = $serial->unit?->symbol ?: ($serial->unit?->name ?: $mapped['unit_label']);
 
         if ($unitId !== $mapped['unit_id']) {
-            $priceRow = ProductVariantPrice::query()
-                ->where('variant_id', $variant->id)
-                ->where('branch_id', $branchId)
-                ->where('price_list_id', $priceListId)
-                ->where('unit_id', $unitId)
-                ->whereNull('deleted_at')
-                ->first();
+            $unitPrice = $this->productSearch->sellingPriceForUnit(
+                $variant,
+                $branchId,
+                $priceListId,
+                $unitId,
+            );
 
-            if (! $priceRow || (float) $priceRow->selling_price <= 0) {
+            if ($unitPrice === null || $unitPrice <= 0) {
                 throw new InvalidArgumentException('Harga satuan barcode tidak tersedia pada price list aktif.');
             }
 
-            $mapped['selling_price'] = (float) $priceRow->selling_price;
+            $mapped['selling_price'] = $unitPrice;
             $mapped['unit_id'] = $unitId;
             $mapped['unit_label'] = $unitLabel;
         }
@@ -177,16 +177,14 @@ class BarcodeDispatchService
                 return $variant;
             }
 
-            $unitPrice = ProductVariantPrice::query()
-                ->where('variant_id', $variant->id)
-                ->where('branch_id', $branchId)
-                ->where('price_list_id', $priceListId)
-                ->where('unit_id', $unitId)
-                ->whereNull('deleted_at')
-                ->where('selling_price', '>', 0)
-                ->exists();
+            $unitPrice = $this->productSearch->sellingPriceForUnit(
+                $variant,
+                $branchId,
+                $priceListId,
+                $unitId,
+            );
 
-            if ($unitPrice) {
+            if ($unitPrice !== null && $unitPrice > 0) {
                 return $variant;
             }
         }
@@ -463,7 +461,7 @@ class BarcodeDispatchService
         }
 
         if ($this->repository->assignmentForSerial($serial->id)) {
-            throw new InvalidArgumentException('Barcode sudah pernah dialokasikan ke sales order.');
+            throw new InvalidArgumentException('Barcode sudah keluar, tidak bisa dipakai lagi.');
         }
 
         $expected = $this->expectedQuantity($item);
