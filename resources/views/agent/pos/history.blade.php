@@ -1,6 +1,28 @@
-@extends('layouts.agent-pos')
+@extends('layouts.agent-order')
 
 @section('title', 'Riwayat Transaksi POS | ')
+
+@section('shop_body_class')
+    agent-pos-history-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/agent-pos.css') }}">
+@endpush
+
+@push('vendor-scripts')
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+@endpush
 
 @section('content')
     <div class="pos-history-page">

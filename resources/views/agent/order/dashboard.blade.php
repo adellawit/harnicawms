@@ -6,71 +6,75 @@
     agent-dashboard-page
 @endsection
 
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @section('content')
-    {{-- 1. Hero sapaan --}}
-    <header class="agent-dashboard-hero card border-0 shadow-sm mb-3">
-        <div class="card-body p-3 p-md-4">
-            <div class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-between gap-3">
-                <div class="min-w-0">
-                    <h1 class="shop-page-title mb-1">Halo, {{ $customer->name }}</h1>
-                    <p class="text-muted small mb-0">
-                        {{ $branchLabel ?: '-' }} · Agent · {{ $agentCode }}
-                    </p>
-                </div>
-                <a href="{{ route('agent-order.index') }}" class="btn btn-primary flex-shrink-0 align-self-start align-self-md-center">
+    {{-- 1. Hero sapaan + alamat --}}
+    <header class="agent-dashboard-hero mb-3">
+        <div class="agent-dashboard-hero-body">
+            <div class="agent-dashboard-hero-text min-w-0">
+                <h1 class="shop-page-title mb-2">Halo, {{ $customer->name }}</h1>
+                <p class="agent-dashboard-hero-meta mb-1">
+                    <i class="ti ti-building-store"></i> {{ $branchLabel ?: '-' }}
+                    <span class="agent-dashboard-hero-dot">·</span>
+                    <i class="ti ti-id-badge-2"></i> {{ $agentCode }}
+                </p>
+                <p class="agent-dashboard-hero-address mb-3">
+                    <i class="ti ti-map-pin"></i> {{ $shippingAddress ?: 'Alamat belum diatur' }}
+                </p>
+                <a href="{{ route('agent-order.index') }}" class="btn btn-primary">
                     <i class="ti ti-shopping-cart me-1"></i> Mulai order
                 </a>
+            </div>
+            <div class="agent-dashboard-hero-illustration d-none d-md-block">
+                <x-illustration-agent-package class="dashboard-hero-illustration" />
             </div>
         </div>
     </header>
 
-    {{-- 2. Alamat kirim --}}
-    <div class="card border-0 shadow-sm shop-order-card mb-3">
-        <div class="card-body py-3">
-            <div class="d-flex align-items-start gap-2">
-                <i class="ti ti-map-pin text-muted mt-1 flex-shrink-0"></i>
-                <div class="min-w-0">
-                    <div class="small text-muted mb-1">Alamat kirim</div>
-                    <div>{{ $shippingAddress ?: 'Alamat belum diatur' }}</div>
-                </div>
-            </div>
+    @include('agent.order.partials._hero-promo-carousel')
+
+    {{-- 2. Statistik --}}
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-4">
+            <x-dashboard.kpi-card
+                title="Pesanan aktif"
+                :value="$stats['active_orders']"
+                icon="ti ti-shopping-cart"
+                icon-color="primary"
+            />
+        </div>
+        <div class="col-4">
+            <x-dashboard.kpi-card
+                title="Order bulan ini"
+                :value="$stats['orders_this_month']"
+                icon="ti ti-calendar-stats"
+                icon-color="info"
+            />
+        </div>
+        <div class="col-4">
+            <x-dashboard.kpi-card
+                title="Reseller aktif"
+                :value="$stats['active_resellers']"
+                icon="ti ti-users"
+                icon-color="success"
+            />
         </div>
     </div>
 
-    {{-- 3. Statistik --}}
-    <div class="row g-2 g-md-3 mb-3 agent-dashboard-stats">
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 agent-dashboard-stat">
-                <div class="card-body py-3 text-center">
-                    <div class="agent-dashboard-stat-value">{{ $stats['active_orders'] }}</div>
-                    <div class="small text-muted">Pesanan aktif</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 agent-dashboard-stat">
-                <div class="card-body py-3 text-center">
-                    <div class="agent-dashboard-stat-value">{{ $stats['orders_this_month'] }}</div>
-                    <div class="small text-muted">Order bulan ini</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 agent-dashboard-stat">
-                <div class="card-body py-3 text-center">
-                    <div class="agent-dashboard-stat-value">{{ $stats['active_resellers'] }}</div>
-                    <div class="small text-muted">Reseller aktif</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- 4. Kartu navigasi --}}
+    {{-- 3. Kartu navigasi --}}
     <div class="row g-2 g-md-3 mb-4">
         <div class="col-md-4">
             <a href="{{ route('agent-order.pos') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-cash"></i></span>
+                    <span class="agent-dashboard-nav-icon agent-dashboard-nav-icon-primary"><i class="ti ti-cash"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">POS / Kasir</div>
                         <div class="small text-muted">Jual ke reseller Anda</div>
@@ -82,7 +86,7 @@
         <div class="col-md-4">
             <a href="{{ route('agent-order.index') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-primary"><i class="ti ti-building-store"></i></span>
+                    <span class="agent-dashboard-nav-icon agent-dashboard-nav-icon-primary"><i class="ti ti-building-store"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">Order ke Distributor</div>
                         <div class="small text-muted">Katalog produk jadi</div>
@@ -94,7 +98,7 @@
         <div class="col-md-4">
             <a href="{{ route('agent-order.materials') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-info"><i class="ti ti-photo"></i></span>
+                    <span class="agent-dashboard-nav-icon agent-dashboard-nav-icon-info"><i class="ti ti-photo"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">Materi Pemasaran</div>
                         <div class="small text-muted">Brosur, poster, template WA, video</div>
@@ -106,7 +110,7 @@
         <div class="col-md-4">
             <a href="{{ route('agent-order.training') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-secondary"><i class="ti ti-school"></i></span>
+                    <span class="agent-dashboard-nav-icon agent-dashboard-nav-icon-secondary"><i class="ti ti-school"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">Pelatihan</div>
                         <div class="small text-muted">Materi pelatihan untuk agen</div>
@@ -118,7 +122,7 @@
         <div class="col-md-4">
             <a href="{{ route('agent-order.stock') }}" class="card border-0 shadow-sm h-100 agent-dashboard-nav-card text-decoration-none text-body">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <span class="agent-dashboard-nav-icon bg-label-success"><i class="ti ti-building-warehouse"></i></span>
+                    <span class="agent-dashboard-nav-icon agent-dashboard-nav-icon-success"><i class="ti ti-building-warehouse"></i></span>
                     <div class="min-w-0">
                         <div class="fw-semibold">Stok Gudang</div>
                         <div class="small text-muted">Lihat stok di gudang Anda</div>
@@ -129,14 +133,13 @@
         </div>
     </div>
 
-    {{-- 5. Pesanan aktif --}}
+    {{-- 4. Pesanan aktif --}}
     <section class="mb-4">
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-            <h2 class="h6 fw-semibold mb-0">Pesanan aktif</h2>
+        <x-dashboard.section-header icon="ti ti-shopping-cart" title="Pesanan aktif">
             @if ($totalActiveOrders > 4)
                 <a href="{{ route('agent-order.orders') }}" class="small text-primary text-decoration-none">Semua pesanan →</a>
             @endif
-        </div>
+        </x-dashboard.section-header>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">
                 @forelse ($activeOrders as $order)
@@ -150,7 +153,12 @@
                             'cancelled' => 'danger',
                             'completed' => 'success',
                             'pending' => 'info',
+                            'verification' => 'warning',
                             default => 'secondary',
+                        };
+                        $statusLabel = match ($order->status) {
+                            'verification' => 'VERIFIKASI',
+                            default => strtoupper($order->status),
                         };
                     @endphp
                     <article class="list-group-item shop-order-row">
@@ -165,22 +173,26 @@
                                     {{ $order->sales_date?->format('d M Y, H:i') ?? $order->created_at->format('d M Y, H:i') }}
                                 </time>
                                 <div class="shop-order-badges">
-                                    <span class="badge bg-label-{{ $statusBadge }}">{{ strtoupper($order->status) }}</span>
+                                    <span class="badge bg-label-{{ $statusBadge }}">{{ $statusLabel }}</span>
                                     <span class="badge bg-label-{{ $payBadge }}">{{ strtoupper($order->payment_status) }}</span>
                                 </div>
                             </div>
                         </a>
                     </article>
                 @empty
-                    <div class="list-group-item text-center text-muted py-4">
-                        Belum ada pesanan aktif.
+                    <div class="list-group-item">
+                        <x-empty-state
+                            icon="ti ti-shopping-cart-off"
+                            title="Belum ada pesanan aktif"
+                            subtitle="Pesanan yang sedang berjalan akan muncul di sini."
+                        />
                     </div>
                 @endforelse
             </div>
         </div>
     </section>
 
-    {{-- 6. Order lagi --}}
+    {{-- 5. Order lagi --}}
     @if ($lastOrder)
         <section class="mb-4">
             <div class="card border-0 shadow-sm shop-order-card agent-reorder-card">
@@ -203,14 +215,13 @@
         </section>
     @endif
 
-    {{-- 7. Reseller Saya --}}
+    {{-- 6. Reseller Saya --}}
     <section class="mb-4">
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-            <h2 class="h6 fw-semibold mb-0">Reseller Saya</h2>
+        <x-dashboard.section-header icon="ti ti-users" title="Reseller Saya">
             @if ($totalResellers > 4)
                 <a href="{{ route('agent-order.resellers') }}" class="small text-primary text-decoration-none">Semua reseller →</a>
             @endif
-        </div>
+        </x-dashboard.section-header>
         <div class="card border-0 shadow-sm shop-order-card">
             <div class="list-group list-group-flush">
                 @forelse ($resellers as $reseller)
@@ -242,35 +253,34 @@
                         </div>
                     </div>
                 @empty
-                    <div class="list-group-item text-center text-muted py-4">
-                        Belum ada reseller.
+                    <div class="list-group-item">
+                        <x-empty-state
+                            icon="ti ti-user-off"
+                            title="Belum ada reseller"
+                            subtitle="Reseller yang tergabung dengan Anda akan tampil di sini."
+                        />
                     </div>
                 @endforelse
             </div>
         </div>
     </section>
 
-    {{-- 8. Materi pemasaran --}}
+    {{-- 7. Materi pemasaran --}}
     <section class="mb-4">
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-            <h2 class="h6 fw-semibold mb-0">Materi pemasaran</h2>
+        <x-dashboard.section-header icon="ti ti-photo" title="Materi pemasaran">
             @if ($totalMarketingAssets > 4)
                 <a href="{{ route('agent-order.materials') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
             @endif
-        </div>
+        </x-dashboard.section-header>
         <div class="row g-2 g-md-3">
             @forelse ($marketingAssets as $asset)
-                @php($thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null))
+                @php
+                    $thumb = $asset->thumbnail_url ?: ($asset->type === 'image' ? $asset->file_url : null);
+                @endphp
                 <div class="col-6 col-md-3">
                     <div class="card border-0 shadow-sm h-100 agent-asset-card">
                         <div class="agent-asset-thumb position-relative">
-                            @if ($thumb)
-                                <img src="{{ $thumb }}" alt="{{ $asset->title }}" loading="lazy">
-                            @else
-                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                    <i class="ti {{ ['pdf' => 'ti-file-type-pdf', 'video' => 'ti-video', 'text' => 'ti-brand-whatsapp'][$asset->type] ?? 'ti-photo' }} fs-1 text-muted"></i>
-                                </div>
-                            @endif
+                            <x-thumb :url="$thumb" :type="$asset->type" :alt="$asset->title" style="width:100%;height:100%" />
                             <span class="agent-asset-badge position-absolute top-0 start-0 m-2">
                                 @include('agent.order.partials._marketing-asset-type-badge', ['asset' => $asset])
                             </span>
@@ -286,33 +296,30 @@
             @empty
                 <div class="col-12">
                     <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center text-muted py-4">Belum ada materi.</div>
+                        <x-empty-state
+                            icon="ti ti-photo-off"
+                            title="Belum ada materi"
+                            subtitle="Materi pemasaran dari distributor akan tampil di sini."
+                        />
                     </div>
                 </div>
             @endforelse
         </div>
     </section>
 
-    {{-- 9. Pelatihan --}}
+    {{-- 8. Pelatihan --}}
     <section class="mb-2">
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-            <h2 class="h6 fw-semibold mb-0">Pelatihan</h2>
+        <x-dashboard.section-header icon="ti ti-school" title="Pelatihan">
             @if ($totalCourses > 3)
                 <a href="{{ route('agent-order.training') }}" class="small text-primary text-decoration-none">Lihat semua →</a>
             @endif
-        </div>
+        </x-dashboard.section-header>
         <div class="row g-2 g-md-3">
             @forelse ($courses as $course)
                 <div class="col-md-6 col-lg-4">
                     <a href="{{ route('agent-order.training.show', $course->id) }}" class="card border-0 shadow-sm h-100 text-decoration-none text-body agent-course-card">
                         <div class="agent-asset-thumb position-relative">
-                            @if ($course->thumbnail_url)
-                                <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy">
-                            @else
-                                <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                    <i class="ti ti-school fs-1 text-muted"></i>
-                                </div>
-                            @endif
+                            <x-thumb :url="$course->thumbnail_url" type="course" :alt="$course->title" style="width:100%;height:100%" />
                         </div>
                         <div class="card-body p-2 p-md-3">
                             <div class="fw-semibold mb-1 text-truncate" title="{{ $course->title }}">{{ $course->title }}</div>
@@ -323,7 +330,11 @@
             @empty
                 <div class="col-12">
                     <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center text-muted py-4">Belum ada materi pelatihan.</div>
+                        <x-empty-state
+                            icon="ti ti-school-off"
+                            title="Belum ada materi pelatihan"
+                            subtitle="Materi pelatihan untuk agen akan tampil di sini."
+                        />
                     </div>
                 </div>
             @endforelse

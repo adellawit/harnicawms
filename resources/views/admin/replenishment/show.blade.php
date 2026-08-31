@@ -95,7 +95,7 @@
                                     @if ($sh->status !== 'delivered')
                                     <form method="POST" action="{{ route('replenishment.receive', [$order->id, $sh->id]) }}" onsubmit="return confirm('Terima barang ini di Agen?')">
                                         @csrf
-                                        <button class="btn btn-success btn-sm"><i class="ti ti-package-import me-1"></i> Terima</button>
+                                        <button class="btn btn-success btn-sm"><i class="ti ti-truck-loading me-1"></i> Terima</button>
                                     </form>
                                     @endif
                                 </div>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Ai\AgentConversationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class ConversationController extends Controller
 {
@@ -18,15 +19,9 @@ class ConversationController extends Controller
         /** @var User $user */
         $user = auth('web')->user();
 
-        $items = $this->conversations->listForUser($user)->map(fn ($row) => [
-            'id' => $row->id,
-            'title' => $row->title ?? 'Percakapan',
-            'updated_at' => $row->updated_at?->diffForHumans(),
-        ]);
-
         return response()->json([
             'success' => true,
-            'conversations' => $items,
+            'conversations' => $this->conversations->listSummariesForUser($user),
         ]);
     }
 
@@ -34,6 +29,13 @@ class ConversationController extends Controller
     {
         /** @var User $user */
         $user = auth('web')->user();
+
+        if (! Str::isUuid($conversationId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Percakapan tidak ditemukan.',
+            ], 404);
+        }
 
         $conversation = $this->conversations->findForUser($conversationId, $user);
 
@@ -44,20 +46,10 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        $messages = $conversation->messages()
-            ->whereIn('role', ['user', 'assistant'])
-            ->get(['id', 'role', 'content', 'created_at'])
-            ->map(fn ($row) => [
-                'id' => $row->id,
-                'role' => $row->role,
-                'content' => $row->content ?? '',
-                'created_at' => $row->created_at?->format('H:i'),
-            ]);
-
         return response()->json([
             'success' => true,
             'conversation_id' => $conversation->id,
-            'messages' => $messages,
+            'messages' => $this->conversations->widgetMessages($conversation),
         ]);
     }
 

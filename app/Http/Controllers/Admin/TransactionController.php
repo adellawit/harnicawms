@@ -3,8 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderItemSerialAssignment;
+use App\Services\Sales\BarcodeDispatchService;
+use App\Services\StockMutationService;
+use App\Support\WmsContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 
 class TransactionController extends Controller
@@ -80,6 +87,7 @@ class TransactionController extends Controller
                 $colors = [
                     'completed' => 'success', 'draft' => 'secondary',
                     'cancelled' => 'danger', 'pending' => 'warning',
+                    'verification' => 'info',
                 ];
                 $color = $colors[$row->status] ?? 'info';
                 return '<span class="badge bg-label-' . $color . '">' . ucfirst($row->status) . '</span>';
@@ -111,6 +119,194 @@ class TransactionController extends Controller
             })
             ->rawColumns(['status_badge', 'payment_badge', 'shipping_fmt'])
             ->toJson();
+    }
+
+    public function verifyForm(string $id, BarcodeDispatchService $barcodeDispatch)
+    {
+        $order = SalesOrder::findOrFail($id);
+        if ($order->status !== 'verification') {
+            return redirect()->route('transaction.detail', $order->id)->with('error', 'This order is not awaiting verification.');
+        }
+
+        try {
+            $details = $barcodeDispatch->details($order->id, $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('transaction.detail', $order->id)->with('error', $e->getMessage());
+        }
+
+        $details['items'] = $this->withScannedSerials($details['items']);
+
+        return view('admin.transaction.verify', $details);
+    }
+
+    public function verifyScan(Request $request, string $id, BarcodeDispatchService $barcodeDispatch)
+    {
+        $request->validate([
+            'serial_number' => 'required|string|max:50',
+        ]);
+
+        try {
+            $barcodeDispatch->scan($id, null, $request->serial_number, Auth::id(), $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return $this->verifyStateJson($id, $barcodeDispatch);
+    }
+
+    public function verifyScanRemove(string $id, string $assignmentId, BarcodeDispatchService $barcodeDispatch)
+    {
+        try {
+            $barcodeDispatch->remove($id, $assignmentId, $this->getBranchId());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return $this->verifyStateJson($id, $barcodeDispatch);
+    }
+
+    public function verifySubmit(string $id, BarcodeDispatchService $barcodeDispatch)
+    {
+        $order = SalesOrder::with('items')->findOrFail($id);
+
+        if ($order->status !== 'verification') {
+            return back()->with('error', 'This order is not awaiting verification.');
+        }
+
+        $branchId = $this->getBranchId();
+        $actorId = Auth::id();
+
+        try {
+            $details = $barcodeDispatch->details($order->id, $branchId);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('transaction.detail', $order->id)->with('error', $e->getMessage());
+        }
+        $hasTrackable = collect($details['items'])->contains(fn ($row) => $row['trackable']);
+
+        // finishedGoodsWarehouse() is only a fallback source for $srcBranch —
+        // web-order items already carry their own source_warehouse_id from
+        // checkout (see PosCheckoutService::createSalesOrder()), so this is
+        // deliberately NOT hard-required up front the way an earlier version
+        // of this method did; requiring it here would 422 orders whose items
+        // are already fully resolved. The actual, authoritative check is the
+        // per-item abort_unless() inside the transaction below, exactly
+        // mirroring AgentOrderController::receiveOrder()'s existing pattern.
+        $fgWarehouse = WmsContext::finishedGoodsWarehouse($order->company_id);
+        $sourceWhId = $fgWarehouse?->id;
+        $srcBranch = $fgWarehouse?->branch_id ?: ($order->branch_id ?: $sourceWhId);
+
+        try {
+            DB::transaction(function () use ($order, $sourceWhId, $srcBranch, $actorId, $hasTrackable, $barcodeDispatch, $branchId) {
+                $order = SalesOrder::lockForUpdate()->with('items')->findOrFail($order->id);
+
+                if ($order->status !== 'verification') {
+                    throw new \RuntimeException('This order is no longer awaiting verification.');
+                }
+
+                // finalize() lives INSIDE this transaction, not before it: it's
+                // terminal/immutable once committed (BarcodeDispatchService
+                // rejects any further scan/finalize on a completed dispatch),
+                // so if anything below fails (most commonly insufficient stock
+                // from StockMutationService::outbound()), the whole transaction
+                // — finalize included — rolls back together, leaving the order
+                // free to be retried from scratch instead of permanently stuck
+                // with a completed dispatch but no stock movement.
+                if ($hasTrackable) {
+                    $barcodeDispatch->finalize($order->id, $actorId, $branchId);
+                }
+
+                foreach ($order->items as $item) {
+                    $product = Product::find($item->product_id);
+                    if (! $product?->is_stock_item) {
+                        continue;
+                    }
+
+                    $outboundWarehouseId = $item->source_warehouse_id ?: ($sourceWhId ?: $order->warehouse_id);
+                    abort_unless($outboundWarehouseId && $srcBranch, 422, 'Gudang asal pengiriman belum diset.');
+
+                    $outbound = StockMutationService::outbound(
+                        $item->product_id,
+                        $item->product_variant_id,
+                        $order->company_id,
+                        (string) $srcBranch,
+                        $item->unit_id,
+                        (float) $item->quantity,
+                        SalesOrder::class,
+                        $order->id,
+                        $actorId,
+                        'Verifikasi & kirim - '.$order->sales_number,
+                        $outboundWarehouseId
+                    );
+
+                    $item->update(['outbound_expiry_date' => $outbound['earliest_expiry']]);
+                }
+
+                $order->update(['status' => 'shipped', 'updated_by' => $actorId]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('transaction.detail', $order->id)->with('success', 'Order verified and marked as shipped.');
+    }
+
+    public function updateShipping(Request $request, string $id)
+    {
+        $order = SalesOrder::findOrFail($id);
+
+        if (! in_array($order->status, ['shipped', 'completed'], true)) {
+            return back()->with('error', 'Nomor resi hanya bisa diisi setelah order berstatus Shipped.');
+        }
+
+        $request->validate([
+            'shipping_tracking_number' => 'required|string|max:100',
+        ]);
+
+        $order->update([
+            'shipping_tracking_number' => $request->shipping_tracking_number,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return back()->with('success', 'Nomor resi berhasil disimpan. Surat jalan sudah bisa dicetak.');
+    }
+
+    private function verifyStateJson(string $orderId, BarcodeDispatchService $barcodeDispatch)
+    {
+        $details = $barcodeDispatch->details($orderId, $this->getBranchId());
+
+        return response()->json([
+            'success' => true,
+            'items' => $this->withScannedSerials($details['items']),
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array{model: \App\Models\SalesOrderItem, trackable: bool, expected: int, scanned: int, complete: bool}>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function withScannedSerials($items): array
+    {
+        $itemIds = collect($items)->pluck('model.id');
+        $assignments = SalesOrderItemSerialAssignment::whereIn('sales_order_item_id', $itemIds)
+            ->with('serial:id,serial_number')
+            ->get()
+            ->groupBy('sales_order_item_id');
+
+        return collect($items)->map(function (array $row) use ($assignments) {
+            $itemAssignments = $assignments->get($row['model']->id, collect());
+
+            return [
+                'id' => $row['model']->id,
+                'trackable' => $row['trackable'],
+                'expected' => $row['expected'],
+                'scanned' => $row['scanned'],
+                'complete' => $row['complete'],
+                'serials' => $itemAssignments->map(fn ($a) => [
+                    'assignment_id' => $a->id,
+                    'serial_number' => $a->serial?->serial_number,
+                ])->values()->all(),
+            ];
+        })->values()->all();
     }
 
     /**

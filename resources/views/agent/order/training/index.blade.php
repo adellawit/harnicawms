@@ -2,6 +2,19 @@
 
 @section('title', 'Pelatihan | ')
 
+@section('shop_body_class')
+    agent-training-page
+@endsection
+
+@push('body-top')
+    <div class="bg-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+@endpush
+
 @section('content')
     <header class="shop-page-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
@@ -20,13 +33,7 @@
                 <a href="{{ route('agent-order.training.show', $course->id) }}"
                     class="card border-0 shadow-sm h-100 agent-course-card text-decoration-none text-body">
                     <div class="agent-asset-thumb position-relative">
-                        @if ($course->thumbnail_url)
-                            <img src="{{ $course->thumbnail_url }}" alt="{{ $course->title }}" loading="lazy">
-                        @else
-                            <div class="agent-asset-thumb-ph d-flex align-items-center justify-content-center">
-                                <i class="ti ti-school fs-1 text-muted"></i>
-                            </div>
-                        @endif
+                        <x-thumb :url="$course->thumbnail_url" type="course" :alt="$course->title" style="width:100%;height:100%" />
                     </div>
                     <div class="card-body p-2 p-md-3">
                         @if ($course->category)
@@ -44,10 +51,7 @@
         @empty
             <div class="col-12">
                 <div class="card border-0 shadow-sm shop-order-card">
-                    <div class="card-body shop-empty-state text-center text-muted py-5">
-                        <i class="ti ti-school-off d-block fs-1 mb-2 opacity-50"></i>
-                        Belum ada materi pelatihan.
-                    </div>
+                    <x-empty-state icon="ti ti-school-off" title="Belum ada materi pelatihan" />
                 </div>
             </div>
         @endforelse

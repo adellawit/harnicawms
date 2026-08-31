@@ -1,5 +1,33 @@
 # Lessons
 
+## 2026-08-24 — Promotion create: “tidak pindah halaman” / data kosong
+
+- **Symptom:** Save marketing promo → tetap di create ATAU pindah tapi detail kosong; list tidak bertambah.
+- **Root cause (2):** (1) Select2 tidak ikut sync `disabled` saat ganti tipe → field `target_type`/syarat tidak terkirim → validasi gagal → redirect back (seolah tidak pindah). (2) `show.blade.php` hanya render blok product (Buy/Get) → marketing tampak kosong meski tersimpan.
+- **Fix pattern:** Enable/disable Select2 via `$(el).prop('disabled', …).trigger('change.select2')`; re-toggle sebelum submit; show page branch `promotion_type === 'marketing'`.
+- **Verify:** Save marketing → redirect ke show dengan Target/Syarat/Diskon; baris baru di index.
+
+## 2026-08-24 — Promotion create 500: `exists:partner.agents`
+
+- **Symptom:** Create marketing promo (pilih agen/reseller) → HTTP 500 `Database connection [partner] not configured`.
+- **Root cause:** Rule string `exists:partner.agents,id` di-parse Laravel sebagai **connection** `partner` + table `agents`. Ada connection `product`/`transaction` di `config/database.php`, tapi **tidak ada** `partner`.
+- **Fix pattern:** Pakai `Rule::exists(Agent::class, 'id')` / `Rule::exists(Reseller::class, 'id')`, atau `Rule::exists('pgsql.partner.agents', 'id')`. Jangan `exists:partner.*`.
+- **Verify:** Validator dengan 2 agent UUID lolos; sync pivot OK.
+
+## 2026-08-14 — Agent-order catalog shows Sachet price (Rp 750) not Karton (Rp 900.000)
+
+- **Symptom:** `/agent-order` card Foredi (Barang Jadi) tampil Rp 750; harga distributor Karton Rp 900.000.
+- **Root cause:** `min(selling_price)` di semua satuan. Seed FG: 1 Karton = 1200 Sachet → 900000/1200 = 750. Add-to-cart sudah pakai `default_unit_id` (Karton).
+- **Fix pattern:** Harga katalog = `min(selling_price)` **hanya** di `product.default_unit_id`, jangan min lintas Sachet/Pack/Karton.
+- **Verify:** `ProductVariantPrice::minCatalogSellingPrice(FOREDI-FG)` → 900000, bukan 750.
+
+## 2026-08-14 — Agent-order "Varian tidak tersedia" padahal stok distributor ada
+
+- **Symptom:** Modal Foredi (Barang Jadi) "Varian tidak tersedia" sementara stok FG ada.
+- **Root cause:** Stok tercatat **600 BOX** di `SUHARA-BDG-WH-PRD`. Modal/cart lookup `unit_id = KARTON` → 0 baris → di-skip. 1 Karton = 300 Box → 600 Box = 2 Karton.
+- **Fix pattern:** Pakai `StockAvailabilityService::availableQuantity()` (konversi satuan), jangan exact-match `unit_id` stok vs satuan jual.
+- **Verify:** availableQuantity(FG, Karton, sales WH) = 2; modal tampil varian + stok 2 Karton.
+
 ## 2026-08-04 — Menu "ganti bagian X" vs "menu terbaru"
 
 - **Symptom:** User bilang 11/12 Training/Pengaturan "masih belum ganti".

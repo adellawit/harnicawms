@@ -132,7 +132,7 @@ class AgentPosController extends Controller
             ->when($companyId, fn ($q) => $q->where(function ($qq) use ($companyId) {
                 $qq->whereNull('company_id')->orWhere('company_id', $companyId);
             }))
-            ->with(['targetAgent:id,name', 'targetReseller:id,name,customer_id'])
+            ->with(['targetAgents:id', 'targetResellers:id,customer_id'])
             ->orderByDesc('priority')
             ->orderBy('code')
             ->get()
@@ -147,9 +147,8 @@ class AgentPosController extends Controller
                 'min_type' => $p->min_purchase_type,
                 'min_value' => (float) $p->min_purchase_value,
                 'target_type' => $p->target_type,
-                'target_agent_id' => $p->target_agent_id,
-                'target_reseller_id' => $p->target_reseller_id,
-                'target_reseller_customer_id' => $p->targetReseller?->customer_id,
+                'target_agent_ids' => $p->targetAgents->pluck('id')->all(),
+                'target_reseller_customer_ids' => $p->targetResellers->pluck('customer_id')->filter()->values()->all(),
                 'reactivates' => (bool) $p->reactivates_reseller,
             ])
             ->values();
@@ -345,6 +344,21 @@ class AgentPosController extends Controller
             if ($mapped === null) {
                 continue;
             }
+
+            // mapVariantForPos()'s display_name comes from the shared
+            // ProductVariant::getDisplayNameAttribute() accessor (used in 30+ admin
+            // locations, so it isn't touched directly) — it returns the raw product
+            // name, which in this tenant's data carries a trailing "(Product Type)"
+            // suffix, plus " (SKU)" when the variant has no real attribute values.
+            // Clean it here, scoped to the agent POS response only.
+            $variantAttrs = $variant->variantAttributes
+                ->map(fn ($va) => $va->attributeValue?->value ?? '')
+                ->filter()
+                ->implode(' / ');
+            $cleanProductName = product_print_name($product->name);
+            $mapped['display_name'] = $variantAttrs
+                ? $cleanProductName.' - '.$variantAttrs
+                : $cleanProductName;
 
             $unitOptions = $this->productSearch->buildPosUnitOptions($variant, $branchId, $request->price_list_id);
 
@@ -984,6 +998,7 @@ class AgentPosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.variant_id' => 'required|uuid',
             'items.*.unit_id' => 'required|uuid',
+            'items.*.price_list_id' => 'nullable|uuid',
             'items.*.quantity' => 'required|numeric|min:0.000001',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_type' => 'nullable|in:percent,nominal',
@@ -1017,6 +1032,7 @@ class AgentPosController extends Controller
         if ($request->filled('marketing_promotion_id')) {
             $marketingPromo = Promotion::activeNow()
                 ->marketingType()
+                ->with(['targetAgents:id', 'targetResellers:id'])
                 ->find($request->marketing_promotion_id);
             abort_unless($marketingPromo, 422, 'Promo tidak valid.');
 
@@ -1330,38 +1346,29 @@ class AgentPosController extends Controller
 
     protected function assertMarketingTargetMatches(Promotion $promo, string $agentId, ?Reseller $reseller): void
     {
+        $promo->loadMissing(['targetAgents:id', 'targetResellers:id']);
+
+        $agentIds = $promo->targetAgents->pluck('id')->all();
+        $resellerIds = $promo->targetResellers->pluck('id')->all();
         $targetType = $promo->target_type;
 
+        $agentMatch = empty($agentIds) || in_array($agentId, $agentIds, true);
+        $resellerMatch = $reseller
+            ? (empty($resellerIds) || in_array($reseller->id, $resellerIds, true))
+            : false;
+
         if ($targetType === 'agent') {
-            if ($promo->target_agent_id && $promo->target_agent_id !== $agentId) {
-                abort(422, 'Promo tidak berlaku untuk target ini.');
-            }
-
-            return;
-        }
-
-        if ($targetType === 'reseller') {
-            if (! $reseller) {
-                abort(422, 'Promo tidak berlaku untuk target ini.');
-            }
-            if ($promo->target_reseller_id && $promo->target_reseller_id !== $reseller->id) {
-                abort(422, 'Promo tidak berlaku untuk target ini.');
-            }
-
-            return;
-        }
-
-        if ($targetType === 'both') {
-            $agentOk = ! $promo->target_agent_id || $promo->target_agent_id === $agentId;
-            $resellerOk = $reseller && (
-                ! $promo->target_reseller_id || $promo->target_reseller_id === $reseller->id
-            );
-
-            if ($agentOk || $resellerOk) {
+            if ($agentMatch) {
                 return;
             }
-
-            abort(422, 'Promo tidak berlaku untuk target ini.');
+        } elseif ($targetType === 'reseller') {
+            if ($resellerMatch) {
+                return;
+            }
+        } else { // both -> OR
+            if ($agentMatch || $resellerMatch) {
+                return;
+            }
         }
 
         abort(422, 'Promo tidak berlaku untuk target ini.');

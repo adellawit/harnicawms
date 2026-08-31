@@ -15,15 +15,26 @@
 
 ---
 
-# Previous: Agent Cutting Price ↔ Config Alignment (Option 1)
+# Previous: Promotion Marketing Multi-Target
+
+Handoff: `docs/superpowers/plans/2026-08-12-promotion-marketing-multi-target-cursor-handoff.md`
+
+Branch: `feature/promotion-multi-target`
 
 ## Checklist
-- [x] Diagnose: config BOX vs SO KARTON — unit exact match failed
-- [x] Implement MAP + unit conversion (recursive conversion paths)
-- [x] Update detail UI + export columns
-- [x] Verify TRX-120826-0001: factor 300, net_map 3000, MAP 229000, detected cutting
+- [x] L1 — Migrasi pivot + migrasi data + drop kolom single
+- [x] L2 — Model Promotion belongsToMany + fillable
+- [x] L3 — Admin form multi-select + scripts + edit selected ids
+- [x] L4 — Controller validasi array + sync pivot
+- [x] L5 — assertMarketingTargetMatches multi
+- [x] L6 — POS payload + blade data-* + agent-pos.js
+- [x] Fix admin index yang masih pakai targetAgent/targetReseller
+- [x] Verifikasi migrate / php -l / view:cache
 
 ## Review
-- Floor tetap `map_price` dari `/partner-network/cutting-price-config`
-- Harga jual dikonversi ke unit config sebelum dibanding
-- Gap amount = (MAP − net_per_map_unit) × (qty × factor)
+- Migrasi `2026_08_12_000010` DONE; kolom `target_agent_id`/`target_reseller_id` sudah drop.
+- Data lama: 1 baris pivot reseller (PRM-202608-0003 → Armansyah) ter-load via `targetResellers`.
+- `php -l` + `view:cache`/`view:clear` bersih.
+- Extra: admin index menampilkan multi-nama (truncate +N).
+- Belum commit (tunggu permintaan user).
+- Smoke UI admin/POS masih manual di browser.

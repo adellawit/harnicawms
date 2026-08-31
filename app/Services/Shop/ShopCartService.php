@@ -56,7 +56,7 @@ class ShopCartService
         $branchId = $this->context->branchId();
         $companyId = $this->context->companyId();
 
-        $variant = ProductVariant::with(['product.defaultUnit'])
+        $variant = ProductVariant::with(['product.defaultUnit', 'variantAttributes.attributeValue'])
             ->where('id', $variantId)
             ->where('is_active', true)
             ->whereNull('deleted_at')
@@ -131,7 +131,10 @@ class ShopCartService
             'quantity' => $newQty,
             'unit_price' => $unitPrice,
             'product_name' => product_print_name($product->name),
-            'variant_name' => $variant->display_name ?: $variant->sku,
+            'variant_name' => $variant->variantAttributes
+                ->map(fn ($va) => $va->attributeValue?->value ?? '')
+                ->filter()
+                ->implode(' / '),
             'sku' => $variant->sku,
             'image' => $variant->image ?? $product->image,
             'stock' => $stock,
