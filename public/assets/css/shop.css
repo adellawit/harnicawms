@@ -108,6 +108,7 @@ button.shop-nav-circle {
     text-decoration: none;
     white-space: nowrap;
     transition: background 0.15s, color 0.15s;
+    position: relative;
 }
 
 .shop-nav-link .ti {
@@ -126,13 +127,33 @@ button.shop-nav-circle {
     font-weight: 600;
 }
 
+.shop-nav-alert-badge {
+    font-size: 0.65rem;
+    min-width: 1.1rem;
+    line-height: 1.15;
+    padding: 0.12em 0.38em;
+    font-weight: 700;
+}
+
+.shop-avatar-menu-item .shop-nav-alert-badge,
+.agent-more-item .shop-nav-alert-badge {
+    margin-left: auto;
+}
+
 @media (max-width: 1199.98px) {
-    .shop-nav-link span {
+    .shop-nav-link span:not(.shop-nav-alert-badge) {
         display: none;
     }
 
     .shop-nav-link {
         padding: 0.4rem 0.5rem;
+    }
+
+    .shop-nav-link .shop-nav-alert-badge {
+        position: absolute;
+        top: 0.1rem;
+        right: 0.05rem;
+        transform: translate(35%, -35%);
     }
 }
 
@@ -1568,6 +1589,7 @@ a.agent-training-course-card:hover {
     font-weight: 500;
     line-height: 1.2;
     transition: color 0.15s;
+    position: relative;
 }
 
 .agent-bottom-nav-item .ti {
@@ -1581,6 +1603,13 @@ a.agent-training-course-card:hover {
 
 .agent-bottom-nav-item:active {
     background: rgba(var(--bs-primary-rgb), 0.06);
+}
+
+.agent-bottom-nav-item .shop-nav-alert-badge {
+    position: absolute;
+    top: 0.35rem;
+    left: 50%;
+    margin-left: 0.55rem;
 }
 
 .agent-more-menu {

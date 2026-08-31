@@ -15,6 +15,8 @@
             ['route' => 'agent-order.resellers', 'label' => 'Reseller', 'icon' => 'ti-users',             'active' => request()->routeIs('agent-order.resellers')],
         ];
 
+        $unpaidResellerOrderCount = (int) ($unpaidResellerOrderCount ?? 0);
+
         $navInitials = collect(explode(' ', trim((string) $navCustomer->name)))
             ->filter()
             ->take(2)
@@ -35,6 +37,9 @@
                 @if ($link['active']) aria-current="page" @endif>
                 <i class="ti {{ $link['icon'] }}"></i>
                 <span>{{ $link['label'] }}</span>
+                @if ($link['route'] === 'agent-order.resellers')
+                    @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount])
+                @endif
             </a>
         @endforeach
     </nav>
@@ -75,13 +80,15 @@
                             class="shop-avatar-menu-item {{ $navOrdersActive ? 'active' : '' }}">
                             <i class="ti ti-receipt"></i> Pesanan Saya
                         </a>
-                        <a href="{{ route('agent-order.pos.history') }}"
+                        <a href="{{ route('agent-order.pos.history', $unpaidResellerOrderCount > 0 ? ['status' => 'unpaid'] : []) }}"
                             class="shop-avatar-menu-item {{ request()->routeIs('agent-order.pos.history*') ? 'active' : '' }}">
                             <i class="ti ti-history"></i> Riwayat POS
+                            @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount])
                         </a>
                         <a href="{{ route('agent-order.resellers') }}"
                             class="shop-avatar-menu-item {{ request()->routeIs('agent-order.resellers') ? 'active' : '' }}">
                             <i class="ti ti-users"></i> Reseller Saya
+                            @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount])
                         </a>
                         <form method="POST" action="{{ route('agent-order.logout') }}">
                             @csrf

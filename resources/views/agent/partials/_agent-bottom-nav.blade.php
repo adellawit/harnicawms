@@ -34,6 +34,7 @@
             data-bs-toggle="offcanvas" data-bs-target="#agentMoreMenu" aria-controls="agentMoreMenu">
             <i class="ti ti-dots"></i>
             <span>Lainnya</span>
+            @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount ?? 0])
         </button>
     </nav>
 
@@ -60,10 +61,12 @@
                 <a href="{{ route('agent-order.resellers') }}" class="agent-more-item">
                     <span class="agent-more-icon agent-dashboard-nav-icon-primary"><i class="ti ti-users"></i></span>
                     <span>Reseller Saya</span>
+                    @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount ?? 0])
                 </a>
-                <a href="{{ route('agent-order.pos.history') }}" class="agent-more-item">
+                <a href="{{ route('agent-order.pos.history', ($unpaidResellerOrderCount ?? 0) > 0 ? ['status' => 'unpaid'] : []) }}" class="agent-more-item">
                     <span class="agent-more-icon agent-dashboard-nav-icon-primary"><i class="ti ti-history"></i></span>
                     <span>Riwayat POS</span>
+                    @include('agent.partials._nav-alert-badge', ['count' => $unpaidResellerOrderCount ?? 0])
                 </a>
                 <form method="POST" action="{{ route('agent-order.logout') }}" class="agent-more-item-form">
                     @csrf

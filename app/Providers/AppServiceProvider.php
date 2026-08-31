@@ -17,6 +17,7 @@ use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopContextService;
 use App\Services\Shipping\AgentShippingEstimator;
 use App\Services\Theme\AppThemeService;
+use App\Support\AgentPosOrders;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -82,29 +83,55 @@ class AppServiceProvider extends ServiceProvider
                 'total' => 0,
                 'shipping_estimate' => null,
             ];
+            $unpaidResellerOrderCount = 0;
 
             if (! auth('customer')->check()) {
-                $view->with(['navCart' => $emptyCart, 'navCartSummary' => $emptySummary]);
+                $view->with([
+                    'navCart' => $emptyCart,
+                    'navCartSummary' => $emptySummary,
+                    'unpaidResellerOrderCount' => 0,
+                ]);
 
                 return;
             }
 
+            $navCart = $emptyCart;
+            $navCartSummary = $emptySummary;
+
             try {
-                $cartService = new ShopCartService(new ShopContextService(auth('customer')->user()));
-                $summary = $cartService->summarize();
-                $agent = auth('customer')->user()?->agent;
+                $customer = auth('customer')->user();
+                $agent = $customer?->agent;
+                if ($agent) {
+                    $unpaidResellerOrderCount = AgentPosOrders::unpaidResellerCount(
+                        $agent,
+                        (new ShopContextService($customer))->branchId(),
+                        AgentPosOrders::warehouseIdForAgent($agent)
+                    );
+                }
+            } catch (\Throwable) {
+                $unpaidResellerOrderCount = 0;
+            }
+
+            try {
+                $customer = auth('customer')->user();
+                $agent = $customer?->agent;
+                $ctx = new ShopContextService($customer);
+                $cartService = new ShopCartService($ctx);
+                $navCartSummary = $cartService->summarize();
                 $estimator = app(AgentShippingEstimator::class);
-                $summary['shipping_estimate'] = $agent
+                $navCartSummary['shipping_estimate'] = $agent
                     ? $estimator->lowestEstimate($cartService, $agent)
                     : null;
-
-                $view->with([
-                    'navCart' => $cartService->get(),
-                    'navCartSummary' => $summary,
-                ]);
+                $navCart = $cartService->get();
             } catch (\Throwable) {
-                $view->with(['navCart' => $emptyCart, 'navCartSummary' => $emptySummary]);
+                // keep cart defaults
             }
+
+            $view->with([
+                'navCart' => $navCart,
+                'navCartSummary' => $navCartSummary,
+                'unpaidResellerOrderCount' => $unpaidResellerOrderCount,
+            ]);
         });
 
         View::composer(['layouts.*', 'auth.*', 'dashboard', 'customer.*'], function ($view) {
