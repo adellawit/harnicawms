@@ -36,7 +36,7 @@ class EmployeeChatService
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
      */
-    public function create(array $arguments, AgentContext $context): array
+    public function create(array $arguments, AgentContext $context, bool $commit = true): array
     {
         $mapped = $this->mapper->map($arguments, now()->toDateString());
 
@@ -103,6 +103,19 @@ class EmployeeChatService
                 'item' => $item,
                 'items' => [$item],
                 'message' => 'Karyawan "'.$item['label'].'" sudah ada.',
+            ];
+        }
+
+        if (! $commit) {
+            return [
+                'success' => true,
+                'needs_confirmation' => true,
+                'confirmation_kind' => 'employee_create',
+                'title' => 'Tambah karyawan?',
+                'body' => 'Karyawan "'.$mapped['fullname'].'" dengan role '.$role->name.' akan ditambahkan beserta akun login. Belum ada data yang disimpan.',
+                'confirm_label' => 'Tambah',
+                'cancel_label' => 'Batal',
+                'message' => 'Penambahan karyawan perlu konfirmasi di kartu. Belum ada data yang diubah.',
             ];
         }
 

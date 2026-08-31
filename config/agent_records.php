@@ -104,6 +104,22 @@ return [
         'akademi' => 'training_category',
     ],
 
+    /*
+    | Create/update master dari chat wajib kartu konfirmasi.
+    | Mutasi status (receive PO, post jurnal, convert partner) tetap di modul.
+    */
+    'write_policies' => [
+        'create_via_employee' => ['user_account'],
+        'module_only_update' => [
+            'purchase_order' => 'Ubah PO, tambah item, atau terima barang di halaman Purchase Order. Chat hanya membuat draf header.',
+            'production_order' => 'Submit, proses, atau receive produksi di halaman Production Order. Chat hanya membuat draf.',
+            'replenishment' => 'Approve, kirim, atau terima replenishment di modul itu. Chat hanya membuat draf.',
+            'journal' => 'Ubah baris jurnal di halaman Journal Entry. Posting dari chat hanya operation=post jika seimbang.',
+            'partner_application' => 'Approve atau Convert Agent di halaman Partner Application, bukan ganti status dari chat.',
+            'bill_of_materials' => 'Komponen BOM dilengkapi di halaman Bill of Materials, bukan diubah baris-demi-baris dari chat.',
+        ],
+    ],
+
     'entities' => [
 
         'division' => ['label' => 'divisi', 'menu' => 'Division', 'model' => Division::class, 'search' => ['name', 'code'], 'name' => 'name', 'writable' => true],

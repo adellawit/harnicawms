@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Called from AgentRecordActionService for entity=stock create.
  * Never writes product_variant_stock.quantity directly.
+ * Inbound barang beli/produksi/replenishment ditolak — itu alur PO/GRN,
+ * production receive, atau replenishment, bukan kartu Tambah N.
  */
 class StockChatService
 {
@@ -46,9 +48,15 @@ class StockChatService
             is_string($arguments['mode'] ?? null) ? $arguments['mode'] : null,
         );
         $notes = ChatFields::string($arguments, ['notes', 'catatan', 'keterangan'], $arguments['description'] ?? null);
-        $mode = self::resolveMode($modeRaw, self::intentText($arguments, $query, $notes));
+        $intentText = self::intentText($arguments, $query, $notes);
+        $mode = self::resolveMode($modeRaw, $intentText);
         $warehouseName = ChatFields::string($arguments, ['warehouse', 'gudang', 'warehouse_name']);
         $warehouseId = ChatFields::string($arguments, ['warehouse_id']);
+
+        $blocked = self::refuseIfBypassingFlow($mode, $intentText, $context->pagePath);
+        if ($blocked !== null) {
+            return $blocked;
+        }
 
         $missing = [];
         $questions = [];
@@ -179,6 +187,92 @@ class StockChatService
             ]],
             'message' => 'Stok '.$label.' disesuaikan menjadi '.$this->formatQty($after).'.',
         ];
+    }
+
+    /**
+     * Chat stock mutations are Stock Adjustment / Opname only.
+     *
+     * Purchased inbound is PO → receive. Production inbound is production
+     * receive. Agent restock is replenishment. Those flows must not mint an
+     * increment confirmation card.
+     */
+    public static function isExplicitAdjustmentIntent(?string $text, ?string $pagePath = null): bool
+    {
+        if ($pagePath !== null && preg_match('#stock-adjustment|stock-opname#i', $pagePath) === 1) {
+            return true;
+        }
+
+        if ($text === null || trim($text) === '') {
+            return false;
+        }
+
+        $blob = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/\b(opname|stock\s*opname|penyesuaian|sesuaikan|disesuaikan|adjustment|adjust|koreksi|correction|selisih|fisik|physical|stok fisik|physical_qty|rusak|hilang|expired|kadaluarsa|kadaluwarsa|afkir|susut|pecah|shrink)\b/u',
+            $blob
+        ) || (bool) preg_match(
+            '/\b(jadikan|setel|set ke|set to|stok menjadi|stok seharusnya|stok harusnya)\b/u',
+            $blob
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null Refusal payload, or null when the mutation may proceed.
+     */
+    public static function refuseIfBypassingFlow(string $mode, ?string $intentText, ?string $pagePath = null): ?array
+    {
+        if (self::isExplicitAdjustmentIntent($intentText, $pagePath)) {
+            return null;
+        }
+
+        if ($mode === 'set') {
+            return null;
+        }
+
+        if ($mode === 'out') {
+            return [
+                'success' => false,
+                'blocked_flow' => 'sales_or_replenishment',
+                'needs_confirmation' => false,
+                'message' => 'Stok tidak dikurangi langsung dari chat kecuali opname/koreksi selisih. '
+                    .'Jual tunai di cabang: draf POS (manage_sale). Kirim ke agen: draf replenishment. '
+                    .'Kalau ini hitungan fisik, sebut opname atau koreksi.',
+            ];
+        }
+
+        $flow = self::inboundBlockedFlow($intentText);
+
+        return [
+            'success' => false,
+            'blocked_flow' => $flow,
+            'needs_confirmation' => false,
+            'message' => self::inboundBlockedMessage($flow),
+        ];
+    }
+
+    public static function inboundBlockedFlow(?string $text): string
+    {
+        $blob = mb_strtolower((string) $text);
+
+        if (preg_match('/\b(produksi|production|bom|hasil produksi)\b/u', $blob) === 1) {
+            return 'production_order';
+        }
+
+        if (preg_match('/\b(replenish|restok agen|kirim ke agen|untuk agen)\b/u', $blob) === 1) {
+            return 'replenishment';
+        }
+
+        return 'purchase_order';
+    }
+
+    public static function inboundBlockedMessage(string $flow = 'purchase_order'): string
+    {
+        return match ($flow) {
+            'production_order' => 'Hasil produksi tidak ditambah lewat penyesuaian stok. Buat draf production order, lalu proses dan receive di modul Production Order. Chat tidak memotong bahan dan tidak menerima hasil produksi.',
+            'replenishment' => 'Stok agen tidak ditambah langsung. Restok agen lewat replenishment: draf dari chat (sebut agen), lalu submit/approve/kirim di modul Replenishment.',
+            default => 'Stok barang beli tidak ditambah langsung dari chat. Alurnya: buat Purchase Order, lalu terima barang di modul Purchase Order (penerimaan). Chat hanya bisa draf header PO — sebut supplier, atau minta buka halaman Purchase Order. Penyesuaian stok dari chat hanya untuk opname/koreksi selisih, bukan barang masuk.',
+        };
     }
 
     /**

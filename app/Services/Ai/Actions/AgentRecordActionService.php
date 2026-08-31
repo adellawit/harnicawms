@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Actions;
 
+use App\Models\Accounting\Journal;
 use App\Models\CustomerGroup;
 use App\Models\Employees;
 use App\Services\Ai\AgentContext;
@@ -10,6 +11,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
+/**
+ * CRUD master/draf via manage_record. Stock create is opname/koreksi only.
+ */
 class AgentRecordActionService
 {
     public function __construct(
@@ -48,6 +52,10 @@ class AgentRecordActionService
         [$key, $entity] = $resolved;
         $writable = (bool) ($entity['writable'] ?? false);
 
+        if ($blocked = $this->refuseWritePolicy($key, $operation)) {
+            return $blocked;
+        }
+
         $permissionAction = match ($operation) {
             'list', 'get' => 'is_read',
             'create' => 'is_create',
@@ -82,7 +90,7 @@ class AgentRecordActionService
         if ($key === 'stock' && in_array($operation, ['update', 'delete', 'restore'], true)) {
             return [
                 'success' => false,
-                'message' => 'Baris stok tidak diubah/dihapus langsung. Pakai create pada entity stock untuk penyesuaian lewat mutasi (konfirmasi di chat).',
+                'message' => 'Baris stok tidak diubah/dihapus langsung. Pakai create pada entity stock hanya untuk opname/koreksi (konfirmasi di chat). Barang beli masuk lewat Purchase Order.',
             ];
         }
 
@@ -135,7 +143,7 @@ class AgentRecordActionService
 
         return [
             'success' => true,
-            'message' => 'Gunakan entity key saat memanggil manage_record. Stok/PO/jurnal/produksi/replenishment: draf atau mutasi lewat service, dengan konfirmasi. Transaksi penjualan tetap lewat manage_sale.',
+            'message' => 'Gunakan entity key saat memanggil manage_record. Stok masuk beli = PO + penerimaan, bukan increment chat. Stok chat hanya opname/koreksi. PO/jurnal/produksi/replenishment: draf. Update dokumen (receive, post, convert) di modul. Create/update/hapus master wajib kartu konfirmasi. Transaksi penjualan tetap lewat manage_sale. Akun login lewat entity employee.',
             'writable' => $writable,
             'read_only' => $readable,
             'aliases' => config('agent_records.aliases', []),
@@ -240,8 +248,8 @@ class AgentRecordActionService
         $commit = $this->isConfirmed($arguments);
 
         return match ($key) {
-            'employee' => $this->employees->create($arguments, $context),
-            'product' => $this->products->create($arguments, $context),
+            'employee' => $this->employees->create($arguments, $context, $commit),
+            'product' => $this->products->create($arguments, $context, $commit),
             'stock' => $this->stock->adjust($arguments, $context, $commit),
             'purchase_order' => $this->purchaseOrders->createDraft($arguments, $context, $commit),
             'journal' => $this->journals->createDraft($arguments, $context, $commit),
@@ -297,6 +305,67 @@ class AgentRecordActionService
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    protected function refuseWritePolicy(string $key, string $operation): ?array
+    {
+        $policies = (array) config('agent_records.write_policies', []);
+
+        if (in_array($key, (array) ($policies['create_via_employee'] ?? []), true)
+            && in_array($operation, ['create', 'update', 'delete', 'restore'], true)) {
+            return [
+                'success' => false,
+                'blocked_flow' => 'employee',
+                'needs_confirmation' => false,
+                'message' => 'Akun login tidak dibuat/diubah terpisah dari chat. Pakai entity employee (karyawan + akun) agar mengikuti alur HR.',
+            ];
+        }
+
+        if ($operation === 'update') {
+            $moduleOnly = (array) ($policies['module_only_update'] ?? []);
+            if (isset($moduleOnly[$key]) && is_string($moduleOnly[$key])) {
+                return [
+                    'success' => false,
+                    'blocked_flow' => $key,
+                    'needs_confirmation' => false,
+                    'message' => $moduleOnly[$key],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $entity
+     * @return array<string, mixed>|null
+     */
+    protected function refuseUnsafeDelete(string $key, Model $record, array $entity, string $label): ?array
+    {
+        $status = strtolower(trim((string) $record->getAttribute('status')));
+
+        $blocked = match ($key) {
+            'purchase_order' => $status !== '' && $status !== 'draft',
+            'production_order' => $status !== '' && $status !== 'draft',
+            'replenishment' => $status !== '' && ! in_array($status, ['draft', 'pending'], true),
+            'journal' => $record instanceof Journal && $record->isPosted(),
+            'partner_application' => in_array($status, ['converted', 'approved'], true),
+            default => false,
+        };
+
+        if (! $blocked) {
+            return null;
+        }
+
+        return [
+            'success' => false,
+            'blocked_flow' => $key,
+            'needs_confirmation' => false,
+            'message' => ucfirst($entity['label']).' "'.$label.'" tidak bisa dihapus dari chat karena sudah diproses. Batalkan atau arsipkan di halaman modul.',
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $arguments
      */
     protected function assignsSuperAdmin(array $arguments): bool
@@ -346,6 +415,21 @@ class AgentRecordActionService
             ];
         }
 
+        if (! $this->isConfirmed($arguments)) {
+            $label = (string) $payload[$nameCol];
+
+            return [
+                'success' => true,
+                'needs_confirmation' => true,
+                'confirmation_kind' => 'create_record',
+                'title' => 'Tambah '.$entity['label'].'?',
+                'body' => ucfirst($entity['label']).' "'.$label.'" akan ditambahkan. Belum ada data yang disimpan.',
+                'confirm_label' => 'Tambah',
+                'cancel_label' => 'Batal',
+                'message' => 'Penambahan '.$entity['label'].' perlu konfirmasi di kartu. Belum ada data yang diubah.',
+            ];
+        }
+
         /** @var class-string<Model> $model */
         $model = $entity['model'];
         $record = $model::query()->create($payload);
@@ -380,16 +464,22 @@ class AgentRecordActionService
             return ['success' => false, 'message' => 'Tidak ada field yang diubah. Isi name atau fields_json.'];
         }
 
-        if (! $this->isConfirmed($arguments) && $this->assignsSuperAdmin($arguments)) {
+        if (! $this->isConfirmed($arguments)) {
+            $kind = $this->assignsSuperAdmin($arguments) ? 'super_admin' : 'update_record';
+            $title = $kind === 'super_admin' ? 'Tetapkan Super Admin?' : 'Ubah '.$entity['label'].'?';
+            $body = $kind === 'super_admin'
+                ? ucfirst($entity['label']).' "'.$this->labelOf($record, $entity).'" akan mendapat role Super Admin.'
+                : ucfirst($entity['label']).' "'.$this->labelOf($record, $entity).'" akan diubah. Belum ada data yang disimpan.';
+
             return [
                 'success' => true,
                 'needs_confirmation' => true,
-                'confirmation_kind' => 'super_admin',
-                'title' => 'Tetapkan Super Admin?',
-                'body' => ucfirst($entity['label']).' "'.$this->labelOf($record, $entity).'" akan mendapat role Super Admin.',
-                'confirm_label' => 'Ya, tetapkan',
+                'confirmation_kind' => $kind,
+                'title' => $title,
+                'body' => $body,
+                'confirm_label' => $kind === 'super_admin' ? 'Ya, tetapkan' : 'Simpan',
                 'cancel_label' => 'Batal',
-                'message' => 'Role Super Admin perlu konfirmasi. Belum ada data yang diubah.',
+                'message' => 'Perubahan perlu konfirmasi di kartu. Belum ada data yang diubah.',
             ];
         }
 
@@ -424,6 +514,10 @@ class AgentRecordActionService
         }
 
         $label = $this->labelOf($record, $entity);
+
+        if ($blocked = $this->refuseUnsafeDelete($key, $record, $entity, $label)) {
+            return $blocked;
+        }
 
         if (! $this->isConfirmed($arguments)) {
             return [
@@ -479,6 +573,21 @@ class AgentRecordActionService
 
         if ($record === null) {
             return ['success' => false, 'message' => 'Data terhapus tidak ditemukan.'];
+        }
+
+        if (! $this->isConfirmed($arguments)) {
+            $label = $this->labelOf($record, $entity);
+
+            return [
+                'success' => true,
+                'needs_confirmation' => true,
+                'confirmation_kind' => 'restore_record',
+                'title' => 'Pulihkan '.$entity['label'].'?',
+                'body' => ucfirst($entity['label']).' "'.$label.'" akan dipulihkan.',
+                'confirm_label' => 'Pulihkan',
+                'cancel_label' => 'Batal',
+                'message' => 'Restore perlu konfirmasi di kartu. Belum ada data yang diubah.',
+            ];
         }
 
         $record->restore();
