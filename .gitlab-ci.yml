@@ -294,7 +294,7 @@ deploy-harnica-windows:
     url: "$IIS_SITE_URL"
   rules:
     - if: '$CI_COMMIT_BRANCH == "development-harnica"'
-      when: on_success
+      when: always
   script:
     - |
       if (-not (Test-Path "$env:IIS_DEPLOY_PATH\.git")) {
