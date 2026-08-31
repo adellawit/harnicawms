@@ -125,12 +125,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="payment_method">Payment Method</label>
-                        <select id="payment_method" name="payment_method" class="form-select">
-                            <option value="">-- Pilih --</option>
-                            <option value="Transfer">Transfer</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Giro">Giro</option>
-                            <option value="Cheque">Cheque</option>
+                        <select id="payment_method" name="payment_method" class="form-select select2-payment-method" data-placeholder="-- Pilih metode --">
+                            <option value=""></option>
+                            @foreach($paymentMethods ?? [] as $method)
+                                <option value="{{ $method->name }}">{{ $method->name }}{{ !empty($method->code) ? ' ('.$method->code.')' : '' }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="mb-0">
@@ -262,6 +261,19 @@
                 $('#restoreModal').on('show.bs.modal', function(e) { var b=$(e.relatedTarget); $('#invoice-id-restore').val(b.data('id')); $('#invoice-number-restore').text(b.data('number')); });
 
                 var paymentDatePicker = null;
+                function initPaymentMethodSelect() {
+                    var $el = $('#payment_method');
+                    if (!$el.length || $el.hasClass('select2-hidden-accessible')) {
+                        return;
+                    }
+                    $el.select2({
+                        placeholder: $el.data('placeholder') || '-- Pilih metode --',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#paymentModal')
+                    });
+                }
+                $('#paymentModal').on('shown.bs.modal', initPaymentMethodSelect);
                 $('#paymentModal').on('show.bs.modal', function(e) {
                     var btn = $(e.relatedTarget);
                     var balance = parseFloat(btn.data('balance-amount') || 0);
@@ -273,7 +285,7 @@
                     $('#payment-balance').text(btn.data('balance') || '-');
                     initPaymentAmountCleave(balance > 0 ? balance : 0);
                     $('#payment_reference').val('');
-                    $('#payment_method').val('');
+                    $('#payment_method').val(null).trigger('change');
                     $('#payment_notes').val('');
 
                     if (!paymentDatePicker) {

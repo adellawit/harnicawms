@@ -78,6 +78,7 @@
                             <th>Supplier</th>
                             <th>Type</th>
                             <th>Status</th>
+                            <th>Payment</th>
                             <th>Progress (%)</th>
                             <th>Total</th>
                             @if($hasAnyActionPermission)<th>Actions</th>@endif
@@ -150,36 +151,11 @@
         </div>
     </div>
 
-    <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form method="POST" action="{{ route('product.purchase-order.update-status.data') }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title">Update Status</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-3">Ubah status purchase order <strong id="po-number-status"></strong></p>
-                        <input type="hidden" id="po-id-status" name="id" />
-                        <div class="mb-0">
-                            <label class="form-label" for="po-status-select">Status <span class="text-danger">*</span></label>
-                            <select id="po-status-select" name="status" class="form-select" required>
-                                @foreach($poStatuses as $statusOption)
-                                    <option value="{{ $statusOption->key }}">{{ $statusOption->value ?? $statusOption->key }}</option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted d-block mt-2">Alur: Draft → Process → Receiving → Payment. Status Received otomatis saat penerimaan penuh.</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-label-dark" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    <x-confirm-modal id="submitModal" title="Submit" :action="route('product.purchase-order.update-status.data')" confirmText="Submit">
+        <p class="mb-0">Submit purchase order <strong id="po-number-submit"></strong> ke status Process?</p>
+        <input type="hidden" id="po-id-submit" name="id" />
+        <input type="hidden" name="status" value="{{ \App\Support\PurchaseOrderStatus::MANUAL_TARGET }}" />
+    </x-confirm-modal>
 
     @push('vendor-js')
         <script src="{{ asset('assets/vendor/libs/datatables/jquery.dataTables.js') }}"></script>
@@ -218,7 +194,7 @@
                         html += '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-trash me-2 text-danger"></i>Delete</button></li>';
                     }
                     if (!r.deleted_at && flagOn(r.can_update_status)) {
-                        html += '<li><button type="button" class="dropdown-item btn-open-status" data-bs-toggle="modal" data-bs-target="#statusModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'" data-status="'+(r.status_key || r.status)+'"><i class="ti ti-refresh me-2 text-primary"></i>Update Status</button></li>';
+                        html += '<li><button type="button" class="dropdown-item btn-open-submit" data-bs-toggle="modal" data-bs-target="#submitModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-send me-2 text-primary"></i>Submit</button></li>';
                     }
                     if (r.deleted_at) {
                         html += '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#restoreModal" data-id="'+r.id+'" data-number="'+r.purchase_number+'"><i class="ti ti-refresh me-2 text-success"></i>Restore</button></li>';
@@ -232,7 +208,7 @@
                     }
 
                     var html = '<div class="po-child-panel"><div class="table-responsive"><table class="table table-sm table-bordered mb-0 po-child-table">';
-                    html += '<thead class="table-light"><tr><th>Purchase Number</th><th>Date</th><th>Supplier</th><th>Type</th><th>Status</th><th>Progress (%)</th><th>Total</th>';
+                    html += '<thead class="table-light"><tr><th>Purchase Number</th><th>Date</th><th>Supplier</th><th>Type</th><th>Status</th><th>Payment</th><th>Progress (%)</th><th>Total</th>';
                     @if($hasAnyActionPermission)
                     html += '<th>Actions</th>';
                     @endif
@@ -240,11 +216,12 @@
 
                     children.forEach(function(r) {
                         html += '<tr>';
-                        html += '<td class="po-child-indent"><span class="text-muted me-1">└</span><strong>' + (r.purchase_number || '-') + '</strong></td>';
+                        html += '<td class="po-child-indent"><span class="text-muted me-1">└</span>' + (r.purchase_number_display || r.purchase_number || '-') + '</td>';
                         html += '<td>' + (r.purchase_date ? moment(r.purchase_date).format('DD MMM YYYY') : '-') + '</td>';
                         html += '<td>' + (r.supplier_name || '-') + '</td>';
                         html += '<td>' + (r.po_kind_badge || '-') + '</td>';
                         html += '<td>' + (r.status_badge || '-') + '</td>';
+                        html += '<td>' + (r.payment_badge || '-') + '</td>';
                         html += '<td>' + (r.progress_display || '-') + '</td>';
                         html += '<td>' + (r.total_fmt || '-') + '</td>';
                         @if($hasAnyActionPermission)
@@ -285,6 +262,7 @@
                         { data: 'supplier_name', orderable: false, searchable: true },
                         { data: 'po_kind_badge', orderable: false, searchable: false },
                         { data: 'status_badge', orderable: false, searchable: false },
+                        { data: 'payment_badge', orderable: false, searchable: false },
                         { data: 'progress_display', orderable: false, searchable: false },
                         { data: 'total_fmt', orderable: false, searchable: false },
                         @if($hasAnyActionPermission){ data: null, orderable: false, searchable: false, render: function(d,t,r) {
@@ -368,12 +346,7 @@
                 $("#btnResetFilter").click(function() { window.location = '/product/purchase-order'; });
                 $('#deleteModal').on('show.bs.modal', function(e) { var b=$(e.relatedTarget); $('#po-id-deleted').val(b.data('id')); $('#po-number-deleted').text(b.data('number')); });
                 $('#restoreModal').on('show.bs.modal', function(e) { var b=$(e.relatedTarget); $('#po-id-restore').val(b.data('id')); $('#po-number-restore').text(b.data('number')); });
-                $('#statusModal').on('show.bs.modal', function(e) {
-                    var btn = $(e.relatedTarget);
-                    $('#po-id-status').val(btn.data('id'));
-                    $('#po-number-status').text(btn.data('number'));
-                    $('#po-status-select').val(btn.data('status') || 'draft');
-                });
+                $('#submitModal').on('show.bs.modal', function(e) { var b=$(e.relatedTarget); $('#po-id-submit').val(b.data('id')); $('#po-number-submit').text(b.data('number')); });
                 $('#printModal').on('show.bs.modal', function(e) {
                     var btn = $(e.relatedTarget);
                     $('#po-id-print').val(btn.data('id'));

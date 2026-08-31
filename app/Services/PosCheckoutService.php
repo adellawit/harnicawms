@@ -76,9 +76,7 @@ class PosCheckoutService
 
         $branchId = $this->resolveBranchId($request);
         $companyId = $request->company_id ?: optional(WmsContext::distributor())->id;
-        $orderWarehouseId = $branchId
-            ? optional(WmsContext::salesSourceWarehouse($branchId))->id
-            : null;
+        $orderWarehouseId = $this->resolveOrderWarehouseId($request, $branchId);
 
         $itemsData = PromotionEngineService::applyToCartLines(
             $itemsData,
@@ -164,6 +162,15 @@ class PosCheckoutService
             ?: null;
     }
 
+    protected function resolveOrderWarehouseId(Request $request, ?string $branchId): ?string
+    {
+        if ($request->filled('warehouse_id')) {
+            return (string) $request->warehouse_id;
+        }
+
+        return $branchId ? optional(WmsContext::salesSourceWarehouse($branchId))->id : null;
+    }
+
     /**
      * @param  array<string, mixed>  $totals
      */
@@ -185,7 +192,9 @@ class PosCheckoutService
             $customerName = $customer?->name;
         }
 
-        $warehouseId = $warehouseId ?: optional(WmsContext::salesSourceWarehouse($branchId))->id;
+        $warehouseId = $warehouseId
+            ?: ($request->warehouse_id ?: null)
+            ?: optional(WmsContext::salesSourceWarehouse($branchId))->id;
 
         $order = SalesOrder::create([
             'sales_number' => $salesNumber,

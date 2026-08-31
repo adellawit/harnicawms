@@ -13,8 +13,10 @@ use App\Models\ProductVariant;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPayment;
 use App\Models\ShippingRate;
+use App\Models\Warehouse;
 use App\Services\MembershipPointService;
 use App\Services\PosCheckoutService;
+use App\Services\PosWarehouseService;
 use App\Services\Shipping\PosShippingOptionsService;
 use App\Services\Product\ProductSearchService;
 use App\Services\Promotion\PromotionEngineService;
@@ -36,6 +38,7 @@ class POSController extends Controller
         protected PaymentSyncService $paymentSync,
         protected BarcodeDispatchService $barcodeDispatch,
         protected PosShippingOptionsService $shippingOptions,
+        protected PosWarehouseService $posWarehouses,
     ) {}
 
     protected function getBranchId(): ?string
@@ -48,11 +51,21 @@ class POSController extends Controller
         return auth('web')->user()?->getCompanyIdForProduct();
     }
 
+    protected function posWarehouseFromRequest(Request $request): Warehouse
+    {
+        return $this->posWarehouses->resolveForPos(
+            $request->warehouse_id,
+            $this->getBranchId(),
+            $this->getCompanyId()
+        );
+    }
+
     public function indexView(Request $request)
     {
         $branchId = $this->getBranchId();
-        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
         $companyId = $this->getCompanyId();
+        $posWarehouses = $this->posWarehouses->posEnabledWarehouses($branchId, $companyId);
+        $defaultPosWarehouse = $this->posWarehouses->defaultWarehouse($branchId, $companyId);
 
         // Type Transaction = Price Lists
         $priceLists = ProductPriceList::whereNull('deleted_at')
@@ -170,6 +183,8 @@ class POSController extends Controller
             'nonXenditMethods' => $nonXenditMethods,
             'preselectCustomerId' => $preselectCustomerId,
             'agentConversion' => is_array($agentConversion) ? $agentConversion : null,
+            'posWarehouses' => $posWarehouses,
+            'defaultPosWarehouse' => $defaultPosWarehouse,
         ]);
     }
 
@@ -181,11 +196,18 @@ class POSController extends Controller
         $request->validate([
             'product_id' => 'required|exists:product.products,id',
             'price_list_id' => 'required|exists:product.product_price_lists,id',
+            'warehouse_id' => 'required|uuid',
         ]);
 
         $branchId = $this->getBranchId();
         if (! $branchId) {
             return response()->json(['variants' => [], 'message' => 'Branch not selected']);
+        }
+
+        try {
+            $warehouse = $this->posWarehouseFromRequest($request);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['variants' => [], 'message' => $e->getMessage()], 422);
         }
 
         $product = Product::query()
@@ -201,17 +223,29 @@ class POSController extends Controller
             ->orderBy('created_at')
             ->get();
 
+        $freeUnits = $this->posWarehouses->allowsFreeUnits($warehouse);
         $result = [];
         foreach ($variants as $variant) {
-            $mapped = $this->productSearch->mapVariantForPos($variant, $branchId, $request->price_list_id);
+            $mapped = $this->productSearch->mapVariantForPos(
+                $variant,
+                $branchId,
+                $request->price_list_id,
+                $warehouse->id
+            );
             if ($mapped === null) {
                 continue;
             }
+
+            $unitOptions = $freeUnits
+                ? $this->productSearch->buildPosUnitOptions($variant, $branchId, $request->price_list_id)
+                : [];
 
             $result[] = array_merge($mapped, [
                 'barcode' => $variant->barcode,
                 'image' => $variant->image ?? null,
                 'product_id' => $product->id,
+                'default_unit_id' => $product->default_unit_id,
+                'unit_options' => $unitOptions,
                 'has_trackable_serials' => $this->barcodeDispatch->productHasTrackableSerials(
                     $product->id,
                     $variant->id
@@ -233,11 +267,21 @@ class POSController extends Controller
             'pending_product_id' => 'nullable|uuid',
             'pending_variant_id' => 'nullable|uuid',
             'pending_unit_id' => 'nullable|uuid',
+            'warehouse_id' => 'nullable|uuid',
         ]);
 
         $branchId = $this->getBranchId();
         if (! $branchId) {
             return response()->json(['success' => false, 'message' => 'Branch not selected'], 422);
+        }
+
+        $warehouseId = null;
+        if ($request->warehouse_id) {
+            try {
+                $warehouseId = $this->posWarehouseFromRequest($request)->id;
+            } catch (\InvalidArgumentException $exception) {
+                return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+            }
         }
 
         try {
@@ -248,6 +292,7 @@ class POSController extends Controller
                 $request->pending_product_id,
                 $request->pending_variant_id,
                 $request->pending_unit_id,
+                $warehouseId,
             );
 
             return response()->json(['success' => true, 'data' => $payload]);
@@ -270,11 +315,18 @@ class POSController extends Controller
             'items.*.unit_id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.000001'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'warehouse_id' => ['nullable', 'uuid'],
         ]);
 
         $branchId = $this->getBranchId();
         $companyId = $this->getCompanyId() ?: optional(WmsContext::distributor())->id;
-        $orderWarehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
+        try {
+            $orderWarehouseId = $request->warehouse_id
+                ? $this->posWarehouseFromRequest($request)->id
+                : optional(WmsContext::salesSourceWarehouse($branchId))->id;
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         $itemsData = [];
         foreach ($request->items as $item) {
@@ -311,7 +363,8 @@ class POSController extends Controller
         $freeItems = collect($expanded)
             ->filter(fn ($row) => ! empty($row['is_promo_free']))
             ->map(function (array $row) {
-                $variant = ProductVariant::with(['product.defaultUnit'])->find($row['product_variant_id']);
+                $variant = ProductVariant::with(['product.defaultUnit', 'variantAttributes.attributeValue'])
+                    ->find($row['product_variant_id']);
                 $unit = $row['unit_id']
                     ? ProductUnit::query()->find($row['unit_id'], ['id', 'symbol', 'name'])
                     : ($variant?->product?->defaultUnit);
@@ -322,9 +375,9 @@ class POSController extends Controller
                     'unit_id' => $row['unit_id'],
                     'unit_label' => $unit?->symbol ?: ($unit?->name ?: null),
                     'quantity' => (float) $row['quantity'],
-                    'name' => $variant?->display_name
-                        ?? $variant?->product?->name
-                        ?? 'Promo item',
+                    'name' => $variant
+                        ? $this->productSearch->posDisplayName($variant)
+                        : 'Promo item',
                     'image' => $variant?->image ?? $variant?->product?->image,
                     'promo_code' => $row['promo_code'] ?? null,
                     'promotion_id' => $row['promotion_id'] ?? null,
@@ -345,15 +398,26 @@ class POSController extends Controller
     {
         $request->validate([
             'destination_city_id' => ['nullable', 'uuid'],
+            'warehouse_id' => ['nullable', 'uuid'],
             'items' => ['nullable', 'array'],
             'items.*.variant_id' => ['required_with:items', 'uuid'],
             'items.*.quantity' => ['required_with:items', 'numeric', 'min:0'],
         ]);
 
+        $warehouse = null;
+        if ($request->warehouse_id) {
+            try {
+                $warehouse = $this->posWarehouseFromRequest($request);
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+        }
+
         $quote = $this->shippingOptions->quote(
             $this->getBranchId(),
             $request->destination_city_id,
-            $request->items ?? []
+            $request->items ?? [],
+            $warehouse
         );
 
         return response()->json([
@@ -506,6 +570,7 @@ class POSController extends Controller
             'amount_paid' => 'required|numeric|min:0',
             'xendit_channel' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
+            'warehouse_id' => 'required|uuid',
         ]);
 
         $branchId = $this->getBranchId();
@@ -518,6 +583,7 @@ class POSController extends Controller
 
         try {
             $this->assertShippingRate($request, $branchId);
+            $this->posWarehouseFromRequest($request);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
@@ -551,7 +617,8 @@ class POSController extends Controller
             $totals = $this->checkout->buildCartTotals($request);
             $this->barcodeDispatch->assertCartSerialsForDestination(
                 $request->customer_id,
-                $totals['items_data']
+                $totals['items_data'],
+                $this->posWarehouses->requiresSerialScan($this->posWarehouseFromRequest($request))
             );
             $total = $totals['total'];
             $amountPaid = (float) $request->amount_paid;
@@ -653,7 +720,8 @@ class POSController extends Controller
             $totals = $this->checkout->buildCartTotals($request);
             $this->barcodeDispatch->assertCartSerialsForDestination(
                 $request->customer_id,
-                $totals['items_data']
+                $totals['items_data'],
+                $this->posWarehouses->requiresSerialScan($this->posWarehouseFromRequest($request))
             );
             $total = $totals['total'];
 

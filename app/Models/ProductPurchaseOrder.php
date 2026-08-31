@@ -92,6 +92,11 @@ class ProductPurchaseOrder extends Model
         return $this->hasMany(ProductPurchaseOrderItem::class, 'purchase_order_id', 'id');
     }
 
+    public function kontrabonItems(): HasMany
+    {
+        return $this->hasMany(PurchaseKontrabonItem::class, 'purchase_order_id', 'id');
+    }
+
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id', 'id');

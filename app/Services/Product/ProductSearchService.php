@@ -211,6 +211,21 @@ class ProductSearchService
     }
 
     /**
+     * POS label: product name only (strip type suffix / SKU). Keep attribute values to tell variants apart.
+     */
+    public function posDisplayName(ProductVariant $variant): string
+    {
+        $variant->loadMissing(['product', 'variantAttributes.attributeValue']);
+
+        $productName = product_print_name($variant->product?->name);
+        $attrs = $variant->variantAttributes->map(function ($va) {
+            return $va->attributeValue?->value ?? '';
+        })->filter()->implode(' / ');
+
+        return $attrs !== '' ? $productName.' - '.$attrs : $productName;
+    }
+
+    /**
      * @return array{
      *   id: string,
      *   sku: ?string,
@@ -221,13 +236,18 @@ class ProductSearchService
      *   unit_label: ?string
      * }|null
      */
-    public function mapVariantForPos(ProductVariant $variant, string $branchId, string $priceListId): ?array
+    public function mapVariantForPos(
+        ProductVariant $variant,
+        string $branchId,
+        string $priceListId,
+        ?string $warehouseId = null,
+    ): ?array
     {
         if ($variant->product === null) {
             return null;
         }
 
-        $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId);
+        $pricing = $this->resolveVariantPricing($variant, $branchId, $priceListId, $warehouseId);
         $unitLabel = null;
         if ($pricing['unit_id']) {
             $unit = ProductUnit::query()->find($pricing['unit_id'], ['id', 'symbol', 'name']);
@@ -237,7 +257,7 @@ class ProductSearchService
         return [
             'id' => $variant->id,
             'sku' => $variant->sku,
-            'display_name' => $variant->display_name,
+            'display_name' => $this->posDisplayName($variant),
             'selling_price' => $pricing['selling_price'],
             'stock' => (int) $pricing['stock'],
             'unit_id' => $pricing['unit_id'],
@@ -248,9 +268,14 @@ class ProductSearchService
     /**
      * @return array{unit_id: ?string, selling_price: float, stock: float}
      */
-    protected function resolveVariantPricing(ProductVariant $variant, string $branchId, string $priceListId): array
+    protected function resolveVariantPricing(
+        ProductVariant $variant,
+        string $branchId,
+        string $priceListId,
+        ?string $warehouseId = null,
+    ): array
     {
-        $warehouseId = optional(WmsContext::salesSourceWarehouse($branchId))->id;
+        $warehouseId = $warehouseId ?: optional(WmsContext::salesSourceWarehouse($branchId))->id;
         $product = $variant->product;
 
         $unitId = $product?->default_unit_id;

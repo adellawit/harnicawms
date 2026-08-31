@@ -1,4 +1,21 @@
-# Task: Promotion Marketing Multi-Target
+# Task: PO insert status locked to Draft
+
+## Checklist
+- [x] Kunci status create ke Draft (`PurchaseOrderStatus::resolveOnCreate()`)
+- [x] Form insert: badge Draft, bukan dropdown
+- [x] Form edit: status read-only (tidak bisa loncat via edit)
+- [x] `insertData` ignore `status_id`; `editData` tidak update status
+- [x] `php -l` + `view:cache`
+
+## Review
+- Create selalu `draft`. Receiving/Payment tidak bisa dipilih di form.
+- Naik status tetap lewat index **Submit** (`validateManualUpdate` → process).
+- Invoice boleh DP/lunas untuk PO Process yang belum receive.
+- Tidak ada PHPUnit di repo; verifikasi compile view + lint.
+
+---
+
+# Previous: Promotion Marketing Multi-Target
 
 Handoff: `docs/superpowers/plans/2026-08-12-promotion-marketing-multi-target-cursor-handoff.md`
 

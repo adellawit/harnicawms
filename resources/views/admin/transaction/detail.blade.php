@@ -84,6 +84,19 @@
                                 <td>{{ $order->branch?->name ?? '-' }}</td>
                             </tr>
                             <tr>
+                                <td>Gudang</td>
+                                <td>
+                                    @if($order->warehouse)
+                                        {{ $order->warehouse->name }}
+                                        @if($order->warehouse->code)
+                                            <small class="text-muted">({{ $order->warehouse->code }})</small>
+                                        @endif
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
                                 <td>Price List</td>
                                 <td>{{ $order->priceList ? ($order->priceList->name . ' (' . $order->priceList->code . ')') : '-' }}</td>
                             </tr>
