@@ -39,6 +39,9 @@ class Warehouse extends Model
         'country',
         'is_default',
         'is_inventory_active',
+        'is_pos_active',
+        'pos_require_serial_scan',
+        'pos_unit_mode',
         'is_active',
         'notes',
         'legacy_business_unit_id',
@@ -50,6 +53,8 @@ class Warehouse extends Model
     protected $casts = [
         'is_default' => 'boolean',
         'is_inventory_active' => 'boolean',
+        'is_pos_active' => 'boolean',
+        'pos_require_serial_scan' => 'boolean',
         'is_active' => 'boolean',
     ];
 

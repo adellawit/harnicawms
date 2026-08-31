@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\Partner\PartnerReportController;
 use App\Http\Controllers\Admin\Partner\ResellerController as PartnerResellerController;
 use App\Http\Controllers\Admin\Partner\ResellerMappingController as PartnerResellerMappingController;
 use App\Http\Controllers\Admin\PaymentGatewayConfigurationController;
+use App\Http\Controllers\Admin\PosConfigurationController;
 use App\Http\Controllers\Admin\POSController;
 use App\Http\Controllers\Admin\PositionController;
 use App\Http\Controllers\Admin\ProductCategoryController;
@@ -542,6 +543,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/payment-gateway-configuration/test', [PaymentGatewayConfigurationController::class, 'testConnection'])
             ->name('settings.payment-gateway-configuration.test')
             ->middleware('permission:Payment Gateway Configuration,is_update');
+
+        Route::get('/pos-configuration', [PosConfigurationController::class, 'indexView'])
+            ->name('settings.pos-configuration.index.view')
+            ->middleware('permission:POS Configuration,is_read');
+        Route::post('/pos-configuration', [PosConfigurationController::class, 'update'])
+            ->name('settings.pos-configuration.update')
+            ->middleware('permission:POS Configuration,is_update');
 
         Route::get('/theme-configuration', [ThemeConfigurationController::class, 'indexView'])
             ->name('settings.theme-configuration.index.view')

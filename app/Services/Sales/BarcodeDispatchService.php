@@ -34,6 +34,7 @@ class BarcodeDispatchService
         ?string $pendingProductId = null,
         ?string $pendingVariantId = null,
         ?string $pendingUnitId = null,
+        ?string $warehouseId = null,
     ): array {
         $serialNumber = trim($serialNumber);
         if ($serialNumber === '') {
@@ -114,7 +115,7 @@ class BarcodeDispatchService
         }
 
         $variant->loadMissing('product');
-        $mapped = $this->productSearch->mapVariantForPos($variant, $branchId, $priceListId);
+        $mapped = $this->productSearch->mapVariantForPos($variant, $branchId, $priceListId, $warehouseId);
         if (! $mapped || empty($mapped['unit_id']) || (float) $mapped['selling_price'] <= 0) {
             throw new InvalidArgumentException('Harga product untuk barcode ini tidak tersedia pada price list aktif.');
         }
@@ -145,7 +146,7 @@ class BarcodeDispatchService
             'serial_number' => $serial->serial_number,
             'product_id' => $serial->product_id,
             'variant_id' => $variant->id,
-            'name' => $mapped['display_name'] ?? $serial->product?->name,
+            'name' => $mapped['display_name'] ?? product_print_name($serial->product?->name),
             'price' => (float) $mapped['selling_price'],
             'unit_id' => $mapped['unit_id'],
             'unit_label' => $mapped['unit_label'] ?? $unitLabel,
@@ -282,8 +283,14 @@ class BarcodeDispatchService
     /**
      * @param  list<array<string, mixed>>  $itemsData
      */
-    public function assertCartSerialsForDestination(?string $customerId, array $itemsData): void
-    {
+    public function assertCartSerialsForDestination(
+        ?string $customerId,
+        array $itemsData,
+        bool $requireScan = true,
+    ): void {
+        if (! $requireScan) {
+            return;
+        }
         if (! $customerId) {
             return;
         }

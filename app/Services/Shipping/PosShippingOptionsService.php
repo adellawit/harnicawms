@@ -24,9 +24,14 @@ class PosShippingOptionsService
      *   options: list<array<string, mixed>>
      * }
      */
-    public function quote(?string $branchId, ?string $destinationCityId, array $items): array
+    public function quote(
+        ?string $branchId,
+        ?string $destinationCityId,
+        array $items,
+        ?Warehouse $warehouse = null,
+    ): array
     {
-        $warehouse = WmsContext::salesSourceWarehouse($branchId);
+        $warehouse = $warehouse ?: WmsContext::salesSourceWarehouse($branchId);
         $origin = $this->resolveOriginCity($warehouse);
         $weightKg = $this->cartWeightKg($items);
 
