@@ -64,6 +64,8 @@ Route::prefix('agent-order')->name('agent-order.')->group(function () {
         Route::get('/orders/{order}/po-pdf', [AgentOrderController::class, 'orderPoPdf'])->name('orders.po-pdf');
         Route::get('/orders/{order}/invoice-pdf', [AgentOrderController::class, 'orderInvoicePdf'])->name('orders.invoice-pdf');
         Route::get('/stok', [AgentOrderController::class, 'stock'])->name('stock');
+        Route::get('/stok/barcodes', [AgentOrderController::class, 'stockBarcodes'])->name('stock.barcodes');
+        Route::get('/stok/barcode-lookup', [AgentOrderController::class, 'stockBarcodeLookup'])->name('stock.barcode-lookup');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
 });

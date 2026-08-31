@@ -10,6 +10,7 @@ use App\Models\MethodPayment;
 use App\Models\Partner\Reseller;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ProductLabelSerial;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\ProductVariantStock;
@@ -19,6 +20,7 @@ use App\Models\ShippingRate;
 use App\Models\Training\AgentMaterialProgress;
 use App\Models\Training\Course;
 use App\Models\Training\CourseMaterial;
+use App\Services\Product\StockBarcodeDetailService;
 use App\Services\Product\StockDisplayService;
 use App\Services\Shop\ShopCartService;
 use App\Services\Shop\ShopCheckoutService;
@@ -1034,6 +1036,7 @@ class AgentOrderController extends Controller
             ->where('warehouse_id', $warehouseId)
             ->with([
                 'unit:id,name,symbol',
+                'variant.product.nature:id,code',
                 'variant.product.defaultUnit',
                 'variant.product.unitConversions.fromUnit:id,name,symbol',
                 'variant.product.unitConversions.toUnit:id,name,symbol',
@@ -1072,6 +1075,7 @@ class AgentOrderController extends Controller
 
             $rows->push([
                 'variant_id' => $variant->id,
+                'product_id' => $product->id,
                 'product_name' => product_print_name($product->name),
                 'variant_name' => $variantLabel,
                 'sku' => $variant->sku ?? '-',
@@ -1112,6 +1116,122 @@ class AgentOrderController extends Controller
             'warehouseName' => optional($agent?->defaultWarehouse)->name,
             'lowThreshold' => $lowThreshold,
             'displayUnitMode' => $displayUnitMode,
+            'barcodesDetailUrl' => route('agent-order.stock.barcodes'),
+            'barcodeLookupUrl' => route('agent-order.stock.barcode-lookup'),
+        ]);
+    }
+
+    public function stockBarcodes(Request $request, StockBarcodeDetailService $barcodes): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'uuid'],
+            'variant_id' => ['nullable', 'uuid'],
+        ]);
+
+        $agent = $this->context()->customer()->agent;
+        abort_unless($agent, 403);
+
+        $warehouseId = AgentPosOrders::warehouseIdForAgent($agent) ?: $agent->default_warehouse_id;
+        abort_unless($warehouseId, 422, 'Gudang agen belum diset.');
+
+        $product = Product::with([
+            'defaultUnit:id,name,symbol',
+            'unitConversions.fromUnit:id,name,symbol',
+            'unitConversions.toUnit:id,name,symbol',
+            'nature:id,name,code',
+        ])->findOrFail($data['product_id']);
+
+        $hasStock = ProductVariantStock::query()
+            ->where('warehouse_id', $warehouseId)
+            ->whereHas('variant', fn ($q) => $q->where('product_id', $product->id))
+            ->exists();
+        abort_unless($hasStock, 403);
+
+        $variantId = $data['variant_id'] ?? null;
+        $customerId = $this->context()->customer()->id;
+        $includeIds = $barcodes->serialIdsReceivedByCustomer($customerId, $product->id, $variantId);
+        $soldIds = $barcodes->serialIdsUsedBeyondInbound($includeIds, $product->id, $variantId);
+
+        return response()->json($barcodes->detail($product, $variantId, $includeIds, $soldIds));
+    }
+
+    public function stockBarcodeLookup(Request $request, StockBarcodeDetailService $barcodes): JsonResponse
+    {
+        $data = $request->validate([
+            'serial' => ['required', 'string', 'max:50'],
+        ]);
+
+        $agent = $this->context()->customer()->agent;
+        abort_unless($agent, 403);
+
+        $customerId = $this->context()->customer()->id;
+        $serialNumber = strtoupper(trim($data['serial']));
+
+        $serial = ProductLabelSerial::query()
+            ->with(['product:id,name,sku', 'variant:id,sku', 'unit:id,name,symbol'])
+            ->whereRaw('upper(serial_number) = ?', [$serialNumber])
+            ->first();
+
+        if (! $serial) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Barcode tidak ditemukan.',
+            ], 404);
+        }
+
+        $inboundIds = $barcodes->serialIdsReceivedByCustomer(
+            $customerId,
+            $serial->product_id,
+            $serial->product_variant_id
+        );
+        $soldIds = $barcodes->serialIdsUsedBeyondInbound(
+            $inboundIds,
+            $serial->product_id,
+            $serial->product_variant_id
+        );
+
+        if (in_array($serial->id, $soldIds, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Barcode sudah keluar, tidak bisa dipakai lagi.',
+            ], 422);
+        }
+        if ($inboundIds === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Barcode tidak ada di gudang Anda.',
+            ], 404);
+        }
+
+        if (! in_array($serial->id, $inboundIds, true)) {
+            $product = Product::with([
+                'defaultUnit:id,name,symbol',
+                'unitConversions.fromUnit:id,name,symbol',
+                'unitConversions.toUnit:id,name,symbol',
+                'nature:id,name,code',
+            ])->find($serial->product_id);
+
+            $detail = $product
+                ? $barcodes->detail($product, $serial->product_variant_id, $inboundIds, $soldIds)
+                : ['tree' => []];
+
+            if (! $barcodes->treeContainsSerial($detail['tree'] ?? [], $serial->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Barcode tidak ada di gudang Anda.',
+                ], 404);
+            }
+        }
+
+        $productName = product_print_name($serial->product?->name);
+        $variantLabel = $serial->variant?->sku ?: '';
+
+        return response()->json([
+            'success' => true,
+            'product_id' => $serial->product_id,
+            'variant_id' => $serial->product_variant_id,
+            'serial' => $serial->serial_number,
+            'title' => trim($productName.($variantLabel ? ' · '.$variantLabel : '')),
         ]);
     }
 

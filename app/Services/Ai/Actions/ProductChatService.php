@@ -16,7 +16,8 @@ use Illuminate\Support\Str;
  *
  * Called from AgentRecordActionService::handle() when operation=create
  * and entity=product. Defaults nullable DB columns; creates a default
- * variant when the product is for sale.
+ * variant when the product is for sale. Quantity/pcs belongs on Purchase
+ * Order receive, not on product create.
  */
 class ProductChatService
 {
@@ -28,7 +29,7 @@ class ProductChatService
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
      */
-    public function create(array $arguments, AgentContext $context): array
+    public function create(array $arguments, AgentContext $context, bool $commit = true): array
     {
         $name = ChatFields::string($arguments, ['name', 'nama', 'product_name', 'item'], $arguments['name'] ?? null);
         $sku = ChatFields::string($arguments, ['sku', 'kode', 'code'], $arguments['code'] ?? null);
@@ -36,6 +37,17 @@ class ProductChatService
         $unitName = ChatFields::string($arguments, ['unit', 'satuan', 'default_unit', 'default_unit_name']);
         $unitId = ChatFields::string($arguments, ['default_unit_id', 'unit_id']);
         $description = ChatFields::string($arguments, ['description', 'deskripsi'], $arguments['description'] ?? null);
+        $inboundQty = ChatFields::float($arguments, ['quantity', 'qty', 'jumlah', 'stok']);
+
+        if (($inboundQty !== null && $inboundQty > 0) || self::nameHasInboundQuantity($name)) {
+            return [
+                'success' => false,
+                'blocked_flow' => 'purchase_order',
+                'needs_confirmation' => false,
+                'message' => StockChatService::inboundBlockedMessage('purchase_order')
+                    .' Master produk hanya nama + flag dijual, tanpa jumlah pcs. Kalau SKU baru tanpa stok, sebut nama dan apakah dijual.',
+            ];
+        }
 
         $missing = [];
         $questions = [];
@@ -88,6 +100,20 @@ class ProductChatService
                 'item' => $item,
                 'items' => [$item],
                 'message' => 'Produk "'.$item['label'].'" sudah ada.',
+            ];
+        }
+
+        if (! $commit) {
+            return [
+                'success' => true,
+                'needs_confirmation' => true,
+                'confirmation_kind' => 'product_create',
+                'title' => 'Tambah produk?',
+                'body' => 'Produk "'.$name.'" akan ditambahkan sebagai master SKU'
+                    .' ('.($sale ? 'dijual' : 'tidak dijual').', tanpa stok inbound). Lanjutkan?',
+                'confirm_label' => 'Tambah',
+                'cancel_label' => 'Batal',
+                'message' => 'Penambahan produk perlu konfirmasi di kartu. Belum ada data yang diubah.',
             ];
         }
 
@@ -219,5 +245,14 @@ class ProductChatService
         }
 
         return $code;
+    }
+
+    public static function nameHasInboundQuantity(?string $name): bool
+    {
+        if ($name === null || trim($name) === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/\b\d+([.,]\d+)?\s*(pcs|pc|buah|unit|box)\b/iu', $name);
     }
 }

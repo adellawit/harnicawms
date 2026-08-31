@@ -4,6 +4,7 @@
 > Isi mengikuti kode yang hidup sekarang (`config/agent.php`, `config/agent_records.php`, tool di `app/Services/Ai/Tools/`, widget di `resources/views/components/ai/chat-widget.blade.php`).
 >
 > Konteks teknis repo: [AI_CONTEXT.md](AI_CONTEXT.md) §9. Arsitektur: [ARCHITECTURE.md](ARCHITECTURE.md) §3.5.
+> Bot mengikuti alur aplikasi (PO → penerimaan, produksi, replenishment); tidak men-shortcut stok.
 
 ---
 
@@ -153,13 +154,24 @@ Yang tetap tidak dari chat: unggah tanda tangan/formulir registrasi, pembayaran 
 
 | Entitas | Yang bisa dari chat | Yang tidak |
 |---------|---------------------|------------|
-| Stok | Penyesuaian (set/tambah/kurang) lewat `StockMutationService` + konfirmasi | Tulis `quantity` langsung; hapus baris stok |
+| Stok | Penyesuaian **hanya** opname / koreksi selisih fisik (set/tambah/kurang lewat `StockMutationService` + konfirmasi). Bukan barang beli masuk. | Tulis `quantity` langsung; hapus baris stok; increment merchandising (“tambah 10 pcs”) |
 | PO | Draf header (supplier + catatan) + list/get | Receive barang, ubah status ke process |
 | Jurnal | Draf lewat `JournalService::create`; `post` hanya jika debit=kredit | Post jurnal tidak seimbang |
 | Production order | Draf (`status=draft`) + list/get | Submit yang memotong stok bahan |
 | Replenishment | Draf (`status=draft`) + list/get; wajib sebut agen (buat agen dulu dari chat jika belum ada) | Submit/approve/kirim (service create langsung SUBMITTED, tidak dipakai) |
 
 Invoice/kontrabon, saldo awal, dan transaksi penjualan yang sudah ada tetap list/get. Jual baru tunai: `manage_sale`.
+
+**Alur, bukan shortcut.** Mutasi stok di aplikasi ini punya dokumen sumber. Chat tidak boleh melewatinya.
+
+| Maksud user | Alur yang benar | Dari chat |
+|-------------|-----------------|-----------|
+| Barang beli / “tambahkan produk X N pcs” / “tambah stok 10” | Purchase Order → penerimaan (`PurchaseReceive`) | Draf header PO (sebut supplier) atau `open_page` ke Purchase Order. **Bukan** kartu Tambah N stok. Receive tetap di modul PO. |
+| Hasil produksi | Production order draft → proses → receive | Draf saja; stok bahan/hasil berubah di modul Production Order |
+| Restok agen | Replenishment: submit → approve → kirim → terima | Draf (sebut agen); bukan POS, bukan stock increment |
+| Jual tunai di cabang | POS | `manage_sale` + konfirmasi |
+| Master SKU baru (nama, dijual) | Master produk | `manage_record` product **tanpa** quantity stok |
+| Opname / koreksi selisih fisik / rusak-hilang | Stock Adjustment / Stock Opname | `manage_record` stock + konfirmasi, hanya jika user jelas bilang opname/koreksi/penyesuaian/“jadikan stok ke N” |
 
 ### 3.5 Widget
 
@@ -181,6 +193,7 @@ Invoice/kontrabon, saldo awal, dan transaksi penjualan yang sudah ada tetap list
 | Ubah quantity stok langsung di tabel | Wajib `StockMutationService` (FIFO/FEFO) |
 | Post jurnal tidak seimbang | `JournalService::post` menolak |
 | Receive PO / ubah status PO dari chat | Hanya draf header |
+| Tambah stok barang beli dari chat (“tambahkan produk X N pcs”) | Bukan adjustment; alur PO → penerimaan |
 | Submit production yang memotong stok | Hanya draf; proses di modul Production Order |
 | Approve / kirim replenishment | Hanya draf; `ReplenishmentOrderService::create` langsung submitted — tidak dipanggil dari chat |
 | Unggah dokumen/tanda tangan registrasi agen | Application dibuat tanpa dokumen; lengkapi di Partner Application dan POS |
@@ -266,11 +279,12 @@ Eval tanpa LLM: `php scripts/ai-bot-eval.php`.
 - “Buat agen Toko Makmur Jaya, telepon 081200000000, kota Cirebon”
 - “Buat draf replenishment untuk agen Toko Makmur Jaya”
 - “Buat draf PO ke supplier PT Sumber, catatan urgent”
-- “Sesuaikan stok Kopi jadi 10” (lalu konfirmasi kartu)
+- “Sesuaikan stok Kopi jadi 10” / “Opname stok Kopi jadi 10” (lalu konfirmasi kartu)
 - “Hapus divisi Management” (lalu konfirmasi kartu)
 
 **Akan ditolak atau dialihkan**
 
+- “Tambahkan produk plastik 10 pcs” → sarankan PO / penerimaan, **bukan** kartu Tambah 10 stok
 - “Kurangi stok 10 pcs tanpa dokumen / tanpa konfirmasi”
 - “Posting jurnal yang debit ≠ kredit”
 - “Approve order replenishment dari chat”

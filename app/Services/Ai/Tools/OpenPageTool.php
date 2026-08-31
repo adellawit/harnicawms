@@ -41,8 +41,9 @@ class OpenPageTool extends AbstractAgentTool
             .'a page (including "buka halamannya dong"). When they also name a filter '
             .'(buka stok minuman, filter kategori X, cari SKU), pass category and/or search — '
             .'the widget opens a URL with those query params already applied. '
-            .'Do not tell the user to type in the search box. Do not say you cannot navigate. '
-            .'query = menu or topic (category, items, stock, POS, division, …). '
+            .'Do not tell the user to type in the search box. Do not say you cannot navigate '
+            .'if the page exists in the admin sidebar (Purchase Order, Supplier, Items, and so on). '
+            .'query = menu or topic (category, items, stock, POS, purchase order, division, …). '
             .'For relative "halamannya"/"yang tadi", pass the page implied by the last topic. '
             .'Only menus the user can see are allowed. This is not a product tour.';
     }

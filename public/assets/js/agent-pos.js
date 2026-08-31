@@ -684,6 +684,41 @@
         $('#addItemQtyInput').val(Math.max(1, pendingModalSerials.length));
     }
 
+    function applySerialUnitAndPrice(data) {
+        var unitId = data.unit_id ? String(data.unit_id) : '';
+        var unitLabel = $.trim(String(data.unit_label || ''));
+        var price = parseFloat(data.price != null ? data.price : data.selling_price) || 0;
+        var $unitSelect = $('#addItemUnitSelect');
+
+        if (unitId) {
+            var $opt = $unitSelect.find('option').filter(function () {
+                return String($(this).val()) === unitId;
+            }).first();
+
+            if (!$opt.length) {
+                $opt = $('<option></option>').val(unitId).text(unitLabel || 'Unit');
+                $unitSelect.append($opt);
+            } else if (unitLabel) {
+                $opt.text(unitLabel);
+            }
+
+            if (price > 0) {
+                $opt.attr('data-suggested', price);
+            }
+
+            $unitSelect.val(unitId);
+            $('#addItemUnitWrap').show();
+        }
+
+        $unitSelect.prop('disabled', true);
+
+        if (price > 0) {
+            $('#addItemPriceInput').val(formatRupiah(price));
+        } else {
+            syncAddItemPriceFromUnit();
+        }
+    }
+
     function lookupAgentSerial(serial) {
         serial = $.trim(String(serial || ''));
         if (!serial) {
@@ -737,16 +772,7 @@
             }
 
             var d = res.data || {};
-            $('#addItemUnitSelect').val(d.unit_id).prop('disabled', true);
-            if ($('#addItemUnitWrap').is(':hidden') && d.unit_label) {
-                $('#addItemUnitWrap').show();
-            }
-
-            var currentPrice = parseRupiah($('#addItemPriceInput').val());
-            if (!currentPrice || currentPrice <= 0) {
-                $('#addItemPriceInput').val(formatRupiah(d.price || d.selling_price || 0));
-            }
-
+            applySerialUnitAndPrice(d);
             appendSerialChip(d.serial_number);
             bumpQtyToSerialCount();
             $('#addItemSerialInput').val('').trigger('focus');

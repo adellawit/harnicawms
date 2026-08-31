@@ -47,7 +47,7 @@ class GetHelpTool extends AbstractAgentTool
                 'Menyiapkan draf penjualan tunai (item, customer, pembayaran) lalu minta konfirmasi user',
                 'CRUD data sesuai izin menu langsung di chat (tanpa buka form): master HR termasuk karyawan, customer, partner, produk, gudang, bisnis, pembayaran, CRM, COA, settings, training, marketing',
                 'Membuat agen partner dari chat (pendaftaran partner + Convert Agent dijalankan server: kode agen, gudang agen, akun login)',
-                'Draf PO/jurnal/produksi/replenishment dan penyesuaian stok lewat mutasi (perlu konfirmasi di kartu)',
+                'Draf PO/jurnal/produksi/replenishment. Penyesuaian stok hanya untuk opname/koreksi (bukan barang beli masuk)',
                 'Hapus data dan Super Admin hanya setelah konfirmasi',
             ],
             'examples' => [
@@ -73,12 +73,13 @@ class GetHelpTool extends AbstractAgentTool
                 'Stok semua',
                 'Daftar stok',
                 'Jual 2 kopi arabica tunai',
-                'Jadikan semua stok barang jual 100',
+                'Opname stok kopi jadi 100',
             ],
             'limitations' => [
                 'Transaksi penjualan dibuat lewat manage_sale + konfirmasi di chat',
                 'Penjualan dari chat hanya mendukung pembayaran tunai di cabang aktif',
                 'Stok hanya lewat mutasi (StockMutationService), bukan tulis kolom quantity',
+                'Barang beli masuk lewat Purchase Order lalu penerimaan, bukan tambah stok dari chat',
                 'Overview stok di chat = ringkasan cabang + 10 SKU (stok rendah dulu). Sisanya: sebut nama/SKU. Jangan alihkan ke halaman Stok',
                 'PO/produksi/replenishment dari chat = draf; posting jurnal hanya jika seimbang',
                 'Hapus dan Super Admin butuh konfirmasi di kartu',
