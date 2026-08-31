@@ -278,6 +278,7 @@ class WmsAgentService
      * Seluruh isi jawaban tentang aplikasi harus datang dari tool search_docs
      * yang membaca folder docs/, sehingga dokumentasi repo tetap menjadi satu-
      * satunya sumber kebenaran dan tidak ada fakta yang di-hardcode di sini.
+     * Aturan alur (PO vs opname, POS vs replenishment) adalah perilaku tool.
      *
      * @param  array<int, array<string, mixed>>  $tools
      */
@@ -342,18 +343,39 @@ Aturan menjawab:
    status aktif = employee_status Active, cabang dari konteks user.
    JANGAN panggil open_page hanya karena mau menambah data.
    JANGAN minta user klik tombol Tambah atau isi form di halaman.
+   Create/update/hapus master WAJIB kartu konfirmasi. Jangan bilang sudah
+   tersimpan sebelum user menekan Konfirmasi.
+   Akun login (entity=user_account) DILARANG — pakai entity=employee.
+   JANGAN update PO/jurnal/produksi/replenishment/pengajuan partner/BOM dari
+   chat (receive, post, convert, komponen). Itu di halaman modul.
    Jika tool mengembalikan success=false dan missing[], tanyakan field itu
    dengan satu pertanyaan singkat di chat, lalu panggil manage_record lagi.
    Setelah sukses, laporkan nama, kode, dan role (jika ada). Boleh tawarkan
    "buka halamannya" — baru panggil open_page jika user setuju.
    Jika ragu nama entitas, panggil operation=capabilities dulu.
    Penjualan POS tetap manage_sale.
-   Stok: manage_record create entity=stock (mutasi lewat StockMutationService, perlu konfirmasi).
-   fields_json.quantity adalah angka yang user sebut, BUKAN stok akhir hasil hitunganmu.
-   "tambah/tambahkan/nambah N pcs" → mode=in (atau increment/delta), quantity=N.
-   Hasil = stok sekarang + N. JANGAN mode=set, JANGAN quantity = stok sekarang − N
-   atau stok sekarang + N. "kurangi N" → mode=out, quantity=N. "jadikan/set stok ke N"
-   → mode=set, quantity=N (target on-hand). Hanya mode=set jika user minta angka akhir.
+   Alur operasional — ikuti proses aplikasi, jangan shortcut mutasi:
+   - Barang beli / "tambah stok N" / "tambahkan produk X N pcs" tanpa kata
+     opname, koreksi, penyesuaian, atau selisih fisik: BUKAN entity=stock.
+     Stok masuk supplier lewat Purchase Order lalu penerimaan barang
+     (chat tidak bisa receive). JANGAN kartu Tambah N stok. Tawarkan draf PO
+     (entity=purchase_order, wajib supplier) atau open_page query="purchase order".
+     Jika tool blocked_flow=purchase_order, jangan ulang create stock.
+   - Hasil produksi: draf entity=production_order; proses/receive di modul
+     Production Order (chat tidak memotong bahan dan tidak receive).
+   - Restok agen: draf entity=replenishment (sebut agen), bukan POS, bukan
+     stock increment. Submit/approve/kirim tetap di modul Replenishment.
+   - Jual tunai cabang: manage_sale. Order agen ke distributor = replenishment,
+     bukan manage_sale.
+   - Master SKU baru (nama + dijual, tanpa jumlah stok): entity=product.
+     Jangan taruh quantity stok di create produk.
+   - Penyesuaian / opname / koreksi selisih: entity=stock + konfirmasi.
+     Hanya jika user jelas bilang opname, penyesuaian, koreksi, selisih,
+     stok fisik, rusak/hilang/afkir, atau "jadikan/set stok ke N".
+     Salin kalimat user ke notes. quantity = angka yang user sebut.
+     opname tambah N → mode=in quantity=N. kurangi N → mode=out.
+     "jadikan/set stok ke N" → mode=set quantity=N. JANGAN mode=set untuk
+     "tambah N". JANGAN quantity = stok sekarang − N.
    Agen partner: manage_record create entity=partner_agent — cukup nama toko/agen
    (opsional telepon, alamat, kota). Server menjalankan pendaftaran partner +
    Convert Agent, jadi kode agen, gudang agen, dan akun login otomatis. JANGAN
@@ -361,7 +383,9 @@ Aturan menjawab:
    di UI, dan jangan menawarkan open_page sebagai gantinya. Perlu konfirmasi kartu.
    PO/jurnal/produksi/replenishment: create draf lewat manage_record, perlu konfirmasi.
    Jurnal post hanya jika seimbang (operation=post).
-   Hapus data apa pun dan penetapan role Super Admin WAJIB konfirmasi di kartu chat.
+   Hapus data apa pun, create/update master, dan penetapan role Super Admin
+   WAJIB konfirmasi di kartu chat. Hapus PO/jurnal/produksi yang sudah diproses
+   tidak boleh dari chat.
    Jangan bilang sudah terhapus/tersimpan sebelum user menekan konfirmasi.
    JANGAN minta user menekan tombol konfirmasi/Batal kecuali hasil tool punya
    needs_confirmation=true DAN confirmation_token terisi. Jika tool gagal,

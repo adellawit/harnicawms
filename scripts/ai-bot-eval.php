@@ -10,7 +10,8 @@ declare(strict_types=1);
  * partner (missing name + kartu konfirmasi), replenishment wajib agen, dan
  * get_stock overview (query kosong/null, max 10 item) vs filter keyword,
  * prompt/help tidak klaim stok keyword-only, kartu action_card wajib token,
- * orphan CTA tanpa kartu dibersihkan, dan riwayat percakapan widget.
+ * orphan CTA tanpa kartu dibersihkan, riwayat percakapan widget, dan
+ * "tambahkan produk plastik 10 pcs" tidak jadi kartu increment stok (alur PO).
  *
  * Jalankan: php scripts/ai-bot-eval.php
  */
@@ -243,8 +244,118 @@ $defaultAdd = StockChatService::resolveMode(null, null);
 check('mode kosong default increment', $defaultAdd === 'in');
 check('prompt stok mode=in untuk tambah', str_contains($wmsSrc, 'mode=in') && str_contains($wmsSrc, 'JANGAN mode=set'));
 
+echo "\n=== 4c. alur stok: PO vs opname ===\n";
+
+check(
+    'tambahkan produk plastik 10 pcs bukan opname',
+    StockChatService::isExplicitAdjustmentIntent('tambahkan produk plastik 10 pcs') === false
+);
+check(
+    'sesuaikan stok diizinkan',
+    StockChatService::isExplicitAdjustmentIntent('Sesuaikan stok Kopi jadi 10') === true
+);
+check(
+    'opname jelas diizinkan',
+    StockChatService::isExplicitAdjustmentIntent('opname stok plastik jadi 10') === true
+);
+check(
+    'koreksi selisih diizinkan',
+    StockChatService::isExplicitAdjustmentIntent('koreksi selisih stok +10') === true
+);
+check(
+    'halaman stock-adjustment mengizinkan tambah 10',
+    StockChatService::isExplicitAdjustmentIntent('tambahkan 10 pcs', '/product/stock-adjustment') === true
+);
+
+$merchRefuse = StockChatService::refuseIfBypassingFlow('in', 'tambahkan produk plastik 10 pcs');
+$merchMessage = mb_strtolower((string) ($merchRefuse['message'] ?? ''));
+check('inbound merch ditolak', is_array($merchRefuse) && ($merchRefuse['success'] ?? true) === false);
+check('inbound merch blocked_flow purchase_order', ($merchRefuse['blocked_flow'] ?? '') === 'purchase_order');
+check('inbound merch tidak needs_confirmation', ($merchRefuse['needs_confirmation'] ?? false) === false);
+check('inbound merch menyebut purchase order', str_contains($merchMessage, 'purchase order'));
+check('inbound merch tanpa title kartu Tambah', ! isset($merchRefuse['title']));
+
+$opnameOk = StockChatService::refuseIfBypassingFlow('set', 'opname stok plastik jadi 10');
+check('opname tidak ditolak', $opnameOk === null);
+
+$setWithoutNotes = StockChatService::refuseIfBypassingFlow('set', null);
+check('mode set tanpa catatan = opname, tidak ditolak', $setWithoutNotes === null);
+
+$outRefuse = StockChatService::refuseIfBypassingFlow('out', 'kurangi 10 pcs');
+check('kurangi tanpa opname ditolak', is_array($outRefuse) && ($outRefuse['blocked_flow'] ?? '') === 'sales_or_replenishment');
+
+$prodRefuse = StockChatService::refuseIfBypassingFlow('in', 'tambah hasil produksi 10');
+check('hasil produksi blocked_flow production_order', ($prodRefuse['blocked_flow'] ?? '') === 'production_order');
+
+$merchHandle = $records->handle([
+    'operation' => 'create',
+    'entity' => 'stock',
+    'fields_json' => json_encode([
+        'sku' => 'plastik',
+        'quantity' => 10,
+        'mode' => 'in',
+        'notes' => 'tambahkan produk plastik 10 pcs',
+    ], JSON_UNESCAPED_UNICODE),
+], $context);
+check('manage_record merch tidak needs_confirmation', ($merchHandle['needs_confirmation'] ?? false) === false);
+check('manage_record merch blocked_flow PO', ($merchHandle['blocked_flow'] ?? '') === 'purchase_order');
+check('manage_record merch tidak applied', ($merchHandle['applied'] ?? false) === false);
+
+$productQty = $products->create([
+    'operation' => 'create',
+    'entity' => 'product',
+    'name' => 'plastik 10 pcs',
+    'fields_json' => json_encode(['is_sale_item' => true, 'quantity' => 10], JSON_UNESCAPED_UNICODE),
+], $context);
+check('produk + qty blocked_flow PO', ($productQty['blocked_flow'] ?? '') === 'purchase_order');
+check('produk + qty tidak applied', ($productQty['applied'] ?? false) === false);
+check('nama plastik 10 pcs terdeteksi inbound', ProductChatService::nameHasInboundQuantity('plastik 10 pcs') === true);
+check('nama Kopi Arabica bukan inbound qty', ProductChatService::nameHasInboundQuantity('Kopi Arabica') === false);
+
+check('prompt larang kartu Tambah tanpa opname', str_contains($wmsSrc, 'JANGAN kartu Tambah'));
+check('prompt blocked_flow purchase_order', str_contains($wmsSrc, 'blocked_flow=purchase_order'));
+check('prompt alur Purchase Order', str_contains($wmsSrc, 'Purchase Order') && str_contains($wmsSrc, 'opname'));
+
+$poPage = $pages->resolve('purchase order', $context);
+check('katalog halaman purchase order', str_contains((string) ($poPage['url'] ?? ''), 'purchase-order'));
+
 $controllerSrc = (string) file_get_contents(dirname(__DIR__).'/app/Http/Controllers/Ai/ChatController.php');
 check('confirmAction memakai AgentConfirmActionService', str_contains($controllerSrc, 'AgentConfirmActionService'));
+
+echo "\n=== 4d. create/update mengikuti alur modul ===\n";
+
+$categoryCard = $records->handle([
+    'operation' => 'create',
+    'entity' => 'category',
+    'name' => 'Kategori Eval Chat',
+    'fields_json' => '{}',
+], $context);
+check('create kategori → kartu konfirmasi', ($categoryCard['needs_confirmation'] ?? false) === true);
+check('create kategori belum applied', ($categoryCard['applied'] ?? true) === false);
+check('create kategori ada token', filled($categoryCard['confirmation_token'] ?? null));
+
+$poUpdate = $records->handle([
+    'operation' => 'update',
+    'entity' => 'purchase_order',
+    'query' => 'PO-EVAL',
+    'fields_json' => json_encode(['status' => 'received'], JSON_UNESCAPED_UNICODE),
+], $context);
+check('update PO ditolak', ($poUpdate['success'] ?? true) === false);
+check('update PO blocked_flow purchase_order', ($poUpdate['blocked_flow'] ?? '') === 'purchase_order');
+check('update PO tidak needs_confirmation', ($poUpdate['needs_confirmation'] ?? false) === false);
+
+$userAccount = $records->handle([
+    'operation' => 'create',
+    'entity' => 'user_account',
+    'name' => 'login.eval',
+    'fields_json' => '{}',
+], $context);
+check('create user_account ditolak', ($userAccount['success'] ?? true) === false);
+check('create user_account blocked_flow employee', ($userAccount['blocked_flow'] ?? '') === 'employee');
+
+$promptSrc = (string) file_get_contents(dirname(__DIR__).'/app/Services/Ai/WmsAgentService.php');
+check('prompt larang user_account', str_contains($promptSrc, 'user_account'));
+check('prompt larang update PO dari chat', str_contains($promptSrc, 'JANGAN update PO'));
 
 echo "\n=== 4b. action_card attachment + orphan CTA ===\n";
 
@@ -389,6 +500,9 @@ $helpText = json_encode($help, JSON_UNESCAPED_UNICODE);
 check('get_help contoh Tampilkan stok', in_array('Tampilkan stok', $helpExamples, true));
 check('get_help contoh Stok semua', in_array('Stok semua', $helpExamples, true));
 check('get_help contoh Seluruh stok', in_array('Seluruh stok', $helpExamples, true));
+check('get_help contoh Opname stok kopi jadi 100', in_array('Opname stok kopi jadi 100', $helpExamples, true));
+check('get_help bukan jadikan semua stok', is_string($helpText) && ! str_contains($helpText, 'Jadikan semua stok'));
+check('get_help sebut barang beli PO', is_string($helpText) && str_contains($helpText, 'Purchase Order'));
 check('get_help limit 10 SKU', is_string($helpText) && str_contains($helpText, '10 SKU'));
 check('get_help bukan 20 SKU', is_string($helpText) && ! str_contains($helpText, '20 SKU'));
 

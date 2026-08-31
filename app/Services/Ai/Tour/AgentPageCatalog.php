@@ -46,6 +46,9 @@ class AgentPageCatalog
             'tadi',
             'yang tadi',
             'ini',
+            'dulu',
+            'saja',
+            'aja',
         ], true);
     }
 
@@ -105,6 +108,13 @@ class AgentPageCatalog
             if ($context->hasPermission(['menu' => $name, 'action' => 'is_read'])) {
                 return true;
             }
+
+            foreach (array_keys($context->permissions) as $granted) {
+                if (is_string($granted) && strcasecmp($granted, $name) === 0
+                    && (int) ($context->permissions[$granted]['is_read'] ?? 0) === 1) {
+                    return true;
+                }
+            }
         }
 
         return false;
@@ -138,7 +148,11 @@ class AgentPageCatalog
                 continue;
             }
 
-            $pages[] = $this->entryFromMap($room);
+            $landing = $room;
+            $landing['menu_names'] = array_values(array_filter([
+                trim((string) ($room['label'] ?? '')),
+            ]));
+            $pages[] = $this->entryFromMap($landing);
 
             foreach ((array) ($room['children'] ?? []) as $child) {
                 if (is_array($child)) {
@@ -291,6 +305,8 @@ class AgentPageCatalog
     }
 
     /**
+     * Extra search aliases for well-known admin URLs (open_page).
+     *
      * @return list<string>
      */
     protected function aliasesForUrl(string $url): array
@@ -301,6 +317,7 @@ class AgentPageCatalog
             '/product/stock' => ['stok', 'stock', 'stok gudang'],
             '/product/stock-opname' => ['stock opname', 'opname'],
             '/product/stock-adjustment' => ['stock adjustment', 'penyesuaian stok', 'adjustment'],
+            '/product/purchase-order' => ['purchase order', 'po', 'pembelian', 'purchasing', 'penerimaan barang', 'penerimaan'],
             '/transaction/pos' => ['pos', 'kasir', 'point of sale'],
             '/human-resources/division' => ['divisi', 'division'],
             '/human-resources/position' => ['jabatan', 'position'],
@@ -338,7 +355,7 @@ class AgentPageCatalog
         $incoming = $page['label'];
         $existing = $byUrl[$url]['label'];
 
-        if (strlen($incoming) < strlen($existing) && $incoming !== '') {
+        if (strlen($incoming) > strlen($existing) && $incoming !== '') {
             $byUrl[$url]['label'] = $incoming;
         }
     }
@@ -361,7 +378,7 @@ class AgentPageCatalog
         foreach ($pages as $page) {
             $score = $this->scorePage($page, $text);
 
-            if ($score > $bestScore) {
+            if ($score > $bestScore || ($score === $bestScore && $score > 0 && $this->isBetterTie($page, $best, $text))) {
                 $bestScore = $score;
                 $best = $page;
             }
@@ -376,6 +393,16 @@ class AgentPageCatalog
     protected function scorePage(array $page, string $haystack): int
     {
         $best = 0;
+        $label = mb_strtolower(trim((string) ($page['label'] ?? '')));
+
+        if ($label !== '' && $haystack === $label) {
+            $best = 2000 + mb_strlen($label);
+        } elseif ($label !== '' && mb_strlen($label) >= 8 && str_contains($label, ' ')) {
+            $quotedLabel = preg_quote($label, '/');
+            if (preg_match('/(^|[^\p{L}\p{N}])'.$quotedLabel.'([^\p{L}\p{N}]|$)/u', $haystack) === 1) {
+                $best = 400 + mb_strlen($label);
+            }
+        }
 
         foreach ($page['aliases'] as $alias) {
             $needle = mb_strtolower(trim($alias));
@@ -398,6 +425,29 @@ class AgentPageCatalog
         }
 
         return $best;
+    }
+
+    /**
+     * @param  array{label: string, url: string, menu_names: list<string>, aliases: list<string>}|null  $current
+     * @param  array{label: string, url: string, menu_names: list<string>, aliases: list<string>}  $candidate
+     */
+    protected function isBetterTie(array $candidate, ?array $current, string $haystack): bool
+    {
+        if ($current === null) {
+            return true;
+        }
+
+        $candidateLabel = mb_strtolower(trim((string) ($candidate['label'] ?? '')));
+        $currentLabel = mb_strtolower(trim((string) ($current['label'] ?? '')));
+
+        if ($candidateLabel === $haystack && $currentLabel !== $haystack) {
+            return true;
+        }
+
+        $candidateUrl = (string) ($candidate['url'] ?? '');
+        $currentUrl = (string) ($current['url'] ?? '');
+
+        return strlen($candidateUrl) > strlen($currentUrl);
     }
 
     public function stripFiller(string $query): string
