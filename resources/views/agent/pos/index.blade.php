@@ -505,5 +505,5 @@
         };
     </script>
     <script src="{{ asset('assets/js/pos-barcode-scan.js') }}"></script>
-    <script src="{{ asset('assets/js/agent-pos.js') }}"></script>
+    <script src="{{ asset('assets/js/agent-pos.js') }}?v={{ filemtime(public_path('assets/js/agent-pos.js')) }}"></script>
 @endpush

@@ -410,6 +410,7 @@ class AgentPosController extends Controller
                 $request->pending_product_id,
                 $request->pending_variant_id,
                 $request->pending_unit_id,
+                $this->agentWarehouseId(),
             );
 
             return response()->json(['success' => true, 'data' => $payload]);
