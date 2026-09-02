@@ -368,13 +368,13 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 }
 
 .dataTable .dropdown-item:hover .text-secondary {
-    color: #6F42C1 !important;
+    color: #7BB5A0 !important;
 }
 
 /* ==========================================================================
    Custom Button Styles - Standard Color Palette
    Primary: #5C9E84 | Success: #198754 | Warning: #FFC107 | Info: #0DCAF0
-   Danger: #DC3545 | Secondary: #6F42C1 | Dark: #212529 | Light: #F8F9FA
+   Danger: #DC3545 | Secondary: #7BB5A0 | Dark: #212529 | Light: #F8F9FA
    ========================================================================== */
 
 /* Primary Button */
@@ -656,32 +656,32 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 
 /* Secondary Button */
 .btn-secondary {
-    background: #6F42C1 !important;
-    border-color: #6F42C1 !important;
+    background: #7BB5A0 !important;
+    border-color: #7BB5A0 !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(111, 66, 193, 0.3);
+    box-shadow: 0 2px 6px rgba(123, 181, 160, 0.3);
     transition: all 0.3s ease;
 }
 
 .btn-secondary:hover,
 .btn-secondary:focus {
-    background: #5A2D91 !important;
-    border-color: #4F2878 !important;
-    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.4);
+    background: #6AA894 !important;
+    border-color: #5E9A85 !important;
+    box-shadow: 0 4px 12px rgba(123, 181, 160, 0.4);
     transform: translateY(-1px);
 }
 
 .btn-secondary:active {
-    background: #4F2878 !important;
-    border-color: #452366 !important;
+    background: #5E9A85 !important;
+    border-color: #5E9A85 !important;
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(111, 66, 193, 0.3);
+    box-shadow: 0 2px 4px rgba(123, 181, 160, 0.3);
 }
 
 /* Outline Secondary Button */
 .btn-outline-secondary {
-    color: #6F42C1 !important;
-    border-color: #6F42C1 !important;
+    color: #7BB5A0 !important;
+    border-color: #7BB5A0 !important;
     background: transparent !important;
     transition: all 0.3s ease;
 }
@@ -689,15 +689,15 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus {
     color: #ffffff !important;
-    background: #6F42C1 !important;
-    border-color: #6F42C1 !important;
-    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+    background: #7BB5A0 !important;
+    border-color: #7BB5A0 !important;
+    box-shadow: 0 4px 12px rgba(123, 181, 160, 0.3);
 }
 
 /* Label Secondary Button */
 .btn-label-secondary {
-    color: #6F42C1 !important;
-    background: rgba(111, 66, 193, 0.12) !important;
+    color: #6AA894 !important;
+    background: rgba(123, 181, 160, 0.12) !important;
     border-color: transparent !important;
     transition: all 0.3s ease;
 }
@@ -705,8 +705,8 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 .btn-label-secondary:hover,
 .btn-label-secondary:focus {
     color: #ffffff !important;
-    background: #6F42C1 !important;
-    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+    background: #7BB5A0 !important;
+    box-shadow: 0 4px 12px rgba(123, 181, 160, 0.3);
 }
 
 /* Dark Button */
@@ -859,7 +859,7 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 /* ==========================================================================
    Custom Badge Styles - Standard Color Palette
    Primary: #5C9E84 | Success: #198754 | Warning: #FFC107 | Info: #0DCAF0
-   Danger: #DC3545 | Secondary: #6F42C1 | Dark: #212529 | Light: #F8F9FA
+   Danger: #DC3545 | Secondary: #7BB5A0 | Dark: #212529 | Light: #F8F9FA
    ========================================================================== */
 
 /* Badge Primary */
@@ -894,8 +894,8 @@ html.layout-menu-collapsed.layout-menu-fixed .floating-footer {
 
 /* Badge Secondary */
 .bg-label-secondary {
-    background-color: rgba(111, 66, 193, 0.12) !important;
-    color: #6F42C1 !important;
+    background-color: rgba(123, 181, 160, 0.12) !important;
+    color: #6AA894 !important;
 }
 
 /* Badge Dark */

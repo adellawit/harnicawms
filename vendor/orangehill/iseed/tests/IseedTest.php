@@ -2099,6 +2099,96 @@ class IseedTest extends TestCase
         return implode(PHP_EOL, $buffer);
     }
 
+    public function testPrerunPostrunEventsAreNamespaceSafe()
+    {
+        // The production stub declares `namespace Database\Seeders;`, so any
+        // injected `Event`/`Exception`/event-class reference must be fully
+        // qualified (leading backslash) or it resolves to a non-existent
+        // Database\Seeders\* class and fatals at runtime.
+        $productionStub = $this->readStubFile(
+            substr(__DIR__, 0, -5) . 'src' . DIRECTORY_SEPARATOR . 'Orangehill'
+            . DIRECTORY_SEPARATOR . 'Iseed' . DIRECTORY_SEPARATOR . 'stubs'
+            . DIRECTORY_SEPARATOR . 'seed.stub'
+        );
+
+        $iseed = new Orangehill\Iseed\Iseed();
+        $output = $iseed->populateStub(
+            'NamespaceSafeSeeder',
+            $productionStub,
+            'test_table',
+            [['id' => '1']],
+            500,
+            'App\\Events\\SomePrerunEvent',
+            'App\\Events\\SomePostrunEvent'
+        );
+
+        // Facades, the base Exception and the user event classes must all be
+        // rooted at the global namespace.
+        $this->assertStringContainsString('\Event::until(new \App\Events\SomePrerunEvent())', $output);
+        $this->assertStringContainsString('\Event::until(new \App\Events\SomePostrunEvent())', $output);
+        $this->assertStringContainsString('throw new \Exception(', $output);
+        $this->assertStringNotContainsString(' Event::until', $output);
+        $this->assertStringNotContainsString('new Exception(', $output);
+
+        // The generated file must be valid, namespace-resolvable PHP. Stub out
+        // the global Event facade so the body can be loaded without Laravel.
+        $eventShim = "<?php class Event { public static function until(\$e) { return true; } }\n";
+        $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'iseed_ns_' . getmypid();
+        @mkdir($tmpDir, 0777, true);
+        $eventClassPath = $tmpDir . DIRECTORY_SEPARATOR . 'event_shim.php';
+        $eventFqcnDir = $tmpDir . DIRECTORY_SEPARATOR . 'App' . DIRECTORY_SEPARATOR . 'Events';
+        @mkdir($eventFqcnDir, 0777, true);
+        file_put_contents($eventClassPath, $eventShim);
+        file_put_contents(
+            $eventFqcnDir . DIRECTORY_SEPARATOR . 'events.php',
+            "<?php namespace App\\Events; class SomePrerunEvent {} class SomePostrunEvent {}\n"
+        );
+        $seederPath = $tmpDir . DIRECTORY_SEPARATOR . 'NamespaceSafeSeeder.php';
+        file_put_contents($seederPath, $output);
+
+        // `php -l` proves it parses; loading + invoking run() proves the
+        // namespaced class references actually resolve at runtime.
+        $lint = [];
+        exec('php -l ' . escapeshellarg($seederPath) . ' 2>&1', $lint, $lintCode);
+        $this->assertSame(0, $lintCode, "Generated seeder failed php -l:\n" . implode("\n", $lint));
+
+        // Provide the DB facade the stub uses, plus the Event shim + events,
+        // then load the seeder and run it. A namespace resolution bug would
+        // surface here as a fatal "Class not found".
+        $harness = $tmpDir . DIRECTORY_SEPARATOR . 'harness.php';
+        file_put_contents($harness, <<<PHP
+<?php
+namespace {
+    class DB {
+        public static function table(\$t) { return new class { function delete(){} function insert(\$d){} }; }
+    }
+}
+namespace Illuminate\Database { class Seeder {} }
+namespace {
+    require '$eventClassPath';
+    require '$eventFqcnDir/events.php';
+    require '$seederPath';
+    \$s = new \\Database\\Seeders\\NamespaceSafeSeeder();
+    \$s->run();
+    echo "RAN_OK";
+}
+PHP
+        );
+        $run = [];
+        exec('php ' . escapeshellarg($harness) . ' 2>&1', $run, $runCode);
+        $this->assertSame(0, $runCode, "Generated seeder fataled at runtime:\n" . implode("\n", $run));
+        $this->assertStringContainsString('RAN_OK', implode("\n", $run));
+
+        // cleanup
+        @unlink($seederPath);
+        @unlink($eventClassPath);
+        @unlink($harness);
+        @unlink($eventFqcnDir . DIRECTORY_SEPARATOR . 'events.php');
+        @rmdir($eventFqcnDir);
+        @rmdir($tmpDir . DIRECTORY_SEPARATOR . 'App');
+        @rmdir($tmpDir);
+    }
+
     public function testTableNotFoundException()
     {
         $this->expectException(\Orangehill\Iseed\TableNotFoundException::class);

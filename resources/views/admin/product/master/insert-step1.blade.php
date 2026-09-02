@@ -97,7 +97,7 @@
                         <label for="code" class="form-label">Code</label>
                         <div class="input-group">
                             <input type="text" class="form-control @error('code') is-invalid @enderror" id="code" name="code" value="{{ old('code') ?? $tempProduct['code'] ?? $generatedCode ?? '' }}" readonly>
-                            <button type="button" class="btn btn-outline-secondary" onclick="regenerateCode()" title="Regenerate Code">
+                            <button type="button" class="btn btn-outline-primary" onclick="regenerateCode()" title="Regenerate Code">
                                 <i class="ti ti-refresh"></i>
                             </button>
                         </div>

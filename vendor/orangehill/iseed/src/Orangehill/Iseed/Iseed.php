@@ -294,13 +294,13 @@ class Iseed
 
         $prerunEventInsert = '';
         if ($prerunEvent) {
-            $prerunEventInsert .= "\$response = Event::until(new $prerunEvent());";
+            $prerunEventInsert .= "\$response = \\Event::until(new \\$prerunEvent());";
             $this->addNewLines($prerunEventInsert);
             $this->addIndent($prerunEventInsert, 2);
             $prerunEventInsert .= 'if ($response === false) {';
             $this->addNewLines($prerunEventInsert);
             $this->addIndent($prerunEventInsert, 3);
-            $prerunEventInsert .= 'throw new Exception("Prerun event failed, seed wasn\'t executed!");';
+            $prerunEventInsert .= 'throw new \Exception("Prerun event failed, seed wasn\'t executed!");';
             $this->addNewLines($prerunEventInsert);
             $this->addIndent($prerunEventInsert, 2);
             $prerunEventInsert .= '}';
@@ -327,13 +327,13 @@ class Iseed
 
         $postrunEventInsert = '';
         if ($postrunEvent) {
-            $postrunEventInsert .= "\$response = Event::until(new $postrunEvent());";
+            $postrunEventInsert .= "\$response = \\Event::until(new \\$postrunEvent());";
             $this->addNewLines($postrunEventInsert);
             $this->addIndent($postrunEventInsert, 2);
             $postrunEventInsert .= 'if ($response === false) {';
             $this->addNewLines($postrunEventInsert);
             $this->addIndent($postrunEventInsert, 3);
-            $postrunEventInsert .= 'throw new Exception("Seed was executed but the postrun event failed!");';
+            $postrunEventInsert .= 'throw new \Exception("Seed was executed but the postrun event failed!");';
             $this->addNewLines($postrunEventInsert);
             $this->addIndent($postrunEventInsert, 2);
             $postrunEventInsert .= '}';
