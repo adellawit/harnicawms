@@ -65,7 +65,7 @@
                     processing: true,
                     serverSide: true,
                     paging: true,
-                    scrollX: true,
+                     
                     ajax: {
                         url: "{{ route('roles.index.data') }}",
                         type: "POST",
@@ -75,17 +75,17 @@
                         }
                     },
                     language: {
-                        lengthMenu: "Show _MENU_ entries",
-                        zeroRecords: "No data available",
-                        info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                        infoEmpty: "No entries available",
-                        infoFiltered: "(filtered from _MAX_ total entries)",
-                        search: "Search:",
+                        lengthMenu: "Tampilkan _MENU_",
+                        zeroRecords: "Tidak ada data yang cocok dengan pencarian",
+                        info: "Menampilkan _START_–_END_ dari _TOTAL_ data",
+                        infoEmpty: "Tidak ada data",
+                        infoFiltered: "(disaring dari _MAX_ data)",
+                        search: "",
                         paginate: {
-                            first: "First",
-                            last: "Last",
-                            next: "Next",
-                            previous: "Previous"
+                            first: "Awal",
+                            last: "Akhir",
+                            next: "›",
+                            previous: "‹"
                         }
                     },
                     columns: [{
@@ -106,7 +106,7 @@
                         }
                     }],
                     displayLength: 10,
-                    lengthMenu: [7, 10, 25, 50]
+                    lengthMenu: [10, 25, 50, 100]
                 });
             });
         </script>

@@ -33,6 +33,7 @@ class Division extends Model
     protected $fillable = [
         'id',
         'name',
+        'code',
         'created_by',
         'updated_by',
         'deleted_by',

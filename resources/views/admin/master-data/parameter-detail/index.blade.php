@@ -202,7 +202,7 @@
                         processing: true,
                         serverSide: true,
                         paging: true,
-                        scrollX: true,
+                         
                         ajax: {
                             "url": "{{ route('parameter.details.index.data', $parameterId) }}",
                             "type": "POST",
@@ -212,17 +212,17 @@
                             }
                         },
                         language: {
-                            lengthMenu: "Show _MENU_ entries",
-                            zeroRecords: "No data available",
-                            info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                            infoEmpty: "No entries available",
-                            infoFiltered: "(filtered from _MAX_ total entries)",
-                            search: "Search:",
+                            lengthMenu: "Tampilkan _MENU_",
+                            zeroRecords: "Tidak ada data yang cocok dengan pencarian",
+                            info: "Menampilkan _START_–_END_ dari _TOTAL_ data",
+                            infoEmpty: "Tidak ada data",
+                            infoFiltered: "(disaring dari _MAX_ data)",
+                            search: "",
                             paginate: {
-                                first: "First",
-                                last: "Last",
-                                next: "Next",
-                                previous: "Previous"
+                                first: "Awal",
+                                last: "Akhir",
+                                next: "›",
+                                previous: "‹"
                             }
                         },
                         columns: [{
@@ -304,9 +304,8 @@
                                 },
                             }
                         ],
-                        dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-center justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
                         displayLength: 10,
-                        lengthMenu: [7, 10, 25, 50],
+                        lengthMenu: [10, 25, 50, 100],
                         buttons: [{
                             text: '<i class="ti ti-filter me-sm-1"></i> <span class="d-none d-sm-inline-block">Filter</span>',
                             className: "btn @if ($isFilter == true) btn-warning @else btn-primary @endif",

@@ -57,6 +57,7 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/css/theme-bridge.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/css/table-system.css') }}?v={{ @filemtime(public_path('assets/css/table-system.css')) }}" />
     @include('layouts.partials.theme-font')
 
     <!-- Helpers -->
@@ -143,6 +144,8 @@
     <!-- Main JS -->
     <script src="{{ asset('assets/js/main.js') }}"></script>
     <script src="{{ asset('assets/js/number-format.js') }}"></script>
+    <!-- Application-wide DataTables defaults (layout, paging, language) -->
+    <script src="{{ asset('assets/js/table-system.js') }}?v={{ @filemtime(public_path('assets/js/table-system.js')) }}"></script>
     <script>
     (function mountNavbarBreadcrumb() {
         function apply() {

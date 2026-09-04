@@ -104,7 +104,7 @@
         <script>
             $(document).ready(function() {
                 $('#table').DataTable({
-                    processing: true, serverSide: true, paging: true, scrollX: true,
+                    processing: true, serverSide: true, paging: true,  
                     ajax: { url: "{{ route('pos.method-payment.index.data') }}", type: "POST", data: { _token: "{{ csrf_token() }}", status: "{{ $status }}" } },
                     columns: [
                         { data: 'DT_RowIndex', orderable: false, searchable: false },
@@ -132,8 +132,7 @@
                             return html + '</ul></div>';
                         } }@endif
                     ],
-                    language: { emptyTable: "No data available", zeroRecords: "No data available" },
-                    dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+                    language: { emptyTable: "No data available", zeroRecords: "Tidak ada data yang cocok dengan pencarian" },
                     buttons: [
                         { text: '<i class="ti ti-filter me-sm-1"></i> Filter', className: "btn {{ $isFilter ? 'btn-warning' : 'btn-primary' }}", action: function() { $("#filterModal").modal("show"); } },
                         @if($hasCreatePermission && ($canSyncPg ?? false))

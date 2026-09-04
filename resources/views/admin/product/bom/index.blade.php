@@ -206,11 +206,10 @@
             $(document).ready(function() {
                 $('#table').DataTable({
                     paging: true,
-                    scrollX: true,
+                     
                     ordering: false,
                     info: true,
                     columnDefs: [{ orderable: false, targets: '_all' }],
-                    dom: '<"card-header flex-column flex-md-row"<"head-label text-center"><"dt-action-buttons text-end pt-3 pt-md-0"B>><"row m-0"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
                     buttons: [
                         { text: '<i class="ti ti-filter me-sm-1"></i> Filter', className: "btn {{ $isFilter ? 'btn-warning' : 'btn-primary' }}", action: function() { $("#filterModal").modal("show"); } }
                     ]

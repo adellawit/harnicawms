@@ -80,6 +80,7 @@ class DivisionController extends Controller
         //--------------- INSERT DIVISION ---------------
         $division = Division::create([
             'name' => $request['name'],
+            'code' => $this->generateUniqueCode($request['name']),
             'created_by' => auth('web')->id(),
             'updated_by' => auth('web')->id(),
         ]);
@@ -172,5 +173,26 @@ class DivisionController extends Controller
         $division->restore();
 
         return redirect()->route('division.index.view')->with('success', 'Successfully restored division');
+    }
+
+    /**
+     * Generate a unique short code for a division based on its name,
+     * since the create form does not collect one explicitly and the
+     * "code" column is required + unique in the database.
+     */
+    private function generateUniqueCode(string $name): string
+    {
+        $base = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $name));
+        $base = substr($base, 0, 10) ?: 'DIV';
+
+        $code = $base;
+        $suffix = 1;
+
+        while (Division::withTrashed()->where('code', $code)->exists()) {
+            $code = $base . $suffix;
+            $suffix++;
+        }
+
+        return $code;
     }
 }

@@ -1,0 +1,833 @@
+/* ==========================================================================
+   Table System
+   --------------------------------------------------------------------------
+   Implements the "Quotation List" reference specification across every admin
+   table — both DataTables-driven and plain server-rendered ones.
+
+   Design intent: premium internal business application, not a dense
+   spreadsheet. Thin strokes, white surfaces, generous spacing, no vertical
+   column dividers.
+   ========================================================================== */
+
+:root {
+    /* Surface */
+    --tbl-surface: #ffffff;
+    --tbl-surface-subtle: #fafbfc;
+    --tbl-head-bg: #f4f6f9;
+
+    /* Border — all strokes are 1px, none darker than the container border */
+    --tbl-border: #e5e7eb;        /* outer container */
+    --tbl-border-row: #e7eaee;    /* row separator */
+    --tbl-border-input: #d9dee7;  /* inputs, secondary buttons */
+    --tbl-border-action: #e1e5ea; /* circular action button */
+
+    /* Text */
+    --tbl-text-primary: #1e293b;
+    --tbl-text-secondary: #475569;
+    --tbl-text-muted: #64748b;
+    --tbl-text-disabled: #94a3b8;
+
+    /* Accent — matches the site's own brand accent (the "Add"/"Filter"
+       button colour). Swap these if a tenant's Appearance settings should
+       drive it instead of this fixed brand colour. */
+    --tbl-primary: #DF2E6B;
+    --tbl-primary-hover: #BE275B;
+    --tbl-primary-soft: #FBE6ED;
+
+    /* Filter button — outline only, matching the green already used for
+       the Filter action on the Menu page (rgb(123, 181, 160)). */
+    --tbl-filter-outline: #7BB5A0;
+    --tbl-filter-outline-soft: #F2F8F6;
+
+    /* Status */
+    --tbl-draft-bg: #eef1f5;   --tbl-draft-fg: #475569;
+    --tbl-sent-bg: #FBE6ED;    --tbl-sent-fg: #DF2E6B;
+    --tbl-wait-bg: #fff2d8;    --tbl-wait-fg: #c77a00;
+    --tbl-won-bg: #ddf7ea;     --tbl-won-fg: #159b68;
+    --tbl-danger-bg: #fdecec;  --tbl-danger-fg: #d14343;
+
+    /* Radius */
+    --tbl-radius-container: 20px;
+    --tbl-radius-control: 14px;
+    --tbl-radius-page: 12px;
+
+    /* Type */
+    --tbl-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   1. Container — one large rounded surface, 1px stroke, near-invisible shadow
+   -------------------------------------------------------------------------- */
+
+.card:has(> .card-datatable),
+.card:has(> .table-responsive),
+.card:has(> .dataTables_wrapper),
+.card.table-card {
+    background: var(--tbl-surface);
+    border: 1px solid var(--tbl-border);
+    border-radius: var(--tbl-radius-container);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. Card header — module name on the left, Filter/Add actions on the right
+   -------------------------------------------------------------------------- */
+
+.dataTables_wrapper .dt-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px;
+    background: var(--tbl-surface);
+    border-bottom: 1px solid var(--tbl-border);
+}
+
+.dataTables_wrapper .dt-card-header-title {
+    font-family: var(--tbl-font);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tbl-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   3. Toolbar — search on the left, length menu on the right
+   -------------------------------------------------------------------------- */
+
+.dataTables_wrapper .dt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px;
+    background: var(--tbl-surface);
+    border-bottom: 1px solid var(--tbl-border);
+}
+
+.dataTables_wrapper .dt-toolbar-start,
+.dataTables_wrapper .dt-toolbar-end {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.dataTables_wrapper .dt-toolbar-start {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.dataTables_wrapper .dt-toolbar-end {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+/* Search — rounded rectangle (not a pill), icon inside on the left */
+.dataTables_wrapper .dataTables_filter {
+    margin: 0 !important; /* vendor sets margin-top/bottom: 1rem with a same-specificity-but-tie-broken-by-order selector */
+    float: none;
+    text-align: left;
+}
+
+.dataTables_wrapper .dataTables_filter label {
+    position: relative;
+    display: block;
+    margin: 0;
+    font-size: 0;               /* suppresses the stock "Search:" text node */
+}
+
+.dataTables_wrapper .dataTables_filter label::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 15px;
+    height: 15px;
+    margin-top: -7.5px;
+    background-color: var(--tbl-text-muted);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20.5 20.5l-4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20.5 20.5l-4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+}
+
+.dataTables_wrapper .dataTables_filter input[type="search"],
+.dataTables_wrapper .dataTables_filter input.form-control {
+    width: 260px;
+    max-width: 100%;
+    height: 38px;
+    margin: 0;
+    padding: 0 14px 0 38px;
+    font-family: var(--tbl-font);
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--tbl-text-secondary);
+    background: var(--tbl-surface);
+    border: 1px solid var(--tbl-border-input);
+    border-radius: 10px;
+    outline: none;
+    box-shadow: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.dataTables_wrapper .dataTables_filter input[type="search"]::placeholder {
+    color: var(--tbl-text-muted);
+}
+
+.dataTables_wrapper .dataTables_filter input[type="search"]:focus {
+    border-color: var(--tbl-primary);
+    box-shadow: 0 0 0 3px rgba(223, 46, 107, .12);
+}
+
+/* Length menu — same visual language as the search field */
+.dataTables_wrapper .dataTables_length {
+    margin: 0 !important; /* vendor sets margin-top/bottom: 1rem, adding phantom vertical padding to the toolbar */
+    float: none;
+}
+
+.dataTables_wrapper .dataTables_length label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-family: var(--tbl-font);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--tbl-text-secondary);
+    white-space: nowrap;
+}
+
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_length .form-select {
+    height: 38px;
+    min-width: 72px;
+    padding: 0 30px 0 12px;
+    font-family: var(--tbl-font);
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--tbl-text-secondary);
+    background-color: var(--tbl-surface);
+    background-position: right 12px center;
+    border: 1px solid var(--tbl-border-input);
+    border-radius: 10px;
+    outline: none;
+    box-shadow: none;
+}
+
+.dataTables_wrapper .dataTables_length select:focus,
+.dataTables_wrapper .dataTables_length .form-select:focus {
+    border-color: var(--tbl-primary);
+    box-shadow: 0 0 0 3px rgba(223, 46, 107, .12);
+}
+
+/* Toolbar buttons (DataTables Buttons extension) */
+.dataTables_wrapper .dt-buttons {
+    display: flex;
+    gap: 12px;
+    margin: 0;
+    float: none;
+}
+
+.dataTables_wrapper .dt-buttons .btn,
+.dataTables_wrapper .dt-buttons .dt-button {
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 16px;
+    font-family: var(--tbl-font);
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid var(--tbl-border-input);
+    background: var(--tbl-surface);
+    color: var(--tbl-text-secondary);
+    box-shadow: none;
+}
+
+.dataTables_wrapper .dt-buttons .btn:hover {
+    background: var(--tbl-surface-subtle);
+    color: var(--tbl-text-primary);
+}
+
+/* Primary action keeps its solid treatment — but not the Filter button
+   (identified by its ti-filter icon), which stays a plain outline below.
+   !important is required here: the tenant's dynamic Appearance theme sets
+   `.btn-primary { background: var(--brand-primary) !important }` globally. */
+.dataTables_wrapper .dt-buttons .btn-primary:not(:has(.ti-filter)),
+.dataTables_wrapper .dt-buttons .create-new {
+    background: var(--tbl-primary) !important;
+    border-color: var(--tbl-primary) !important;
+    color: #fff !important;
+}
+
+.dataTables_wrapper .dt-buttons .btn-primary:not(:has(.ti-filter)):hover,
+.dataTables_wrapper .dt-buttons .create-new:hover {
+    background: var(--tbl-primary-hover) !important;
+    border-color: var(--tbl-primary-hover) !important;
+    color: #fff !important;
+}
+
+/* Filter — outline only, using the same brand green as the Menu page's
+   Filter button, so it reads as a secondary action next to the solid
+   pink "Add" button. */
+.dataTables_wrapper .dt-buttons .btn:has(.ti-filter) {
+    background: transparent !important;
+    border-color: var(--tbl-filter-outline) !important;
+    color: var(--tbl-filter-outline) !important;
+    box-shadow: none !important; /* the tenant's .btn-primary glow shadow still applied since this button started life as .btn-primary */
+}
+
+.dataTables_wrapper .dt-buttons .btn:has(.ti-filter):hover {
+    background: var(--tbl-filter-outline-soft) !important;
+    border-color: var(--tbl-filter-outline) !important;
+    color: var(--tbl-filter-outline) !important;
+    box-shadow: none !important;
+}
+
+/* Active-filter state (pages that swap in .btn-warning once a filter is
+   applied) — fill it so "a filter is on" stays visible in the same green. */
+.dataTables_wrapper .dt-buttons .btn-warning:has(.ti-filter) {
+    background: var(--tbl-filter-outline) !important;
+    border-color: var(--tbl-filter-outline) !important;
+    color: #fff !important;
+}
+
+.dataTables_wrapper .dt-buttons .btn-warning:has(.ti-filter):hover {
+    background: var(--tbl-filter-outline) !important;
+    border-color: var(--tbl-filter-outline) !important;
+    color: #fff !important;
+}
+
+/* Neutralise the legacy Vuexy header wrapper so it cannot add a second bar */
+.dataTables_wrapper .card-header {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.dataTables_wrapper .card-header:empty,
+.dataTables_wrapper .head-label:empty {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. Table surface
+   -------------------------------------------------------------------------- */
+
+.card-datatable,
+.card > .table-responsive {
+    padding: 0 !important; /* vendor's div.card-datatable{padding-bottom:1rem} outranks a bare class selector */
+}
+
+table.table,
+table.dataTable {
+    --bs-table-bg: transparent;
+    --bs-table-border-color: transparent;
+    width: 100%;
+    margin: 0 !important; /* vendor datatables.bootstrap5.css forces margin-bottom: 1rem, which leaves a gap before the footer */
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: var(--tbl-font);
+    font-size: 13.5px;
+    color: var(--tbl-text-secondary);
+}
+
+/* The <thead> row itself carries a vendor border-top/border-bottom (a darker
+   grey than our own hairlines). Stacked under the toolbar's border-bottom it
+   reads as one thick double line — kill it and let the header th's own thin
+   border-bottom (below) be the only line. */
+table.table > thead > tr,
+table.dataTable > thead > tr {
+    border: 0 !important;
+}
+
+/* ---- Header: soft blue-grey tint, compact, muted uppercase labels ---- */
+table.table > thead > tr > th,
+table.dataTable > thead > tr > th,
+table.table > thead.table-light > tr > th {
+    padding: 11px 16px !important; /* vendor overrides first-child cell padding with a more specific selector otherwise */
+    background: var(--tbl-head-bg) !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--tbl-border-row) !important;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--tbl-text-muted);
+    vertical-align: middle;
+}
+
+/* ---- Body: compact padding, horizontal hairline only ---- */
+table.table > tbody > tr > td,
+table.dataTable > tbody > tr > td {
+    padding: 11px 16px !important; /* vendor overrides first-child cell padding with a more specific selector otherwise */
+    border: 0 !important;
+    border-bottom: 1px solid var(--tbl-border-row) !important;
+    vertical-align: middle;
+    color: var(--tbl-text-secondary);
+    line-height: 1.4;
+}
+
+table.table > tbody > tr:last-child > td,
+table.dataTable > tbody > tr:last-child > td {
+    border-bottom: 0 !important;
+}
+
+/* Bootstrap 5 adds `border-top: 2px solid currentcolor` to any non-first
+   direct child of .table — in practice this draws a thick line right under
+   the header row. The reference uses the same 1px hairline as every other
+   row divider, so cancel Bootstrap's rule explicitly. */
+table.table > tbody,
+table.dataTable > tbody {
+    border-top: 0 !important;
+}
+
+table.table > tbody > tr,
+table.dataTable > tbody > tr {
+    background: transparent;
+    transition: background-color 150ms ease;
+}
+
+table.table > tbody > tr:hover,
+table.dataTable > tbody > tr:hover {
+    background-color: var(--tbl-surface-subtle);
+}
+
+/* ---- Remove every vertical divider, whatever produced it ----
+   Bootstrap's .table-bordered sets `border-width: 0 1px` on cells; Vuexy adds
+   its own variants. The reference separates columns with whitespace only. */
+table.table.table-bordered,
+table.table.table-bordered > :not(caption) > *,
+table.table.table-bordered > :not(caption) > * > *,
+table.dataTable.table-bordered > :not(caption) > * > * {
+    border-left-width: 0 !important;
+    border-right-width: 0 !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+}
+
+table.table.table-bordered > :not(caption) > * > * {
+    border-top-width: 0 !important;
+}
+
+/* Zebra striping competes with the hover state; hover carries the affordance */
+table.table.table-striped > tbody > tr:nth-of-type(odd) > *,
+table.table.table-striped > tbody > tr:nth-of-type(odd) {
+    --bs-table-accent-bg: transparent;
+    background-color: transparent !important;
+    color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   4. Cell typography — the hierarchy the reference is built on
+   -------------------------------------------------------------------------- */
+
+.tbl-primary,
+table.table td .fw-semibold:first-child,
+table.table td strong:first-child {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--tbl-text-primary);
+    line-height: 1.35;
+}
+
+.tbl-secondary,
+table.table td small.text-muted,
+table.table td .text-muted.small {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--tbl-text-muted);
+    line-height: 1.35;
+}
+
+/* Financial / numeric values align on the digit */
+table.table td.text-end,
+table.table th.text-end,
+.tbl-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   5. Sorting affordance — shown only on sortable columns
+   -------------------------------------------------------------------------- */
+
+table.dataTable > thead > tr > th.sorting,
+table.dataTable > thead > tr > th.sorting_asc,
+table.dataTable > thead > tr > th.sorting_desc {
+    position: relative;
+    padding-right: 26px;
+    cursor: pointer;
+}
+
+table.dataTable > thead > tr > th.sorting::before,
+table.dataTable > thead > tr > th.sorting::after,
+table.dataTable > thead > tr > th.sorting_asc::before,
+table.dataTable > thead > tr > th.sorting_asc::after,
+table.dataTable > thead > tr > th.sorting_desc::before,
+table.dataTable > thead > tr > th.sorting_desc::after {
+    display: none !important;
+}
+
+/* IMPORTANT: match the exact sortable classes only. DataTables marks
+   non-sortable columns with "sorting_disabled", which also contains the
+   substring "sorting" — an attribute-contains selector would wrongly catch
+   it too and draw a sort icon over columns like "Actions". */
+table.dataTable > thead > tr > th.sorting,
+table.dataTable > thead > tr > th.sorting_asc,
+table.dataTable > thead > tr > th.sorting_desc {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 9l4-4 4 4M16 15l-4 4-4-4'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 11px 11px !important;
+}
+
+table.dataTable > thead > tr > th.sorting_disabled {
+    padding-right: 16px;
+    cursor: default;
+    background-image: none !important;
+}
+
+table.dataTable > thead > tr > th.sorting_asc {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231e293b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 14l4-5 4 5'/%3E%3C/svg%3E") !important;
+}
+
+table.dataTable > thead > tr > th.sorting_desc {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231e293b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 10l4 5 4-5'/%3E%3C/svg%3E") !important;
+}
+
+table.dataTable > thead > tr > th.sorting:hover {
+    color: var(--tbl-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   6. Status badges — soft tint, leading dot, pill shape
+   -------------------------------------------------------------------------- */
+
+.tbl-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.tbl-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+}
+
+.tbl-badge-draft,
+.tbl-badge-neutral { background: var(--tbl-draft-bg);  color: var(--tbl-draft-fg); }
+.tbl-badge-sent,
+.tbl-badge-info    { background: var(--tbl-sent-bg);   color: var(--tbl-sent-fg); }
+.tbl-badge-waiting,
+.tbl-badge-warning { background: var(--tbl-wait-bg);   color: var(--tbl-wait-fg); }
+.tbl-badge-won,
+.tbl-badge-success { background: var(--tbl-won-bg);    color: var(--tbl-won-fg); }
+.tbl-badge-danger  { background: var(--tbl-danger-bg); color: var(--tbl-danger-fg); }
+
+/* Existing Bootstrap/Vuexy badges inside tables adopt the same shape, so pages
+   that still emit .badge markup stay visually consistent. */
+table.table .badge,
+table.dataTable .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+/* Soften the saturated Vuexy label colours to the reference tints */
+table.table .badge.bg-label-secondary,
+table.table .badge.bg-secondary { background: var(--tbl-draft-bg) !important; color: var(--tbl-draft-fg) !important; }
+table.table .badge.bg-label-primary,
+table.table .badge.bg-label-info,
+table.table .badge.bg-info      { background: var(--tbl-sent-bg) !important;  color: var(--tbl-sent-fg) !important; }
+table.table .badge.bg-label-warning,
+table.table .badge.bg-warning   { background: var(--tbl-wait-bg) !important;  color: var(--tbl-wait-fg) !important; }
+table.table .badge.bg-label-success,
+table.table .badge.bg-success   { background: var(--tbl-won-bg) !important;   color: var(--tbl-won-fg) !important; }
+table.table .badge.bg-label-danger,
+table.table .badge.bg-danger    { background: var(--tbl-danger-bg) !important; color: var(--tbl-danger-fg) !important; }
+
+/* --------------------------------------------------------------------------
+   7. Row actions — compact circular icon button
+   -------------------------------------------------------------------------- */
+
+/* Centre the whole cell for any column whose only content is an action
+   trigger, so the circular button doesn't sit flush-left in a wider cell. */
+table.table td:has(> .tbl-action:only-child),
+table.table td:has(> .dropdown:only-child) {
+    text-align: center;
+}
+
+.tbl-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: var(--tbl-surface);
+    border: 1px solid var(--tbl-border-action);
+    border-radius: 50%;
+    color: var(--tbl-text-secondary);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+
+.tbl-action:hover,
+.tbl-action:focus-visible {
+    border-color: var(--tbl-border-input);
+    background: var(--tbl-surface-subtle);
+    color: var(--tbl-text-primary);
+}
+
+/* The three-dot dropdown used across the admin CRUD pages */
+table.table .btn.dropdown-toggle::after,
+table.table .dropdown-toggle.hide-arrow::after {
+    display: none;
+}
+
+table.table td .dropdown > .btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--tbl-border-action);
+    border-radius: 50%;
+    background: var(--tbl-surface);
+    color: var(--tbl-text-secondary);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+table.table td .dropdown > .btn:hover,
+table.table td .dropdown > .btn:focus {
+    border-color: var(--tbl-border-input);
+    color: var(--tbl-text-primary);
+    background: var(--tbl-surface-subtle);
+}
+
+/* The tabler "dots-vertical" glyph carries built-in right-side bearing that
+   throws off visual centring inside the circular button — nudge it back. */
+table.table td .dropdown > .btn .ti-dots-vertical {
+    transform: translateX(-3px);
+}
+
+/* --------------------------------------------------------------------------
+   8. Footer — record count left, pagination right
+   -------------------------------------------------------------------------- */
+
+.dataTables_wrapper .dt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--tbl-surface);
+    border-top: 1px solid var(--tbl-border-row);
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding: 0 !important; /* vendor's div.dataTables_wrapper div.dataTables_info beats this on specificity otherwise */
+    font-family: var(--tbl-font);
+    font-size: 12.5px;
+    font-weight: 400;
+    color: var(--tbl-text-muted);
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    margin: 0;
+    padding: 0;
+    float: none;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    margin: 0;
+    gap: 6px;
+}
+
+.dataTables_wrapper .pagination .page-item .page-link,
+.card .pagination .page-item .page-link {
+    min-width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    font-family: var(--tbl-font);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tbl-text-secondary);
+    background: transparent;
+    border: 0;
+    border-radius: var(--tbl-radius-page);
+    box-shadow: none;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.dataTables_wrapper .pagination .page-item .page-link:hover,
+.card .pagination .page-item .page-link:hover {
+    background: var(--tbl-surface-subtle);
+    color: var(--tbl-text-primary);
+}
+
+.dataTables_wrapper .pagination .page-item.active .page-link,
+.card .pagination .page-item.active .page-link {
+    background: var(--tbl-primary) !important;
+    color: #fff !important;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.dataTables_wrapper .pagination .page-item.disabled .page-link,
+.card .pagination .page-item.disabled .page-link {
+    color: #cbd5e1;
+    background: transparent;
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   9. Horizontal overflow — scroll rather than squeeze columns
+   -------------------------------------------------------------------------- */
+
+.card-datatable,
+.table-responsive {
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+/* Views mark up this wrapper as `.card-datatable.text-nowrap`, which forces
+   every cell onto a single line and makes the table's min-content width
+   wider than the card — the table then renders past 100% and needs a
+   scrollbar even when there's plenty of room to wrap. Cell content (names,
+   dates, statuses) should wrap instead so the table fits the container;
+   badges/actions keep their own nowrap via .tbl-badge/.tbl-action. */
+.card-datatable.text-nowrap {
+    white-space: normal !important; /* Bootstrap's .text-nowrap utility is !important */
+}
+
+.card-datatable::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.card-datatable::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--tbl-border-input);
+    border-radius: 999px;
+}
+
+.card-datatable::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   10. Empty state
+   -------------------------------------------------------------------------- */
+
+table.table > tbody > tr > td.dataTables_empty,
+table.table > tbody > tr > td.tbl-empty {
+    padding: 56px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--tbl-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   11. Responsive — keep the structure, allow the table to scroll
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 991.98px) {
+    .dataTables_wrapper .dt-card-header,
+    .dataTables_wrapper .dt-toolbar,
+    .dataTables_wrapper .dt-footer {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    table.table > thead > tr > th,
+    table.table > tbody > tr > td {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .dataTables_wrapper .dt-card-header,
+    .dataTables_wrapper .dt-toolbar {
+        align-items: stretch;
+        min-height: 0;
+        padding: 16px;
+    }
+
+    .dataTables_wrapper .dt-card-header-title {
+        width: 100%;
+    }
+
+    .dataTables_wrapper .dt-buttons,
+    .dataTables_wrapper .dt-toolbar-start,
+    .dataTables_wrapper .dt-toolbar-end {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .dataTables_wrapper .dataTables_filter input[type="search"] {
+        width: 100%;
+    }
+
+    .dataTables_wrapper .dt-footer {
+        justify-content: center;
+        text-align: center;
+        min-height: 0;
+        padding: 16px;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   12. Dark mode — mirrors the shell's existing dark hook
+   -------------------------------------------------------------------------- */
+
+html.dark-style {
+    --tbl-surface: #2b2c40;
+    --tbl-surface-subtle: #33344a;
+    --tbl-border: #3f4056;
+    --tbl-border-row: #3a3b52;
+    --tbl-border-input: #44455e;
+    --tbl-border-action: #44455e;
+
+    --tbl-text-primary: #e7e7ef;
+    --tbl-text-secondary: #b6b7cd;
+    --tbl-text-muted: #9698ad;
+    --tbl-text-disabled: #7d7e97;
+
+    --tbl-draft-bg: #3a3b52;  --tbl-draft-fg: #cbd5e1;
+    --tbl-sent-bg: #4a1f33;   --tbl-sent-fg: #f4a6c2;
+    --tbl-wait-bg: #38291a;   --tbl-wait-fg: #fdba74;
+    --tbl-won-bg: #17301f;    --tbl-won-fg: #86efac;
+    --tbl-danger-bg: #33201f; --tbl-danger-fg: #fca5a5;
+}
